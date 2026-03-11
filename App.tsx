@@ -1,28 +1,31 @@
 import 'react-native-gesture-handler';
 import './global.css';
 import React from 'react';
+import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import HomeScreen from './screens/HomeScreen';
+import HomeScreen from './screens/home-screen/containers/HomeScreen';
 import SearchScreen from './screens/search-screen/containers/SearchScreen';
-import ProfileScreen from './screens/ProfileScreen';
-import ProviderDetailScreen from './screens/ProviderDetailScreen';
-import BookServiceScreen from './screens/BookServiceScreen';
-import ReviewBookingScreen from './screens/ReviewBookingScreen';
-import BookingConfirmedScreen from './screens/BookingConfirmedScreen';
-import MyPetsScreen from './screens/MyPetsScreen';
-import AddPetScreen from './screens/AddPetScreen';
-import SettingsScreen from './screens/SettingsScreen';
-import BecomePartnerScreen from './screens/BecomePartnerScreen';
-import PartnerApplicationScreen from './screens/PartnerApplicationScreen';
-import ApplicationSubmittedScreen from './screens/ApplicationSubmittedScreen';
-import AccountScreen from './screens/AccountScreen';
-import MyBookingsScreen from './screens/MyBookingsScreen';
-import NotificationsScreen from './screens/NotificationsScreen';
+import ProfileScreen from './screens/profile-screen/containers/ProfileScreen';
+import ProviderDetailScreen from './screens/provider-detail-screen/containers/ProviderDetailScreen';
+import BookServiceScreen from './screens/book-service-screen/containers/BookServiceScreen';
+import ReviewBookingScreen from './screens/review-booking-screen/containers/ReviewBookingScreen';
+import BookingConfirmedScreen from './screens/booking-confirmed-screen/containers/BookingConfirmedScreen';
+import MyPetsScreen from './screens/my-pets-screen/containers/MyPetsScreen';
+import AddPetScreen from './screens/add-pet-screen/containers/AddPetScreen';
+import SettingsScreen from './screens/settings-screen/containers/SettingsScreen';
+import BecomePartnerScreen from './screens/become-partner-screen/containers/BecomePartnerScreen';
+import PartnerApplicationScreen from './screens/partner-application-screen/containers/PartnerApplicationScreen';
+import ApplicationSubmittedScreen from './screens/application-submitted-screen/containers/ApplicationSubmittedScreen';
+import AccountScreen from './screens/account-screen/containers/AccountScreen';
+import MyBookingsScreen from './screens/my-bookings-screen/containers/MyBookingsScreen';
+import NotificationsScreen from './screens/notifications-screen/containers/NotificationsScreen';
+import LoginScreen from './screens/login-screen/containers/LoginScreen';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { enableScreens } from 'react-native-screens';
 
@@ -33,25 +36,40 @@ const Stack = createNativeStackNavigator();
 
 function AppContent() {
   const { isDarkMode } = useTheme();
-  
+  const { isLoggedIn, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: isDarkMode ? '#0f1621' : '#ffffff' }}>
+        <ActivityIndicator size="large" color="#00A85A" />
+      </View>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="MainTabs" component={MainTabs} />
-          <Stack.Screen name="ProviderDetail" component={ProviderDetailScreen} />
-          <Stack.Screen name="BookService" component={BookServiceScreen} />
-          <Stack.Screen name="ReviewBooking" component={ReviewBookingScreen} />
-          <Stack.Screen name="BookingConfirmed" component={BookingConfirmedScreen} />
-          <Stack.Screen name="MyPets" component={MyPetsScreen} />
-          <Stack.Screen name="AddPet" component={AddPetScreen} />
-          <Stack.Screen name="Settings" component={SettingsScreen} />
-          <Stack.Screen name="BecomePartner" component={BecomePartnerScreen} />
-          <Stack.Screen name="PartnerApplication" component={PartnerApplicationScreen} />
-          <Stack.Screen name="ApplicationSubmitted" component={ApplicationSubmittedScreen} />
-          <Stack.Screen name="Account" component={AccountScreen} />
-          <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
-          <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          {isLoggedIn ? (
+            <>
+              <Stack.Screen name="MainTabs" component={MainTabs} />
+              <Stack.Screen name="ProviderDetail" component={ProviderDetailScreen} />
+              <Stack.Screen name="BookService" component={BookServiceScreen} />
+              <Stack.Screen name="ReviewBooking" component={ReviewBookingScreen} />
+              <Stack.Screen name="BookingConfirmed" component={BookingConfirmedScreen} />
+              <Stack.Screen name="MyPets" component={MyPetsScreen} />
+              <Stack.Screen name="AddPet" component={AddPetScreen} />
+              <Stack.Screen name="Settings" component={SettingsScreen} />
+              <Stack.Screen name="BecomePartner" component={BecomePartnerScreen} />
+              <Stack.Screen name="PartnerApplication" component={PartnerApplicationScreen} />
+              <Stack.Screen name="ApplicationSubmitted" component={ApplicationSubmittedScreen} />
+              <Stack.Screen name="Account" component={AccountScreen} />
+              <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
+              <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            </>
+          ) : (
+            <Stack.Screen name="Login" component={LoginScreen} />
+          )}
         </Stack.Navigator>
       </NavigationContainer>
       <StatusBar style={isDarkMode ? "light" : "auto"} />
@@ -84,7 +102,9 @@ function MainTabs() {
 export default function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

@@ -1,0 +1,157 @@
+import React, { useState } from 'react';
+import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { useTheme } from '../../../context/ThemeContext';
+import { PersonalInfoStep, ServiceInfoStep, DocumentsStep } from '../components';
+
+export default function PartnerApplicationScreen() {
+  const navigation = useNavigation();
+  const { isDarkMode } = useTheme();
+
+  const [step, setStep] = useState(1);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [governmentId, setGovernmentId] = useState<string | null>(null);
+  const [insuranceCert, setInsuranceCert] = useState<string | null>(null);
+
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    streetAddress: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    selectedServices: [] as string[],
+    yearsOfExperience: '',
+    aboutYou: '',
+    certifications: '',
+    availability: '',
+  });
+
+  const pickImage = async (type: 'profile' | 'governmentId' | 'insurance') => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow access to your photos to upload documents.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: type === 'profile',
+      aspect: type === 'profile' ? [1, 1] : undefined,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const uri = result.assets[0].uri;
+      if (type === 'profile') setProfilePhoto(uri);
+      else if (type === 'governmentId') setGovernmentId(uri);
+      else setInsuranceCert(uri);
+    }
+  };
+
+  const pickDocument = async (type: 'governmentId' | 'insurance') => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow access to your photos to upload documents.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const uri = result.assets[0].uri;
+      if (type === 'governmentId') setGovernmentId(uri);
+      else setInsuranceCert(uri);
+    }
+  };
+
+  const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
+  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
+  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
+  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
+  const inputBg = isDarkMode ? 'bg-[#243447]' : 'bg-gray-50';
+  const inputText = isDarkMode ? 'text-white' : 'text-gray-900';
+  const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-200';
+  const placeholderColor = isDarkMode ? '#9CA3AF' : '#6B7280';
+
+  const totalSteps = 3;
+  const progressPercentage = (step / totalSteps) * 100;
+
+  const themeProps = { isDarkMode, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor, cardBg };
+
+  return (
+    <SafeAreaView className={`flex-1 ${bgColor}`}>
+      {/* Green Header with Progress */}
+      <View className="bg-brand-500 px-6 pt-12 pb-6">
+        <View className="flex-row items-center mb-6">
+          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <Text className="text-white text-xl font-bold">Partner Application</Text>
+        </View>
+
+        {/* Progress Bar */}
+        <View className="mb-2">
+          <View className="h-2 bg-white/30 rounded-full overflow-hidden">
+            <View
+              className="h-full bg-white rounded-full transition-all duration-300"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </View>
+        </View>
+        <Text className="text-white text-sm">Step {step} of {totalSteps}</Text>
+      </View>
+
+      <ScrollView
+        className={`flex-1 ${bgColor}`}
+        contentContainerStyle={{ paddingTop: 24, paddingBottom: 40, paddingHorizontal: 24 }}
+      >
+        {step === 1 && (
+          <PersonalInfoStep formData={formData} setFormData={setFormData} {...themeProps} />
+        )}
+
+        {step === 2 && (
+          <ServiceInfoStep formData={formData} setFormData={setFormData} {...themeProps} />
+        )}
+
+        {step === 3 && (
+          <DocumentsStep
+            profilePhoto={profilePhoto}
+            governmentId={governmentId}
+            insuranceCert={insuranceCert}
+            pickImage={pickImage}
+            pickDocument={pickDocument}
+            {...themeProps}
+          />
+        )}
+      </ScrollView>
+
+      {/* Fixed Bottom Button */}
+      <View className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
+        <TouchableOpacity
+          onPress={() => {
+            if (step < totalSteps) {
+              setStep(step + 1);
+            } else {
+              (navigation as any).navigate('ApplicationSubmitted');
+            }
+          }}
+          className="bg-brand-500 py-4 rounded-2xl items-center"
+        >
+          <Text className="text-white text-lg font-bold">
+            {step === totalSteps ? 'Submit Application' : 'Continue'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}

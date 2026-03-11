@@ -1,0 +1,212 @@
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+interface DatePickerProps {
+  value: Date;
+  onChange: (date: Date | null) => void;
+  onClose: () => void;
+  isDarkMode: boolean;
+  minDate?: Date;
+}
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+function isSameDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+}
+
+function startOfDay(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+export default function DatePicker({ value, onChange, onClose, isDarkMode, minDate }: DatePickerProps) {
+  const today = new Date();
+  const [viewMonth, setViewMonth] = useState(value.getMonth());
+  const [viewYear, setViewYear] = useState(value.getFullYear());
+  const [selected, setSelected] = useState(startOfDay(value));
+
+  const cardBg = isDarkMode ? '#1a2332' : '#ffffff';
+  const borderColor = isDarkMode ? '#374151' : '#E5E7EB';
+  const textColor = isDarkMode ? '#ffffff' : '#111827';
+  const subtextColor = isDarkMode ? '#9CA3AF' : '#6B7280';
+  const inputBg = isDarkMode ? '#243447' : '#F9FAFB';
+
+  const prevMonth = () => {
+    if (viewMonth === 0) {
+      setViewMonth(11);
+      setViewYear(y => y - 1);
+    } else {
+      setViewMonth(m => m - 1);
+    }
+  };
+
+  const nextMonth = () => {
+    if (viewMonth === 11) {
+      setViewMonth(0);
+      setViewYear(y => y + 1);
+    } else {
+      setViewMonth(m => m + 1);
+    }
+  };
+
+  const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  // Build grid: pad with nulls for leading empty cells
+  const cells: (number | null)[] = [
+    ...Array(firstDayOfMonth).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  // Pad to full rows
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const isDisabled = (day: number) => {
+    if (!minDate) return false;
+    const cellDate = new Date(viewYear, viewMonth, day);
+    return cellDate < startOfDay(minDate);
+  };
+
+  const isSelected = (day: number) => isSameDay(selected, new Date(viewYear, viewMonth, day));
+  const isToday = (day: number) => isSameDay(today, new Date(viewYear, viewMonth, day));
+
+  const handleSelect = (day: number) => {
+    if (isDisabled(day)) return;
+    const newDate = new Date(viewYear, viewMonth, day);
+    setSelected(newDate);
+  };
+
+  const handleDone = () => {
+    onChange(selected);
+    onClose();
+  };
+
+  const handleClear = () => {
+    onChange(null);
+    onClose();
+  };
+
+  // Prevent "prev" nav if the entire previous month is before minDate
+  const canGoPrev = () => {
+    if (!minDate) return true;
+    const lastDayOfPrev = new Date(viewYear, viewMonth, 0);
+    return lastDayOfPrev >= startOfDay(minDate);
+  };
+
+  return (
+    <View
+      style={{
+        marginTop: 12,
+        backgroundColor: cardBg,
+        borderWidth: 1,
+        borderColor,
+        borderRadius: 16,
+        padding: 16,
+      }}
+    >
+      {/* Month/Year navigation */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <TouchableOpacity
+          onPress={prevMonth}
+          disabled={!canGoPrev()}
+          style={{ padding: 4, opacity: canGoPrev() ? 1 : 0.3 }}
+        >
+          <Ionicons name="chevron-back" size={20} color={subtextColor} />
+        </TouchableOpacity>
+        <Text style={{ color: textColor, fontWeight: '600', fontSize: 15 }}>
+          {MONTHS[viewMonth]} {viewYear}
+        </Text>
+        <TouchableOpacity onPress={nextMonth} style={{ padding: 4 }}>
+          <Ionicons name="chevron-forward" size={20} color={subtextColor} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Day headers */}
+      <View style={{ flexDirection: 'row', marginBottom: 4 }}>
+        {DAYS.map(d => (
+          <View key={d} style={{ flex: 1, alignItems: 'center', paddingVertical: 4 }}>
+            <Text style={{ color: subtextColor, fontSize: 12, fontWeight: '500' }}>{d}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Calendar grid */}
+      {Array.from({ length: cells.length / 7 }, (_, row) => (
+        <View key={row} style={{ flexDirection: 'row', marginBottom: 2 }}>
+          {cells.slice(row * 7, row * 7 + 7).map((day, col) => {
+            const key = `${row}-${col}`;
+            if (!day) return <View key={key} style={{ flex: 1 }} />;
+            const selected_ = isSelected(day);
+            const today_ = isToday(day);
+            const disabled = isDisabled(day);
+            return (
+              <TouchableOpacity
+                key={key}
+                onPress={() => handleSelect(day)}
+                disabled={disabled}
+                style={{
+                  flex: 1,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: 36,
+                  margin: 1,
+                  borderRadius: 18,
+                  backgroundColor: selected_ ? '#00C870' : 'transparent',
+                  borderWidth: today_ && !selected_ ? 1.5 : 0,
+                  borderColor: '#00C870',
+                  opacity: disabled ? 0.3 : 1,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: selected_ ? '700' : '400',
+                    color: selected_ ? '#ffffff' : today_ ? '#00C870' : textColor,
+                  }}
+                >
+                  {day}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ))}
+
+      {/* Actions */}
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+        <TouchableOpacity
+          onPress={handleClear}
+          style={{
+            flex: 1,
+            paddingVertical: 12,
+            borderRadius: 12,
+            alignItems: 'center',
+            backgroundColor: inputBg,
+            borderWidth: 1,
+            borderColor,
+          }}
+        >
+          <Text style={{ color: subtextColor, fontWeight: '600', fontSize: 14 }}>Clear</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handleDone}
+          style={{
+            flex: 2,
+            paddingVertical: 12,
+            borderRadius: 12,
+            alignItems: 'center',
+            backgroundColor: '#00C870',
+          }}
+        >
+          <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>Done</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, TextInput, Platform, ActivityIndicator, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, ScrollView, TextInput, ActivityIndicator, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Location from 'expo-location';
 import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import DatePicker from './shared/DatePicker';
+import TimePicker from './shared/TimePicker';
 
 interface FilterModalProps {
   visible: boolean;
@@ -104,26 +105,24 @@ export default function FilterModal({ visible, onClose, onApplyFilters, currentF
     onClose();
   };
 
-  const onDateChange = (event: any, date?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
+  const onDateChange = (date: Date | null) => {
     if (date) {
       setSelectedDate(date);
       const formattedDate = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}/${date.getFullYear()}`;
       setFilters(prev => ({ ...prev, date: formattedDate }));
+    } else {
+      setFilters(prev => ({ ...prev, date: '' }));
     }
   };
 
-  const onTimeChange = (event: any, time?: Date) => {
-    setShowTimePicker(Platform.OS === 'ios');
-    if (time) {
-      setSelectedTime(time);
-      const hours = time.getHours();
-      const minutes = time.getMinutes();
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      const displayHours = hours % 12 || 12;
-      const formattedTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
-      setFilters(prev => ({ ...prev, time: formattedTime }));
-    }
+  const onTimeChange = (time: Date) => {
+    setSelectedTime(time);
+    const hours = time.getHours();
+    const minutes = time.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    const formattedTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+    setFilters(prev => ({ ...prev, time: formattedTime }));
   };
 
   const handleUseMyLocation = async () => {
@@ -237,43 +236,30 @@ export default function FilterModal({ visible, onClose, onApplyFilters, currentF
               
               {/* Date Picker */}
               {showDatePicker && (
-                <View className={`mt-4 ${cardBg} border ${borderColor} rounded-2xl p-4`}>
-                  <DateTimePicker
-                    value={selectedDate}
-                    mode="date"
-                    display="spinner"
-                    onChange={onDateChange}
-                    minimumDate={new Date()}
-                    themeVariant={isDarkMode ? 'dark' : 'light'}
-                    accentColor="#00C870"
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowDatePicker(false)}
-                    className="bg-brand-500 py-3 rounded-xl mt-3"
-                  >
-                    <Text className="text-white font-semibold text-center">Done</Text>
-                  </TouchableOpacity>
-                </View>
+                <DatePicker
+                  value={selectedDate}
+                  minDate={new Date()}
+                  isDarkMode={isDarkMode}
+                  onChange={onDateChange}
+                  onClose={() => setShowDatePicker(false)}
+                />
               )}
-              
+
               {/* Time Picker */}
               {showTimePicker && (
-                <View className={`mt-4 ${cardBg} border ${borderColor} rounded-2xl p-4`}>
-                  <DateTimePicker
-                    value={selectedTime}
-                    mode="time"
-                    display="spinner"
-                    onChange={onTimeChange}
-                    themeVariant={isDarkMode ? 'dark' : 'light'}
-                    accentColor="#00C870"
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowTimePicker(false)}
-                    className="bg-brand-500 py-3 rounded-xl mt-3"
-                  >
-                    <Text className="text-white font-semibold text-center">Done</Text>
-                  </TouchableOpacity>
-                </View>
+                <TimePicker
+                  value={selectedTime}
+                  isDarkMode={isDarkMode}
+                  minDate={
+                    selectedDate.getFullYear() === new Date().getFullYear() &&
+                    selectedDate.getMonth() === new Date().getMonth() &&
+                    selectedDate.getDate() === new Date().getDate()
+                      ? new Date()
+                      : undefined
+                  }
+                  onChange={onTimeChange}
+                  onClose={() => setShowTimePicker(false)}
+                />
               )}
             </View>
 

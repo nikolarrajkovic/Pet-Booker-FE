@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 
 interface LocationData {
@@ -19,6 +20,28 @@ export function useLocation() {
   });
 
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      if (!navigator.geolocation) {
+        setLocation((prev) => ({ ...prev, loading: false, error: 'Geolocation not supported' }));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLocation({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            address: 'Current Location',
+            loading: false,
+            error: null,
+          });
+        },
+        () => {
+          setLocation((prev) => ({ ...prev, loading: false, error: 'Failed to get location' }));
+        }
+      );
+      return;
+    }
+
     (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
