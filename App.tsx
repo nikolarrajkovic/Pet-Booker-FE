@@ -22,6 +22,7 @@ import PartnerApplicationScreen from './screens/partner-application-screen/conta
 import ApplicationSubmittedScreen from './screens/application-submitted-screen/containers/ApplicationSubmittedScreen';
 import AccountScreen from './screens/account-screen/containers/AccountScreen';
 import MyBookingsScreen from './screens/my-bookings-screen/containers/MyBookingsScreen';
+import MyScheduleScreen from './screens/my-schedule-screen/containers/MyScheduleScreen';
 import NotificationsScreen from './screens/notifications-screen/containers/NotificationsScreen';
 import LoginScreen from './screens/login-screen/containers/LoginScreen';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
@@ -65,6 +66,7 @@ function AppContent() {
               <Stack.Screen name="ApplicationSubmitted" component={ApplicationSubmittedScreen} />
               <Stack.Screen name="Account" component={AccountScreen} />
               <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
+              <Stack.Screen name="MySchedule" component={MyScheduleScreen} />
               <Stack.Screen name="Notifications" component={NotificationsScreen} />
             </>
           ) : (

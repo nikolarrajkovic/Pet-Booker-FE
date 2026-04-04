@@ -12,6 +12,7 @@ const menuItems = [
   { id: 'account', icon: 'person-outline', iconType: 'ionicons', title: 'Account', subtitle: 'Manage your personal info', color: '#00C870' },
   { id: 'pets', icon: 'paw', iconType: 'material', title: 'My Pets', subtitle: 'Add and manage your pets', color: '#00C870' },
   { id: 'bookings', icon: 'briefcase-outline', iconType: 'ionicons', title: 'My Bookings', subtitle: 'View booking history', color: '#00C870' },
+  { id: 'schedule', icon: 'calendar-outline', iconType: 'ionicons', title: 'My Schedule', subtitle: 'View your appointments', color: '#00C870' },
   { id: 'notifications', icon: 'notifications-outline', iconType: 'ionicons', title: 'Notifications', subtitle: 'Manage your preferences', color: '#00C870' },
   { id: 'settings', icon: 'settings-outline', iconType: 'ionicons', title: 'Settings', subtitle: 'App configuration', color: '#00C870' },
 ];
@@ -33,6 +34,7 @@ export default function ProfileScreen() {
     if (id === 'account') (navigation as any).navigate('Account');
     else if (id === 'pets') (navigation as any).navigate('MyPets');
     else if (id === 'bookings') (navigation as any).navigate('MyBookings');
+    else if (id === 'schedule') (navigation as any).navigate('MySchedule');
     else if (id === 'notifications') (navigation as any).navigate('Notifications');
     else if (id === 'settings') (navigation as any).navigate('Settings');
   };

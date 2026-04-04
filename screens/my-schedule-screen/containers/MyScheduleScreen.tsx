@@ -1,0 +1,84 @@
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
+import { useTheme } from '../../../context/ThemeContext';
+import DayView from '../components/DayView';
+import WeekView from '../components/WeekView';
+import MonthView from '../components/MonthView';
+
+type ViewType = 'day' | 'week' | 'month';
+
+export default function MyScheduleScreen() {
+  const navigation = useNavigation();
+  const { isDarkMode } = useTheme();
+  const [selectedView, setSelectedView] = useState<ViewType>('day');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 3, 4)); // April 4, 2026
+
+  const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
+  const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
+
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    setSelectedView('day');
+  };
+
+  const handleDateChange = (date: Date) => {
+    setSelectedDate(date);
+  };
+
+  return (
+    <ScreenLayout
+      headerVariant="large"
+      contentBg={contentBg}
+      headerChildren={
+        <View className="flex-row items-center mb-4">
+          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <Text className="text-white text-2xl font-bold flex-1">My Schedule</Text>
+        </View>
+      }
+    >
+      <View className="flex-1">
+        {/* Tab Selector */}
+        <View className={`${bgColor} px-6 py-4`}>
+          <View className="flex-row bg-white/20 rounded-xl p-1">
+            <TouchableOpacity
+              className={`flex-1 py-2 rounded-lg ${selectedView === 'day' ? 'bg-white' : ''}`}
+              onPress={() => setSelectedView('day')}
+            >
+              <Text className={`text-center font-semibold ${selectedView === 'day' ? 'text-brand-600' : 'text-white'}`}>
+                Day
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className={`flex-1 py-2 rounded-lg ${selectedView === 'week' ? 'bg-white' : ''}`}
+              onPress={() => setSelectedView('week')}
+            >
+              <Text className={`text-center font-semibold ${selectedView === 'week' ? 'text-brand-600' : 'text-white'}`}>
+                Week
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              className={`flex-1 py-2 rounded-lg ${selectedView === 'month' ? 'bg-white' : ''}`}
+              onPress={() => setSelectedView('month')}
+            >
+              <Text className={`text-center font-semibold ${selectedView === 'month' ? 'text-brand-600' : 'text-white'}`}>
+                Month
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* View Content */}
+        <ScrollView className="flex-1">
+          {selectedView === 'day' && <DayView selectedDate={selectedDate} isDarkMode={isDarkMode} onDateChange={handleDateChange} />}
+          {selectedView === 'week' && <WeekView selectedDate={selectedDate} isDarkMode={isDarkMode} onDateSelect={handleDateSelect} onDateChange={handleDateChange} />}
+          {selectedView === 'month' && <MonthView selectedDate={selectedDate} isDarkMode={isDarkMode} onDateSelect={handleDateSelect} onDateChange={handleDateChange} />}
+        </ScrollView>
+      </View>
+    </ScreenLayout>
+  );
+}
