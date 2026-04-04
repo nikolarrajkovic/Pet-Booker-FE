@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { CalendarPicker, PetSelector, BookingSummary } from '../components';
 
 type BookServiceRouteParams = {
@@ -137,21 +138,20 @@ export default function BookServiceScreen() {
   };
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
-      {/* Header */}
-      <View className={`${bgColor} px-6 pt-12 pb-6`}>
-        <View className="flex-row items-center">
-          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-          <View className="flex-1">
-            <Text className="text-white text-xl font-bold">Book Service</Text>
-            <Text className={`${isDarkMode ? 'text-gray-300' : 'text-brand-100'} text-sm`}>{provider.name}</Text>
-          </View>
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      contentBg={contentBg}
+      contentRounded={false}
+      headerChildren={
+        <View className="flex-1">
+          <Text className="text-white text-xl font-bold">Book Service</Text>
+          <Text className={`${isDarkMode ? 'text-gray-300' : 'text-brand-100'} text-sm`}>{provider.name}</Text>
         </View>
-      </View>
+      }
+    >
 
-      <ScrollView className={`flex-1 ${contentBg}`} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Step 1: Choose Service */}
         <View className="px-6 py-5">
           <View className="flex-row items-center mb-4">
@@ -352,6 +352,6 @@ export default function BookServiceScreen() {
           <Text className="text-white text-lg font-bold">Continue to Review</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

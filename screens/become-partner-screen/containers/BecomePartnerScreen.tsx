@@ -1,8 +1,9 @@
 import React, { useRef } from 'react';
-import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, Animated } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { BenefitCard, HowItWorksStep, TestimonialCard } from '../components';
 
 const benefits = [
@@ -38,19 +39,16 @@ export default function BecomePartnerScreen() {
   const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-100';
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
-      <View className={`${bgColor} px-6 pt-12 pb-8`}>
-        <TouchableOpacity onPress={() => navigation.goBack()} className="mb-6">
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <Text className="text-white text-2xl font-bold mb-2">Become a Partner</Text>
-        <Text className={`${isDarkMode ? 'text-gray-300' : 'text-brand-100'} text-base`}>
-          Join our community of trusted pet care providers
-        </Text>
-      </View>
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle="Become a Partner"
+      headerSubtitle="Join our community of trusted pet care providers"
+      contentBg={contentBg}
+    >
 
       <ScrollView 
-        className={`flex-1 ${contentBg} rounded-t-3xl -mt-4`}
+        className="flex-1"
         contentContainerStyle={{ paddingTop: 24, paddingBottom: 40, paddingHorizontal: 24 }}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
         scrollEventThrottle={16}
@@ -133,6 +131,6 @@ export default function BecomePartnerScreen() {
           <Text className="text-white text-lg font-bold">Get Started</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

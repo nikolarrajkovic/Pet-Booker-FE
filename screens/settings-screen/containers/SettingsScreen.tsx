@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, Switch } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, Switch } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
@@ -20,17 +21,13 @@ export default function SettingsScreen() {
   const sectionTextColor = isDarkMode ? 'text-white' : 'text-gray-900';
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
-      <View className={`${bgColor} px-6 pt-12 pb-6`}>
-        <View className="flex-row items-center">
-          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-          <Text className="text-white text-xl font-bold">Settings</Text>
-        </View>
-      </View>
-
-      <ScrollView className={`flex-1 ${contentBg} rounded-t-3xl -mt-4`} contentContainerStyle={{ paddingTop: 24, paddingBottom: 40, paddingHorizontal: 24 }}>
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle="Settings"
+      contentBg={contentBg}
+    >
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingTop: 24, paddingBottom: 40, paddingHorizontal: 24 }}>
         {/* Appearance */}
         <Text className={`text-base font-semibold ${sectionTextColor} mb-3`}>Appearance</Text>
         <View className={`${cardBg} rounded-2xl p-4 mb-6`}>
@@ -115,6 +112,6 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

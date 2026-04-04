@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Switch } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../../context/ThemeContext';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { EnableNotificationsCard, NotificationToggle } from '../components';
 
 export default function NotificationsScreen() {
@@ -28,16 +28,12 @@ export default function NotificationsScreen() {
   const sectionHeaderColor = isDarkMode ? 'text-white' : 'text-[#1a365d]';
 
   return (
-    <View className={`flex-1 ${bgColor}`}>
-      <SafeAreaView className="bg-brand-500">
-        <View className="px-4 py-16 flex-row items-center">
-          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-3 w-10 h-10 rounded-full bg-white/20 items-center justify-center">
-            <Ionicons name="arrow-back" size={20} color="white" />
-          </TouchableOpacity>
-          <Text className="text-xl font-bold text-white">Notifications</Text>
-        </View>
-      </SafeAreaView>
-
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle="Notifications"
+      contentBg={bgColor}
+    >
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {showEnableModal && !pushNotifications && (
           <EnableNotificationsCard
@@ -120,6 +116,6 @@ export default function NotificationsScreen() {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </ScreenLayout>
   );
 }

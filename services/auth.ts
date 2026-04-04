@@ -30,7 +30,12 @@ function parseResponseBody(raw: string): LoginApiResponse {
   }
 }
 
+// Environment variable usage commented out for development
 function getApiBaseUrl() {
+  // Mock base URL - not using .env
+  return 'http://localhost:5161';
+  
+  /* Original implementation using .env - commented out
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
 
   if (!baseUrl) {
@@ -38,6 +43,7 @@ function getApiBaseUrl() {
   }
 
   return baseUrl.replace(/\/$/, '');
+  */
 }
 
 function extractAccessToken(response: LoginApiResponse) {

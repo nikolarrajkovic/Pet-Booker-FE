@@ -1,8 +1,9 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PetCard } from '../components';
 
 const mockPets = [
@@ -22,22 +23,18 @@ export default function MyPetsScreen() {
   const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-100';
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
-      <View className={`${bgColor} px-6 pt-12 pb-6`}>
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center flex-1">
-            <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
-              <Ionicons name="arrow-back" size={24} color="white" />
-            </TouchableOpacity>
-            <Text className="text-white text-xl font-bold">My Pets</Text>
-          </View>
-          <TouchableOpacity onPress={() => (navigation as any).navigate('AddPet')} className="w-10 h-10 bg-white rounded-full items-center justify-center">
-            <Ionicons name="add" size={24} color="#00C870" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView className={`flex-1 ${contentBg} rounded-t-3xl -mt-4`} contentContainerStyle={{ paddingTop: 24, paddingBottom: 20, paddingHorizontal: 24 }}>
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle="My Pets"
+      contentBg={contentBg}
+      rightAction={
+        <TouchableOpacity onPress={() => (navigation as any).navigate('AddPet')} className="w-10 h-10 bg-white rounded-full items-center justify-center">
+          <Ionicons name="add" size={24} color="#00C870" />
+        </TouchableOpacity>
+      }
+    >
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingTop: 24, paddingBottom: 20, paddingHorizontal: 24 }}>
         {mockPets.map((pet) => (
           <PetCard
             key={pet.id}
@@ -52,6 +49,6 @@ export default function MyPetsScreen() {
           />
         ))}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

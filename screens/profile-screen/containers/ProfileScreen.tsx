@@ -1,10 +1,11 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import TabBar from '../../../components/shared/TabBar';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { MenuItem } from '../components';
 
 const menuItems = [
@@ -37,21 +38,28 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
-      <View className={`${bgColor} px-6 pt-12 pb-8`}>
-        <Text className={`${headerTextColor} text-2xl font-bold mb-6`}>Profile</Text>
-        <View className={`${isDarkMode ? 'bg-[#243447]' : 'bg-brand-400'} rounded-2xl p-4 flex-row items-center`}>
-          <View className="w-16 h-16 bg-orange-400 rounded-full items-center justify-center mr-4">
-            <Text className="text-3xl">👩</Text>
+    <ScreenLayout
+      headerVariant="large"
+      contentBg={contentBg}
+      footer={<TabBar />}
+      headerChildren={
+        <>
+          <Text className="text-white text-2xl font-bold mb-6">Profile</Text>
+          <View className={`${isDarkMode ? 'bg-[#243447]' : 'bg-brand-400'} rounded-2xl p-4 flex-row items-center mb-8`}>
+            <View className="w-16 h-16 bg-orange-400 rounded-full items-center justify-center mr-4">
+              <Text className="text-3xl">👩</Text>
+            </View>
+            <View className="flex-1">
+              <Text className="text-white text-lg font-bold">Alex Johnson</Text>
+              <Text className="text-brand-100 text-sm mt-1">alex@email.com</Text>
+            </View>
           </View>
-          <View className="flex-1">
-            <Text className="text-white text-lg font-bold">Alex Johnson</Text>
-            <Text className="text-brand-100 text-sm mt-1">alex@email.com</Text>
-          </View>
-        </View>
-      </View>
+        </>
+      }
+    >
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingTop: 24, paddingBottom: 100 }}>
+        {/* Become a Partner Banner */}
 
-      <ScrollView className={`flex-1 ${contentBg} rounded-t-3xl -mt-4`} contentContainerStyle={{ paddingTop: 24, paddingBottom: 100 }}>
         <View className="mx-6 mb-6 bg-brand-500 rounded-2xl p-6">
           <Text className="text-white text-xl font-bold mb-2">Become a Partner</Text>
           <Text className="text-brand-100 text-sm mb-4">Share your passion for pets and earn extra income</Text>
@@ -95,8 +103,6 @@ export default function ProfileScreen() {
           </View>
         </View>
       </ScrollView>
-
-      <TabBar />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

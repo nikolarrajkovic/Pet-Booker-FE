@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { BookingDetails, PriceBreakdown, PaymentMethodSelector } from '../components';
 
 type ReviewBookingRouteParams = {
@@ -33,15 +34,13 @@ export default function ReviewBookingScreen() {
   const calculateAddonsTotal = () => appointments.reduce((sum: number, apt: any) => sum + apt.addons.reduce((addonSum: number, addon: any) => addonSum + addon.price, 0), 0);
 
   return (
-    <SafeAreaView className={`flex-1 ${contentBg}`}>
-      <View className={`${bgColor} px-6 pt-12 pb-6`}>
-        <View className="flex-row items-center">
-          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-          <Text className="text-white text-xl font-bold">Review Booking</Text>
-        </View>
-      </View>
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle="Review Booking"
+      contentBg={contentBg}
+      contentRounded={false}
+    >
 
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Provider Info */}
@@ -92,6 +91,6 @@ export default function ReviewBookingScreen() {
           <Text className="text-white text-lg font-bold">Confirm Booking</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

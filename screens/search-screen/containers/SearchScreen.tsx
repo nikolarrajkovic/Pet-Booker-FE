@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { SafeAreaView, Text, View, TouchableOpacity, Dimensions } from 'react-native';
+import { Text, View, TouchableOpacity, Dimensions } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import TabBar from '../../../components/shared/TabBar';
 import Button from '../../../components/shared/Button';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import FilterModal, { FilterState } from '../../../components/FilterModal';
 import { useLocation } from '../../../hooks/useLocation';
 import { useTheme } from '../../../context/ThemeContext';
@@ -218,29 +219,22 @@ export default function SearchScreen() {
   };
 
   return (
-    <SafeAreaView className={`flex-1 ${contentBg}`}>
-      {/* Header */}
-      <View className={`${bgColor} px-6 pt-12 pb-8 rounded-b-3xl`}>
-        <View className="flex-row items-center justify-between mb-4">
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            className="w-10 h-10 rounded-full bg-brand-600 items-center justify-center"
-          >
-            <Ionicons name="arrow-back" size={20} color="white" />
-          </TouchableOpacity>
-          <Text className="text-white text-lg font-semibold flex-1 text-center">
-            {filters.serviceTypes.length === 1 ? filters.serviceTypes[0] : 'All Services'}
-          </Text>
-          <TouchableOpacity 
-            onPress={() => setFilterModalVisible(true)}
-            className="w-10 h-10 rounded-full bg-brand-600 items-center justify-center"
-          >
-            <Ionicons name="options-outline" size={20} color="white" />
-          </TouchableOpacity>
-        </View>
-
-        {/* View toggle */}
-        <View className="flex-row gap-3 mt-6 mb-3">
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle={filters.serviceTypes.length === 1 ? filters.serviceTypes[0] : 'All Services'}
+      contentBg={contentBg}
+      footer={<TabBar />}
+      rightAction={
+        <TouchableOpacity 
+          onPress={() => setFilterModalVisible(true)}
+          className="w-10 h-10 rounded-full bg-brand-600 items-center justify-center"
+        >
+          <Ionicons name="options-outline" size={20} color="white" />
+        </TouchableOpacity>
+      }
+      headerChildren={
+        <View className="flex-row gap-3 mt-3 mb-8">
           <View className="flex-1">
             <Button
               text="List View"
@@ -260,26 +254,24 @@ export default function SearchScreen() {
             />
           </View>
         </View>
-      </View>
+      }
+    >
 
-      {/* Content section with rounded top */}
-      <View className={`-mt-8 ${contentBg} rounded-t-3xl flex-1`}>
-        {viewMode === 'list' ? (
-          <ListView
-            providers={providers}
-            isDarkMode={isDarkMode}
-            textColor={textColor}
-            subtextColor={subtextColor}
-            cardBg={cardBg}
-            borderColor={borderColor}
-          />
-        ) : (
-          <MapViewComponent
-            providers={providers}
-            location={location}
-          />
-        )}
-      </View>
+      {viewMode === 'list' ? (
+        <ListView
+          providers={providers}
+          isDarkMode={isDarkMode}
+          textColor={textColor}
+          subtextColor={subtextColor}
+          cardBg={cardBg}
+          borderColor={borderColor}
+        />
+      ) : (
+        <MapViewComponent
+          providers={providers}
+          location={location}
+        />
+      )}
 
       <FilterModal
         visible={filterModalVisible}
@@ -287,9 +279,7 @@ export default function SearchScreen() {
         onApplyFilters={handleApplyFilters}
         currentFilters={filters}
       />
-
-      <TabBar />
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
 

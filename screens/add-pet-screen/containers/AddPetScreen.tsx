@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, TextInput, Image, Alert } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, TextInput, Image, Alert } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useTheme } from '../../../context/ThemeContext';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PetPhotoUploader, PetTypeSelector, SexSelector } from '../components';
 
 type AddPetRouteParams = {
@@ -107,19 +108,15 @@ export default function AddPetScreen() {
   };
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
-      <View className={`${bgColor} px-6 pt-12 pb-6`}>
-        <View className="flex-row items-center">
-          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-          <Text className="text-white text-xl font-bold">
-            {existingPet ? 'Edit Pet' : 'Add New Pet'}
-          </Text>
-        </View>
-      </View>
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle={existingPet ? 'Edit Pet' : 'Add New Pet'}
+      contentBg={contentBg}
+      contentRounded={false}
+    >
 
-      <ScrollView className={`flex-1 ${contentBg} rounded-t-3xl -mt-4`} contentContainerStyle={{ paddingTop: 24, paddingBottom: 100, paddingHorizontal: 24 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingTop: 24, paddingBottom: 100, paddingHorizontal: 24 }}>
         <PetPhotoUploader
           photos={petPhotos}
           isDarkMode={isDarkMode}
@@ -199,6 +196,6 @@ export default function AddPetScreen() {
           <Text className="text-white text-lg font-bold">Save Pet</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, Text, View, TouchableOpacity } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { BookingCard } from '../components';
 
 type Booking = {
@@ -40,17 +41,13 @@ export default function MyBookingsScreen() {
   const pastBookings = bookingsData.filter(b => b.status !== 'upcoming');
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
-      <View className="bg-brand-500 px-6 pt-12 pb-6">
-        <View className="flex-row items-center">
-          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-          <Text className="text-white text-xl font-bold">My Bookings</Text>
-        </View>
-      </View>
-
-      <ScrollView className={`flex-1 ${bgColor}`} contentContainerStyle={{ paddingTop: 16, paddingBottom: 24 }}>
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle="My Bookings"
+      contentBg={bgColor}
+    >
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingTop: 16, paddingBottom: 24 }}>
         <View className="px-6 mb-4">
           <View className="flex-row">
             <TouchableOpacity
@@ -106,6 +103,6 @@ export default function MyBookingsScreen() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

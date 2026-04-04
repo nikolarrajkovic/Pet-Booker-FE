@@ -8,7 +8,7 @@ import { SocialButton } from '../components';
 
 export default function LoginScreen() {
   const { isDarkMode } = useTheme();
-  const { signInWithCredentials, signInWithGoogle } = useAuth();
+  const { signIn, signInWithCredentials, signInWithGoogle } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,6 +32,16 @@ export default function LoginScreen() {
       return;
     }
 
+    // API call commented out - using mock login for development
+    setIsSubmitting(true);
+    setLoginError('');
+    
+    // Bypass API and sign in with mock tokens
+    await signIn('mock-access-token', 'mock-refresh-token');
+    
+    setIsSubmitting(false);
+
+    /* Original API call - commented out
     try {
       setIsSubmitting(true);
       setLoginError('');
@@ -42,6 +52,7 @@ export default function LoginScreen() {
     } finally {
       setIsSubmitting(false);
     }
+    */
   };
 
   return (

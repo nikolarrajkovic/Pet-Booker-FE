@@ -1,8 +1,9 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, Text, View, TouchableOpacity } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { VerificationProgress, NeedHelpCard, WhileYouWaitCard } from '../components';
 
 export default function ApplicationSubmittedScreen() {
@@ -16,18 +17,23 @@ export default function ApplicationSubmittedScreen() {
   const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-100';
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
-      {/* Green Header with Success Icon */}
-      <View className="bg-brand-500 px-6 pt-12 pb-16 items-center">
-        <View className="w-24 h-24 bg-white/20 rounded-full items-center justify-center mb-6">
-          <Ionicons name="time-outline" size={48} color="white" />
+    <ScreenLayout
+      headerVariant="large"
+      contentBg={bgColor}
+      contentRounded={false}
+      headerChildren={
+        <View className="items-center py-4">
+          <View className="w-24 h-24 bg-white/20 rounded-full items-center justify-center mb-6">
+            <Ionicons name="time-outline" size={48} color="white" />
+          </View>
+          <Text className="text-white text-2xl font-bold mb-2">Application Submitted!</Text>
+          <Text className="text-white/90 text-base text-center">We're reviewing your application</Text>
         </View>
-        <Text className="text-white text-2xl font-bold mb-2">Application Submitted!</Text>
-        <Text className="text-white/90 text-base text-center">We're reviewing your application</Text>
-      </View>
+      }
+    >
 
       <ScrollView 
-        className={`flex-1 ${bgColor} rounded-t-3xl -mt-4`}
+        className="flex-1"
         contentContainerStyle={{ paddingTop: 24, paddingBottom: 40, paddingHorizontal: 24 }}
       >
         {/* What Happens Next */}
@@ -62,6 +68,6 @@ export default function ApplicationSubmittedScreen() {
           <Text className={`${textColor} text-lg font-semibold`}>View Profile</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

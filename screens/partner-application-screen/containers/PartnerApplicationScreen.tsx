@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, Alert } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../../context/ThemeContext';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PersonalInfoStep, ServiceInfoStep, DocumentsStep } from '../components';
 
 export default function PartnerApplicationScreen() {
@@ -89,31 +90,31 @@ export default function PartnerApplicationScreen() {
   const themeProps = { isDarkMode, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor, cardBg };
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
-      {/* Green Header with Progress */}
-      <View className="bg-brand-500 px-6 pt-12 pb-6">
-        <View className="flex-row items-center mb-6">
-          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-          <Text className="text-white text-xl font-bold">Partner Application</Text>
-        </View>
-
-        {/* Progress Bar */}
-        <View className="mb-2">
-          <View className="h-2 bg-white/30 rounded-full overflow-hidden">
-            <View
-              className="h-full bg-white rounded-full transition-all duration-300"
-              style={{ width: `${progressPercentage}%` }}
-            />
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle="Partner Application"
+      contentBg={bgColor}
+      contentRounded={false}
+      headerChildren={
+        <>
+          {/* Progress Bar */}
+          <View className="mt-4 mb-2">
+            <View className="h-2 bg-white/30 rounded-full overflow-hidden">
+              <View
+                className="h-full bg-white rounded-full transition-all duration-300"
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </View>
           </View>
-        </View>
-        <Text className="text-white text-sm">Step {step} of {totalSteps}</Text>
-      </View>
+          <Text className="text-white text-sm">Step {step} of {totalSteps}</Text>
+        </>
+      }
+    >
 
       <ScrollView
-        className={`flex-1 ${bgColor}`}
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: 40, paddingHorizontal: 24 }}
+        className="flex-1"
+        contentContainerStyle={{ paddingTop: 24, paddingBottom: 100, paddingHorizontal: 24 }}
       >
         {step === 1 && (
           <PersonalInfoStep formData={formData} setFormData={setFormData} {...themeProps} />
@@ -152,6 +153,6 @@ export default function PartnerApplicationScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }

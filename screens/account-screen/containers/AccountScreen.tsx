@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, TextInput, Image, Alert } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, TextInput, Image, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../../context/ThemeContext';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 
 export default function AccountScreen() {
   const navigation = useNavigation();
@@ -45,22 +46,14 @@ export default function AccountScreen() {
   };
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
-      {/* Header */}
-      <View className="bg-brand-500 px-6 pt-12 pb-6">
-        <View className="flex-row items-center">
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            className="mr-4"
-          >
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-          <Text className="text-white text-xl font-bold">Account</Text>
-        </View>
-      </View>
-
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle="Account"
+      contentBg={bgColor}
+    >
       <ScrollView 
-        className={`flex-1 ${bgColor}`}
+        className="flex-1"
         contentContainerStyle={{ paddingBottom: 120 }}
       >
         {/* Profile Photo Section */}
@@ -176,6 +169,6 @@ export default function AccountScreen() {
           <Text className="text-white text-lg font-bold">Save Changes</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </ScreenLayout>
   );
 }
