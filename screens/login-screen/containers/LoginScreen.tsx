@@ -33,15 +33,14 @@ export default function LoginScreen() {
     }
 
     // API call commented out - using mock login for development
-    setIsSubmitting(true);
-    setLoginError('');
+    // setIsSubmitting(true);
+    // setLoginError('');
     
     // Bypass API and sign in with mock tokens
-    await signIn('mock-access-token', 'mock-refresh-token');
+    // await signIn('mock-access-token', 'mock-refresh-token');
     
     setIsSubmitting(false);
 
-    /* Original API call - commented out
     try {
       setIsSubmitting(true);
       setLoginError('');
@@ -52,7 +51,6 @@ export default function LoginScreen() {
     } finally {
       setIsSubmitting(false);
     }
-    */
   };
 
   return (
