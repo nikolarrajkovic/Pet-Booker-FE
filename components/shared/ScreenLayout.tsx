@@ -69,7 +69,7 @@ export default function ScreenLayout({
 
       {/* Content area with rounded top */}
       {contentRounded ? (
-        <View className={`-mt-8 ${finalContentBg} rounded-t-3xl flex-1`}>
+        <View className={`-mt-8 ${finalContentBg} rounded-t-3xl flex-1`} style={{ overflow: 'hidden' }}>
           {children}
         </View>
       ) : (
