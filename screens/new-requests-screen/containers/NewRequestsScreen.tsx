@@ -48,7 +48,7 @@ const mockRequests: ServiceRequest[] = [
     serviceName: 'Pet Sitting',
     serviceDate: 'April 20, 2026',
     serviceTime: '9:00 AM',
-    serviceLocation: "Client's Home",
+    serviceLocation: 'Client\'s Home',
     duration: '3 hours',
     totalPrice: 60,
     additionalServices: ['Feeding', 'Litter Cleaning'],
@@ -96,7 +96,7 @@ const mockRequests: ServiceRequest[] = [
     serviceName: 'Pet Sitting',
     serviceDate: 'April 12, 2026',
     serviceTime: '2:00 PM',
-    serviceLocation: "Client's Home",
+    serviceLocation: 'Client\'s Home',
     duration: '2 hours',
     totalPrice: 45,
     additionalServices: ['Photo Updates'],
@@ -106,6 +106,7 @@ const mockRequests: ServiceRequest[] = [
 ];
 
 type FilterTab = 'new' | 'accepted' | 'declined' | 'all';
+
 const TABS: { key: FilterTab; label: string }[] = [
   { key: 'new', label: 'New' },
   { key: 'accepted', label: 'Accepted' },
@@ -127,13 +128,22 @@ export default function NewRequestsScreen() {
 
   const newCount = requests.filter((r) => r.status === 'new').length;
 
-  const filtered = requests.filter((r) => (activeTab === 'all' ? true : r.status === activeTab));
+  const filtered = requests.filter((r) => {
+    if (activeTab === 'all') return true;
+    return r.status === activeTab;
+  });
 
-  const handleAccept = (id: number) =>
-    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'accepted' as RequestStatus } : r)));
+  const handleAccept = (id: number) => {
+    setRequests((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: 'accepted' as RequestStatus } : r))
+    );
+  };
 
-  const handleDecline = (id: number) =>
-    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: 'declined' as RequestStatus } : r)));
+  const handleDecline = (id: number) => {
+    setRequests((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: 'declined' as RequestStatus } : r))
+    );
+  };
 
   return (
     <ScreenLayout
@@ -148,21 +158,45 @@ export default function NewRequestsScreen() {
       <View className={`mx-4 mt-4 mb-3 ${tabBg} rounded-2xl p-1 flex-row border ${borderColor}`}>
         {TABS.map((tab) => {
           const count =
-            tab.key === 'all'
-              ? requests.length
-              : requests.filter((r) => r.status === tab.key).length;
+            tab.key === 'new'
+              ? requests.filter((r) => r.status === 'new').length
+              : tab.key === 'accepted'
+              ? requests.filter((r) => r.status === 'accepted').length
+              : tab.key === 'declined'
+              ? requests.filter((r) => r.status === 'declined').length
+              : requests.length;
+
           const isActive = activeTab === tab.key;
+
           return (
             <TouchableOpacity
               key={tab.key}
               onPress={() => setActiveTab(tab.key)}
               activeOpacity={0.7}
-              className={`flex-1 py-2 rounded-xl flex-row items-center justify-center ${isActive ? 'bg-brand-500' : ''}`}
+              className={`flex-1 py-2 rounded-xl flex-row items-center justify-center ${
+                isActive ? 'bg-brand-500' : ''
+              }`}
             >
-              <Text className={`text-xs font-semibold ${isActive ? 'text-white' : subtextColor}`}>{tab.label}</Text>
+              <Text
+                className={`text-xs font-semibold ${
+                  isActive ? 'text-white' : subtextColor
+                }`}
+              >
+                {tab.label}
+              </Text>
               {count > 0 && (
-                <View className={`ml-1.5 min-w-[18px] h-[18px] rounded-full items-center justify-center px-1 ${isActive ? 'bg-white/30' : 'bg-brand-500'}`}>
-                  <Text className="text-[10px] font-bold text-white">{count}</Text>
+                <View
+                  className={`ml-1.5 min-w-[18px] h-[18px] rounded-full items-center justify-center px-1 ${
+                    isActive ? 'bg-white/30' : 'bg-brand-500'
+                  }`}
+                >
+                  <Text
+                    className={`text-[10px] font-bold ${
+                      isActive ? 'text-white' : 'text-white'
+                    }`}
+                  >
+                    {count}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -170,11 +204,21 @@ export default function NewRequestsScreen() {
         })}
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, paddingTop: 4 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, paddingTop: 4 }}
+        showsVerticalScrollIndicator={false}
+      >
         {filtered.length === 0 ? (
           <View className="items-center justify-center py-16">
-            <Ionicons name="clipboard-outline" size={64} color={isDarkMode ? '#4B5563' : '#D1D5DB'} />
-            <Text className={`${subtextColor} text-center mt-4 text-base`}>No {activeTab === 'all' ? '' : activeTab} requests</Text>
+            <Ionicons
+              name="clipboard-outline"
+              size={64}
+              color={isDarkMode ? '#4B5563' : '#D1D5DB'}
+            />
+            <Text className={`${subtextColor} text-center mt-4 text-base`}>
+              No {activeTab === 'all' ? '' : activeTab} requests
+            </Text>
           </View>
         ) : (
           filtered.map((request) => (
