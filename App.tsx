@@ -27,6 +27,11 @@ import MyServicesScreen from './screens/my-services-screen/containers/MyServices
 import AddEditServiceScreen from './screens/my-services-screen/containers/AddEditServiceScreen';
 import ServicePreviewScreen from './screens/service-preview-screen/containers/ServicePreviewScreen';
 import NotificationsScreen from './screens/notifications-screen/containers/NotificationsScreen';
+import NewRequestsScreen from './screens/new-requests-screen/containers/NewRequestsScreen';
+import PromotionsScreen from './screens/promotions-screen/containers/PromotionsScreen';
+import CreatePromotionScreen from './screens/promotions-screen/containers/CreatePromotionScreen';
+import PromotionAnalyticsScreen from './screens/promotions-screen/containers/PromotionAnalyticsScreen';
+import EditPromotionScreen from './screens/promotions-screen/containers/EditPromotionScreen';
 import LoginScreen from './screens/login-screen/containers/LoginScreen';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -74,6 +79,11 @@ function AppContent() {
               <Stack.Screen name="AddEditService" component={AddEditServiceScreen} />
               <Stack.Screen name="ServicePreview" component={ServicePreviewScreen} />
               <Stack.Screen name="Notifications" component={NotificationsScreen} />
+              <Stack.Screen name="NewRequests" component={NewRequestsScreen} />
+              <Stack.Screen name="Promotions" component={PromotionsScreen} />
+              <Stack.Screen name="CreatePromotion" component={CreatePromotionScreen} />
+              <Stack.Screen name="PromotionAnalytics" component={PromotionAnalyticsScreen} />
+              <Stack.Screen name="EditPromotion" component={EditPromotionScreen} />
             </>
           ) : (
             <Stack.Screen name="Login" component={LoginScreen} />

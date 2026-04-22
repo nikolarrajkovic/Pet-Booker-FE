@@ -13,6 +13,7 @@ interface MenuItemProps {
   textColor: string;
   subtextColor: string;
   borderColor: string;
+  badge?: number;
   onPress: () => void;
 }
 
@@ -27,6 +28,7 @@ export default function MenuItem({
   textColor,
   subtextColor,
   borderColor,
+  badge,
   onPress,
 }: MenuItemProps) {
   return (
@@ -46,6 +48,11 @@ export default function MenuItem({
         <Text className={`text-base font-semibold ${textColor}`}>{title}</Text>
         <Text className={`text-sm ${subtextColor} mt-0.5`}>{subtitle}</Text>
       </View>
+      {badge !== undefined && badge > 0 && (
+        <View className="w-6 h-6 rounded-full bg-red-500 items-center justify-center mr-2">
+          <Text className="text-white text-xs font-bold">{badge}</Text>
+        </View>
+      )}
       <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
     </TouchableOpacity>
   );
