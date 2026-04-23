@@ -1,5 +1,7 @@
-// Single source of truth for mock schedule data
+﻿// Single source of truth for mock schedule data
 // In production, this will come from your backend API
+
+export type ScheduleMode = 'partner' | 'user';
 
 export interface ServiceItem {
   id: string;
@@ -10,266 +12,166 @@ export interface ServiceItem {
   location: string;
   type: 'walking' | 'grooming' | 'sitting';
   duration: number; // in hours
-  isUserService: boolean; // true if user is booking this service for their pet
+  isUserService: boolean; // true = user is booking this service for their pet
 }
 
 // Mock services data - key is date in format YYYY-MM-DD
 export const mockScheduleData: { [key: string]: ServiceItem[] } = {
+  // Partner-provided services
   '2026-04-01': [
-    {
-      id: '1',
-      title: 'Dog Walking',
-      provider: 'Happy Paws Walking',
-      petName: 'Luna',
-      time: '08:30 AM - 11:00 AM',
-      location: 'Central Park',
-      type: 'walking',
-      duration: 2.5,
-      isUserService: false // Partner providing service
-    },
-    {
-      id: '2',
-      title: 'Pet Grooming',
-      provider: 'Pampered Paws',
-      petName: 'Mochi',
-      time: '11:00 AM - 02:00 PM',
-      location: 'Downtown Grooming',
-      type: 'grooming',
-      duration: 3,
-      isUserService: false // Partner providing service
-    },
-    {
-      id: '3',
-      title: 'Pet Sitting',
-      provider: 'Pet Care Plus',
-      petName: 'Buddy',
-      time: '03:00 PM - 05:00 PM',
-      location: 'Client Home',
-      type: 'sitting',
-      duration: 2,
-      isUserService: false // Partner providing service
-    }
+    { id: '1',  title: 'Dog Walking',  provider: 'Happy Paws Walking', petName: 'Luna',    time: '08:30 AM - 11:00 AM', location: 'Central Park',        type: 'walking',  duration: 2.5, isUserService: false },
+    { id: '2',  title: 'Pet Grooming', provider: 'Pampered Paws',      petName: 'Mochi',   time: '11:00 AM - 02:00 PM', location: 'Downtown Grooming',   type: 'grooming', duration: 3,   isUserService: false },
+    { id: '3',  title: 'Pet Sitting',  provider: 'Pet Care Plus',      petName: 'Buddy',   time: '03:00 PM - 05:00 PM', location: 'Client Home',         type: 'sitting',  duration: 2,   isUserService: false },
   ],
   '2026-04-02': [
-    {
-      id: '4',
-      title: 'Dog Walking',
-      provider: 'Happy Paws Walking',
-      petName: 'Rex',
-      time: '09:00 AM - 11:30 AM',
-      location: 'Riverside Park',
-      type: 'walking',
-      duration: 2.5,
-      isUserService: false
-    },
-    {
-      id: '5',
-      title: 'Pet Grooming',
-      provider: 'Pets & Co',
-      petName: 'Chloe',
-      time: '12:00 PM - 03:00 PM',
-      location: 'Uptown Spa',
-      type: 'grooming',
-      duration: 3,
-      isUserService: false
-    }
+    { id: '4',  title: 'Dog Walking',  provider: 'Happy Paws Walking', petName: 'Rex',     time: '09:00 AM - 11:30 AM', location: 'Riverside Park',      type: 'walking',  duration: 2.5, isUserService: false },
+    { id: '5',  title: 'Pet Grooming', provider: 'Pets & Co',          petName: 'Chloe',   time: '12:00 PM - 03:00 PM', location: 'Uptown Spa',          type: 'grooming', duration: 3,   isUserService: false },
   ],
   '2026-04-03': [
-    {
-      id: '6',
-      title: 'Dog Training',
-      provider: 'K9 Academy',
-      petName: 'Duke',
-      time: '10:00 AM - 04:00 PM',
-      location: 'Training Center',
-      type: 'sitting',
-      duration: 6,
-      isUserService: false
-    }
-  ],
-  '2026-04-04': [
-    {
-      id: '7',
-      title: 'Dog Walking Service',
-      provider: 'Happy Paws Walking',
-      petName: 'Max',
-      time: '10:00 AM - 12:30 PM',
-      location: 'Golden Gate Park',
-      type: 'walking',
-      duration: 2.5,
-      isUserService: true // User is booking this service for their pet
-    }
+    { id: '6',  title: 'Dog Training', provider: 'K9 Academy',         petName: 'Duke',    time: '10:00 AM - 04:00 PM', location: 'Training Center',     type: 'sitting',  duration: 6,   isUserService: false },
   ],
   '2026-04-05': [
-    {
-      id: '8',
-      title: 'Pet Grooming',
-      provider: 'Spa Paws',
-      petName: 'Bella',
-      time: '02:00 PM - 04:00 PM',
-      location: 'Pet Spa',
-      type: 'grooming',
-      duration: 2,
-      isUserService: false
-    }
+    { id: '8',  title: 'Pet Grooming', provider: 'Spa Paws',           petName: 'Bella',   time: '02:00 PM - 04:00 PM', location: 'Pet Spa',             type: 'grooming', duration: 2,   isUserService: false },
   ],
   '2026-04-06': [
-    {
-      id: '9',
-      title: 'Dog Daycare',
-      provider: 'Playful Paws',
-      petName: 'Rocky',
-      time: '08:00 AM - 05:00 PM',
-      location: 'Daycare Center',
-      type: 'sitting',
-      duration: 9,
-      isUserService: false
-    }
+    { id: '9',  title: 'Dog Daycare',  provider: 'Playful Paws',       petName: 'Rocky',   time: '08:00 AM - 05:00 PM', location: 'Daycare Center',      type: 'sitting',  duration: 9,   isUserService: false },
   ],
   '2026-04-07': [
-    {
-      id: '10',
-      title: 'Dog Walking',
-      provider: 'Active Paws',
-      petName: 'Charlie',
-      time: '09:00 AM - 11:00 AM',
-      location: 'Beach Walk',
-      type: 'walking',
-      duration: 2,
-      isUserService: false
-    },
-    {
-      id: '11',
-      title: 'Pet Sitting',
-      provider: 'Home Pet Care',
-      petName: 'Daisy',
-      time: '01:00 PM - 04:00 PM',
-      location: 'Client Home',
-      type: 'sitting',
-      duration: 3,
-      isUserService: false
-    }
+    { id: '10', title: 'Dog Walking',  provider: 'Active Paws',        petName: 'Charlie', time: '09:00 AM - 11:00 AM', location: 'Beach Walk',          type: 'walking',  duration: 2,   isUserService: false },
+    { id: '11', title: 'Pet Sitting',  provider: 'Home Pet Care',      petName: 'Daisy',   time: '01:00 PM - 04:00 PM', location: 'Client Home',         type: 'sitting',  duration: 3,   isUserService: false },
   ],
   '2026-04-08': [
-    {
-      id: '12',
-      title: 'Full Day Care',
-      provider: 'Premium Pet Care',
-      petName: 'Zeus',
-      time: '07:00 AM - 04:00 PM',
-      location: 'Care Center',
-      type: 'sitting',
-      duration: 9,
-      isUserService: false
-    }
+    { id: '12',  title: 'Full Day Care', provider: 'Premium Pet Care',  petName: 'Zeus',   time: '07:00 AM - 04:00 PM', location: 'Care Center',         type: 'sitting',  duration: 9,   isUserService: false },
+    { id: 'u2',  title: 'Pet Grooming',  provider: 'Glamour Paws',      petName: 'Max',    time: '02:00 PM - 04:00 PM', location: 'Glamour Paws Salon',  type: 'grooming', duration: 2,   isUserService: true  },
   ],
   '2026-04-09': [
-    {
-      id: '13',
-      title: 'Dog Training',
-      provider: 'Obedience School',
-      petName: 'Luna',
-      time: '10:00 AM - 03:00 PM',
-      location: 'Training Field',
-      type: 'sitting',
-      duration: 5,
-      isUserService: false
-    }
+    { id: '13', title: 'Dog Training', provider: 'Obedience School',   petName: 'Luna',    time: '10:00 AM - 03:00 PM', location: 'Training Field',      type: 'sitting',  duration: 5,   isUserService: false },
   ],
   '2026-04-10': [
-    {
-      id: '14',
-      title: 'Morning Walk',
-      provider: 'Walk & Play',
-      petName: 'Max',
-      time: '08:00 AM - 10:30 AM',
-      location: 'Park Trail',
-      type: 'walking',
-      duration: 2.5,
-      isUserService: false
-    }
-  ]
+    { id: '14', title: 'Morning Walk', provider: 'Walk & Play',        petName: 'Max',     time: '08:00 AM - 10:30 AM', location: 'Park Trail',          type: 'walking',  duration: 2.5, isUserService: false },
+  ],
+  '2026-04-13': [
+    { id: '15', title: 'Dog Walking',  provider: 'Happy Paws Walking', petName: 'Rex',     time: '09:00 AM - 11:30 AM', location: 'Riverside Park',      type: 'walking',  duration: 2.5, isUserService: false },
+    { id: '16', title: 'Pet Sitting',  provider: 'Cozy Paws',          petName: 'Mochi',   time: '01:00 PM - 07:00 PM', location: 'Client Home',         type: 'sitting',  duration: 6,   isUserService: false },
+  ],
+  '2026-04-15': [
+    { id: '17', title: 'Pet Grooming', provider: 'Premium Grooming',   petName: 'Zeus',    time: '10:00 AM - 01:00 PM', location: 'Downtown Studio',     type: 'grooming', duration: 3,   isUserService: false },
+    { id: '18', title: 'Dog Walking',  provider: 'Walk & Play',        petName: 'Buddy',   time: '02:00 PM - 04:30 PM', location: 'Ocean Trail',         type: 'walking',  duration: 2.5, isUserService: false },
+    { id: '19', title: 'Pet Sitting',  provider: 'Night Paws',         petName: 'Charlie', time: '05:00 PM - 09:00 PM', location: 'Client Home',         type: 'sitting',  duration: 4,   isUserService: false },
+  ],
+  '2026-04-16': [
+    { id: '20', title: 'Dog Walking',  provider: 'Active Paws',        petName: 'Luna',    time: '08:00 AM - 10:00 AM', location: 'Beach Walk',          type: 'walking',  duration: 2,   isUserService: false },
+  ],
+  '2026-04-18': [
+    { id: '21', title: 'Full Day Care',provider: 'Premium Pet Care',   petName: 'Daisy',   time: '07:00 AM - 05:00 PM', location: 'Care Center',         type: 'sitting',  duration: 10,  isUserService: false },
+  ],
+  '2026-04-20': [
+    { id: 'u6', title: 'Dog Walking',  provider: 'Walk & Play',        petName: 'Max',     time: '07:30 AM - 09:00 AM', location: 'Ocean Beach Trail',   type: 'walking',  duration: 1.5, isUserService: true  },
+    { id: '20b',title: 'Dog Walking',  provider: 'Happy Paws Walking', petName: 'Luna',    time: '10:00 AM - 12:30 PM', location: 'Golden Gate Park',    type: 'walking',  duration: 2.5, isUserService: false },
+  ],
+  '2026-04-22': [
+    { id: '22', title: 'Dog Walking',  provider: 'Happy Paws Walking', petName: 'Rocky',   time: '09:00 AM - 11:00 AM', location: 'Golden Gate Park',    type: 'walking',  duration: 2,   isUserService: false },
+    { id: '23', title: 'Pet Grooming', provider: 'Pampered Paws',      petName: 'Rex',     time: '12:00 PM - 02:30 PM', location: 'Downtown Grooming',   type: 'grooming', duration: 2.5, isUserService: false },
+    { id: '24', title: 'Pet Sitting',  provider: 'Playful Paws',       petName: 'Duke',    time: '03:00 PM - 07:00 PM', location: 'Daycare Center',      type: 'sitting',  duration: 4,   isUserService: false },
+  ],
+  '2026-04-24': [
+    { id: '25', title: 'Dog Training', provider: 'K9 Academy',         petName: 'Charlie', time: '10:00 AM - 12:00 PM', location: 'Training Field',      type: 'sitting',  duration: 2,   isUserService: false },
+  ],
+  '2026-04-28': [
+    { id: '26', title: 'Dog Walking',  provider: 'Walk & Play',        petName: 'Buddy',   time: '08:00 AM - 10:30 AM', location: 'Riverside Park',      type: 'walking',  duration: 2.5, isUserService: false },
+    { id: '27', title: 'Pet Grooming', provider: 'Spa Paws',           petName: 'Chloe',   time: '11:00 AM - 01:00 PM', location: 'Pet Spa',             type: 'grooming', duration: 2,   isUserService: false },
+    { id: '28', title: 'Pet Sitting',  provider: 'Home Pet Care',      petName: 'Luna',    time: '02:00 PM - 08:00 PM', location: 'Client Home',         type: 'sitting',  duration: 6,   isUserService: false },
+  ],
+  '2026-04-30': [
+    { id: '29', title: 'Dog Walking',  provider: 'Active Paws',        petName: 'Zeus',    time: '09:00 AM - 11:30 AM', location: 'Beach Walk',          type: 'walking',  duration: 2.5, isUserService: false },
+    { id: '30', title: 'Pet Grooming', provider: 'Glamour Paws',       petName: 'Max',     time: '01:00 PM - 04:00 PM', location: 'Glamour Salon',       type: 'grooming', duration: 3,   isUserService: false },
+    { id: '31', title: 'Pet Sitting',  provider: 'Night Paws',         petName: 'Bella',   time: '04:00 PM - 10:00 PM', location: 'Client Home',         type: 'sitting',  duration: 6,   isUserService: false },
+  ],
+
+  // User-booked services (isUserService: true)
+  '2026-04-04': [
+    { id: 'u1', title: 'Dog Walking',           provider: 'Happy Paws Walking',   petName: 'Max', time: '10:00 AM - 12:30 PM', location: 'Golden Gate Park',          type: 'walking',  duration: 2.5, isUserService: true },
+  ],
+  '2026-04-11': [
+    { id: 'u3', title: 'Dog Walking',           provider: 'Paws on the Move',     petName: 'Max', time: '09:00 AM - 10:30 AM', location: 'Riverside Park',            type: 'walking',  duration: 1.5, isUserService: true },
+  ],
+  '2026-04-14': [
+    { id: 'u4', title: 'Pet Sitting',           provider: 'Home Pet Care Plus',   petName: 'Max', time: '08:00 AM - 06:00 PM', location: 'Your Home',                 type: 'sitting',  duration: 10,  isUserService: true },
+  ],
+  '2026-04-17': [
+    { id: 'u5', title: 'Full Grooming Session', provider: 'Pampered Paws Salon',  petName: 'Max', time: '11:00 AM - 01:00 PM', location: 'Downtown Grooming Studio',  type: 'grooming', duration: 2,   isUserService: true },
+  ],
+  '2026-04-23': [
+    { id: 'u7', title: 'Pet Grooming',          provider: 'Spa Paws',             petName: 'Max', time: '01:00 PM - 03:00 PM', location: 'Uptown Pet Spa',            type: 'grooming', duration: 2,   isUserService: true },
+  ],
+  '2026-04-26': [
+    { id: 'u8', title: 'Pet Sitting',           provider: 'Cozy Paws Sitting',    petName: 'Max', time: '09:00 AM - 05:00 PM', location: 'Your Home',                 type: 'sitting',  duration: 8,   isUserService: true },
+  ],
+  '2026-04-29': [
+    { id: 'u9', title: 'Dog Walking',           provider: 'Active Paws',          petName: 'Max', time: '08:00 AM - 09:30 AM', location: 'Park Trail',                type: 'walking',  duration: 1.5, isUserService: true },
+  ],
 };
 
-// Helper function to get services for a specific date
+// ─── Service type colors ─────────────────────────────────────────────────────
+export const SERVICE_TYPE_COLORS = {
+  walking:  { pastel: '#93C5FD', dark: '#60A5FA', hex: '#3B82F6', label: 'Walking'  },
+  grooming: { pastel: '#D8B4FE', dark: '#C084FC', hex: '#A855F7', label: 'Grooming' },
+  sitting:  { pastel: '#86EFAC', dark: '#4ADE80', hex: '#10B981', label: 'Sitting'  },
+} as const;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 export const getServicesForDate = (date: Date): ServiceItem[] => {
   const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   return mockScheduleData[dateStr] || [];
 };
 
-// Helper function to calculate day color based on services
-export const getDayColorInfo = (date: Date) => {
-  const services = getServicesForDate(date);
-  
-  if (services.length === 0) {
-    return { color: 'transparent', totalHours: 0, hasUserService: false };
+/** Calendar dot color for a given date and mode */
+export const getDayColorInfo = (date: Date, mode: ScheduleMode = 'partner') => {
+  const all = getServicesForDate(date);
+
+  if (mode === 'user') {
+    const services = all.filter(s => s.isUserService);
+    if (services.length === 0) return { color: 'transparent', totalHours: 0, hasData: false, type: undefined };
+    const first = services[0];
+    return { color: SERVICE_TYPE_COLORS[first.type].pastel, totalHours: services.reduce((s, i) => s + i.duration, 0), hasData: true, type: first.type };
   }
 
-  // Check if user has any service on this day
-  const hasUserService = services.some(s => s.isUserService);
-  
-  // If user has a service, the day is blue regardless of hours
-  if (hasUserService) {
-    const totalHours = services.reduce((sum, s) => sum + s.duration, 0);
-    return { color: '#93C5FD', totalHours, hasUserService: true }; // Blue-300 (pastel)
-  }
-
-  // Calculate total hours for partner services
+  // partner mode – workload-based colours
+  const services = all.filter(s => !s.isUserService);
+  if (services.length === 0) return { color: 'transparent', totalHours: 0, hasData: false, type: undefined };
   const totalHours = services.reduce((sum, s) => sum + s.duration, 0);
-
-  let color: string;
-  if (totalHours <= 3) {
-    color = '#86EFAC'; // Green-300 (pastel)
-  } else if (totalHours <= 6) {
-    color = '#FDE047'; // Yellow-300 (pastel)
-  } else {
-    color = '#FCA5A5'; // Red-300 (pastel)
-  }
-
-  return { color, totalHours, hasUserService: false };
+  let color = totalHours <= 3 ? '#86EFAC' : totalHours <= 6 ? '#FDE047' : '#FCA5A5';
+  return { color, totalHours, hasData: true, type: undefined };
 };
 
-// Helper function to get pressed (darker) color
-export const getDayColorPressed = (date: Date) => {
-  const services = getServicesForDate(date);
-  
-  if (services.length === 0) {
-    return { color: 'transparent', totalHours: 0, hasUserService: false };
+/** Darker pressed variant */
+export const getDayColorPressed = (date: Date, mode: ScheduleMode = 'partner') => {
+  const all = getServicesForDate(date);
+
+  if (mode === 'user') {
+    const services = all.filter(s => s.isUserService);
+    if (services.length === 0) return { color: 'transparent', totalHours: 0, hasData: false, type: undefined };
+    const first = services[0];
+    return { color: SERVICE_TYPE_COLORS[first.type].dark, totalHours: services.reduce((s, i) => s + i.duration, 0), hasData: true, type: first.type };
   }
 
-  const hasUserService = services.some(s => s.isUserService);
+  const services = all.filter(s => !s.isUserService);
+  if (services.length === 0) return { color: 'transparent', totalHours: 0, hasData: false, type: undefined };
   const totalHours = services.reduce((sum, s) => sum + s.duration, 0);
-
-  let color: string;
-  if (hasUserService) {
-    color = '#60A5FA'; // Blue-400 (darker)
-  } else if (totalHours <= 3) {
-    color = '#4ADE80'; // Green-400 (darker)
-  } else if (totalHours <= 6) {
-    color = '#FBBF24'; // Yellow-400 (darker)
-  } else {
-    color = '#F87171'; // Red-400 (darker)
-  }
-
-  return { color, totalHours, hasUserService };
+  let color = totalHours <= 3 ? '#4ADE80' : totalHours <= 6 ? '#FBBF24' : '#F87171';
+  return { color, totalHours, hasData: true, type: undefined };
 };
 
-// Helper function to get statistics for a month
-export const getMonthStats = (date: Date) => {
+/** Month stats, filtered by mode */
+export const getMonthStats = (date: Date, mode: ScheduleMode = 'partner') => {
   const year = date.getFullYear();
   const month = date.getMonth();
-  
-  let totalServices = 0;
-  let bookedDays = 0;
-  let totalHours = 0;
-
-  // Count all days in the month
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  
+  let totalServices = 0, bookedDays = 0, totalHours = 0;
+
   for (let day = 1; day <= daysInMonth; day++) {
-    const currentDate = new Date(year, month, day);
-    const services = getServicesForDate(currentDate);
-    
+    const all = getServicesForDate(new Date(year, month, day));
+    const services = mode === 'user' ? all.filter(s => s.isUserService) : all.filter(s => !s.isUserService);
     if (services.length > 0) {
       totalServices += services.length;
       bookedDays++;
@@ -277,7 +179,5 @@ export const getMonthStats = (date: Date) => {
     }
   }
 
-  const avgPerWeek = Math.round(totalHours / 4);
-
-  return { totalServices, bookedDays, avgPerWeek };
+  return { totalServices, bookedDays, avgPerWeek: Math.round(totalHours / 4) };
 };

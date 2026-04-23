@@ -9,6 +9,7 @@ WebBrowser.maybeCompleteAuthSession();
 type AuthContextType = {
   isLoggedIn: boolean;
   isLoading: boolean;
+  isPartner: boolean;
   signIn: (accessToken: string, refreshToken?: string) => Promise<void>;
   signInWithCredentials: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -20,6 +21,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  // TODO: fetch partner status from backend after login
+  const [isPartner, setIsPartner] = useState(true);
 
   const [, googleResponse, googlePromptAsync] = Google.useAuthRequest({
     androidClientId: 'YOUR_ANDROID_CLIENT_ID',
@@ -71,7 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ isLoggedIn, isLoading, signIn, signInWithCredentials, signOut, signInWithGoogle }}
+      value={{ isLoggedIn, isLoading, isPartner, signIn, signInWithCredentials, signOut, signInWithGoogle }}
     >
       {children}
     </AuthContext.Provider>
