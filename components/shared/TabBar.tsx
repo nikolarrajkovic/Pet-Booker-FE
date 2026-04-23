@@ -3,12 +3,14 @@ import { View, TouchableOpacity, Text } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function TabBar() {
   const navigation = useNavigation();
   const route = useRoute();
   const currentRoute = route.name;
   const { isDarkMode } = useTheme();
+  const { isPartner } = useAuth();
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
   const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-200';
@@ -49,6 +51,24 @@ export default function TabBar() {
             Search
           </Text>
         </TouchableOpacity>
+
+        {/* Partner Hub — only for partners */}
+        {isPartner && (
+        <TouchableOpacity
+          className="items-center py-2 px-4"
+          activeOpacity={0.8}
+          onPress={() => (navigation as any).navigate('PartnerHub')}
+        >
+          <Ionicons 
+            name="briefcase-outline" 
+            size={24} 
+            color={currentRoute === 'PartnerHub' ? '#00C870' : inactiveColor} 
+          />
+          <Text className={`text-xs mt-1 ${currentRoute === 'PartnerHub' ? 'text-brand-500 font-semibold' : inactiveTextColor}`}>
+            Partner
+          </Text>
+        </TouchableOpacity>
+        )}
 
         {/* Profile */}
         <TouchableOpacity

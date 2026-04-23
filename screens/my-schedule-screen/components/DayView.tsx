@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getServicesForDate, ServiceItem } from '../utils/mockScheduleData';
+import { getServicesForDate, ServiceItem, ScheduleMode } from '../utils/mockScheduleData';
 
 interface DayViewProps {
   selectedDate: Date;
   isDarkMode: boolean;
   onDateChange: (date: Date) => void;
+  mode: ScheduleMode;
 }
 
 const getTypeColor = (type: string) => {
@@ -34,14 +35,17 @@ const formatDate = (date: Date) => {
   return `${days[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 };
 
-export default function DayView({ selectedDate, isDarkMode, onDateChange }: DayViewProps) {
+export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }: DayViewProps) {
   const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
   const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
   const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
   const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-200';
 
-  // Get services for the selected date
-  const servicesForDate = getServicesForDate(selectedDate);
+  // Get services for the selected date, filtered by mode
+  const all = getServicesForDate(selectedDate);
+  const servicesForDate = mode === 'user'
+    ? all.filter(s => s.isUserService)
+    : all.filter(s => !s.isUserService);
 
   const goToPreviousDay = () => {
     const prevDay = new Date(selectedDate);

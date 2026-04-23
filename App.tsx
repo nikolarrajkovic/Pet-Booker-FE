@@ -28,6 +28,8 @@ import AddEditServiceScreen from './screens/my-services-screen/containers/AddEdi
 import ServicePreviewScreen from './screens/service-preview-screen/containers/ServicePreviewScreen';
 import NotificationsScreen from './screens/notifications-screen/containers/NotificationsScreen';
 import NewRequestsScreen from './screens/new-requests-screen/containers/NewRequestsScreen';
+import PartnerHubScreen from './screens/partner-hub-screen/containers/PartnerHubScreen';
+import PromotionsScreen from './screens/promotions-screen/containers/PromotionsScreen';
 import LoginScreen from './screens/login-screen/containers/LoginScreen';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -76,6 +78,7 @@ function AppContent() {
               <Stack.Screen name="ServicePreview" component={ServicePreviewScreen} />
               <Stack.Screen name="Notifications" component={NotificationsScreen} />
               <Stack.Screen name="NewRequests" component={NewRequestsScreen} />
+              <Stack.Screen name="Promotions" component={PromotionsScreen} />
             </>
           ) : (
             <Stack.Screen name="Login" component={LoginScreen} />
@@ -98,12 +101,14 @@ function MainTabs() {
         tabBarIcon: ({ color, size }) => {
           if (route.name === 'Home') return <Ionicons name="home" size={size} color={color} />;
           if (route.name === 'Search') return <Ionicons name="search" size={size} color={color} />;
+          if (route.name === 'PartnerHub') return <Ionicons name="briefcase-outline" size={size} color={color} />;
           return <Ionicons name="person" size={size} color={color} />;
         },
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
+      <Tab.Screen name="PartnerHub" component={PartnerHubScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

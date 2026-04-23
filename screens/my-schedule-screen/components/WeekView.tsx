@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { getServicesForDate, getDayColorInfo, getDayColorPressed, ServiceItem } from '../utils/mockScheduleData';
+import { getServicesForDate, getDayColorInfo, getDayColorPressed, ScheduleMode } from '../utils/mockScheduleData';
 
 interface WeekViewProps {
   selectedDate: Date;
   isDarkMode: boolean;
   onDateSelect: (date: Date) => void;
   onDateChange: (date: Date) => void;
+  mode: ScheduleMode;
 }
 
 const getTypeColor = (type: string) => {
@@ -60,7 +61,7 @@ const isCurrentWeek = (date: Date) => {
   return weekDays.some(day => day.toDateString() === today.toDateString());
 };
 
-export default function WeekView({ selectedDate, isDarkMode, onDateSelect, onDateChange }: WeekViewProps) {
+export default function WeekView({ selectedDate, isDarkMode, onDateSelect, onDateChange, mode }: WeekViewProps) {
   const [pressedDay, setPressedDay] = useState<string | null>(null);
   const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
   const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
@@ -103,24 +104,37 @@ export default function WeekView({ selectedDate, isDarkMode, onDateSelect, onDat
         </View>
 
         {/* Legend */}
-        <View className="flex-row items-center justify-center flex-wrap gap-3">
-          <View className="flex-row items-center">
-            <View className="w-3 h-3 rounded-full bg-green-300 mr-1" />
-            <Text className={`text-xs ${subtextColor}`}>{'< 3h'}</Text>
+        {mode === 'partner' ? (
+          <View className="flex-row items-center justify-center flex-wrap gap-3">
+            <View className="flex-row items-center">
+              <View className="w-3 h-3 rounded-full bg-green-300 mr-1" />
+              <Text className={`text-xs ${subtextColor}`}>{'< 3h'}</Text>
+            </View>
+            <View className="flex-row items-center">
+              <View className="w-3 h-3 rounded-full bg-yellow-300 mr-1" />
+              <Text className={`text-xs ${subtextColor}`}>3-6h</Text>
+            </View>
+            <View className="flex-row items-center">
+              <View className="w-3 h-3 rounded-full bg-red-300 mr-1" />
+              <Text className={`text-xs ${subtextColor}`}>6+ h</Text>
+            </View>
           </View>
-          <View className="flex-row items-center">
-            <View className="w-3 h-3 rounded-full bg-yellow-300 mr-1" />
-            <Text className={`text-xs ${subtextColor}`}>3-6h</Text>
+        ) : (
+          <View className="flex-row items-center justify-center flex-wrap gap-3">
+            <View className="flex-row items-center">
+              <View className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: '#93C5FD' }} />
+              <Text className={`text-xs ${subtextColor}`}>Walking</Text>
+            </View>
+            <View className="flex-row items-center">
+              <View className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: '#D8B4FE' }} />
+              <Text className={`text-xs ${subtextColor}`}>Grooming</Text>
+            </View>
+            <View className="flex-row items-center">
+              <View className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: '#86EFAC' }} />
+              <Text className={`text-xs ${subtextColor}`}>Sitting</Text>
+            </View>
           </View>
-          <View className="flex-row items-center">
-            <View className="w-3 h-3 rounded-full bg-red-300 mr-1" />
-            <Text className={`text-xs ${subtextColor}`}>6+ h</Text>
-          </View>
-          <View className="flex-row items-center">
-            <View className="w-3 h-3 rounded-full bg-blue-300 mr-1" />
-            <Text className={`text-xs ${subtextColor}`}>Using service</Text>
-          </View>
-        </View>
+        )}
       </View>
 
       {/* Week Calendar */}
@@ -136,12 +150,13 @@ export default function WeekView({ selectedDate, isDarkMode, onDateSelect, onDat
         <View className="flex-row mb-6">
           {weekDays.map((day, index) => {
             const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
-            const services = getServicesForDate(day);
+            const all = getServicesForDate(day);
+            const services = mode === 'user' ? all.filter(s => s.isUserService) : all.filter(s => !s.isUserService);
             const hasServices = services.length > 0;
             const isToday = day.toDateString() === new Date().toDateString();
             const isPressedNow = pressedDay === dateStr;
             
-            const colorInfo = isPressedNow ? getDayColorPressed(day) : getDayColorInfo(day);
+            const colorInfo = isPressedNow ? getDayColorPressed(day, mode) : getDayColorInfo(day, mode);
             const dayColor = colorInfo.color;
             
             return (
@@ -172,7 +187,8 @@ export default function WeekView({ selectedDate, isDarkMode, onDateSelect, onDat
       {/* Services List */}
       <ScrollView className="flex-1 px-6">
         {weekDays.map((day, index) => {
-          const services = getServicesForDate(day);
+          const all = getServicesForDate(day);
+          const services = mode === 'user' ? all.filter(s => s.isUserService) : all.filter(s => !s.isUserService);
           
           if (services.length === 0) return null;
           

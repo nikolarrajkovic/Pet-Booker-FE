@@ -1,20 +1,25 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { useTheme } from '../../../context/ThemeContext';
 import DayView from '../components/DayView';
 import WeekView from '../components/WeekView';
 import MonthView from '../components/MonthView';
+import type { ScheduleMode } from '../utils/mockScheduleData';
 
 type ViewType = 'day' | 'week' | 'month';
 
 export default function MyScheduleScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const { isDarkMode } = useTheme();
   const [selectedView, setSelectedView] = useState<ViewType>('day');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 3, 4)); // April 4, 2026
+
+  // Determine mode from navigation params; default to 'partner' for backward compat
+  const mode: ScheduleMode = (route.params as any)?.mode ?? 'partner';
 
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
@@ -28,6 +33,8 @@ export default function MyScheduleScreen() {
     setSelectedDate(date);
   };
 
+  const title = mode === 'user' ? 'My Schedule' : 'My Schedule';
+
   return (
     <ScreenLayout
       headerVariant="large"
@@ -37,7 +44,7 @@ export default function MyScheduleScreen() {
           <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
-          <Text className="text-white text-2xl font-bold flex-1">My Schedule</Text>
+          <Text className="text-white text-2xl font-bold flex-1">{title}</Text>
         </View>
       }
     >
@@ -74,9 +81,9 @@ export default function MyScheduleScreen() {
 
         {/* View Content */}
         <ScrollView className="flex-1">
-          {selectedView === 'day' && <DayView selectedDate={selectedDate} isDarkMode={isDarkMode} onDateChange={handleDateChange} />}
-          {selectedView === 'week' && <WeekView selectedDate={selectedDate} isDarkMode={isDarkMode} onDateSelect={handleDateSelect} onDateChange={handleDateChange} />}
-          {selectedView === 'month' && <MonthView selectedDate={selectedDate} isDarkMode={isDarkMode} onDateSelect={handleDateSelect} onDateChange={handleDateChange} />}
+          {selectedView === 'day' && <DayView selectedDate={selectedDate} isDarkMode={isDarkMode} onDateChange={handleDateChange} mode={mode} />}
+          {selectedView === 'week' && <WeekView selectedDate={selectedDate} isDarkMode={isDarkMode} onDateSelect={handleDateSelect} onDateChange={handleDateChange} mode={mode} />}
+          {selectedView === 'month' && <MonthView selectedDate={selectedDate} isDarkMode={isDarkMode} onDateSelect={handleDateSelect} onDateChange={handleDateChange} mode={mode} />}
         </ScrollView>
       </View>
     </ScreenLayout>

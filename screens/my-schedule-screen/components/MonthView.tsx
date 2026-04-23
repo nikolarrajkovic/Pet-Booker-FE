@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { getDayColorInfo, getDayColorPressed, getMonthStats } from '../utils/mockScheduleData';
+import { getDayColorInfo, getDayColorPressed, getMonthStats, ScheduleMode } from '../utils/mockScheduleData';
 
 interface MonthViewProps {
   selectedDate: Date;
   isDarkMode: boolean;
   onDateSelect: (date: Date) => void;
   onDateChange: (date: Date) => void;
+  mode: ScheduleMode;
 }
 
 const getMonthDays = (date: Date) => {
@@ -44,7 +45,7 @@ const isCurrentMonth = (date: Date) => {
   return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
 };
 
-export default function MonthView({ selectedDate, isDarkMode, onDateSelect, onDateChange }: MonthViewProps) {
+export default function MonthView({ selectedDate, isDarkMode, onDateSelect, onDateChange, mode }: MonthViewProps) {
   const [pressedDay, setPressedDay] = useState<string | null>(null);
   const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
   const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
@@ -67,7 +68,7 @@ export default function MonthView({ selectedDate, isDarkMode, onDateSelect, onDa
   const isThisMonth = isCurrentMonth(selectedDate);
 
   // Calculate stats for the current month
-  const { totalServices, bookedDays, avgPerWeek } = getMonthStats(selectedDate);
+  const { totalServices, bookedDays, avgPerWeek } = getMonthStats(selectedDate, mode);
 
   return (
     <View className="flex-1">
@@ -89,24 +90,37 @@ export default function MonthView({ selectedDate, isDarkMode, onDateSelect, onDa
         </View>
 
         {/* Legend */}
-        <View className="flex-row items-center justify-center flex-wrap gap-3">
-          <View className="flex-row items-center">
-            <View className="w-3 h-3 rounded-full bg-green-300 mr-1" />
-            <Text className={`text-xs ${subtextColor}`}>{'< 3h'}</Text>
+        {mode === 'partner' ? (
+          <View className="flex-row items-center justify-center flex-wrap gap-3">
+            <View className="flex-row items-center">
+              <View className="w-3 h-3 rounded-full bg-green-300 mr-1" />
+              <Text className={`text-xs ${subtextColor}`}>{'< 3h'}</Text>
+            </View>
+            <View className="flex-row items-center">
+              <View className="w-3 h-3 rounded-full bg-yellow-300 mr-1" />
+              <Text className={`text-xs ${subtextColor}`}>3-6h</Text>
+            </View>
+            <View className="flex-row items-center">
+              <View className="w-3 h-3 rounded-full bg-red-300 mr-1" />
+              <Text className={`text-xs ${subtextColor}`}>6+ h</Text>
+            </View>
           </View>
-          <View className="flex-row items-center">
-            <View className="w-3 h-3 rounded-full bg-yellow-300 mr-1" />
-            <Text className={`text-xs ${subtextColor}`}>3-6h</Text>
+        ) : (
+          <View className="flex-row items-center justify-center flex-wrap gap-3">
+            <View className="flex-row items-center">
+              <View className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: '#93C5FD' }} />
+              <Text className={`text-xs ${subtextColor}`}>Walking</Text>
+            </View>
+            <View className="flex-row items-center">
+              <View className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: '#D8B4FE' }} />
+              <Text className={`text-xs ${subtextColor}`}>Grooming</Text>
+            </View>
+            <View className="flex-row items-center">
+              <View className="w-3 h-3 rounded-full mr-1" style={{ backgroundColor: '#86EFAC' }} />
+              <Text className={`text-xs ${subtextColor}`}>Sitting</Text>
+            </View>
           </View>
-          <View className="flex-row items-center">
-            <View className="w-3 h-3 rounded-full bg-red-300 mr-1" />
-            <Text className={`text-xs ${subtextColor}`}>6+ h</Text>
-          </View>
-          <View className="flex-row items-center">
-            <View className="w-3 h-3 rounded-full bg-blue-300 mr-1" />
-            <Text className={`text-xs ${subtextColor}`}>Using service</Text>
-          </View>
-        </View>
+        )}
       </View>
 
       {/* Calendar Grid */}
@@ -130,9 +144,9 @@ export default function MonthView({ selectedDate, isDarkMode, onDateSelect, onDa
             const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
             const isPressedNow = pressedDay === dateStr;
             
-            const colorInfo = isPressedNow ? getDayColorPressed(day) : getDayColorInfo(day);
+            const colorInfo = isPressedNow ? getDayColorPressed(day, mode) : getDayColorInfo(day, mode);
             const dayColor = colorInfo.color;
-            const hasData = colorInfo.totalHours > 0 || colorInfo.hasUserService;
+            const hasData = colorInfo.hasData;
             
             const isToday = day.toDateString() === new Date().toDateString();
 

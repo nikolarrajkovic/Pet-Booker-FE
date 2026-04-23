@@ -149,7 +149,7 @@ export default function NewRequestsScreen() {
     <ScreenLayout
       headerVariant="standard"
       showBackButton
-      headerTitle="New Requests"
+      headerTitle="Requests"
       headerSubtitle={`${newCount} pending request${newCount !== 1 ? 's' : ''}`}
       contentBg={contentBg}
       showNotificationButton
