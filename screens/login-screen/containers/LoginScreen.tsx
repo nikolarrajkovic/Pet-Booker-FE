@@ -1,18 +1,40 @@
 import React, { useState } from 'react';
 import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import Button from '../../../components/shared/Button';
 import { SocialButton } from '../components';
 
+type RootStackParamList = {
+  Login: undefined;
+  Register: undefined;
+};
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+// ─── Validators ───────────────────────────────────────────────────────────────
+function validateIdentifier(v: string) {
+  if (!v.trim()) return 'Email or username is required';
+  return '';
+}
+
+function validatePassword(v: string) {
+  if (!v) return 'Password is required';
+  return '';
+}
+
 export default function LoginScreen() {
   const { isDarkMode } = useTheme();
-  const { signIn, signInWithCredentials, signInWithGoogle } = useAuth();
+  const { signInWithCredentials, signInWithGoogle } = useAuth();
+  const navigation = useNavigation<NavigationProp>();
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState('');
 
@@ -20,34 +42,36 @@ export default function LoginScreen() {
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
   const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
   const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-500';
-  const inputBg = isDarkMode ? 'bg-[#243447]' : 'bg-white';
-  const inputText = isDarkMode ? 'text-white' : 'text-gray-900';
-  const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-200';
-  const placeholderColor = isDarkMode ? '#9CA3AF' : '#9CA3AF';
+  const inputBg = isDarkMode ? '#243447' : '#ffffff';
+  const inputTextColor = isDarkMode ? '#ffffff' : '#111827';
+  const defaultBorder = isDarkMode ? '#374151' : '#E5E7EB';
+  const placeholderColor = '#9CA3AF';
   const dividerColor = isDarkMode ? 'bg-gray-700' : 'bg-gray-300';
 
-  const handleSignIn = async () => {
-    if (!email.trim() || !password.trim()) {
-      setLoginError('Please enter both email and password.');
-      return;
-    }
+  const errors = {
+    identifier: validateIdentifier(identifier),
+    password: validatePassword(password),
+  };
 
-    // API call commented out - using mock login for development
-    // setIsSubmitting(true);
-    // setLoginError('');
-    
-    // Bypass API and sign in with mock tokens
-    // await signIn('mock-access-token', 'mock-refresh-token');
-    
-    setIsSubmitting(false);
+  const isFormValid = Object.values(errors).every((e) => e === '');
+
+  const borderFor = (field: keyof typeof errors) => {
+    if (!touched[field]) return defaultBorder;
+    return errors[field] ? '#EF4444' : '#00A85A';
+  };
+
+  const touch = (field: string) => setTouched((t) => ({ ...t, [field]: true }));
+
+  const handleSignIn = async () => {
+    setTouched({ identifier: true, password: true });
+    if (!isFormValid) return;
 
     try {
       setIsSubmitting(true);
       setLoginError('');
-      await signInWithCredentials(email.trim(), password);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Login failed. Please try again.';
-      setLoginError(message);
+      await signInWithCredentials(identifier.trim(), password);
+    } catch {
+      setLoginError('Invalid credentials. Please check your email/username and password.');
     } finally {
       setIsSubmitting(false);
     }
@@ -55,10 +79,7 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView className={`flex-1 ${contentBg}`}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
         {/* Green Header */}
         <View className={`${bgColor} px-6 pt-16 pb-12 items-center rounded-b-3xl`}>
           <View className="w-20 h-20 bg-white rounded-2xl items-center justify-center mb-4 shadow-lg">
@@ -73,35 +94,58 @@ export default function LoginScreen() {
           contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 40 }}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Email Field */}
+          {/* Email or Username */}
           <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>Email Address</Text>
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>Email or Username</Text>
             <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Enter your email"
-              keyboardType="email-address"
+              value={identifier}
+              onChangeText={(t) => { setIdentifier(t); touch('identifier'); setLoginError(''); }}
+              onBlur={() => touch('identifier')}
+              placeholder="Enter your email or username"
               autoCapitalize="none"
-              className={`${inputBg} rounded-xl px-4 py-3 ${inputText} border ${borderColor}`}
+              style={{
+                backgroundColor: inputBg,
+                color: inputTextColor,
+                borderRadius: 12,
+                borderWidth: 2,
+                borderColor: borderFor('identifier'),
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                fontSize: 15,
+              }}
               placeholderTextColor={placeholderColor}
             />
+            {touched.identifier && errors.identifier ? (
+              <Text className="text-red-500 text-xs mt-1">{errors.identifier}</Text>
+            ) : null}
           </View>
 
-          {/* Password Field */}
+          {/* Password */}
           <View className="mb-2">
             <Text className={`text-sm font-semibold ${textColor} mb-2`}>Password</Text>
-            <View className="relative">
+            <View>
               <TextInput
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(t) => { setPassword(t); touch('password'); setLoginError(''); }}
+                onBlur={() => touch('password')}
                 placeholder="Enter your password"
                 secureTextEntry={!showPassword}
-                className={`${inputBg} rounded-xl px-4 py-3 pr-12 ${inputText} border ${borderColor}`}
+                style={{
+                  backgroundColor: inputBg,
+                  color: inputTextColor,
+                  borderRadius: 12,
+                  borderWidth: 2,
+                  borderColor: borderFor('password'),
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  paddingRight: 48,
+                  fontSize: 15,
+                }}
                 placeholderTextColor={placeholderColor}
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-3"
+                style={{ position: 'absolute', right: 16, top: 13 }}
               >
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
@@ -110,12 +154,20 @@ export default function LoginScreen() {
                 />
               </TouchableOpacity>
             </View>
+            {touched.password && errors.password ? (
+              <Text className="text-red-500 text-xs mt-1">{errors.password}</Text>
+            ) : null}
           </View>
 
           {/* Forgot Password */}
-          <TouchableOpacity className="self-end mb-6">
+          <TouchableOpacity className="self-end mb-5 mt-1">
             <Text className="text-brand-600 font-semibold text-sm">Forgot Password?</Text>
           </TouchableOpacity>
+
+          {/* Global login error */}
+          {loginError ? (
+            <Text className="text-red-500 text-sm mb-4 text-center">{loginError}</Text>
+          ) : null}
 
           {/* Sign In Button */}
           <Button
@@ -125,8 +177,6 @@ export default function LoginScreen() {
             className="py-4 rounded-2xl mb-6"
             disabled={isSubmitting}
           />
-
-          {loginError ? <Text className="text-red-500 text-sm mb-4">{loginError}</Text> : null}
 
           {/* Divider */}
           <View className="flex-row items-center mb-6">
@@ -149,6 +199,14 @@ export default function LoginScreen() {
               onPress={() => {}}
               isDarkMode={isDarkMode}
             />
+          </View>
+
+          {/* Sign Up Link */}
+          <View className="flex-row justify-center mt-6">
+            <Text className={`text-sm ${subtextColor}`}>Don't have an account? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+              <Text className="text-brand-600 font-semibold text-sm">Sign Up</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

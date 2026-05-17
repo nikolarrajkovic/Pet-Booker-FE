@@ -8,6 +8,7 @@ interface DatePickerProps {
   onClose: () => void;
   isDarkMode: boolean;
   minDate?: Date;
+  maxDate?: Date;
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -26,11 +27,24 @@ function startOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-export default function DatePicker({ value, onChange, onClose, isDarkMode, minDate }: DatePickerProps) {
+export default function DatePicker({ value, onChange, onClose, isDarkMode, minDate, maxDate }: DatePickerProps) {
   const today = new Date();
   const [viewMonth, setViewMonth] = useState(value.getMonth());
   const [viewYear, setViewYear] = useState(value.getFullYear());
   const [selected, setSelected] = useState(startOfDay(value));
+  const [showYearPicker, setShowYearPicker] = useState(false);
+
+  const minYear = minDate ? minDate.getFullYear() : 1900;
+  const maxYear = maxDate ? maxDate.getFullYear() : today.getFullYear() + 20;
+  const years = Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i);
+
+  const YEARS_PER_PAGE = 16; // 4 columns × 4 rows
+  const initialPage = Math.floor((value.getFullYear() - minYear) / YEARS_PER_PAGE);
+  const [yearPage, setYearPage] = useState(initialPage);
+  const totalYearPages = Math.ceil(years.length / YEARS_PER_PAGE);
+  const yearPageYears = years.slice(yearPage * YEARS_PER_PAGE, (yearPage + 1) * YEARS_PER_PAGE);
+  const yearPageStart = yearPage * YEARS_PER_PAGE + minYear;
+  const yearPageEnd = Math.min(yearPageStart + YEARS_PER_PAGE - 1, maxYear);
 
   const cardBg = isDarkMode ? '#1a2332' : '#ffffff';
   const borderColor = isDarkMode ? '#374151' : '#E5E7EB';
@@ -68,9 +82,10 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
   while (cells.length % 7 !== 0) cells.push(null);
 
   const isDisabled = (day: number) => {
-    if (!minDate) return false;
     const cellDate = new Date(viewYear, viewMonth, day);
-    return cellDate < startOfDay(minDate);
+    if (minDate && cellDate < startOfDay(minDate)) return true;
+    if (maxDate && cellDate > startOfDay(maxDate)) return true;
+    return false;
   };
 
   const isSelected = (day: number) => isSameDay(selected, new Date(viewYear, viewMonth, day));
@@ -99,6 +114,13 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
     return lastDayOfPrev >= startOfDay(minDate);
   };
 
+  // Prevent "next" nav if the first day of the next month is after maxDate
+  const canGoNext = () => {
+    if (!maxDate) return true;
+    const firstDayOfNext = new Date(viewYear, viewMonth + 1, 1);
+    return firstDayOfNext <= startOfDay(maxDate);
+  };
+
   return (
     <View
       style={{
@@ -113,70 +135,144 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
       {/* Month/Year navigation */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <TouchableOpacity
-          onPress={prevMonth}
-          disabled={!canGoPrev()}
-          style={{ padding: 4, opacity: canGoPrev() ? 1 : 0.3 }}
+          onPress={showYearPicker ? () => setYearPage(p => p - 1) : prevMonth}
+          disabled={showYearPicker ? yearPage === 0 : !canGoPrev()}
+          style={{ padding: 4, opacity: (showYearPicker ? yearPage === 0 : !canGoPrev()) ? 0.3 : 1 }}
         >
           <Ionicons name="chevron-back" size={20} color={subtextColor} />
         </TouchableOpacity>
-        <Text style={{ color: textColor, fontWeight: '600', fontSize: 15 }}>
-          {MONTHS[viewMonth]} {viewYear}
-        </Text>
-        <TouchableOpacity onPress={nextMonth} style={{ padding: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {!showYearPicker && (
+            <Text style={{ color: textColor, fontWeight: '600', fontSize: 15 }}>
+              {MONTHS[viewMonth]}
+            </Text>
+          )}
+          <TouchableOpacity
+            onPress={() => {
+              if (!showYearPicker) {
+                const page = Math.floor((viewYear - minYear) / YEARS_PER_PAGE);
+                setYearPage(page);
+              }
+              setShowYearPicker(v => !v);
+            }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: showYearPicker ? '#00C870' : (isDarkMode ? '#243447' : '#F3F4F6'),
+              borderRadius: 8,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              gap: 3,
+            }}
+          >
+            {showYearPicker ? (
+              <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 15 }}>
+                {yearPageStart}–{yearPageEnd}
+              </Text>
+            ) : (
+              <Text style={{ color: textColor, fontWeight: '700', fontSize: 15 }}>
+                {viewYear}
+              </Text>
+            )}
+            <Ionicons
+              name={showYearPicker ? 'chevron-up' : 'chevron-down'}
+              size={13}
+              color={showYearPicker ? '#ffffff' : subtextColor}
+            />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          onPress={showYearPicker ? () => setYearPage(p => p + 1) : nextMonth}
+          disabled={showYearPicker ? yearPage >= totalYearPages - 1 : !canGoNext()}
+          style={{ padding: 4, opacity: (showYearPicker ? yearPage >= totalYearPages - 1 : !canGoNext()) ? 0.3 : 1 }}
+        >
           <Ionicons name="chevron-forward" size={20} color={subtextColor} />
         </TouchableOpacity>
       </View>
 
-      {/* Day headers */}
-      <View style={{ flexDirection: 'row', marginBottom: 4 }}>
-        {DAYS.map(d => (
-          <View key={d} style={{ flex: 1, alignItems: 'center', paddingVertical: 4 }}>
-            <Text style={{ color: subtextColor, fontSize: 12, fontWeight: '500' }}>{d}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Calendar grid */}
-      {Array.from({ length: cells.length / 7 }, (_, row) => (
-        <View key={row} style={{ flexDirection: 'row', marginBottom: 2 }}>
-          {cells.slice(row * 7, row * 7 + 7).map((day, col) => {
-            const key = `${row}-${col}`;
-            if (!day) return <View key={key} style={{ flex: 1 }} />;
-            const selected_ = isSelected(day);
-            const today_ = isToday(day);
-            const disabled = isDisabled(day);
+      {/* Year picker — replaces calendar grid */}
+      {showYearPicker ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', minHeight: 44 * 4 }}>
+          {yearPageYears.map(year => {
+            const isActive = year === viewYear;
             return (
               <TouchableOpacity
-                key={key}
-                onPress={() => handleSelect(day)}
-                disabled={disabled}
+                key={year}
+                onPress={() => { setViewYear(year); setShowYearPicker(false); }}
                 style={{
-                  flex: 1,
+                  width: '25%',
+                  height: 44,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  height: 36,
-                  margin: 1,
-                  borderRadius: 18,
-                  backgroundColor: selected_ ? '#00C870' : 'transparent',
-                  borderWidth: today_ && !selected_ ? 1.5 : 0,
-                  borderColor: '#00C870',
-                  opacity: disabled ? 0.3 : 1,
+                  borderRadius: 10,
+                  backgroundColor: isActive ? '#00C870' : 'transparent',
                 }}
               >
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: selected_ ? '700' : '400',
-                    color: selected_ ? '#ffffff' : today_ ? '#00C870' : textColor,
-                  }}
-                >
-                  {day}
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: isActive ? '700' : '400',
+                  color: isActive ? '#ffffff' : textColor,
+                }}>
+                  {year}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </View>
-      ))}
+      ) : (
+        <>
+          {/* Day headers */}
+          <View style={{ flexDirection: 'row', marginBottom: 4 }}>
+            {DAYS.map(d => (
+              <View key={d} style={{ flex: 1, alignItems: 'center', paddingVertical: 4 }}>
+                <Text style={{ color: subtextColor, fontSize: 12, fontWeight: '500' }}>{d}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Calendar grid */}
+          {Array.from({ length: cells.length / 7 }, (_, row) => (
+            <View key={row} style={{ flexDirection: 'row', marginBottom: 2 }}>
+              {cells.slice(row * 7, row * 7 + 7).map((day, col) => {
+                const key = `${row}-${col}`;
+                if (!day) return <View key={key} style={{ flex: 1 }} />;
+                const selected_ = isSelected(day);
+                const today_ = isToday(day);
+                const disabled = isDisabled(day);
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    onPress={() => handleSelect(day)}
+                    disabled={disabled}
+                    style={{
+                      flex: 1,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: 36,
+                      margin: 1,
+                      borderRadius: 18,
+                      backgroundColor: selected_ ? '#00C870' : 'transparent',
+                      borderWidth: today_ && !selected_ ? 1.5 : 0,
+                      borderColor: '#00C870',
+                      opacity: disabled ? 0.3 : 1,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: selected_ ? '700' : '400',
+                        color: selected_ ? '#ffffff' : today_ ? '#00C870' : textColor,
+                      }}
+                    >
+                      {day}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
+        </>
+      )}
 
       {/* Actions */}
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>

@@ -1,7 +1,7 @@
 import { apiFetch } from './http';
 
 type LoginPayload = {
-  email: string;
+  identifier: string;
   password: string;
 };
 
@@ -76,4 +76,83 @@ export async function loginWithEmailPassword(payload: LoginPayload) {
   }
 
   return { accessToken, refreshToken };
+}
+
+export type RegisterPayload = {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  userName: string;
+  phone: string;
+  dateOfBirth: string; // ISO 8601, e.g. "1995-06-15T00:00:00.000Z"
+};
+
+type RegisterApiResponse = {
+  message?: string;
+  detail?: string;
+  [key: string]: unknown;
+};
+
+export async function registerUser(payload: RegisterPayload): Promise<void> {
+  const url = `${getApiBaseUrl()}/auth/register`;
+
+  const response = await apiFetch(url, {
+    method: 'POST',
+    headers: {
+      Accept: '*/*',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const raw = await response.text();
+  let body: RegisterApiResponse = {};
+  try { body = JSON.parse(raw); } catch { /* ignore */ }
+
+  if (!response.ok) {
+    throw new Error(body.message || body.detail || 'Registration failed. Please try again.');
+  }
+}
+
+export async function confirmEmail(email: string, code: string): Promise<void> {
+  const url = `${getApiBaseUrl()}/auth/confirm-email`;
+
+  const response = await apiFetch(url, {
+    method: 'POST',
+    headers: {
+      Accept: '*/*',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, code }),
+  });
+
+  const raw = await response.text();
+  let body: { message?: string; detail?: string } = {};
+  try { body = JSON.parse(raw); } catch { /* ignore */ }
+
+  if (!response.ok) {
+    throw new Error(body.message || body.detail || 'Email verification failed. Please try again.');
+  }
+}
+
+export async function resendConfirmation(email: string): Promise<void> {
+  const url = `${getApiBaseUrl()}/auth/resend-confirmation`;
+
+  const response = await apiFetch(url, {
+    method: 'POST',
+    headers: {
+      Accept: '*/*',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  const raw = await response.text();
+  let body: { message?: string; detail?: string } = {};
+  try { body = JSON.parse(raw); } catch { /* ignore */ }
+
+  if (!response.ok) {
+    throw new Error(body.message || body.detail || 'Failed to resend confirmation code. Please try again.');
+  }
 }

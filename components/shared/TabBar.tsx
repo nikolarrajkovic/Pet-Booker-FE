@@ -10,7 +10,7 @@ export default function TabBar() {
   const route = useRoute();
   const currentRoute = route.name;
   const { isDarkMode } = useTheme();
-  const { isPartner } = useAuth();
+  const { isPartner, isAdmin } = useAuth();
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
   const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-200';
@@ -66,6 +66,24 @@ export default function TabBar() {
           />
           <Text className={`text-xs mt-1 ${currentRoute === 'PartnerHub' ? 'text-brand-500 font-semibold' : inactiveTextColor}`}>
             Partner
+          </Text>
+        </TouchableOpacity>
+        )}
+
+        {/* Admin — only for admins */}
+        {isAdmin && (
+        <TouchableOpacity
+          className="items-center py-2 px-4"
+          activeOpacity={0.8}
+          onPress={() => (navigation as any).navigate('AdminDashboard')}
+        >
+          <Ionicons 
+            name="shield-checkmark-outline" 
+            size={24} 
+            color={currentRoute === 'AdminDashboard' ? '#00C870' : inactiveColor} 
+          />
+          <Text className={`text-xs mt-1 ${currentRoute === 'AdminDashboard' ? 'text-brand-500 font-semibold' : inactiveTextColor}`}>
+            Admin
           </Text>
         </TouchableOpacity>
         )}

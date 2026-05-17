@@ -10,6 +10,7 @@ type AuthContextType = {
   isLoggedIn: boolean;
   isLoading: boolean;
   isPartner: boolean;
+  isAdmin: boolean;
   signIn: (accessToken: string, refreshToken?: string) => Promise<void>;
   signInWithCredentials: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -23,6 +24,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   // TODO: fetch partner status from backend after login
   const [isPartner, setIsPartner] = useState(true);
+  // TODO: fetch admin status from backend after login
+  const [isAdmin, setIsAdmin] = useState(true);
 
   const [, googleResponse, googlePromptAsync] = Google.useAuthRequest({
     androidClientId: 'YOUR_ANDROID_CLIENT_ID',
@@ -58,8 +61,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoggedIn(true);
   };
 
-  const signInWithCredentials = async (email: string, password: string) => {
-    const { accessToken, refreshToken } = await loginWithEmailPassword({ email, password });
+  const signInWithCredentials = async (identifier: string, password: string) => {
+    const { accessToken, refreshToken } = await loginWithEmailPassword({ identifier, password });
     await signIn(accessToken, refreshToken ?? undefined);
   };
 
@@ -74,7 +77,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ isLoggedIn, isLoading, isPartner, signIn, signInWithCredentials, signOut, signInWithGoogle }}
+      value={{ isLoggedIn, isLoading, isPartner, isAdmin, signIn, signInWithCredentials, signOut, signInWithGoogle }}
     >
       {children}
     </AuthContext.Provider>

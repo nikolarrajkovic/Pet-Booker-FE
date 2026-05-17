@@ -30,7 +30,14 @@ import NotificationsScreen from './screens/notifications-screen/containers/Notif
 import NewRequestsScreen from './screens/new-requests-screen/containers/NewRequestsScreen';
 import PartnerHubScreen from './screens/partner-hub-screen/containers/PartnerHubScreen';
 import PromotionsScreen from './screens/promotions-screen/containers/PromotionsScreen';
+import AdminDashboardScreen from './screens/admin-dashboard-screen/containers/AdminDashboardScreen';
+import AdminNewRequestsScreen from './screens/admin-new-requests-screen/containers/AdminNewRequestsScreen';
+import ApplicationReviewScreen from './screens/admin-new-requests-screen/containers/ApplicationReviewScreen';
+import AdminPartnersScreen from './screens/admin-partners-screen/containers/AdminPartnersScreen';
+import PartnerDetailsScreen from './screens/admin-partners-screen/containers/PartnerDetailsScreen';
 import LoginScreen from './screens/login-screen/containers/LoginScreen';
+import RegisterScreen from './screens/register-screen/containers/RegisterScreen';
+import VerifyEmailScreen from './screens/verify-email-screen/containers/VerifyEmailScreen';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -79,9 +86,17 @@ function AppContent() {
               <Stack.Screen name="Notifications" component={NotificationsScreen} />
               <Stack.Screen name="NewRequests" component={NewRequestsScreen} />
               <Stack.Screen name="Promotions" component={PromotionsScreen} />
+              <Stack.Screen name="AdminNewRequests" component={AdminNewRequestsScreen} />
+              <Stack.Screen name="ApplicationReview" component={ApplicationReviewScreen} />
+              <Stack.Screen name="AdminPartners" component={AdminPartnersScreen} />
+              <Stack.Screen name="PartnerDetails" component={PartnerDetailsScreen} />
             </>
           ) : (
-            <Stack.Screen name="Login" component={LoginScreen} />
+            <>
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="Register" component={RegisterScreen} />
+              <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+            </>
           )}
         </Stack.Navigator>
       </NavigationContainer>
@@ -109,6 +124,7 @@ function MainTabs() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen name="PartnerHub" component={PartnerHubScreen} />
+      <Tab.Screen name="AdminDashboard" component={AdminDashboardScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
