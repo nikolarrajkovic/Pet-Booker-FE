@@ -83,12 +83,14 @@ export type PetResponse = {
   photoUrl: string;
   isActive: boolean;
   photos: Array<{
-    id: string;
+    id: number;
     name: string;
     src: string;
     alt: string;
     contentType: number;
     uploadedAt: string;
+    fileUploadId: number;
+    isSelected: boolean;
   }>;
 };
 
@@ -198,6 +200,138 @@ export async function createPet(input: CreatePetInput): Promise<void> {
       if (text) message = text;
     }
     console.error('[createPet] error', response.status, text);
+    throw new Error(message);
+  }
+}
+
+export type UpdatePetInput = CreatePetInput & {
+  petId: string;
+  originalPhotos?: PetResponse['photos'];
+};
+
+export async function updatePet(input: UpdatePetInput): Promise<void> {
+  const base = getApiBaseUrl();
+  const url = `${base}/api/pets/${input.petId}`;
+
+  // Strip the app base URL from a resolved URI to get the relative path the backend stores
+  const toRelative = (uri: string) =>
+    uri.startsWith(base) ? uri.slice(base.length) : uri;
+
+  // Separate already-uploaded photos (HTTP URLs) from new local photos
+  const existingPhotos = input.petPhotos.filter(({ uri }) =>
+    uri.startsWith('http://') || uri.startsWith('https://')
+  );
+  const newPhotos = input.petPhotos.filter(
+    ({ uri }) => !uri.startsWith('http://') && !uri.startsWith('https://')
+  );
+
+  const uploadedPhotos = newPhotos.length
+    ? await uploadFilesBulk(newPhotos.map(({ uri, fileName }) => ({ uri, fileName })))
+    : [];
+
+  const existingPhotoEntries = existingPhotos.map((p) => {
+    const relativeSrc = toRelative(p.uri);
+    const original = input.originalPhotos?.find((op) => op.src === relativeSrc);
+    return {
+      id: original?.id ?? 0,
+      alt: original?.alt ?? '',
+      name: original?.name ?? '',
+      src: relativeSrc,
+      contentType: original?.contentType ?? 0,
+      fileUploadId: original?.fileUploadId ?? 0,
+      isSelected: original?.isSelected ?? false,
+    };
+  });
+
+  const newPhotoEntries = uploadedPhotos.map((photo, index) => ({
+    id: 0,
+    alt: photo.originalName,
+    name: photo.originalName,
+    src: photo.src,
+    contentType: mapContentType(photo.contentType),
+    fileUploadId: photo.id,
+    isSelected: index === 0,
+  }));
+
+  const allPhotos = [...existingPhotoEntries, ...newPhotoEntries];
+  // Mark first photo as selected
+  if (allPhotos.length > 0) allPhotos[0].isSelected = true;
+
+  const firstSrc = allPhotos[0]?.src ?? '';
+
+  const body = {
+    ownerUserId: input.ownerUserId,
+    name: input.petName,
+    type: mapPetType(input.petType),
+    breed: input.breed,
+    sex: mapSex(input.sex),
+    dateOfBirth: input.birthDate ? formatDateOnly(input.birthDate) : null,
+    weightKg: toKg(input.weight, input.weightUnit),
+    heightCm: toCm(input.height, input.heightUnit),
+    dietaryNotes: input.dietaryNotes,
+    favoriteFood: input.favoriteFood,
+    additionalNotes: input.additionalNotes,
+    photoUrl: firstSrc,
+    isActive: true,
+    photos: allPhotos,
+  };
+
+  console.log('[updatePet] body', JSON.stringify(body, null, 2));
+
+  const response = await apiAuthFetch(url, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    let message = 'Failed to save pet.';
+    try {
+      const json = JSON.parse(text);
+      if (json.errors) {
+        const fields = Object.entries(json.errors as Record<string, string[]>)
+          .map(([field, msgs]) => `${field}: ${msgs.join(', ')}`)
+          .join(' | ');
+        message = fields || json.title || message;
+      } else {
+        message = json.message ?? json.detail ?? json.title ?? message;
+      }
+    } catch {
+      if (text && !text.trim().startsWith('{') && !text.trim().startsWith('[')) {
+        message = text;
+      }
+    }
+    console.error('[updatePet] error', response.status, text);
+    throw new Error(message);
+  }
+}
+
+export async function deletePet(petId: string): Promise<void> {
+  const url = `${getApiBaseUrl()}/api/pets/${petId}`;
+
+  const response = await apiAuthFetch(url, { method: 'DELETE' });
+
+  if (!response.ok) {
+    const text = await response.text();
+    let message = 'Failed to delete pet.';
+    try {
+      const json = JSON.parse(text);
+      if (json.errors) {
+        // ASP.NET validation errors: { errors: { Field: ["msg"] } }
+        const fields = Object.values(json.errors as Record<string, string[]>)
+          .flat()
+          .join(' ');
+        message = fields || json.title || message;
+      } else {
+        message = json.message ?? json.detail ?? json.title ?? message;
+      }
+    } catch {
+      // plain text response — use as-is only if it looks human-readable
+      if (text && !text.trim().startsWith('{') && !text.trim().startsWith('[')) {
+        message = text;
+      }
+    }
+    console.error('[deletePet] error', response.status, text);
     throw new Error(message);
   }
 }

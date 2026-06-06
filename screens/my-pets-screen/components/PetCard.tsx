@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Pet {
@@ -22,6 +22,7 @@ interface PetCardProps {
   borderColor: string;
   onEdit: () => void;
   onDelete: () => void;
+  isDeleting?: boolean;
 }
 
 export default function PetCard({
@@ -33,6 +34,7 @@ export default function PetCard({
   borderColor,
   onEdit,
   onDelete,
+  isDeleting = false,
 }: PetCardProps) {
   return (
     <View className={`${cardBg} rounded-2xl p-4 mb-4 border ${borderColor} flex-row`}>
@@ -56,8 +58,10 @@ export default function PetCard({
         <TouchableOpacity onPress={onEdit} className="mb-3">
           <Ionicons name="pencil" size={20} color="#00C870" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={onDelete}>
-          <Ionicons name="trash-outline" size={20} color="#EF4444" />
+        <TouchableOpacity onPress={onDelete} disabled={isDeleting}>
+          {isDeleting
+            ? <ActivityIndicator size="small" color="#EF4444" />
+            : <Ionicons name="trash-outline" size={20} color="#EF4444" />}
         </TouchableOpacity>
       </View>
     </View>

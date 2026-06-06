@@ -8,12 +8,12 @@ import { useTheme } from '../../../context/ThemeContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PetPhotoUploader, PetTypeSelector, SexSelector } from '../components';
 import DatePicker from '../../../components/shared/DatePicker';
-import { createPet } from '../../../services/pets';
+import { createPet, updatePet } from '../../../services/pets';
 import { useAuth } from '../../../context/AuthContext';
 
 type AddPetRouteParams = {
   pet?: {
-    id: number;
+    id: string;
     name: string;
     type?: string;
     breed: string;
@@ -25,6 +25,16 @@ type AddPetRouteParams = {
     favoriteFood?: string;
     additionalNotes?: string;
     image: string | null;
+    photos?: Array<{
+      id: number;
+      src: string;
+      alt: string;
+      name: string;
+      fileUploadId: number;
+      isSelected: boolean;
+      contentType: number;
+      uploadedAt: string;
+    }>;
   };
 };
 
@@ -79,7 +89,18 @@ export default function AddPetScreen() {
   const inputText = isDarkMode ? 'text-white' : 'text-gray-900';
   const placeholderColor = isDarkMode ? '#6B7280' : undefined;
 
-  const [petPhotos, setPetPhotos] = useState<Array<{ uri: string; fileName?: string }>>(existingPet?.image ? [{ uri: existingPet.image }] : []);
+  const [petPhotos, setPetPhotos] = useState<Array<{ uri: string; fileName?: string }>>(() => {
+    if (existingPet?.photos?.length) {
+      const base = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? '';
+      return existingPet.photos.map((p) => ({
+        uri: p.src.startsWith('http://') || p.src.startsWith('https://')
+          ? p.src
+          : `${base}${p.src.startsWith('/') ? '' : '/'}${p.src}`,
+        fileName: p.name,
+      }));
+    }
+    return existingPet?.image ? [{ uri: existingPet.image }] : [];
+  });
   const [petName, setPetName] = useState(existingPet?.name || '');
   const [petType, setPetType] = useState(existingPet?.type || '');
   const [breed, setBreed] = useState(existingPet?.breed || '');
@@ -248,7 +269,7 @@ export default function AddPetScreen() {
           onPress={async () => {
             setIsSubmitting(true);
             try {
-              await createPet({
+              const input = {
                 ownerUserId: currentUser?.id ?? 0,
                 petName,
                 petType,
@@ -263,8 +284,13 @@ export default function AddPetScreen() {
                 favoriteFood,
                 additionalNotes,
                 petPhotos,
-              });
-              navigation.goBack();
+              };
+              if (existingPet?.id) {
+                await updatePet({ ...input, petId: existingPet.id, originalPhotos: existingPet.photos });
+              } else {
+                await createPet(input);
+              }
+              (navigation as any).navigate('MyPets', { refreshKey: Date.now() });
             } catch (error: any) {
               Alert.alert('Error', error?.message ?? 'Something went wrong. Please try again.');
             } finally {

@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PetCard } from '../components';
-import { getPets, PetResponse } from '../../../services/pets';
+import { getPets, deletePet, PetResponse } from '../../../services/pets';
+import ActionPopup from '../../../components/shared/ActionPopup';
 
 function mapSexLabel(sex: number): string {
   if (sex === 1) return 'Male';
@@ -54,12 +55,20 @@ function toPetCardShape(p: PetResponse) {
 
 export default function MyPetsScreen() {
   const navigation = useNavigation();
+  const route = useRoute<any>();
   const { isDarkMode } = useTheme();
   const { currentUser } = useAuth();
 
   const [pets, setPets] = useState<PetResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDeletePet, setPendingDeletePet] = useState<PetResponse | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Tracks the last refreshKey we fetched for — re-fetch only when it changes
+  const prevRefreshKeyRef = useRef<number | undefined>(undefined);
+  const hasFetchedOnceRef = useRef(false);
 
   const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
@@ -67,26 +76,57 @@ export default function MyPetsScreen() {
   const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
   const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-100';
 
-  useEffect(() => {
-    if (!currentUser) return;
-    let cancelled = false;
+  useFocusEffect(
+    useCallback(() => {
+      if (!currentUser) return;
 
-    const load = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const data = await getPets(currentUser.id);
-        if (!cancelled) setPets(data);
-      } catch (err: any) {
-        if (!cancelled) setError(err?.message ?? 'Failed to load pets.');
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
+      const refreshKey: number | undefined = (route.params as any)?.refreshKey;
+      const needsFetch = !hasFetchedOnceRef.current || refreshKey !== prevRefreshKeyRef.current;
 
-    load();
-    return () => { cancelled = true; };
-  }, [currentUser]);
+      if (!needsFetch) return;
+
+      let cancelled = false;
+
+      const load = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const data = await getPets(currentUser.id);
+          if (!cancelled) {
+            setPets(data);
+            hasFetchedOnceRef.current = true;
+            prevRefreshKeyRef.current = refreshKey;
+          }
+        } catch (err: any) {
+          if (!cancelled) setError(err?.message ?? 'Failed to load pets.');
+        } finally {
+          if (!cancelled) setIsLoading(false);
+        }
+      };
+
+      load();
+      return () => { cancelled = true; };
+    }, [currentUser, route.params]),
+  );
+
+  const handleDelete = (pet: PetResponse) => {
+    setPendingDeletePet(pet);
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDeletePet) return;
+    const pet = pendingDeletePet;
+    setPendingDeletePet(null);
+    setDeletingId(pet.id);
+    try {
+      await deletePet(pet.id);
+      setPets((prev) => prev.filter((p) => p.id !== pet.id));
+    } catch (err: any) {
+      setDeleteError(err?.message ?? 'Failed to delete pet. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <ScreenLayout
@@ -128,13 +168,33 @@ export default function MyPetsScreen() {
                   dietaryNotes: pet.dietaryNotes ?? '',
                   favoriteFood: pet.favoriteFood ?? '',
                   additionalNotes: pet.additionalNotes ?? '',
+                  photos: pet.photos,
                 },
               })}
-              onDelete={() => {}}
+              onDelete={() => handleDelete(pet)}
+              isDeleting={deletingId === pet.id}
             />
           ))
         )}
       </ScrollView>
+
+      <ActionPopup
+        visible={!!pendingDeletePet}
+        mode="error"
+        text={`Are you sure you want to delete ${pendingDeletePet?.name ?? 'this pet'}? This action cannot be undone.`}
+        buttonText="Delete"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDeletePet(null)}
+      />
+
+      <ActionPopup
+        visible={!!deleteError}
+        mode="error"
+        text={deleteError ?? ''}
+        buttonText="OK"
+        onConfirm={() => setDeleteError(null)}
+        onCancel={() => setDeleteError(null)}
+      />
     </ScreenLayout>
   );
 }
