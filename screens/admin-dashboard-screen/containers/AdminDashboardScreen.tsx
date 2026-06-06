@@ -264,13 +264,13 @@ export default function AdminDashboardScreen() {
             <Text style={{ color: sectionTitle, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>
               Quick Actions
             </Text>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
               {/* New Requests */}
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('AdminNewRequests')}
                 style={{
-                  flex: 1,
+                  width: '47.5%',
                   backgroundColor: cardBg,
                   borderRadius: 16,
                   padding: 16,
@@ -315,7 +315,7 @@ export default function AdminDashboardScreen() {
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('AdminPartners')}
                 style={{
-                  flex: 1,
+                  width: '47.5%',
                   backgroundColor: cardBg,
                   borderRadius: 16,
                   padding: 16,
@@ -353,6 +353,38 @@ export default function AdminDashboardScreen() {
                 </View>
                 <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>Partners</Text>
                 <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>Manage partners</Text>
+              </TouchableOpacity>
+
+              {/* Add New */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('AdminAddPartner')}
+                style={{
+                  width: '47.5%',
+                  backgroundColor: cardBg,
+                  borderRadius: 16,
+                  padding: 16,
+                  borderWidth: 1,
+                  borderColor,
+                  alignItems: 'flex-start',
+                }}
+              >
+                <View style={{ marginBottom: 12 }}>
+                  <View
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 14,
+                      backgroundColor: '#EEF2FF',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Ionicons name="person-add-outline" size={24} color="#6366F1" />
+                  </View>
+                </View>
+                <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>Add New</Text>
+                <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>Add partner manually</Text>
               </TouchableOpacity>
             </View>
           </View>
