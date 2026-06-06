@@ -35,11 +35,13 @@ import AdminNewRequestsScreen from './screens/admin-new-requests-screen/containe
 import ApplicationReviewScreen from './screens/admin-new-requests-screen/containers/ApplicationReviewScreen';
 import AdminPartnersScreen from './screens/admin-partners-screen/containers/AdminPartnersScreen';
 import PartnerDetailsScreen from './screens/admin-partners-screen/containers/PartnerDetailsScreen';
+import AdminAddPartnerScreen from './screens/admin-add-partner-screen/containers/AdminAddPartnerScreen';
 import LoginScreen from './screens/login-screen/containers/LoginScreen';
 import RegisterScreen from './screens/register-screen/containers/RegisterScreen';
 import VerifyEmailScreen from './screens/verify-email-screen/containers/VerifyEmailScreen';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { EnumsProvider } from './context/EnumsContext';
 import { Ionicons } from '@expo/vector-icons';
 import { enableScreens } from 'react-native-screens';
 
@@ -90,6 +92,7 @@ function AppContent() {
               <Stack.Screen name="ApplicationReview" component={ApplicationReviewScreen} />
               <Stack.Screen name="AdminPartners" component={AdminPartnersScreen} />
               <Stack.Screen name="PartnerDetails" component={PartnerDetailsScreen} />
+              <Stack.Screen name="AdminAddPartner" component={AdminAddPartnerScreen} />
             </>
           ) : (
             <>
@@ -134,7 +137,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppContent />
+        <EnumsProvider>
+          <AppContent />
+        </EnumsProvider>
       </AuthProvider>
     </ThemeProvider>
   );

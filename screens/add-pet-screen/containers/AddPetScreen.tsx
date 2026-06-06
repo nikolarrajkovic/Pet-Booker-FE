@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, TextInput, Image, Alert } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, TextInput, Image, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -7,16 +7,23 @@ import * as Location from 'expo-location';
 import { useTheme } from '../../../context/ThemeContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PetPhotoUploader, PetTypeSelector, SexSelector } from '../components';
+import DatePicker from '../../../components/shared/DatePicker';
+import { createPet } from '../../../services/pets';
+import { useAuth } from '../../../context/AuthContext';
 
 type AddPetRouteParams = {
   pet?: {
     id: number;
     name: string;
+    type?: string;
     breed: string;
     sex: string;
-    age: string;
+    dateOfBirth?: string;
     weight: string;
     height: string;
+    dietaryNotes?: string;
+    favoriteFood?: string;
+    additionalNotes?: string;
     image: string | null;
   };
 };
@@ -26,6 +33,7 @@ export default function AddPetScreen() {
   const route = useRoute<RouteProp<{ params: AddPetRouteParams }, 'params'>>();
   const existingPet = route.params?.pet;
   const { isDarkMode } = useTheme();
+  const { currentUser } = useAuth();
 
   const [isMetric, setIsMetric] = useState(true);
   const [weightUnit, setWeightUnit] = useState('kg');
@@ -71,17 +79,21 @@ export default function AddPetScreen() {
   const inputText = isDarkMode ? 'text-white' : 'text-gray-900';
   const placeholderColor = isDarkMode ? '#6B7280' : undefined;
 
-  const [petPhotos, setPetPhotos] = useState<string[]>(existingPet?.image ? [existingPet.image] : []);
+  const [petPhotos, setPetPhotos] = useState<Array<{ uri: string; fileName?: string }>>(existingPet?.image ? [{ uri: existingPet.image }] : []);
   const [petName, setPetName] = useState(existingPet?.name || '');
-  const [petType, setPetType] = useState('');
+  const [petType, setPetType] = useState(existingPet?.type || '');
   const [breed, setBreed] = useState(existingPet?.breed || '');
   const [sex, setSex] = useState(existingPet?.sex || '');
-  const [age, setAge] = useState(existingPet?.age || '');
+  const [birthDate, setBirthDate] = useState<Date | null>(
+    existingPet?.dateOfBirth ? new Date(existingPet.dateOfBirth) : null
+  );
+  const [showBirthDatePicker, setShowBirthDatePicker] = useState(false);
   const [weight, setWeight] = useState(existingPet?.weight || '');
   const [height, setHeight] = useState(existingPet?.height || '');
-  const [dietaryNotes, setDietaryNotes] = useState('');
-  const [favoriteFood, setFavoriteFood] = useState('');
-  const [additionalNotes, setAdditionalNotes] = useState('');
+  const [dietaryNotes, setDietaryNotes] = useState(existingPet?.dietaryNotes || '');
+  const [favoriteFood, setFavoriteFood] = useState(existingPet?.favoriteFood || '');
+  const [additionalNotes, setAdditionalNotes] = useState(existingPet?.additionalNotes || '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -96,10 +108,16 @@ export default function AddPetScreen() {
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
-      setPetPhotos([...petPhotos, result.assets[0].uri]);
+      const asset = result.assets[0];
+      const uri =
+        asset.base64
+          ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
+          : asset.uri;
+      setPetPhotos([...petPhotos, { uri, fileName: asset.fileName ?? undefined }]);
     }
   };
 
@@ -118,7 +136,7 @@ export default function AddPetScreen() {
 
       <ScrollView className="flex-1" contentContainerStyle={{ paddingTop: 24, paddingBottom: 100, paddingHorizontal: 24 }}>
         <PetPhotoUploader
-          photos={petPhotos}
+          photos={petPhotos.map((p) => p.uri)}
           isDarkMode={isDarkMode}
           textColor={textColor}
           onPickImage={pickImage}
@@ -155,12 +173,44 @@ export default function AddPetScreen() {
           inputBg={inputBg}
         />
 
-        {/* Age, Weight, Height */}
+        {/* Birth Date */}
+        <View className="mb-4">
+          <Text className={`text-sm font-semibold ${textColor} mb-2`}>Birth Date</Text>
+          <TouchableOpacity
+            onPress={() => setShowBirthDatePicker(v => !v)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderRadius: 12,
+              paddingHorizontal: 16,
+              paddingVertical: 13,
+            }}
+            className={`${inputBg}`}
+          >
+            <Ionicons name="calendar-outline" size={20} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+            <Text style={{ marginLeft: 10, fontSize: 15, color: birthDate ? (isDarkMode ? '#ffffff' : '#111827') : (isDarkMode ? '#6B7280' : '#9CA3AF'), flex: 1 }}>
+              {birthDate
+                ? birthDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+                : 'Select birth date'}
+            </Text>
+            <Ionicons name={showBirthDatePicker ? 'chevron-up' : 'chevron-down'} size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+          </TouchableOpacity>
+          {showBirthDatePicker && (
+            <DatePicker
+              value={birthDate ?? new Date()}
+              maxDate={new Date()}
+              isDarkMode={isDarkMode}
+              onChange={(date) => {
+                setBirthDate(date);
+                setShowBirthDatePicker(false);
+              }}
+              onClose={() => setShowBirthDatePicker(false)}
+            />
+          )}
+        </View>
+
+        {/* Weight, Height */}
         <View className="flex-row mb-4 gap-3">
-          <View className="flex-1">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>Age</Text>
-            <TextInput placeholder="e.g. 3 years" placeholderTextColor={placeholderColor} value={age} onChangeText={setAge} className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`} />
-          </View>
           <View className="flex-1">
             <Text className={`text-sm font-semibold ${textColor} mb-2`}>Weight ({weightUnit})</Text>
             <TextInput placeholder={`e.g. ${isMetric ? '20' : '50'}`} placeholderTextColor={placeholderColor} value={weight} onChangeText={setWeight} keyboardType="numeric" className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`} />
@@ -192,8 +242,42 @@ export default function AddPetScreen() {
 
       {/* Save Button */}
       <View className={`absolute bottom-0 left-0 right-0 ${cardBg} border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-200'} px-6 py-4`}>
-        <TouchableOpacity onPress={() => navigation.goBack()} className="bg-brand-500 py-4 rounded-2xl items-center">
-          <Text className="text-white text-lg font-bold">Save Pet</Text>
+        <TouchableOpacity
+          disabled={isSubmitting}
+          style={{ opacity: isSubmitting ? 0.7 : 1 }}
+          onPress={async () => {
+            setIsSubmitting(true);
+            try {
+              await createPet({
+                ownerUserId: currentUser?.id ?? 0,
+                petName,
+                petType,
+                breed,
+                sex,
+                birthDate,
+                weight,
+                weightUnit,
+                height,
+                heightUnit,
+                dietaryNotes,
+                favoriteFood,
+                additionalNotes,
+                petPhotos,
+              });
+              navigation.goBack();
+            } catch (error: any) {
+              Alert.alert('Error', error?.message ?? 'Something went wrong. Please try again.');
+            } finally {
+              setIsSubmitting(false);
+            }
+          }}
+          className="bg-brand-500 py-4 rounded-2xl items-center"
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text className="text-white text-lg font-bold">Save Pet</Text>
+          )}
         </TouchableOpacity>
       </View>
     </ScreenLayout>

@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Pet {
-  id: number;
+  id: string;
   name: string;
   breed: string;
   sex: string;

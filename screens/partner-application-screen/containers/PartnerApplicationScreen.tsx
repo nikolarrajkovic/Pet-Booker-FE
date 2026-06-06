@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Alert } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../../context/ThemeContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PersonalInfoStep, ServiceInfoStep, DocumentsStep } from '../components';
+import { createServiceProvider } from '../../../services/service-providers';
 
 export default function PartnerApplicationScreen() {
   const navigation = useNavigation();
   const { isDarkMode } = useTheme();
 
   const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [governmentId, setGovernmentId] = useState<string | null>(null);
   const [insuranceCert, setInsuranceCert] = useState<string | null>(null);
@@ -44,10 +46,15 @@ export default function PartnerApplicationScreen() {
       allowsEditing: type === 'profile',
       aspect: type === 'profile' ? [1, 1] : undefined,
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
-      const uri = result.assets[0].uri;
+      const asset = result.assets[0];
+      const uri =
+        asset.base64
+          ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
+          : asset.uri;
       if (type === 'profile') setProfilePhoto(uri);
       else if (type === 'governmentId') setGovernmentId(uri);
       else setInsuranceCert(uri);
@@ -66,10 +73,15 @@ export default function PartnerApplicationScreen() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
       quality: 0.8,
+      base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
-      const uri = result.assets[0].uri;
+      const asset = result.assets[0];
+      const uri =
+        asset.base64
+          ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
+          : asset.uri;
       if (type === 'governmentId') setGovernmentId(uri);
       else setInsuranceCert(uri);
     }
@@ -139,18 +151,33 @@ export default function PartnerApplicationScreen() {
       {/* Fixed Bottom Button */}
       <View className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
         <TouchableOpacity
-          onPress={() => {
+          disabled={isSubmitting}
+          onPress={async () => {
             if (step < totalSteps) {
               setStep(step + 1);
-            } else {
+              return;
+            }
+
+            setIsSubmitting(true);
+            try {
+              await createServiceProvider(formData);
               (navigation as any).navigate('ApplicationSubmitted');
+            } catch (error: any) {
+              Alert.alert('Submission Failed', error?.message ?? 'Something went wrong. Please try again.');
+            } finally {
+              setIsSubmitting(false);
             }
           }}
           className="bg-brand-500 py-4 rounded-2xl items-center"
+          style={{ opacity: isSubmitting ? 0.7 : 1 }}
         >
-          <Text className="text-white text-lg font-bold">
-            {step === totalSteps ? 'Submit Application' : 'Continue'}
-          </Text>
+          {isSubmitting ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text className="text-white text-lg font-bold">
+              {step === totalSteps ? 'Submit Application' : 'Continue'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
     </ScreenLayout>

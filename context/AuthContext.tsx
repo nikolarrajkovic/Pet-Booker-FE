@@ -1,8 +1,9 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { loginWithEmailPassword } from '../services/auth';
+import { loginWithEmailPassword, getMe, CurrentUser } from '../services/auth';
 import { saveTokens, getAccessToken, clearTokens } from '../services/token-storage';
+import { registerSessionExpiredHandler } from '../services/http';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -11,6 +12,7 @@ type AuthContextType = {
   isLoading: boolean;
   isPartner: boolean;
   isAdmin: boolean;
+  currentUser: CurrentUser | null;
   signIn: (accessToken: string, refreshToken?: string) => Promise<void>;
   signInWithCredentials: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -22,10 +24,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  // TODO: fetch partner status from backend after login
-  const [isPartner, setIsPartner] = useState(true);
-  // TODO: fetch admin status from backend after login
-  const [isAdmin, setIsAdmin] = useState(true);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+
+  const isAdmin = currentUser?.roles.includes('Admin') ?? false;
+  const isPartner = currentUser?.roles.includes('Partner') ?? false;
 
   const [, googleResponse, googlePromptAsync] = Google.useAuthRequest({
     androidClientId: 'YOUR_ANDROID_CLIENT_ID',
@@ -37,14 +39,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const checkAuthStatus = async () => {
       try {
         const token = await getAccessToken();
-        setIsLoggedIn(!!token);
+        if (token) {
+          setIsLoggedIn(true);
+          const user = await getMe();
+          setCurrentUser(user);
+        }
       } catch {
         setIsLoggedIn(false);
+        setCurrentUser(null);
       } finally {
         setIsLoading(false);
       }
     };
     checkAuthStatus();
+  }, []);
+
+  // Register a handler so http.ts can trigger sign-out when a token refresh fails,
+  // without creating a circular import between services and context.
+  useEffect(() => {
+    registerSessionExpiredHandler(async () => {
+      await clearTokens();
+      setCurrentUser(null);
+      setIsLoggedIn(false);
+    });
   }, []);
 
   useEffect(() => {
@@ -58,6 +75,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (accessToken: string, refreshToken?: string) => {
     await saveTokens(accessToken, refreshToken);
+    const user = await getMe();
+    setCurrentUser(user);
     setIsLoggedIn(true);
   };
 
@@ -68,6 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     await clearTokens();
+    setCurrentUser(null);
     setIsLoggedIn(false);
   };
 
@@ -77,7 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ isLoggedIn, isLoading, isPartner, isAdmin, signIn, signInWithCredentials, signOut, signInWithGoogle }}
+      value={{ isLoggedIn, isLoading, isPartner, isAdmin, currentUser, signIn, signInWithCredentials, signOut, signInWithGoogle }}
     >
       {children}
     </AuthContext.Provider>

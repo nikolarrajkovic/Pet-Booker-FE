@@ -1,4 +1,15 @@
-import { apiFetch } from './http';
+import { apiFetch, apiAuthFetch } from './http';
+
+export type CurrentUser = {
+  id: number;
+  email: string;
+  emailConfirmed: boolean;
+  roles: string[];
+  groups: string[];
+  userName: string;
+  firstName: string;
+  lastName: string;
+};
 
 type LoginPayload = {
   identifier: string;
@@ -93,6 +104,46 @@ type RegisterApiResponse = {
   detail?: string;
   [key: string]: unknown;
 };
+
+export async function getMe(): Promise<CurrentUser> {
+  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '');
+  if (!baseUrl) throw new Error('EXPO_PUBLIC_API_BASE_URL is not set.');
+
+  const response = await apiAuthFetch(`${baseUrl}/auth/me`);
+
+  if (!response.ok) {
+    throw new Error('Failed to load user profile.');
+  }
+
+  return response.json() as Promise<CurrentUser>;
+}
+
+export async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken?: string }> {
+  const url = `${getApiBaseUrl()}/auth/refresh`;
+
+  const response = await apiFetch(url, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ refreshToken }),
+  });
+
+  const raw = await response.text();
+  const body = parseResponseBody(raw);
+
+  if (!response.ok) {
+    throw new Error(body.message || body.detail || 'Session expired. Please log in again.');
+  }
+
+  const accessToken = extractAccessToken(body);
+  if (!accessToken) {
+    throw new Error('Refresh response did not include an access token.');
+  }
+
+  return { accessToken, refreshToken: extractRefreshToken(body) ?? undefined };
+}
 
 export async function registerUser(payload: RegisterPayload): Promise<void> {
   const url = `${getApiBaseUrl()}/auth/register`;
