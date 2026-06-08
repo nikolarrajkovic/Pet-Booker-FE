@@ -123,6 +123,11 @@ export type CreatePetInput = {
 export async function createPet(input: CreatePetInput): Promise<void> {
   const url = `${getApiBaseUrl()}/api/pets`;
 
+  // The API requires at least one photo (422 "'Request Photos' must not be empty." otherwise)
+  if (!input.petPhotos.length) {
+    throw new Error('At least one pet photo is required.');
+  }
+
   // Upload all photos in a single bulk request
   const uploadedPhotos = input.petPhotos.length
     ? await uploadFilesBulk(input.petPhotos.map(({ uri, fileName }) => ({ uri, fileName })))
@@ -215,6 +220,12 @@ export async function updatePet(input: UpdatePetInput): Promise<void> {
   }));
 
   const allPhotos = [...existingPhotoEntries, ...newPhotoEntries];
+
+  // The API requires at least one photo (422 "'Request Photos' must not be empty." otherwise)
+  if (allPhotos.length === 0) {
+    throw new Error('At least one pet photo is required.');
+  }
+
   // Mark first photo as selected
   if (allPhotos.length > 0) allPhotos[0].isSelected = true;
 
