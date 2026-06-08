@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import DayView from '../components/DayView';
 import WeekView from '../components/WeekView';
 import MonthView from '../components/MonthView';
@@ -14,14 +14,13 @@ type ViewType = 'day' | 'week' | 'month';
 export default function MyScheduleScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, bgColor: contentBg } = useThemeColors();
   const [selectedView, setSelectedView] = useState<ViewType>('day');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 3, 4)); // April 4, 2026
 
   // Determine mode from navigation params; default to 'partner' for backward compat
   const mode: ScheduleMode = (route.params as any)?.mode ?? 'partner';
 
-  const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
 
   const handleDateSelect = (date: Date) => {

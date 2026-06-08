@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 
 interface PromotionTypeOption {
@@ -61,13 +61,9 @@ const PROMOTION_TYPES: PromotionTypeOption[] = [
 
 export default function CreatePromotionScreen() {
   const navigation = useNavigation();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
 
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-500';
-  const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-200';
 
   return (
     <ScreenLayout

@@ -1,4 +1,4 @@
-# PetBooker FE — Copilot Instructions
+# PetBooker FE — Claude Instructions
 
 ## Stack
 - React Native + Expo SDK 54 (Android, iOS, Web)
@@ -12,11 +12,11 @@
 
 ```
 services/           # All API calls and storage utilities
-  http.ts           # apiFetch + apiAuthFetch + registerSessionExpiredHandler
+  http.ts           # apiFetch + apiAuthFetch + getApiBaseUrl + parseApiError + registerSessionExpiredHandler
   auth.ts           # Auth endpoints including token refresh
   token-storage.ts  # Token persistence with TTL
   enums.ts          # Enum/lookup data
-  pets.ts           # Pet CRUD + bulk photo upload
+  pets.ts           # Pet CRUD (get/create/update/delete) + bulk photo upload
   files.ts          # File/image upload utilities
   service-providers.ts  # Partner application creation
 
@@ -26,15 +26,17 @@ context/
   ThemeContext.tsx  # isDarkMode, toggleDarkMode
 
 components/shared/  # Reusable UI — ALWAYS check here first before creating a new component
-components/         # One-off or screen-specific components
+components/         # One-off or screen-specific components (e.g. FilterModal)
 
 screens/<name>-screen/
   containers/   # Smart component: data fetching, state, navigation logic
   components/   # Dumb/presentational sub-components for that screen
 
-hooks/          # Custom hooks (useLocation)
+hooks/          # Custom hooks
+  useLocation.ts      # Geolocation + reverse geocode
+  useThemeColors.ts   # Single source of truth for the dark/light palette (see Styling System)
 assets/         # Images, fonts
-.github/        # copilot-instructions.md
+CLAUDE.md       # This file — primary AI context. (.github/copilot-instructions.md is a legacy copy for GitHub Copilot)
 ```
 
 ---
@@ -43,10 +45,19 @@ assets/         # Images, fonts
 
 - **`apiFetch(url, init?)`** — Unauthenticated. Use for public endpoints.
 - **`apiAuthFetch(url, init?)`** — Automatically attaches `Authorization: Bearer <token>`. Use for all authenticated endpoints. Silently refreshes the access token if expired before making the request.
+- **`getApiBaseUrl()`** — Returns `EXPO_PUBLIC_API_BASE_URL` with any trailing slash stripped (throws if unset). **Single source of truth** — every service builds URLs from this. Never re-implement it locally.
+- **`parseApiError(response, fallback, context?)`** — Extracts a human-readable message from a failed `Response`. Resolution order: ASP.NET validation errors (`{ errors: { Field: ["msg"] } }`) → `{ message }` → `{ detail }` → `{ title }` → raw text → `fallback`. Pass a `context` tag (e.g. `'createPet'`) for the dev console log. **Use this in every `if (!response.ok)` block** instead of re-writing the parse logic.
 - **`registerSessionExpiredHandler(handler)`** — Registers a callback invoked when a token refresh fails. Called by AuthContext on mount. Do not call this elsewhere.
 - **Rule**: Never call `fetch()` directly. Always use `apiFetch` or `apiAuthFetch`.
 - FormData bodies: do NOT set `Content-Type` — the runtime must set it with the multipart boundary.
 - In dev mode, all requests/responses are logged to console.
+
+Standard service error pattern:
+```ts
+if (!response.ok) {
+  throw new Error(await parseApiError(response, 'Failed to …', 'fnName'));
+}
+```
 
 ---
 
@@ -59,7 +70,7 @@ assets/         # Images, fonts
 - `getMe()` → GET `/auth/me` (auth) → `CurrentUser`
 - `confirmEmail(email, code)` → POST `/auth/confirm-email`
 - `resendConfirmation(email)` → POST `/auth/resend-confirmation`
-- Type `CurrentUser`: `{ id, email, emailConfirmed, roles[], userName, firstName, lastName }`
+- Type `CurrentUser`: `{ id, email, emailConfirmed, roles[], groups[], userName, firstName, lastName }`
 
 ### `services/token-storage.ts`
 - `saveTokens(accessToken, refreshToken?)` — stores with TTL (access: 30 min, refresh: 7 days)
@@ -78,9 +89,11 @@ assets/         # Images, fonts
 - `getPets(ownerUserId)` → GET `/api/pets?OwnerUserId={id}` (auth) → `PetResponse[]`
   - Handles paginated wrappers: plain array, `{ items }`, `{ data }`, `{ results }`
 - `createPet(input)` → auto-uploads photos via `uploadFilesBulk()` first, then POST `/api/pets`
-  - Sex mapping: "male" → 1, "female" → 2
+  - Sex mapping: "male" → 1, "female" → 2 (else 0). Pet type: dog=1, cat=2, parrot=3, turtle=4, fish=5, snake=6.
   - Weight/height unit conversion (kg↔lbs, cm↔in) via geolocation
-- Type `PetResponse`: `{ id, name, type, petType, breed, sex, dateOfBirth, ageYears, weightKg, heightCm, dietaryNotes, favoriteFood, additionalNotes, photoUrl, isActive, photos[] }`
+- `updatePet(input)` → PUT `/api/pets/{petId}`. Takes `UpdatePetInput` (= `CreatePetInput` + `petId` + optional `originalPhotos`). Separates already-uploaded photos (http/https URIs) from new local photos, uploads only the new ones, and preserves existing photo metadata.
+- `deletePet(petId)` → DELETE `/api/pets/{petId}`
+- Type `PetResponse`: `{ id, ownerUserId, name, type, petType, breed, sex, dateOfBirth, ageYears, weightKg, heightCm, dietaryNotes, favoriteFood, additionalNotes, photoUrl, isActive, photos[] }`
 
 ### `services/files.ts`
 - `uploadFile(uri, fileName?, mimeType?)` → POST `/files/upload` (auth, multipart) → `UploadedFile`
@@ -91,7 +104,9 @@ assets/         # Images, fonts
 
 ### `services/service-providers.ts`
 - `createServiceProvider(payload)` → POST `/api/service-providers` (auth)
-  - Payload: `{ fullName, email, phone, address, selectedServices[], yearsOfExperience, aboutYou, certifications, availability }`
+  - Payload (`CreateServiceProviderPayload`): `{ fullName, email, phone, streetAddress, city, state, zipCode, selectedServices[], yearsOfExperience, aboutYou, certifications, availability, profilePhoto, petPhotoFiles[], governmentIdFiles[], certificateFiles[], userId }`
+  - Uploads all files (profile photo + pet photos + government IDs + certificates) in **one** `uploadFilesBulk()` call, then routes them into the DTO: profile + pet photos → `photos[]` (`isSelected`); government IDs → `governmentIdPhotos[]` (`isFront`); certificates → `certificates[]`, each referencing its upload via `fileIds: number[]`.
+  - New applications post with top-level `isApproved: false` (and per-certificate `isApproved: false`) — an admin approves later. The DTO has no top-level `city`/`photoUrl`; city lives in `address`.
 
 ---
 
@@ -172,6 +187,11 @@ Navigation patterns:
 - `useRoute()` with `RouteProp` for typed params
 - Route params passed as objects: `navigate('ProviderDetail', { provider })`
 
+Implementation notes (`App.tsx`):
+- The whole stack is gated on `isLoggedIn`; while `isLoading` (session restore), a full-screen `ActivityIndicator` is shown.
+- `MainTabs` registers all five tabs (`Home`, `Search`, `PartnerHub`, `AdminDashboard`, `Profile`) but the native tab bar is hidden (`tabBarStyle: { display: 'none' }`). The visible bar is the custom `components/shared/TabBar.tsx`, which role-gates `PartnerHub`/`AdminDashboard` via `useAuth()`.
+- Tabs use `unmountOnBlur: true` — screens remount on each focus (do data fetching in `useFocusEffect`, not just `useEffect`, when you need fresh data on return; see `MyPetsScreen`).
+
 ---
 
 ## Screens Reference
@@ -244,14 +264,28 @@ Custom brand palette (green):
 | `brand-50` | `#E6FAF0` | Light backgrounds |
 | `brand-900` | `#003822` | Dark text on brand |
 
-Dark mode implementation:
-- `isDarkMode` from `useTheme()` — pass down to components as a prop
-- Background: `#0f1621` (screen bg), `#1a2332` (card), `#243447` (input)
-- Light mode: `white` (screen bg), standard Tailwind grays for cards/inputs
-- Pattern: `const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';`
+**Dark mode — `hooks/useThemeColors.ts` is the single source of truth.**
+
+Do NOT redefine `const cardBg = isDarkMode ? ... : ...` blocks inline. Get the palette from the hook:
+```tsx
+const { isDarkMode, bgColor, cardBg, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor } =
+  useThemeColors();
+```
+- **Smart components / screens** → `useThemeColors()` (reads `ThemeContext` internally).
+- **Dumb components that receive `isDarkMode` as a prop** (e.g. `ServiceDetailView`, `DatePicker`, schedule views) → `themeColors(isDarkMode)` — the pure, hook-free variant exported from the same file.
+
+What the hook returns:
+- **NativeWind class tokens** (for `className`): `bgColor`, `cardBg`, `textColor`, `subtextColor`, `inputBg`, `inputText`, `borderColor`.
+- **`placeholderColor`** — raw hex, for `placeholderTextColor=`.
+- **`hex`** — raw hex object (`bg`, `card`, `text`, `subtext`, `border`, `inputBg`) for `style={}` props / native components that can't take Tailwind classes (admin screens, pickers, maps).
+- **`isDarkMode`** — so you don't need a second `useTheme()` call.
+
+Canonical values: screen bg `#0f1621`/`white`, card `#1a2332`/`white`, input `#243447`/`gray-50`, text `white`/`gray-900`, subtext `gray-400`/`gray-600`, border `gray-700`/`gray-200`.
+
+Genuinely bespoke colors stay inline (sourced from the hook's `isDarkMode`): e.g. the brand-green header bg (`bg-brand-500`), `AppHeader`, `Banner` tiles, the `#F5F7FA` promotions/requests content bg. Screens with a brand header keep a local `bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500'` and pull the canonical content bg as `bgColor: contentBg` from the hook.
 
 **UI Consistency Rules:**
-- Colors, fonts, and backgrounds must be consistent across the entire app
+- Colors, fonts, and backgrounds must be consistent across the entire app — go through `useThemeColors()`
 - Use `brand-*` tokens for all green/primary colors — never hardcode green hex values
 - Use `ScreenLayout` as the root wrapper for every screen (provides consistent header + safe area)
 - Use shared components from `components/shared/` whenever they fit — do not duplicate
@@ -317,12 +351,15 @@ Dark mode implementation:
 ## Build & Run
 
 ```bash
-expo start           # Dev server (scan QR for device)
-expo start --web     # Web in browser
-expo run:android     # Android emulator/device
-expo run:ios         # iOS simulator/device
+npm start            # Expo dev server (scan QR for device)
+npm run web          # Web in browser
+npm run android      # Android emulator/device
+npm run ios          # iOS simulator/device
 npm run lint         # ESLint + Prettier check
 npm run format       # ESLint + Prettier auto-fix
+npx tsc --noEmit     # Type-check only (no test suite is configured)
 ```
 
 Environment: copy `.env.example` → `.env`, set `EXPO_PUBLIC_API_BASE_URL=http://localhost:5161`
+
+After non-trivial edits, run `npx tsc --noEmit` (and `npm run format`) before considering the work done.

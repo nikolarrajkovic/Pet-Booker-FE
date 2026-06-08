@@ -2,19 +2,13 @@ import React from 'react';
 import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { VerificationProgress, NeedHelpCard, WhileYouWaitCard } from '../components';
 
 export default function ApplicationSubmittedScreen() {
   const navigation = useNavigation();
-  const { isDarkMode } = useTheme();
-
-  const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
-  const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-100';
+  const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
 
   return (
     <ScreenLayout

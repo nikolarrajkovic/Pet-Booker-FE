@@ -1,18 +1,14 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../context/ThemeContext';
+import { useThemeColors } from '../../hooks/useThemeColors';
 
 type SeeMoreCardProps = {
   onPress: () => void;
 };
 
 export default function SeeMoreCard({ onPress }: SeeMoreCardProps) {
-  const { isDarkMode } = useTheme();
-
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-200';
+  const { cardBg, textColor, borderColor } = useThemeColors();
 
   return (
     <TouchableOpacity

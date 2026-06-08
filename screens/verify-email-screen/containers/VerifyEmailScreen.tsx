@@ -12,7 +12,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import Button from '../../../components/shared/Button';
 import { confirmEmail, resendConfirmation } from '../../../services/auth';
@@ -29,7 +29,7 @@ type VerifyEmailRouteProp = RouteProp<RootStackParamList, 'VerifyEmail'>;
 const CODE_LENGTH = 6;
 
 export default function VerifyEmailScreen() {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, textColor, subtextColor, inputText } = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<VerifyEmailRouteProp>();
   const email = route.params?.email ?? '';
@@ -43,10 +43,7 @@ export default function VerifyEmailScreen() {
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-500';
   const inputBg = isDarkMode ? 'bg-[#243447]' : 'bg-white';
-  const inputText = isDarkMode ? 'text-white' : 'text-gray-900';
   const borderColor = isDarkMode ? '#374151' : '#E5E7EB';
   const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-emerald-50';
   const cardBorder = isDarkMode ? 'border-gray-700' : 'border-emerald-100';

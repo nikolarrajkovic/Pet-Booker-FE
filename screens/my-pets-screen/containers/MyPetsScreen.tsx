@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PetCard } from '../components';
@@ -56,7 +56,7 @@ function toPetCardShape(p: PetResponse) {
 export default function MyPetsScreen() {
   const navigation = useNavigation();
   const route = useRoute<any>();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { currentUser } = useAuth();
 
   const [pets, setPets] = useState<PetResponse[]>([]);
@@ -69,12 +69,6 @@ export default function MyPetsScreen() {
   // Tracks the last refreshKey we fetched for — re-fetch only when it changes
   const prevRefreshKeyRef = useRef<number | undefined>(undefined);
   const hasFetchedOnceRef = useRef(false);
-
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
-  const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-100';
 
   useFocusEffect(
     useCallback(() => {

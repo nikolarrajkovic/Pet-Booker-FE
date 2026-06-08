@@ -3,24 +3,18 @@ import { ScrollView, Text, View, TouchableOpacity, Switch } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
-import { useAuth } from '../../../context/AuthContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
-  const { isDarkMode, toggleDarkMode } = useTheme();
-  const { isPartner, setIsPartner, isAdmin, setIsAdmin } = useAuth();
-  
+  const { toggleDarkMode } = useTheme();
+  const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor } = useThemeColors();
+  const sectionTextColor = textColor;
+
   const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(false);
-
-  const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
-  const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
-  const sectionTextColor = isDarkMode ? 'text-white' : 'text-gray-900';
 
   return (
     <ScreenLayout
@@ -89,31 +83,6 @@ export default function SettingsScreen() {
             <View className="flex-1"><Text className={`text-base font-semibold ${textColor}`}>Privacy Settings</Text></View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
-        </View>
-
-        {/* Developer */}
-        <Text className={`text-base font-semibold ${sectionTextColor} mb-3 mt-6`}>Developer</Text>
-        <View className={`${cardBg} rounded-2xl mb-6`}>
-          <View className="flex-row items-center p-4 border-b border-gray-100">
-            <View className="w-12 h-12 bg-green-50 rounded-xl items-center justify-center mr-4">
-              <Ionicons name="briefcase-outline" size={24} color="#00C870" />
-            </View>
-            <View className="flex-1">
-              <Text className={`text-base font-semibold ${textColor}`}>Partner Mode</Text>
-              <Text className={`text-sm ${subtextColor} mt-0.5`}>{isPartner ? 'Partner tab visible' : 'Partner tab hidden'}</Text>
-            </View>
-            <Switch value={isPartner} onValueChange={setIsPartner} trackColor={{ false: '#D1D5DB', true: '#00C870' }} thumbColor="white" />
-          </View>
-          <View className="flex-row items-center p-4">
-            <View className="w-12 h-12 bg-purple-50 rounded-xl items-center justify-center mr-4">
-              <Ionicons name="shield-checkmark-outline" size={24} color="#A855F7" />
-            </View>
-            <View className="flex-1">
-              <Text className={`text-base font-semibold ${textColor}`}>Admin Mode</Text>
-              <Text className={`text-sm ${subtextColor} mt-0.5`}>{isAdmin ? 'Admin tab visible' : 'Admin tab hidden'}</Text>
-            </View>
-            <Switch value={isAdmin} onValueChange={setIsAdmin} trackColor={{ false: '#D1D5DB', true: '#00C870' }} thumbColor="white" />
-          </View>
         </View>
 
         {/* General */}

@@ -1,13 +1,5 @@
-import { apiAuthFetch } from './http';
+import { apiAuthFetch, getApiBaseUrl, parseApiError } from './http';
 import { uploadFilesBulk } from './files';
-
-function getApiBaseUrl() {
-  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (!baseUrl) {
-    throw new Error('EXPO_PUBLIC_API_BASE_URL is not set.');
-  }
-  return baseUrl.replace(/\/$/, '');
-}
 
 // Backend sex enum: 0 = Unspecified, 1 = Male, 2 = Female
 function mapSex(sex: string): number {
@@ -100,16 +92,7 @@ export async function getPets(ownerUserId: number): Promise<PetResponse[]> {
   const response = await apiAuthFetch(url, { method: 'GET' });
 
   if (!response.ok) {
-    const text = await response.text();
-    let message = `Failed to load pets (${response.status}).`;
-    try {
-      const json = JSON.parse(text);
-      message = json.message ?? json.detail ?? json.title ?? text ?? message;
-    } catch {
-      if (text) message = text;
-    }
-    console.error('[getPets] error', response.status, text);
-    throw new Error(message);
+    throw new Error(await parseApiError(response, `Failed to load pets (${response.status}).`, 'getPets'));
   }
 
   const raw = await response.json();
@@ -183,24 +166,7 @@ export async function createPet(input: CreatePetInput): Promise<void> {
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    let message = `Failed to save pet (${response.status}).`;
-    try {
-      const json = JSON.parse(text);
-      if (json.errors) {
-        // ASP.NET validation errors: { errors: { Field: ["msg"] } }
-        const fields = Object.entries(json.errors as Record<string, string[]>)
-          .map(([field, msgs]) => `${field}: ${msgs.join(', ')}`)
-          .join(' | ');
-        message = fields || json.title || message;
-      } else {
-        message = json.message ?? json.detail ?? json.title ?? text ?? message;
-      }
-    } catch {
-      if (text) message = text;
-    }
-    console.error('[createPet] error', response.status, text);
-    throw new Error(message);
+    throw new Error(await parseApiError(response, `Failed to save pet (${response.status}).`, 'createPet'));
   }
 }
 
@@ -284,25 +250,7 @@ export async function updatePet(input: UpdatePetInput): Promise<void> {
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    let message = 'Failed to save pet.';
-    try {
-      const json = JSON.parse(text);
-      if (json.errors) {
-        const fields = Object.entries(json.errors as Record<string, string[]>)
-          .map(([field, msgs]) => `${field}: ${msgs.join(', ')}`)
-          .join(' | ');
-        message = fields || json.title || message;
-      } else {
-        message = json.message ?? json.detail ?? json.title ?? message;
-      }
-    } catch {
-      if (text && !text.trim().startsWith('{') && !text.trim().startsWith('[')) {
-        message = text;
-      }
-    }
-    console.error('[updatePet] error', response.status, text);
-    throw new Error(message);
+    throw new Error(await parseApiError(response, 'Failed to save pet.', 'updatePet'));
   }
 }
 
@@ -312,26 +260,6 @@ export async function deletePet(petId: string): Promise<void> {
   const response = await apiAuthFetch(url, { method: 'DELETE' });
 
   if (!response.ok) {
-    const text = await response.text();
-    let message = 'Failed to delete pet.';
-    try {
-      const json = JSON.parse(text);
-      if (json.errors) {
-        // ASP.NET validation errors: { errors: { Field: ["msg"] } }
-        const fields = Object.values(json.errors as Record<string, string[]>)
-          .flat()
-          .join(' ');
-        message = fields || json.title || message;
-      } else {
-        message = json.message ?? json.detail ?? json.title ?? message;
-      }
-    } catch {
-      // plain text response — use as-is only if it looks human-readable
-      if (text && !text.trim().startsWith('{') && !text.trim().startsWith('[')) {
-        message = text;
-      }
-    }
-    console.error('[deletePet] error', response.status, text);
-    throw new Error(message);
+    throw new Error(await parseApiError(response, 'Failed to delete pet.', 'deletePet'));
   }
 }

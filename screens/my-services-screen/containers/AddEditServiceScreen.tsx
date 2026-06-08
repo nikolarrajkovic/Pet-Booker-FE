@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch, Modal, Image, Alert } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import TimePicker from '../../../components/shared/TimePicker';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 
@@ -95,7 +95,8 @@ export default function AddEditServiceScreen() {
   const isEdit = params?.mode === 'edit';
   const existingService = params?.service;
 
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, bgColor, cardBg, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor } =
+    useThemeColors();
 
   const [serviceType, setServiceType] = useState(existingService?.type || '');
   const [showServiceTypeModal, setShowServiceTypeModal] = useState(false);
@@ -118,14 +119,6 @@ export default function AddEditServiceScreen() {
     existingService?.workingHours || DEFAULT_WORKING_HOURS
   );
 
-  const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
-  const inputBg = isDarkMode ? 'bg-[#243447]' : 'bg-gray-50';
-  const inputText = isDarkMode ? 'text-white' : 'text-gray-900';
-  const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-200';
-  const placeholderColor = isDarkMode ? '#9CA3AF' : '#9CA3AF';
 
   const toggleAdditionalService = (index: number) => {
     const updated = [...additionalServices];

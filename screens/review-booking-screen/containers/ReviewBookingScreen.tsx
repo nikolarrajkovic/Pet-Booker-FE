@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { BookingDetails, PriceBreakdown, PaymentMethodSelector } from '../components';
 
@@ -19,15 +19,10 @@ export default function ReviewBookingScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: ReviewBookingRouteParams }, 'params'>>();
   const { provider, appointments } = route.params;
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor, borderColor } = useThemeColors();
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('online');
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
-  const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
-  const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-200';
 
   const calculateTotal = () => appointments.reduce((sum: number, apt: any) => sum + apt.total, 0);
   const calculateServiceTotal = () => appointments.reduce((sum: number, apt: any) => sum + apt.service.price, 0);

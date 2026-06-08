@@ -4,7 +4,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PetPhotoUploader, PetTypeSelector, SexSelector } from '../components';
 import DatePicker from '../../../components/shared/DatePicker';
@@ -42,7 +42,7 @@ export default function AddPetScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: AddPetRouteParams }, 'params'>>();
   const existingPet = route.params?.pet;
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, cardBg, bgColor: contentBg, textColor, inputBg, inputText } = useThemeColors();
   const { currentUser } = useAuth();
 
   const [isMetric, setIsMetric] = useState(true);
@@ -82,11 +82,6 @@ export default function AddPetScreen() {
   }, []);
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
-  const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const inputBg = isDarkMode ? 'bg-[#243447]' : 'bg-gray-50';
-  const inputText = isDarkMode ? 'text-white' : 'text-gray-900';
   const placeholderColor = isDarkMode ? '#6B7280' : undefined;
 
   const [petPhotos, setPetPhotos] = useState<Array<{ uri: string; fileName?: string }>>(() => {

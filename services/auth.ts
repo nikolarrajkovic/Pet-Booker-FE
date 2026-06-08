@@ -1,4 +1,4 @@
-import { apiFetch, apiAuthFetch } from './http';
+import { apiFetch, apiAuthFetch, getApiBaseUrl } from './http';
 
 export type CurrentUser = {
   id: number;
@@ -39,17 +39,6 @@ function parseResponseBody(raw: string): LoginApiResponse {
   } catch {
     return {};
   }
-}
-
-// Environment variable usage commented out for development
-function getApiBaseUrl() {
-  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-
-  if (!baseUrl) {
-    throw new Error('EXPO_PUBLIC_API_BASE_URL is not set. Add it to your environment to enable API calls.');
-  }
-
-  return baseUrl.replace(/\/$/, '');
 }
 
 function extractAccessToken(response: LoginApiResponse) {
@@ -106,10 +95,7 @@ type RegisterApiResponse = {
 };
 
 export async function getMe(): Promise<CurrentUser> {
-  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '');
-  if (!baseUrl) throw new Error('EXPO_PUBLIC_API_BASE_URL is not set.');
-
-  const response = await apiAuthFetch(`${baseUrl}/auth/me`);
+  const response = await apiAuthFetch(`${getApiBaseUrl()}/auth/me`);
 
   if (!response.ok) {
     throw new Error('Failed to load user profile.');

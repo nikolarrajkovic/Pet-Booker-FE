@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { getDayColorInfo, getDayColorPressed, getMonthStats, ScheduleMode } from '../utils/mockScheduleData';
+import { themeColors } from '../../../hooks/useThemeColors';
 
 interface MonthViewProps {
   selectedDate: Date;
@@ -47,8 +48,7 @@ const isCurrentMonth = (date: Date) => {
 
 export default function MonthView({ selectedDate, isDarkMode, onDateSelect, onDateChange, mode }: MonthViewProps) {
   const [pressedDay, setPressedDay] = useState<string | null>(null);
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
+  const { textColor, subtextColor } = themeColors(isDarkMode);
 
   const monthDays = getMonthDays(selectedDate);
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

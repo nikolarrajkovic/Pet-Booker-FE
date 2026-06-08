@@ -7,7 +7,7 @@ import Button from '../../../components/shared/Button';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import FilterModal, { FilterState } from '../../../components/FilterModal';
 import { useLocation } from '../../../hooks/useLocation';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import { ListView, MapViewComponent } from '../components';
 // TEST FORCE REPARSE
 
@@ -156,14 +156,9 @@ export default function SearchScreen() {
   const route = useRoute<RouteProp<{ params: SearchRouteParams }, 'params'>>();
   const serviceType = route.params?.serviceType;
   const location = useLocation();
-  const { isDarkMode } = useTheme();
-  
+  const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor, borderColor } = useThemeColors();
+
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
-  const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-500';
-  const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-100';
   
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [filterModalVisible, setFilterModalVisible] = useState(false);

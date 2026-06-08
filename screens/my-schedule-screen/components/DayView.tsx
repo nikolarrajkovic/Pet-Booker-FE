@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getServicesForDate, ServiceItem, ScheduleMode } from '../utils/mockScheduleData';
+import { themeColors } from '../../../hooks/useThemeColors';
 
 interface DayViewProps {
   selectedDate: Date;
@@ -36,10 +37,7 @@ const formatDate = (date: Date) => {
 };
 
 export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }: DayViewProps) {
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-200';
+  const { textColor, subtextColor, cardBg, borderColor } = themeColors(isDarkMode);
 
   // Get services for the selected date, filtered by mode
   const all = getServicesForDate(selectedDate);

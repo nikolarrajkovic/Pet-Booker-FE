@@ -3,21 +3,13 @@ import { ScrollView, Text, View, TouchableOpacity, TextInput, Image, Alert } fro
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 
 export default function AccountScreen() {
   const navigation = useNavigation();
-  const { isDarkMode } = useTheme();
-
-  const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
-  const inputBg = isDarkMode ? 'bg-[#243447]' : 'bg-gray-50';
-  const inputText = isDarkMode ? 'text-white' : 'text-gray-900';
-  const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-200';
-  const placeholderColor = isDarkMode ? '#9CA3AF' : '#6B7280';
+  const { isDarkMode, bgColor, cardBg, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor } =
+    useThemeColors();
 
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [fullName, setFullName] = useState('Alex Johnson');

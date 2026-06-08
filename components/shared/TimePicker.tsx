@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { themeColors } from '../../hooks/useThemeColors';
 
 interface TimePickerProps {
   value: Date;
@@ -20,11 +21,12 @@ export default function TimePicker({ value, onChange, onClose, isDarkMode, minDa
   const [hour12, setHour12] = useState(initH % 12 === 0 ? 12 : initH % 12);
   const [minute, setMinute] = useState(clampedInit.getMinutes());
 
-  const cardBg = isDarkMode ? '#1a2332' : '#ffffff';
-  const borderColor = isDarkMode ? '#374151' : '#E5E7EB';
-  const textColor = isDarkMode ? '#ffffff' : '#111827';
-  const subtextColor = isDarkMode ? '#9CA3AF' : '#6B7280';
-  const inputBg = isDarkMode ? '#243447' : '#F9FAFB';
+  const { hex } = themeColors(isDarkMode);
+  const cardBg = hex.card;
+  const borderColor = hex.border;
+  const textColor = hex.text;
+  const subtextColor = hex.subtext;
+  const inputBg = hex.inputBg;
   const stripBg = isDarkMode ? '#243447' : '#F0FDF8';
 
   // Convert current picker state to total minutes since midnight (0–1439)

@@ -3,7 +3,7 @@ import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, TextInput, Keyb
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import Button from '../../../components/shared/Button';
 import { SocialButton } from '../components';
@@ -27,7 +27,7 @@ function validatePassword(v: string) {
 }
 
 export default function LoginScreen() {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, textColor, subtextColor } = useThemeColors();
   const { signInWithCredentials, signInWithGoogle } = useAuth();
   const navigation = useNavigation<NavigationProp>();
 
@@ -40,8 +40,6 @@ export default function LoginScreen() {
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-500';
   const inputBg = isDarkMode ? '#243447' : '#ffffff';
   const inputTextColor = isDarkMode ? '#ffffff' : '#111827';
   const defaultBorder = isDarkMode ? '#374151' : '#E5E7EB';

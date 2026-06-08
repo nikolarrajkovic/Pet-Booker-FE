@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { getServicesForDate, getDayColorInfo, getDayColorPressed, ScheduleMode } from '../utils/mockScheduleData';
+import { themeColors } from '../../../hooks/useThemeColors';
 
 interface WeekViewProps {
   selectedDate: Date;
@@ -63,9 +64,7 @@ const isCurrentWeek = (date: Date) => {
 
 export default function WeekView({ selectedDate, isDarkMode, onDateSelect, onDateChange, mode }: WeekViewProps) {
   const [pressedDay, setPressedDay] = useState<string | null>(null);
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
+  const { textColor, subtextColor, cardBg } = themeColors(isDarkMode);
 
   const weekDays = getWeekDays(selectedDate);
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 import { SafeAreaView, View } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
+import { useThemeColors } from '../../hooks/useThemeColors';
 import AppHeader from './AppHeader';
 
 type ScreenLayoutProps = {
@@ -43,14 +43,10 @@ export default function ScreenLayout({
   safeAreaBg,
   contentBg,
 }: ScreenLayoutProps) {
-  const { isDarkMode } = useTheme();
+  const { bgColor } = useThemeColors();
 
-  // Default background colors
-  const defaultSafeAreaBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  const defaultContentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  
-  const finalSafeAreaBg = safeAreaBg || defaultSafeAreaBg;
-  const finalContentBg = contentBg || defaultContentBg;
+  const finalSafeAreaBg = safeAreaBg || bgColor;
+  const finalContentBg = contentBg || bgColor;
 
   return (
     <SafeAreaView className={`flex-1 ${finalSafeAreaBg}`}>

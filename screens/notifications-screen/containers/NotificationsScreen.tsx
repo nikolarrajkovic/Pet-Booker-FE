@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Switch } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { EnableNotificationsCard, NotificationToggle } from '../components';
 
 export default function NotificationsScreen() {
   const navigation = useNavigation();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, cardBg, textColor, subtextColor } = useThemeColors();
 
   const [showEnableModal, setShowEnableModal] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(false);
@@ -21,9 +21,6 @@ export default function NotificationsScreen() {
   const [doNotDisturb, setDoNotDisturb] = useState(false);
 
   const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
   const borderColor = isDarkMode ? 'border-[#243447]' : 'border-gray-200';
   const sectionHeaderColor = isDarkMode ? 'text-white' : 'text-[#1a365d]';
 

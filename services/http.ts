@@ -6,6 +6,57 @@ export function registerSessionExpiredHandler(handler: () => void): void {
   _onSessionExpired = handler;
 }
 
+/**
+ * Returns the API base URL from the environment, with any trailing slash removed.
+ * Single source of truth — every service builds its URLs from this.
+ */
+export function getApiBaseUrl(): string {
+  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (!baseUrl) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL is not set.');
+  }
+  return baseUrl.replace(/\/$/, '');
+}
+
+/**
+ * Extracts a human-readable error message from a failed Response body.
+ * Resolution order:
+ *   1. ASP.NET validation errors — `{ errors: { Field: ["msg"] } }`
+ *   2. `{ message }` → `{ detail }` → `{ title }`
+ *   3. Raw text (only if it does not look like a JSON blob)
+ *   4. The provided fallback
+ *
+ * @param response - The failed fetch Response (its body is consumed here)
+ * @param fallback - Message to use when nothing better can be extracted
+ * @param context  - Optional tag for the dev console error log (e.g. "createPet")
+ */
+export async function parseApiError(
+  response: Response,
+  fallback: string,
+  context?: string,
+): Promise<string> {
+  const text = await response.text();
+
+  if (context) {
+    console.error(`[${context}] error`, response.status, text);
+  }
+
+  try {
+    const json = JSON.parse(text);
+    if (json.errors && typeof json.errors === 'object') {
+      const fields = Object.entries(json.errors as Record<string, string[]>)
+        .map(([field, msgs]) => `${field}: ${(msgs ?? []).join(', ')}`)
+        .join(' | ');
+      return fields || json.title || fallback;
+    }
+    return json.message ?? json.detail ?? json.title ?? (text || fallback);
+  } catch {
+    // Not JSON — use the raw text only if it looks human-readable
+    const trimmed = text.trim();
+    return text && !trimmed.startsWith('{') && !trimmed.startsWith('[') ? text : fallback;
+  }
+}
+
 export async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
   if (__DEV__) {
     console.log('[API Request]', init?.method ?? 'GET', url, init?.body ?? '');

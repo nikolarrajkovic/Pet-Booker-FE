@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../context/ThemeContext';
+import { useThemeColors } from '../../hooks/useThemeColors';
 
 type ServiceCardProps = {
   image: string;
@@ -26,12 +26,7 @@ export default function ServiceCard({
   badge,
   onPress,
 }: ServiceCardProps) {
-  const { isDarkMode } = useTheme();
-
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
-  const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-200';
+  const { cardBg, textColor, subtextColor, borderColor } = useThemeColors();
 
   return (
     <TouchableOpacity

@@ -2,7 +2,7 @@ import React from 'react';
 import { SafeAreaView, View, TouchableOpacity, Text } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import ServiceDetailView from '../../../components/shared/ServiceDetailView';
 
 type ServicePreviewRouteParams = {
@@ -29,9 +29,7 @@ export default function ServicePreviewScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: ServicePreviewRouteParams }, 'params'>>();
   const { service } = route.params;
-  const { isDarkMode } = useTheme();
-
-  const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
+  const { isDarkMode, bgColor } = useThemeColors();
 
   return (
     <SafeAreaView className={`flex-1 ${bgColor}`}>
