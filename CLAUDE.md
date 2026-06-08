@@ -143,6 +143,8 @@ if (!response.ok) {
 - **Type**: `PaymentMethodDto`. Enum `PaymentMethodStatus` (0=Active, 1=Removed).
 - `getPaymentMethods(userId)` → GET `/api/payment-methods?UserId=` — **filters to Active only**.
 - `createPaymentMethod(method)`, `deletePaymentMethod(id)`.
+- **`providerPaymentMethodId` is required** on create (non-empty) — 422 otherwise.
+- ReviewBookingScreen auto-creates a default placeholder payment method (synthetic `providerPaymentMethodId`) when the user has none, so bookings can be created before a real gateway exists.
 
 ### Verified API behaviors (tested against live backend 2026-06-08)
 These are confirmed quirks of the real API — keep them in mind when building DTOs/payloads:
@@ -249,14 +251,14 @@ Implementation notes (`App.tsx`):
 
 | Screen | Container | Purpose |
 |---|---|---|
-| HomeScreen | `screens/home-screen/containers/HomeScreen.tsx` | Dashboard: recent, nearby, popular, deals, service type pills |
-| SearchScreen | `screens/search-screen/` | Search providers, filter, map/list toggle |
+| HomeScreen | `screens/home-screen/containers/HomeScreen.tsx` | **API-wired** — `getServiceProviders()` in `useFocusEffect`; sections, skeletons, empty state |
+| SearchScreen | `screens/search-screen/` | **API-wired** — `getServiceProviders()`; client-side filter; map/list toggle |
 | PartnerHubScreen | `screens/partner-hub-screen/containers/` | Partner dashboard (partner-only) |
 | AdminDashboardScreen | `screens/admin-dashboard-screen/containers/` | Admin panel (admin-only) |
 | ProfileScreen | `screens/profile-screen/containers/` | User profile + settings menu |
-| ProviderDetailScreen | `screens/provider-detail-screen/containers/` | Service provider detail |
-| BookServiceScreen | `screens/book-service-screen/containers/` | Multi-step booking (pet, date, time) |
-| ReviewBookingScreen | `screens/review-booking-screen/` | Final review + payment method (UI only, no gateway yet) |
+| ProviderDetailScreen | `screens/provider-detail-screen/containers/` | **API-wired** — fetches real services + reviews; computed rating + starting price |
+| BookServiceScreen | `screens/book-service-screen/containers/` | **API-wired** — real services + real pets + shared DatePicker/TimePicker. Single booking (default +1h duration). Passes a `booking` draft to ReviewBooking. |
+| ReviewBookingScreen | `screens/review-booking-screen/` | **API-wired** — Confirm resolves a payment method (auto-creates a default if none) and POSTs a real booking via `createBooking()`. Payment selector is still UI-only (online/cash → Card/Cash). |
 | BookingConfirmedScreen | `screens/booking-confirmed-screen/containers/` | Post-booking confirmation |
 | MyPetsScreen | `screens/my-pets-screen/containers/` | User's pets list |
 | AddPetScreen | `screens/add-pet-screen/containers/` | Create/edit pet + bulk photo upload |
@@ -265,7 +267,7 @@ Implementation notes (`App.tsx`):
 | PartnerApplicationScreen | `screens/partner-application-screen/containers/` | Multi-step partner application form |
 | ApplicationSubmittedScreen | `screens/application-submitted-screen/containers/` | Post-application confirmation |
 | AccountScreen | `screens/account-screen/containers/` | Account settings |
-| MyBookingsScreen | `screens/my-bookings-screen/containers/` | User's bookings |
+| MyBookingsScreen | `screens/my-bookings-screen/containers/` | **API-wired** — `getBookings({ userId })` in `useFocusEffect`; Upcoming/Past tabs from `bookingState` |
 | MyScheduleScreen | `screens/my-schedule-screen/containers/` | Partner schedule (day/week/month) |
 | MyServicesScreen | `screens/my-services-screen/containers/` | Partner's listed services |
 | ServicePreviewScreen | `screens/service-preview-screen/` | Preview service before publish |
