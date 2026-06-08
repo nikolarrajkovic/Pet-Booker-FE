@@ -10,7 +10,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import type { Partner, PartnerStatus, ServiceHistoryItem } from '../components';
 
 const PROFILE_PHOTO_URL = 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600';
@@ -31,7 +31,7 @@ const HISTORY_STATUS_CFG = {
 export default function PartnerDetailsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, hex } = useThemeColors();
   const insets = useSafeAreaInsets();
 
   const partner: Partner = route.params?.partner;
@@ -48,11 +48,11 @@ export default function PartnerDetailsScreen() {
   }
 
   const cfg = STATUS_CFG[partnerStatus];
-  const bgColor = isDarkMode ? '#0f1621' : '#F9FAFB';
-  const cardBg = isDarkMode ? '#1a2332' : '#ffffff';
-  const textColor = isDarkMode ? '#F9FAFB' : '#111827';
-  const subTextColor = isDarkMode ? '#9CA3AF' : '#6B7280';
-  const borderColor = isDarkMode ? '#2d3748' : '#E5E7EB';
+  const bgColor = hex.bg;
+  const cardBg = hex.card;
+  const textColor = hex.text;
+  const subTextColor = hex.subtext;
+  const borderColor = hex.border;
   const dividerColor = isDarkMode ? '#2d3748' : '#F3F4F6';
 
   const handleTimeout = () => {

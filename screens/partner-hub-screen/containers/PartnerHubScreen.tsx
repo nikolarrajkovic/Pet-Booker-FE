@@ -9,7 +9,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import TabBar from '../../../components/shared/TabBar';
 
 // ─── Stats Pills Data ──────────────────────────────────────────────────────────
@@ -138,14 +138,14 @@ const RECENT_ACTIVITY = [
 
 export default function PartnerHubScreen() {
   const navigation = useNavigation();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, hex, textColor } = useThemeColors();
   const insets = useSafeAreaInsets();
 
-  const bgColor = isDarkMode ? '#0f1621' : '#F9FAFB';
-  const cardBg = isDarkMode ? '#1a2332' : '#ffffff';
-  const sectionTitleColor = isDarkMode ? 'text-white' : 'text-gray-900';
+  const bgColor = hex.bg;
+  const cardBg = hex.card;
+  const sectionTitleColor = textColor;
   const subtitleColor = isDarkMode ? 'text-gray-400' : 'text-gray-500';
-  const borderColor = isDarkMode ? '#2d3748' : '#E5E7EB';
+  const borderColor = hex.border;
   const activityBorder = isDarkMode ? '#2d3748' : '#F3F4F6';
 
   return (

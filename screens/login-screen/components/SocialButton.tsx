@@ -1,5 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, View } from 'react-native';
+import { themeColors } from '../../../hooks/useThemeColors';
 
 type Props = {
   text: string;
@@ -9,9 +10,7 @@ type Props = {
 };
 
 export default function SocialButton({ text, icon, onPress, isDarkMode }: Props) {
-  const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-200';
-  const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-700';
+  const { textColor, cardBg: bgColor, borderColor } = themeColors(isDarkMode);
 
   return (
     <TouchableOpacity

@@ -1,22 +1,43 @@
 import React, { useState } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useTheme } from '../../../context/ThemeContext';
+import * as DocumentPicker from 'expo-document-picker';
+import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PersonalInfoStep, ServiceInfoStep, DocumentsStep } from '../components';
+import type { CertificateEntry } from '../components/DocumentsStep';
 import { createServiceProvider } from '../../../services/service-providers';
+
+// Reads a native File object as a base64 data URI using FileReader — pure memory, no network.
+function fileToDataUri(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function PartnerApplicationScreen() {
   const navigation = useNavigation();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, bgColor, cardBg, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor } =
+    useThemeColors();
+  const { currentUser } = useAuth();
 
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
-  const [governmentId, setGovernmentId] = useState<string | null>(null);
-  const [insuranceCert, setInsuranceCert] = useState<string | null>(null);
+  const [profilePhotoFileName, setProfilePhotoFileName] = useState<string | undefined>(undefined);
+  const [governmentIdFront, setGovernmentIdFront] = useState<string | null>(null);
+  const [governmentIdFrontFileName, setGovernmentIdFrontFileName] = useState<string | undefined>(undefined);
+  const [governmentIdBack, setGovernmentIdBack] = useState<string | null>(null);
+  const [governmentIdBackFileName, setGovernmentIdBackFileName] = useState<string | undefined>(undefined);
+  const [certificates, setCertificates] = useState<CertificateEntry[]>([]);
+  const [petPhotos, setPetPhotos] = useState<Array<string | null>>([null, null, null]);
+  const [petPhotoFileNames, setPetPhotoFileNames] = useState<Array<string | undefined>>([undefined, undefined, undefined]);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -33,7 +54,7 @@ export default function PartnerApplicationScreen() {
     availability: '',
   });
 
-  const pickImage = async (type: 'profile' | 'governmentId' | 'insurance') => {
+  const pickImage = async (type: 'profile') => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== 'granted') {
@@ -43,27 +64,50 @@ export default function PartnerApplicationScreen() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: type === 'profile',
-      aspect: type === 'profile' ? [1, 1] : undefined,
+      allowsEditing: true,
+      aspect: [1, 1],
       quality: 0.8,
       base64: true,
     });
 
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      const uri =
-        asset.base64
-          ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
-          : asset.uri;
-      if (type === 'profile') setProfilePhoto(uri);
-      else if (type === 'governmentId') setGovernmentId(uri);
-      else setInsuranceCert(uri);
+      const uri = asset.base64
+        ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
+        : asset.uri;
+      setProfilePhoto(uri);
+      setProfilePhotoFileName(asset.fileName ?? undefined);
     }
   };
 
-  const pickDocument = async (type: 'governmentId' | 'insurance') => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  // Government ID uses ImagePicker (images only — same pattern as pet photos)
+  const pickDocument = async (type: 'governmentIdFront' | 'governmentIdBack' | 'certificate') => {
+    if (type === 'certificate') {
+      // Certificates may be PDFs — use DocumentPicker
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*', 'application/pdf'],
+        copyToCacheDirectory: true,
+      });
 
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const asset = result.assets[0];
+      const fileName = asset.name ?? undefined;
+      let uri = asset.uri;
+
+      // On web DocumentPicker exposes the native File object — read it directly
+      // with FileReader, same way ImagePicker base64 works. No network request.
+      if (Platform.OS === 'web') {
+        const webFile = (asset as any).file as File | undefined;
+        if (webFile) uri = await fileToDataUri(webFile);
+      }
+
+      setCertificates((prev) => [...prev, { uri, fileName, issuer: '', issuedDate: '' }]);
+      return;
+    }
+
+    // Government ID photos are always images — use ImagePicker with base64
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission needed', 'Please allow access to your photos to upload documents.');
       return;
@@ -78,23 +122,51 @@ export default function PartnerApplicationScreen() {
 
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      const uri =
-        asset.base64
-          ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
-          : asset.uri;
-      if (type === 'governmentId') setGovernmentId(uri);
-      else setInsuranceCert(uri);
+      const uri = asset.base64
+        ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
+        : asset.uri;
+      const fileName = asset.fileName ?? undefined;
+
+      if (type === 'governmentIdFront') {
+        setGovernmentIdFront(uri);
+        setGovernmentIdFrontFileName(fileName);
+      } else {
+        setGovernmentIdBack(uri);
+        setGovernmentIdBackFileName(fileName);
+      }
     }
   };
 
-  const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
-  const inputBg = isDarkMode ? 'bg-[#243447]' : 'bg-gray-50';
-  const inputText = isDarkMode ? 'text-white' : 'text-gray-900';
-  const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-200';
-  const placeholderColor = isDarkMode ? '#9CA3AF' : '#6B7280';
+  const pickPetPhoto = async (slotIndex: number) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow access to your photos.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+      base64: true,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      const uri = asset.base64
+        ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
+        : asset.uri;
+      setPetPhotos((prev) => prev.map((p, i) => i === slotIndex ? uri : p));
+      setPetPhotoFileNames((prev) => prev.map((n, i) => i === slotIndex ? (asset.fileName ?? undefined) : n));
+    }
+  };
+
+  const onUpdateCertificate = (index: number, field: 'issuer' | 'issuedDate', value: string) => {
+    setCertificates((prev) => prev.map((c, i) => i === index ? { ...c, [field]: value } : c));
+  };
+
+  const removeCertificate = (index: number) => {
+    setCertificates((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const totalSteps = 3;
   const progressPercentage = (step / totalSteps) * 100;
@@ -139,10 +211,15 @@ export default function PartnerApplicationScreen() {
         {step === 3 && (
           <DocumentsStep
             profilePhoto={profilePhoto}
-            governmentId={governmentId}
-            insuranceCert={insuranceCert}
+            petPhotos={petPhotos}
+            governmentIdFront={governmentIdFront}
+            governmentIdBack={governmentIdBack}
+            certificates={certificates}
             pickImage={pickImage}
+            pickPetPhoto={pickPetPhoto}
             pickDocument={pickDocument}
+            onRemoveCertificate={removeCertificate}
+            onUpdateCertificate={onUpdateCertificate}
             {...themeProps}
           />
         )}
@@ -160,7 +237,23 @@ export default function PartnerApplicationScreen() {
 
             setIsSubmitting(true);
             try {
-              await createServiceProvider(formData);
+              const governmentIdFiles: Array<{ uri: string; fileName?: string; isFront: boolean }> = [
+                ...(governmentIdFront ? [{ uri: governmentIdFront, fileName: governmentIdFrontFileName, isFront: true }] : []),
+                ...(governmentIdBack ? [{ uri: governmentIdBack, fileName: governmentIdBackFileName, isFront: false }] : []),
+              ];
+              const certificateFiles: Array<{ uri: string; fileName?: string; certName?: string; issuer?: string; issuedDate?: string }> =
+                certificates.map((c) => ({ uri: c.uri, fileName: c.fileName, certName: c.fileName ?? 'Certificate', issuer: c.issuer, issuedDate: c.issuedDate }));
+              const petPhotoFiles = petPhotos
+                .map((uri, i) => uri ? { uri, fileName: petPhotoFileNames[i] } : null)
+                .filter(Boolean) as Array<{ uri: string; fileName?: string }>;
+              await createServiceProvider({
+                ...formData,
+                profilePhoto: profilePhoto ? { uri: profilePhoto, fileName: profilePhotoFileName } : null,
+                petPhotoFiles,
+                governmentIdFiles,
+                certificateFiles,
+                userId: currentUser?.id ?? 0,
+              });
               (navigation as any).navigate('ApplicationSubmitted');
             } catch (error: any) {
               Alert.alert('Submission Failed', error?.message ?? 'Something went wrong. Please try again.');

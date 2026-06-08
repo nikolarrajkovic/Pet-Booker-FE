@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PersonalInfoStep, ServiceInfoStep } from '../../partner-application-screen/components';
 
 export default function AdminAddPartnerScreen() {
   const navigation = useNavigation();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, bgColor, cardBg, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor } =
+    useThemeColors();
 
   const [step, setStep] = useState(1);
 
@@ -25,15 +26,6 @@ export default function AdminAddPartnerScreen() {
     certifications: '',
     availability: '',
   });
-
-  const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
-  const inputBg = isDarkMode ? 'bg-[#243447]' : 'bg-gray-50';
-  const inputText = isDarkMode ? 'text-white' : 'text-gray-900';
-  const borderColor = isDarkMode ? 'border-gray-700' : 'border-gray-200';
-  const placeholderColor = isDarkMode ? '#9CA3AF' : '#6B7280';
 
   const totalSteps = 2;
   const progressPercentage = (step / totalSteps) * 100;

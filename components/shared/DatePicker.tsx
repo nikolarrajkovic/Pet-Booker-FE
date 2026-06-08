@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { themeColors } from '../../hooks/useThemeColors';
 
 interface DatePickerProps {
   value: Date;
@@ -46,11 +47,12 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
   const yearPageStart = yearPage * YEARS_PER_PAGE + minYear;
   const yearPageEnd = Math.min(yearPageStart + YEARS_PER_PAGE - 1, maxYear);
 
-  const cardBg = isDarkMode ? '#1a2332' : '#ffffff';
-  const borderColor = isDarkMode ? '#374151' : '#E5E7EB';
-  const textColor = isDarkMode ? '#ffffff' : '#111827';
-  const subtextColor = isDarkMode ? '#9CA3AF' : '#6B7280';
-  const inputBg = isDarkMode ? '#243447' : '#F9FAFB';
+  const { hex } = themeColors(isDarkMode);
+  const cardBg = hex.card;
+  const borderColor = hex.border;
+  const textColor = hex.text;
+  const subtextColor = hex.subtext;
+  const inputBg = hex.inputBg;
 
   const prevMonth = () => {
     if (viewMonth === 0) {

@@ -2,7 +2,7 @@ import React from 'react';
 import { SafeAreaView, View, Text, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 
 type BookingConfirmedRouteParams = {
   provider: { name: string };
@@ -12,12 +12,7 @@ export default function BookingConfirmedScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: BookingConfirmedRouteParams }, 'params'>>();
   const { provider } = route.params;
-  const { isDarkMode } = useTheme();
-
-  const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
-  const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-300';
+  const { isDarkMode, bgColor, textColor, subtextColor, borderColor } = useThemeColors();
 
   return (
     <SafeAreaView className={`flex-1 ${bgColor}`}>

@@ -2,18 +2,16 @@ import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../context/ThemeContext';
+import { useThemeColors } from '../../hooks/useThemeColors';
 import { useAuth } from '../../context/AuthContext';
 
 export default function TabBar() {
   const navigation = useNavigation();
   const route = useRoute();
   const currentRoute = route.name;
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, cardBg: bgColor, borderColor } = useThemeColors();
   const { isPartner, isAdmin } = useAuth();
 
-  const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-200';
   const inactiveColor = isDarkMode ? '#6B7280' : '#9CA3AF';
   const inactiveTextColor = isDarkMode ? 'text-gray-500' : 'text-gray-400';
 

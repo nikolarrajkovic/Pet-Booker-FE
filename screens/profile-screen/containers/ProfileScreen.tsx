@@ -3,7 +3,7 @@ import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import TabBar from '../../../components/shared/TabBar';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { MenuItem } from '../components';
@@ -28,18 +28,13 @@ const PARTNER_MENU_ITEMS = [
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { signOut, isPartner } = useAuth();
 
   const menuItems = isPartner ? PARTNER_MENU_ITEMS : USER_MENU_ITEMS;
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
-  const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
   const headerTextColor = 'text-white';
-  const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-100';
 
   const handleMenuPress = (id: string) => {
     if (id === 'account') (navigation as any).navigate('Account');

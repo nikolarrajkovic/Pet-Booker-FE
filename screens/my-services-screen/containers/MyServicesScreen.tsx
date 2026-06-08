@@ -2,7 +2,7 @@
 import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors, themeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 
 interface PricingTier {
@@ -116,7 +116,7 @@ const ADDITIONAL_SERVICE_ICONS: Record<string, string> = {
 
 export default function MyServicesScreen() {
   const navigation = useNavigation();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode } = useThemeColors();
   const [services, setServices] = useState<Service[]>(MOCK_SERVICES);
 
   const handleDelete = (id: string) => {
@@ -184,10 +184,7 @@ function ServiceListCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-500';
-  const pricingBg = isDarkMode ? 'bg-[#243447]' : 'bg-gray-50';
+  const { cardBg, textColor, subtextColor, inputBg: pricingBg } = themeColors(isDarkMode);
 
   const enabledAdditional = service.additionalServices.filter(s => s.enabled);
 

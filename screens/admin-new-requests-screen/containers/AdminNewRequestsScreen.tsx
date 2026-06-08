@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, BackHandler } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PartnerApplicationCard } from '../components';
 import type { PartnerApplication, ApplicationStatus } from '../components';
@@ -102,7 +102,7 @@ const TABS: { key: FilterTab; label: string; icon: any; activeColor: string; act
 export default function AdminNewRequestsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, hex } = useThemeColors();
   const [activeTab, setActiveTab] = useState<FilterTab>('pending');
   const [applications, setApplications] = useState<PartnerApplication[]>(mockApplications);
 
@@ -133,12 +133,12 @@ export default function AdminNewRequestsScreen() {
   );
 
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]';
-  const cardBg = isDarkMode ? '#1a2332' : '#ffffff';
-  const textColor = isDarkMode ? '#F9FAFB' : '#111827';
-  const subTextColor = isDarkMode ? '#9CA3AF' : '#6B7280';
-  const borderColor = isDarkMode ? '#2d3748' : '#E5E7EB';
-  const tabBg = isDarkMode ? '#1a2332' : '#ffffff';
-  const tabBorder = isDarkMode ? '#2d3748' : '#E5E7EB';
+  const cardBg = hex.card;
+  const textColor = hex.text;
+  const subTextColor = hex.subtext;
+  const borderColor = hex.border;
+  const tabBg = hex.card;
+  const tabBorder = hex.border;
 
   const counts = {
     pending: applications.filter((a) => a.status === 'pending').length,

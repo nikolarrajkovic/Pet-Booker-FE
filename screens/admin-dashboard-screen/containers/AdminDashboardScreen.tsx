@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import TabBar from '../../../components/shared/TabBar';
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
@@ -48,18 +48,18 @@ const REVENUE_THIS_YEAR = [
 
 export default function AdminDashboardScreen() {
   const navigation = useNavigation<any>();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, hex } = useThemeColors();
   const [period, setPeriod] = useState<'month' | 'year'>('month');
 
   const stats = period === 'month' ? STATS_THIS_MONTH : STATS_THIS_YEAR;
   const revenueData = period === 'month' ? REVENUE_THIS_MONTH : REVENUE_THIS_YEAR;
   const maxRevenue = Math.max(...revenueData.map((r) => r.value));
 
-  const bgColor = isDarkMode ? '#0f1621' : '#F9FAFB';
-  const cardBg = isDarkMode ? '#1a2332' : '#ffffff';
-  const sectionTitle = isDarkMode ? '#F9FAFB' : '#111827';
-  const subText = isDarkMode ? '#9CA3AF' : '#6B7280';
-  const borderColor = isDarkMode ? '#2d3748' : '#E5E7EB';
+  const bgColor = hex.bg;
+  const cardBg = hex.card;
+  const sectionTitle = hex.text;
+  const subText = hex.subtext;
+  const borderColor = hex.border;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#00C870' }}>

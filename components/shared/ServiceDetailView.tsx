@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { themeColors } from '../../hooks/useThemeColors';
 
 interface ServiceDetailViewProps {
   service: {
@@ -32,9 +33,7 @@ export default function ServiceDetailView({
   showBookButton = true,
   onBookPress,
 }: ServiceDetailViewProps) {
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-600';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
+  const { textColor, subtextColor, cardBg } = themeColors(isDarkMode);
 
   const hasImage = service.images && service.images.length > 0;
 

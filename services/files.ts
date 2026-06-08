@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import { apiAuthFetch } from './http';
+import { apiAuthFetch, getApiBaseUrl, parseApiError } from './http';
 
 /**
  * Maps a MIME type to a file extension.
@@ -36,16 +36,6 @@ function dataUriToFile(dataUri: string, name: string): File {
   return new File([bytes], nameWithExt, { type });
 }
 
-function getApiBaseUrl() {
-  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-
-  if (!baseUrl) {
-    throw new Error('EXPO_PUBLIC_API_BASE_URL is not set.');
-  }
-
-  return baseUrl.replace(/\/$/, '');
-}
-
 export type UploadedFile = {
   id: string;
   src: string;
@@ -70,8 +60,6 @@ export async function uploadFile(
 
   const formData = new FormData();
   if (Platform.OS === 'web') {
-    // On web the URI is a base64 data URI — derive the name and extension from
-    // the embedded MIME type; do not attempt to parse the data URI as a path.
     const detectedMime = uri.split(',')[0].split(':')[1].split(';')[0];
     const ext = mimeToExt(detectedMime);
     const webName = fileName ?? `upload.${ext}`;
@@ -90,16 +78,7 @@ export async function uploadFile(
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    let message = `File upload failed (${response.status}).`;
-    try {
-      const json = JSON.parse(text);
-      message = json.message ?? json.detail ?? json.title ?? text ?? message;
-    } catch {
-      if (text) message = text;
-    }
-    console.error('[uploadFile] error', response.status, text);
-    throw new Error(message);
+    throw new Error(await parseApiError(response, `File upload failed (${response.status}).`, 'uploadFile'));
   }
 
   return response.json() as Promise<UploadedFile>;
@@ -118,14 +97,13 @@ export async function uploadFilesBulk(
   const formData = new FormData();
 
   if (Platform.OS === 'web') {
-    files.forEach(({ uri, fileName }) => {
-      // Derive name and extension from the MIME type embedded in the data URI.
+    for (const { uri, fileName } of files) {
       const mimeType = uri.split(',')[0].split(':')[1].split(';')[0];
       const ext = mimeToExt(mimeType);
       const name = fileName ?? `upload.${ext}`;
       const file = dataUriToFile(uri, name);
       formData.append('files', file);
-    });
+    }
   } else {
     files.forEach(({ uri, fileName, mimeType }) => {
       const name = fileName ?? uri.split('/').pop() ?? 'upload';
@@ -140,16 +118,7 @@ export async function uploadFilesBulk(
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    let message = `Bulk file upload failed (${response.status}).`;
-    try {
-      const json = JSON.parse(text);
-      message = json.message ?? json.detail ?? json.title ?? text ?? message;
-    } catch {
-      if (text) message = text;
-    }
-    console.error('[uploadFilesBulk] error', response.status, text);
-    throw new Error(message);
+    throw new Error(await parseApiError(response, `Bulk file upload failed (${response.status}).`, 'uploadFilesBulk'));
   }
 
   return response.json() as Promise<UploadedFile[]>;

@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Modal, ScrollView, TextInput, ActivityInd
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import * as Location from 'expo-location';
-import { useTheme } from '../context/ThemeContext';
+import { useThemeColors } from '../hooks/useThemeColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DatePicker from './shared/DatePicker';
 import TimePicker from './shared/TimePicker';
@@ -33,18 +33,11 @@ const petSizes = ['Small (0-20 lbs)', 'Medium (21-50 lbs)', 'Large (51-100 lbs)'
 const ratingOptions = ['Any', '3+', '4+', '4.5+', '5+'];
 
 export default function FilterModal({ visible, onClose, onApplyFilters, currentFilters }: FilterModalProps) {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor, inputBg, inputText } = useThemeColors();
   const insets = useSafeAreaInsets();
-  
-  const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-white';
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const subtextColor = isDarkMode ? 'text-gray-400' : 'text-gray-700';
-  const borderColor = isDarkMode ? 'border-gray-800' : 'border-gray-300';
-  const inputBg = isDarkMode ? 'bg-[#243447]' : 'bg-white';
-  const inputText = isDarkMode ? 'text-white' : 'text-gray-900';
+
   const placeholderColor = isDarkMode ? 'text-gray-500' : 'text-gray-400';
-  
+
   const [filters, setFilters] = useState<FilterState>(currentFilters);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);

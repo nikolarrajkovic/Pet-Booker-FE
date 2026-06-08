@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
+import { useThemeColors } from '../../hooks/useThemeColors';
 
 export type ActionPopupMode = 'confirmation' | 'warning' | 'error';
 
@@ -33,7 +33,7 @@ export default function ActionPopup({
   onConfirm,
   onCancel,
 }: ActionPopupProps) {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, cardBg, textColor } = useThemeColors();
 
   // Freeze displayed content while the modal is fading out so text/buttons
   // don't change mid-animation when the parent clears its state on cancel.
@@ -49,9 +49,7 @@ export default function ActionPopup({
     }
   }, [visible, text, buttonText, mode]);
 
-  const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-white';
   const overlayBg = isDarkMode ? 'bg-black/70' : 'bg-black/50';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
   const cancelBg = isDarkMode ? 'bg-[#243447]' : 'bg-gray-100';
   const cancelText = isDarkMode ? 'text-gray-300' : 'text-gray-700';
 

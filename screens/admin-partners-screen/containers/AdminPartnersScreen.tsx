@@ -10,7 +10,7 @@ import {
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import { PartnerCard } from '../components';
 import type { Partner, PartnerStatus } from '../components';
 
@@ -170,7 +170,7 @@ const TABS: { key: FilterTab; label: string }[] = [
 export default function AdminPartnersScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, hex } = useThemeColors();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
@@ -190,11 +190,11 @@ export default function AdminPartnersScreen() {
     }, [route.params?.updatedId, route.params?.updatedStatus])
   );
 
-  const bgColor = isDarkMode ? '#0f1621' : '#F9FAFB';
-  const cardBg = isDarkMode ? '#1a2332' : '#ffffff';
-  const textColor = isDarkMode ? '#F9FAFB' : '#111827';
-  const subTextColor = isDarkMode ? '#9CA3AF' : '#6B7280';
-  const borderColor = isDarkMode ? '#2d3748' : '#E5E7EB';
+  const bgColor = hex.bg;
+  const cardBg = hex.card;
+  const textColor = hex.text;
+  const subTextColor = hex.subtext;
+  const borderColor = hex.border;
   const inputBg = isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.9)';
 
   const counts: Record<FilterTab, number> = {

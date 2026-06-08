@@ -7,7 +7,7 @@ import SeeMoreCard from '../../../components/shared/SeeMoreCard';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useLocation } from '../../../hooks/useLocation';
-import { useTheme } from '../../../context/ThemeContext';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 
 // Service types for the pill buttons
 const SERVICE_TYPES = [
@@ -67,12 +67,11 @@ const MOCK_SERVICES = {
 export default function HomeScreen() {
   const navigation = useNavigation();
   const location = useLocation();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, textColor } = useThemeColors();
 
   const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-brand-500';
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
-  const textColor = isDarkMode ? 'text-white' : 'text-gray-900';
-  const sectionTitleColor = isDarkMode ? 'text-white' : 'text-gray-900';
+  const sectionTitleColor = textColor;
   const subtitleColor = isDarkMode ? 'text-gray-400' : 'text-brand-100';
 
   const handleServicePress = (provider: any) => {
