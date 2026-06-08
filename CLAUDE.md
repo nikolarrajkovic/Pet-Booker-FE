@@ -21,6 +21,8 @@ services/           # All API calls and storage utilities
   service-providers.ts  # ServiceProviderDto, ProviderViewModel, providerToViewModel, resolveImageUrl, getServiceProviders, getServiceProvider, createServiceProvider
   services.ts       # ServiceDto, getServices, getService, createService, updateService, deleteService
   reviews.ts        # ReviewDto, getReviews, createReview
+  bookings.ts       # BookingDto, BookingViewModel, bookingToViewModel, get/create/cancel/delete + state/status enums
+  payment-methods.ts  # PaymentMethodDto, getPaymentMethods, createPaymentMethod, deletePaymentMethod
 
 context/
   AuthContext.tsx   # isLoggedIn, isAdmin, isPartner, currentUser, auth actions
@@ -131,6 +133,17 @@ if (!response.ok) {
 - `getReviews(params?)` → GET `/api/reviews` (auth) → `ReviewDto[]`. Params: `serviceProviderId`, `userId`, `bookingId`, `rating`, `page`, `perPage`.
 - `createReview(review)` → POST `/api/reviews` (auth) → `ReviewDto`. **`bookingId` must reference a real, existing booking** — the API validates the FK and rejects otherwise. So reviews can only be created after a booking exists.
 
+### `services/bookings.ts`
+- **Types**: `BookingDto`, `BookingViewModel`, `CreateBookingInput`. Exported enum maps: `BookingState` (0=Upcoming, 1=Completed, 2=Cancelled), `BookingStatusType` (0=ServiceRequestedByUser … 5=PostPayment), `PaymentType` (0=Cash, 1=Card, 2=BankTransfer, 3=Wallet).
+- **`bookingToViewModel(dto)`** — flattens a booking (with its nested `serviceProvider`/`service`/`pet` includes) into `BookingViewModel` for display. `statusLabel` ('upcoming'|'completed'|'cancelled') is derived from `state`.
+- `getBookings(params?)` → GET `/api/bookings`. Params: `userId`, `serviceProviderId`, `serviceId`, `petId`, `state`, `currentStatus`, `bookingFrom`, `bookingTo`, `page`, `perPage`. GET responses include populated nested `serviceProvider`, `service`, `pet`.
+- `getBooking(id)`, `createBooking(input)`, `cancelBooking(booking, reason?)` (PUT with state=Cancelled), `deleteBooking(id)`.
+
+### `services/payment-methods.ts`
+- **Type**: `PaymentMethodDto`. Enum `PaymentMethodStatus` (0=Active, 1=Removed).
+- `getPaymentMethods(userId)` → GET `/api/payment-methods?UserId=` — **filters to Active only**.
+- `createPaymentMethod(method)`, `deletePaymentMethod(id)`.
+
 ### Verified API behaviors (tested against live backend 2026-06-08)
 These are confirmed quirks of the real API — keep them in mind when building DTOs/payloads:
 - **All `/api/*` list endpoints return a pagination wrapper**: `{ totalItems, totalPages, currentPage, itemsPerPage, items }`. Always unwrap with `extractPageItems()`.
@@ -138,6 +151,13 @@ These are confirmed quirks of the real API — keep them in mind when building D
 - **`isApproved` is server-controlled**: POSTing a provider with `isApproved: true` is ignored — it's always saved as `false`. An admin must approve via `POST /admin/service-providers/{id}/approve`.
 - **Provider GET returns more than the swagger DTO**: also includes `ratingAvg` (real average rating, null until reviews exist), `isApplicationPartner`, `addressId`, `createdAt`, `updatedAt`, `bookings[]`, `providerProfile`. `providerToViewModel()` maps `ratingAvg` → `rating`.
 - **Service GET returns more than the swagger DTO**: also includes `rating`, `totalRatingNumber`, `price` (effective price after discount — prefer over `basePrice` for display), `about` (long description), `imageUrl`, `basicServiceName`, `appliedDiscountType`, `appliedDiscountAmount`. These extra fields are typed as optional on `ServiceDto`.
+- **Creating a booking REQUIRES a valid `paymentMethodId`** referencing an existing PaymentMethod for the user. Posting with `null`/`0`/missing → 422 ("must not be empty" + "must reference a real one"). So the booking flow has a hard prerequisite: the user must have a saved payment method. `location` is optional, but if sent must have at least one address (`pickupAddressId` or `leaveOverAddressId`).
+- **Creating a pet REQUIRES at least one photo** — `'Request Photos' must not be empty`. `createPet()`/`AddPetScreen` must enforce ≥1 photo before POST (currently it does not — a photoless pet 422s).
+- **Booking GET includes populated nested objects**: `serviceProvider` (with photos), `service`, `pet` — enough to render a booking card from a single list call.
+- **Verified enum names** (`GET /enums`): `serviceProviderType` = 0:Sitter, 1:Walker, 2:Boarder, 3:PetHotel, 4:Groomer. `bookingState` = 0:Upcoming, 1:Completed, 2:Cancelled. `petType` = 1:Dog, 2:Cat, 3:Parrot, 4:Turtle, 5:Fish, 6:Snake. `paymentType` = 0:Cash, 1:Card, 2:BankTransfer, 3:Wallet.
+
+### Test login
+- Dev/seed admin account: identifier `admin` / password `admin` (use for live API testing via curl).
 
 ---
 

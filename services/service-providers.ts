@@ -59,14 +59,15 @@ export type ProviderViewModel = {
   address?: AddressDto;
 };
 
-// ServiceProviderType enum: best-guess labels matching the HomeScreen pill labels.
-// These can be overridden by the server-side enum names from useEnums().
+// ServiceProviderType enum (verified against /enums): 0=Sitter, 1=Walker,
+// 2=Boarder, 3=PetHotel, 4=Groomer. Mapped here to the friendly labels used by
+// the HomeScreen service-type pills.
 const PROVIDER_TYPE_LABELS: Record<number, string> = {
-  0: 'Pet Care',
+  0: 'Pet Sitting',
   1: 'Dog Walking',
-  2: 'Grooming',
-  3: 'Boarding',
-  4: 'Pet Sitting',
+  2: 'Boarding',
+  3: 'Pet Hotel',
+  4: 'Grooming',
 };
 
 /** Builds a full image URL from a relative `/files/...` path or returns as-is if already absolute. */
