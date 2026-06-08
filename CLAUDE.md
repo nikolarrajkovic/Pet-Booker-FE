@@ -12,13 +12,15 @@
 
 ```
 services/           # All API calls and storage utilities
-  http.ts           # apiFetch + apiAuthFetch + getApiBaseUrl + parseApiError + registerSessionExpiredHandler
+  http.ts           # apiFetch + apiAuthFetch + getApiBaseUrl + parseApiError + extractPageItems + registerSessionExpiredHandler
   auth.ts           # Auth endpoints including token refresh
   token-storage.ts  # Token persistence with TTL
   enums.ts          # Enum/lookup data
   pets.ts           # Pet CRUD (get/create/update/delete) + bulk photo upload
   files.ts          # File/image upload utilities
-  service-providers.ts  # Partner application creation
+  service-providers.ts  # ServiceProviderDto, ProviderViewModel, providerToViewModel, resolveImageUrl, getServiceProviders, getServiceProvider, createServiceProvider
+  services.ts       # ServiceDto, getServices, getService, createService, updateService, deleteService
+  reviews.ts        # ReviewDto, getReviews, createReview
 
 context/
   AuthContext.tsx   # isLoggedIn, isAdmin, isPartner, currentUser, auth actions
@@ -47,6 +49,7 @@ CLAUDE.md       # This file — primary AI context. (.github/copilot-instruction
 - **`apiAuthFetch(url, init?)`** — Automatically attaches `Authorization: Bearer <token>`. Use for all authenticated endpoints. Silently refreshes the access token if expired before making the request.
 - **`getApiBaseUrl()`** — Returns `EXPO_PUBLIC_API_BASE_URL` with any trailing slash stripped (throws if unset). **Single source of truth** — every service builds URLs from this. Never re-implement it locally.
 - **`parseApiError(response, fallback, context?)`** — Extracts a human-readable message from a failed `Response`. Resolution order: ASP.NET validation errors (`{ errors: { Field: ["msg"] } }`) → `{ message }` → `{ detail }` → `{ title }` → raw text → `fallback`. Pass a `context` tag (e.g. `'createPet'`) for the dev console log. **Use this in every `if (!response.ok)` block** instead of re-writing the parse logic.
+- **`extractPageItems<T>(raw)`** — Extracts the items array from any paginated or plain list response. Handles plain array, `{ items }`, `{ data }`, `{ results }`, `{ value }`. **Always use this** instead of inline `Array.isArray` branching in service list functions.
 - **`registerSessionExpiredHandler(handler)`** — Registers a callback invoked when a token refresh fails. Called by AuthContext on mount. Do not call this elsewhere.
 - **Rule**: Never call `fetch()` directly. Always use `apiFetch` or `apiAuthFetch`.
 - FormData bodies: do NOT set `Content-Type` — the runtime must set it with the multipart boundary.
@@ -103,10 +106,38 @@ if (!response.ok) {
 - Prefer bulk upload over individual uploads.
 
 ### `services/service-providers.ts`
+- **Types**: `ServiceProviderDto`, `AddressDto`, `PhotoDto`, `ProviderViewModel`
+- **`ProviderViewModel`** — canonical provider shape passed through navigation params across HomeScreen → SearchScreen → ProviderDetail → BookService → ReviewBooking. Fields not yet in the API (rating, reviews, distance, lat/lng) default to 0/''. Always use this type for the `provider` nav param.
+- **`providerToViewModel(dto)`** — maps `ServiceProviderDto` → `ProviderViewModel`. Use in every screen that fetches a provider list.
+- **`resolveImageUrl(src)`** — prepends `getApiBaseUrl()` to relative `/files/...` paths; returns absolute URLs as-is.
+- `getServiceProviders(params?)` → GET `/api/service-providers` (auth) → `ServiceProviderDto[]`. Params: `name`, `city`, `type`, `page`, `perPage`.
+- `getServiceProvider(id)` → GET `/api/service-providers/{id}` (auth) → `ServiceProviderDto`
 - `createServiceProvider(payload)` → POST `/api/service-providers` (auth)
   - Payload (`CreateServiceProviderPayload`): `{ fullName, email, phone, streetAddress, city, state, zipCode, selectedServices[], yearsOfExperience, aboutYou, certifications, availability, profilePhoto, petPhotoFiles[], governmentIdFiles[], certificateFiles[], userId }`
   - Uploads all files (profile photo + pet photos + government IDs + certificates) in **one** `uploadFilesBulk()` call, then routes them into the DTO: profile + pet photos → `photos[]` (`isSelected`); government IDs → `governmentIdPhotos[]` (`isFront`); certificates → `certificates[]`, each referencing its upload via `fileIds: number[]`.
   - New applications post with top-level `isApproved: false` (and per-certificate `isApproved: false`) — an admin approves later. The DTO has no top-level `city`/`photoUrl`; city lives in `address`.
+
+### `services/services.ts`
+- **Type**: `ServiceDto` — `{ id?, serviceProviderId, name?, notes?, basePrice, escrowAmount, isEscrowPercentEnabled, escrowPercent?, pricing?, details?, photos? }`
+- `details` contains: `{ supportsPickup, pickupPriceSurcharge?, supportsLeaveOver, leaveOverPriceSurcharge? }`
+- `getServices(params?)` → GET `/api/services` (auth) → `ServiceDto[]`. Params: `serviceProviderId`, `name`, `supportsPickup`, `supportsLeaveOver`, `page`, `perPage`.
+- `getService(id)` → GET `/api/services/{id}` (auth) → `ServiceDto`
+- `createService(service)` → POST `/api/services` (auth) → `ServiceDto`
+- `updateService(id, service)` → PUT `/api/services/{id}` (auth) → `ServiceDto`
+- `deleteService(id)` → DELETE `/api/services/{id}` (auth)
+
+### `services/reviews.ts`
+- **Type**: `ReviewDto` — `{ id?, bookingId, userId, serviceProviderId, rating, title?, comment?, photos? }`
+- `getReviews(params?)` → GET `/api/reviews` (auth) → `ReviewDto[]`. Params: `serviceProviderId`, `userId`, `bookingId`, `rating`, `page`, `perPage`.
+- `createReview(review)` → POST `/api/reviews` (auth) → `ReviewDto`. **`bookingId` must reference a real, existing booking** — the API validates the FK and rejects otherwise. So reviews can only be created after a booking exists.
+
+### Verified API behaviors (tested against live backend 2026-06-08)
+These are confirmed quirks of the real API — keep them in mind when building DTOs/payloads:
+- **All `/api/*` list endpoints return a pagination wrapper**: `{ totalItems, totalPages, currentPage, itemsPerPage, items }`. Always unwrap with `extractPageItems()`.
+- **Service Provider XOR constraint**: the API enforces *"Exactly one of UserId or ProviderProfileId must be provided, not both and not neither."* Backed by the `CK_ServiceProvider_OwnerXor` DB CHECK constraint. Sending `0` counts as "provided" → 500. For the partner-application flow, send `userId` and `providerProfileId: null`.
+- **`isApproved` is server-controlled**: POSTing a provider with `isApproved: true` is ignored — it's always saved as `false`. An admin must approve via `POST /admin/service-providers/{id}/approve`.
+- **Provider GET returns more than the swagger DTO**: also includes `ratingAvg` (real average rating, null until reviews exist), `isApplicationPartner`, `addressId`, `createdAt`, `updatedAt`, `bookings[]`, `providerProfile`. `providerToViewModel()` maps `ratingAvg` → `rating`.
+- **Service GET returns more than the swagger DTO**: also includes `rating`, `totalRatingNumber`, `price` (effective price after discount — prefer over `basePrice` for display), `about` (long description), `imageUrl`, `basicServiceName`, `appliedDiscountType`, `appliedDiscountAmount`. These extra fields are typed as optional on `ServiceDto`.
 
 ---
 

@@ -57,6 +57,19 @@ export async function parseApiError(
   }
 }
 
+/**
+ * Extracts the items array from a paginated or plain API list response.
+ * Handles: plain array, `{ items }`, `{ data }`, `{ results }`, `{ value }`
+ */
+export function extractPageItems<T>(raw: unknown): T[] {
+  if (Array.isArray(raw)) return raw as T[];
+  const obj = raw as Record<string, unknown>;
+  for (const key of ['items', 'data', 'results', 'value']) {
+    if (Array.isArray(obj?.[key])) return obj[key] as T[];
+  }
+  return [];
+}
+
 export async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
   if (__DEV__) {
     console.log('[API Request]', init?.method ?? 'GET', url, init?.body ?? '');

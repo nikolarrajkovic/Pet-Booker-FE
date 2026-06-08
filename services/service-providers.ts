@@ -1,5 +1,143 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError } from './http';
+import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
 import { uploadFilesBulk } from './files';
+
+// ─── Shared DTO types ────────────────────────────────────────────────────────
+
+export type PhotoDto = {
+  id?: number | null;
+  alt?: string | null;
+  name?: string | null;
+  src?: string | null;
+  fileUploadId?: number | null;
+  isSelected: boolean;
+};
+
+export type AddressDto = {
+  id?: number | null;
+  line1?: string | null;
+  line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+};
+
+export type ServiceProviderDto = {
+  id?: number | null;
+  name?: string | null;
+  type: number;
+  isApproved: boolean;
+  ratingAvg?: number | null;       // server-computed average rating (null until reviews exist)
+  userId?: number | null;
+  providerProfileId?: number | null;
+  addressId?: number | null;
+  isApplicationPartner?: boolean;  // true when created via the partner-application flow
+  createdAt?: string;
+  updatedAt?: string;
+  address?: AddressDto;
+  photos?: PhotoDto[];
+};
+
+/**
+ * Canonical provider shape passed through navigation params and used by all
+ * screens (HomeScreen → SearchScreen → ProviderDetail → BookService → ReviewBooking).
+ * Fields not yet available from the API (reviews count, distance, lat/lng) are
+ * defaulted to 0/'' and will be populated in later phases.
+ */
+export type ProviderViewModel = {
+  id: number;
+  name: string;
+  service: string;     // mapped from ServiceProviderType enum
+  rating: number;      // from dto.ratingAvg (0 until reviews exist)
+  reviews: number;     // 0 until review count is exposed at list level (Phase 2)
+  distance: string;    // '' until geocoding (Phase 2)
+  price: number;       // 0 until services are loaded (populated in ProviderDetail)
+  image: string;       // first isSelected photo, or first photo
+  verified: boolean;   // = isApproved
+  latitude: number;    // 0 — not in API
+  longitude: number;   // 0 — not in API
+  address?: AddressDto;
+};
+
+// ServiceProviderType enum: best-guess labels matching the HomeScreen pill labels.
+// These can be overridden by the server-side enum names from useEnums().
+const PROVIDER_TYPE_LABELS: Record<number, string> = {
+  0: 'Pet Care',
+  1: 'Dog Walking',
+  2: 'Grooming',
+  3: 'Boarding',
+  4: 'Pet Sitting',
+};
+
+/** Builds a full image URL from a relative `/files/...` path or returns as-is if already absolute. */
+export function resolveImageUrl(src: string | null | undefined): string {
+  if (!src) return '';
+  if (src.startsWith('http://') || src.startsWith('https://')) return src;
+  try {
+    return `${getApiBaseUrl()}${src}`;
+  } catch {
+    return src;
+  }
+}
+
+/** Maps a raw ServiceProviderDto to the ProviderViewModel used by all screens. */
+export function providerToViewModel(dto: ServiceProviderDto): ProviderViewModel {
+  const selectedPhoto = dto.photos?.find((p) => p.isSelected) ?? dto.photos?.[0];
+  return {
+    id: dto.id ?? 0,
+    name: dto.name ?? 'Unknown Provider',
+    service: PROVIDER_TYPE_LABELS[dto.type] ?? 'Pet Care',
+    rating: dto.ratingAvg ?? 0,
+    reviews: 0,
+    distance: '',
+    price: 0,
+    image: resolveImageUrl(selectedPhoto?.src),
+    verified: dto.isApproved,
+    latitude: 0,
+    longitude: 0,
+    address: dto.address,
+  };
+}
+
+// ─── Read functions ──────────────────────────────────────────────────────────
+
+export type GetServiceProvidersParams = {
+  name?: string;
+  city?: string;
+  type?: number;
+  page?: number;
+  perPage?: number;
+};
+
+export async function getServiceProviders(params?: GetServiceProvidersParams): Promise<ServiceProviderDto[]> {
+  const query = new URLSearchParams();
+  if (params?.name) query.set('Name', params.name);
+  if (params?.city) query.set('City', params.city);
+  if (params?.type !== undefined) query.set('Type', String(params.type));
+  query.set('Page', String(params?.page ?? 1));
+  query.set('PerPage', String(params?.perPage ?? 50));
+
+  const url = `${getApiBaseUrl()}/api/service-providers?${query.toString()}`;
+  const response = await apiAuthFetch(url, { method: 'GET' });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Failed to load providers.', 'getServiceProviders'));
+  }
+
+  const raw = await response.json();
+  return extractPageItems<ServiceProviderDto>(raw);
+}
+
+export async function getServiceProvider(id: number): Promise<ServiceProviderDto> {
+  const url = `${getApiBaseUrl()}/api/service-providers/${id}`;
+  const response = await apiAuthFetch(url, { method: 'GET' });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Failed to load provider.', 'getServiceProvider'));
+  }
+
+  return response.json();
+}
 
 export type CreateServiceProviderPayload = {
   fullName: string;
@@ -93,8 +231,11 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
     type: 0,
     // New applications are not approved yet — an admin reviews and approves later
     isApproved: false,
+    // The API enforces a XOR: exactly ONE of userId / providerProfileId may be set.
+    // An applicant is a user, so providerProfileId MUST be null here (sending 0 counts
+    // as "provided" and trips the CK_ServiceProvider_OwnerXor DB constraint → 500).
     userId: payload.userId,
-    providerProfileId: 0,
+    providerProfileId: null,
     address: {
       id: 0,
       line1: payload.streetAddress,
