@@ -24,6 +24,8 @@ services/           # All API calls and storage utilities
   bookings.ts       # BookingDto, BookingViewModel, bookingToViewModel, get/create/cancel/delete + state/status enums
   payment-methods.ts  # PaymentMethodDto, getPaymentMethods, createPaymentMethod, deletePaymentMethod
   admin.ts          # Admin-only actions: approveServiceProvider, approveCertificate
+  service-discounts.ts  # ServiceDiscountDto, DiscountType, getServiceDiscounts, create/update/deleteServiceDiscount
+  notifications.ts  # UserNotificationSettingsDto, getNotificationSettings, saveNotificationSettings, defaultNotificationSettings
 
 context/
   AuthContext.tsx   # isLoggedIn, isAdmin, isPartner, currentUser, auth actions
@@ -76,6 +78,11 @@ if (!response.ok) {
 - `getMe()` → GET `/auth/me` (auth) → `CurrentUser`
 - `confirmEmail(email, code)` → POST `/auth/confirm-email`
 - `resendConfirmation(email)` → POST `/auth/resend-confirmation`
+- `updateProfile({ userName, firstName, lastName, phone, email })` → PUT `/auth/profile` (auth). **Email is read-only server-side** — sending a changed email returns 400 "Email cannot be changed via profile update"; send the current email unchanged. AccountScreen keeps the email field read-only.
+- `changePassword({ currentPassword, newPassword, confirmPassword })` → POST `/auth/change-password` (auth)
+- `forgotPassword(email)` → POST `/auth/forgot-password` (public)
+- `resetPassword({ resetToken, newPassword, confirmPassword })` → POST `/auth/reset-password` (public)
+- `logout()` → POST `/auth/logout` (auth). Called best-effort by `signOut()` before clearing tokens.
 - Type `CurrentUser`: `{ id, email, emailConfirmed, roles[], groups[], userName, firstName, lastName }`
 
 ### `services/token-storage.ts`
@@ -140,7 +147,9 @@ if (!response.ok) {
 - **Types**: `BookingDto`, `BookingViewModel`, `CreateBookingInput`. Exported enum maps: `BookingState` (0=Upcoming, 1=Completed, 2=Cancelled), `BookingStatusType` (0=ServiceRequestedByUser … 5=PostPayment), `PaymentType` (0=Cash, 1=Card, 2=BankTransfer, 3=Wallet).
 - **`bookingToViewModel(dto)`** — flattens a booking (with its nested `serviceProvider`/`service`/`pet` includes) into `BookingViewModel` for display. `statusLabel` ('upcoming'|'completed'|'cancelled') is derived from `state`.
 - `getBookings(params?)` → GET `/api/bookings`. Params: `userId`, `serviceProviderId`, `serviceId`, `petId`, `state`, `currentStatus`, `bookingFrom`, `bookingTo`, `page`, `perPage`. GET responses include populated nested `serviceProvider`, `service`, `pet`.
-- `getBooking(id)`, `createBooking(input)`, `cancelBooking(booking, reason?)` (PUT with state=Cancelled), `deleteBooking(id)`.
+- `getBooking(id)`, `createBooking(input)`, `setBookingStatus(booking, currentStatus)` (provider accept → ServiceConfirmedByProvider), `cancelBooking(booking, reason?)` (PUT with state=Cancelled), `deleteBooking(id)`.
+- **Booking PUT must send only writable scalar fields** — the GET returns nested read-only includes (`serviceProvider`/`service`/`pet`/`user`/addresses) and PUTing those back 500s. `setBookingStatus`/`cancelBooking` strip them via `toWritableBooking`.
+- **Backend quirk (BACKEND_GAPS B4)**: transitioning `currentStatus` → 1 (ServiceConfirmedByProvider) or 4 (ServiceEnded) sends an email; if the recipient's address is invalid (e.g. the seed `admin` account, email = `admin`) the API returns 500 `"...not in the form required for an e-mail address"` **but the status still persists**. Real users with valid emails are fine.
 
 ### `services/payment-methods.ts`
 - **Type**: `PaymentMethodDto`. Enum `PaymentMethodStatus` (0=Active, 1=Removed).
@@ -186,6 +195,7 @@ These are confirmed quirks of the real API — keep them in mind when building D
 | `signInWithCredentials(email, password)` | fn | Calls loginWithEmailPassword + signIn |
 | `signOut()` | fn | clearTokens() + reset state |
 | `signInWithGoogle()` | fn | expo-auth-session Google OAuth (client IDs are placeholders) |
+| `refreshUser()` | fn | Re-fetches `getMe()` and updates `currentUser` (used after profile edits) |
 
 Auth flow:
 1. On app start: check `getAccessToken()` → if valid, call `getMe()` → restore session
@@ -226,7 +236,7 @@ Returns `{ latitude, longitude, address, loading, error }`
 Root: Stack navigator guarded by `isLoggedIn`.
 
 **Public screens (unauthenticated):**
-- `Login`, `Register`, `VerifyEmail`
+- `Login`, `Register`, `VerifyEmail`, `ForgotPassword`
 
 **Authenticated root: MainTabs (bottom tab navigator) + stack screens**
 
@@ -275,14 +285,16 @@ Implementation notes (`App.tsx`):
 | BecomePartnerScreen | `screens/become-partner-screen/containers/` | Partner signup info |
 | PartnerApplicationScreen | `screens/partner-application-screen/containers/` | Multi-step partner application form |
 | ApplicationSubmittedScreen | `screens/application-submitted-screen/containers/` | Post-application confirmation |
-| AccountScreen | `screens/account-screen/containers/` | Account settings |
+| AccountScreen | `screens/account-screen/containers/` | **API-wired** — prefills from `currentUser`; Save → `updateProfile()` + `refreshUser()`. Email read-only (API rejects changes); address/photo + payment card are mock (no backend fields) |
+| ChangePasswordScreen | `screens/change-password-screen/containers/` | **API-wired** — `changePassword()` (current/new/confirm); reached from Settings |
+| ForgotPasswordScreen | `screens/forgot-password-screen/containers/` | **API-wired** — 2-step: `forgotPassword(email)` → `resetPassword(token,…)`; reached from Login |
 | MyBookingsScreen | `screens/my-bookings-screen/containers/` | **API-wired** — `getBookings({ userId })` in `useFocusEffect`; Upcoming/Past tabs from `bookingState` |
-| MyScheduleScreen | `screens/my-schedule-screen/containers/` | Partner schedule (day/week/month) |
+| MyScheduleScreen | `screens/my-schedule-screen/containers/` | **API-wired** — loads bookings (partner: by provider, user: by userId) into the schedule source on focus; day/week/month views unchanged |
 | MyServicesScreen | `screens/my-services-screen/containers/` | Partner's listed services |
 | ServicePreviewScreen | `screens/service-preview-screen/` | Preview service before publish |
-| NotificationsScreen | `screens/notifications-screen/containers/` | Notification center + preferences |
-| NewRequestsScreen | `screens/new-requests-screen/containers/` | Partner's service request queue |
-| PromotionsScreen | `screens/promotions-screen/containers/` | Promotions management |
+| NotificationsScreen | `screens/notifications-screen/containers/` | **API-wired** — `getNotificationSettings` on focus; each toggle persists via `saveNotificationSettings` (POST/PUT). Save FK-fails for the seed admin (BACKEND_GAPS N1) → applies locally + shows a notice |
+| NewRequestsScreen | `screens/new-requests-screen/containers/` | **API-wired** — partner's bookings via `getBookings({ serviceProviderId })`; New/Accepted/Declined from state+currentStatus; accept → `setBookingStatus`, decline → `cancelBooking` |
+| PromotionsScreen | `screens/promotions-screen/containers/` | **API-wired (offers only)** — loads `service-discounts` as offer cards (+ mock boost/featured); pause/resume toggles `isEnabled`. EditPromotion saves/deletes real offers. boost/featured/analytics are mock (BACKEND_GAPS PR1–PR5) |
 | AdminNewRequestsScreen | `screens/admin-new-requests-screen/containers/` | **API-wired** — `getServiceProviders()` in `useFocusEffect`, client-side pending/approved split; approve → `approveServiceProvider()` (+ certs), reject → `deleteServiceProvider()` |
 | ApplicationReviewScreen | (within admin-new-requests) | **API-wired** — approve/reject call the real admin endpoints, then `goBack()` (list refetches on focus) |
 | AdminPartnersScreen | `screens/admin-partners-screen/containers/` | Admin partner management list |

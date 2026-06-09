@@ -1,4 +1,4 @@
-import { apiFetch, apiAuthFetch, getApiBaseUrl } from './http';
+import { apiFetch, apiAuthFetch, getApiBaseUrl, parseApiError } from './http';
 
 export type CurrentUser = {
   id: number;
@@ -170,6 +170,76 @@ export async function confirmEmail(email: string, code: string): Promise<void> {
 
   if (!response.ok) {
     throw new Error(body.message || body.detail || 'Email verification failed. Please try again.');
+  }
+}
+
+export type UpdateProfilePayload = {
+  userName: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+};
+
+/** Updates the signed-in user's profile. */
+export async function updateProfile(payload: UpdateProfilePayload): Promise<void> {
+  const response = await apiAuthFetch(`${getApiBaseUrl()}/auth/profile`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Failed to update profile.', 'updateProfile'));
+  }
+}
+
+/** Changes the signed-in user's password. */
+export async function changePassword(payload: {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}): Promise<void> {
+  const response = await apiAuthFetch(`${getApiBaseUrl()}/auth/change-password`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Failed to change password.', 'changePassword'));
+  }
+}
+
+/** Requests a password-reset email/code for the given address (public). */
+export async function forgotPassword(email: string): Promise<void> {
+  const response = await apiFetch(`${getApiBaseUrl()}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Failed to send reset email.', 'forgotPassword'));
+  }
+}
+
+/** Resets a password using the token from the reset email (public). */
+export async function resetPassword(payload: {
+  resetToken: string;
+  newPassword: string;
+  confirmPassword: string;
+}): Promise<void> {
+  const response = await apiFetch(`${getApiBaseUrl()}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Failed to reset password.', 'resetPassword'));
+  }
+}
+
+/** Server-side logout (best-effort; the client clears tokens regardless). */
+export async function logout(): Promise<void> {
+  const response = await apiAuthFetch(`${getApiBaseUrl()}/auth/logout`, { method: 'POST' });
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Failed to log out.', 'logout'));
   }
 }
 

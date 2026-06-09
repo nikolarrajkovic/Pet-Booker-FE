@@ -1,25 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useAuth } from '../../../context/AuthContext';
 import DayView from '../components/DayView';
 import WeekView from '../components/WeekView';
 import MonthView from '../components/MonthView';
-import type { ScheduleMode } from '../utils/mockScheduleData';
+import {
+  ScheduleMode,
+  buildScheduleFromBookings,
+  setLiveScheduleData,
+  clearLiveScheduleData,
+} from '../utils/mockScheduleData';
+import { getBookings } from '../../../services/bookings';
+import { getMyProvider } from '../../../services/service-providers';
 
 type ViewType = 'day' | 'week' | 'month';
 
 export default function MyScheduleScreen() {
   const navigation = useNavigation();
   const route = useRoute();
+  const { currentUser } = useAuth();
   const { isDarkMode, bgColor: contentBg } = useThemeColors();
   const [selectedView, setSelectedView] = useState<ViewType>('day');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 3, 4)); // April 4, 2026
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [, setDataVersion] = useState(0); // bumped after live data loads to re-render the views
 
   // Determine mode from navigation params; default to 'partner' for backward compat
   const mode: ScheduleMode = (route.params as any)?.mode ?? 'partner';
+
+  // Load real bookings into the schedule source on focus; clear on blur.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          let bookings;
+          if (mode === 'user') {
+            bookings = currentUser?.id ? await getBookings({ userId: currentUser.id }) : [];
+          } else {
+            const provider = currentUser?.id ? await getMyProvider(currentUser.id) : null;
+            bookings = provider?.id ? await getBookings({ serviceProviderId: provider.id }) : [];
+          }
+          if (cancelled) return;
+          setLiveScheduleData(buildScheduleFromBookings(bookings, mode));
+          setDataVersion((v) => v + 1);
+        } catch (e) {
+          console.warn('[MySchedule] load failed', e);
+        }
+      })();
+      return () => { cancelled = true; clearLiveScheduleData(); };
+    }, [mode, currentUser?.id])
+  );
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
 

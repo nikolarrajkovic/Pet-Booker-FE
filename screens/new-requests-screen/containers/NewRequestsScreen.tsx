@@ -1,109 +1,78 @@
-import React, { useState } from 'react';
-import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { RequestCard } from '../components';
 import type { ServiceRequest, RequestStatus } from '../components';
+import { getMyProvider, resolveImageUrl } from '../../../services/service-providers';
+import {
+  getBookings,
+  setBookingStatus,
+  cancelBooking,
+  BookingDto,
+  BookingState,
+  BookingStatusType,
+} from '../../../services/bookings';
 
-const mockRequests: ServiceRequest[] = [
-  {
-    id: 1,
-    clientName: 'Sarah Mitchell',
-    clientAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200',
-    clientEmail: 'sarah.m@email.com',
-    clientPhone: '+1 555 0101',
-    postedAgo: '4d ago',
-    petName: 'Luna',
-    petBreed: 'Golden Retriever',
-    petAge: '3 years',
-    petWeight: '65 lbs',
-    petImage: 'https://images.unsplash.com/photo-1633722715463-d30f4f325e24?w=300',
-    petSpecialNeeds: 'Needs medication at 2pm',
-    petType: 'dog',
-    serviceName: 'Dog Walking',
-    serviceDate: 'April 16, 2026',
-    serviceTime: '10:00 AM',
-    serviceLocation: 'Golden Gate Park',
-    duration: '1 hour',
-    totalPrice: 35,
-    additionalServices: ['Photo Updates'],
-    notesFromOwner: 'Luna loves to play fetch! Please bring a ball.',
-    status: 'new',
-  },
-  {
-    id: 2,
-    clientName: 'James Parker',
-    clientAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
-    clientEmail: 'james.p@email.com',
-    clientPhone: '+1 555 0202',
-    postedAgo: '1d ago',
-    petName: 'Whiskers',
-    petBreed: 'Persian',
-    petAge: '2 years',
-    petWeight: '8 lbs',
-    petImage: null,
-    petSpecialNeeds: null,
-    petType: 'cat',
-    serviceName: 'Pet Sitting',
-    serviceDate: 'April 20, 2026',
-    serviceTime: '9:00 AM',
-    serviceLocation: 'Client\'s Home',
-    duration: '3 hours',
-    totalPrice: 60,
-    additionalServices: ['Feeding', 'Litter Cleaning'],
-    notesFromOwner: 'Whiskers is shy at first but warms up quickly.',
-    status: 'new',
-  },
-  {
-    id: 3,
-    clientName: 'Olivia Chen',
-    clientAvatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200',
-    clientEmail: 'olivia.c@email.com',
-    clientPhone: '+1 555 0303',
-    postedAgo: '5d ago',
-    petName: 'Buddy',
-    petBreed: 'Labrador Mix',
-    petAge: '5 years',
-    petWeight: '72 lbs',
-    petImage: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=300',
-    petSpecialNeeds: null,
-    petType: 'dog',
-    serviceName: 'Dog Walking',
-    serviceDate: 'April 14, 2026',
-    serviceTime: '8:00 AM',
-    serviceLocation: 'Riverside Trail',
-    duration: '1 hour',
-    totalPrice: 35,
-    additionalServices: [],
-    notesFromOwner: '',
-    status: 'accepted',
-  },
-  {
-    id: 4,
-    clientName: 'Tom Reeves',
+function relativeTime(iso?: string): string {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (isNaN(then)) return '';
+  const days = Math.floor((Date.now() - then) / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return '1d ago';
+  return `${days}d ago`;
+}
+
+function petTypeOf(pet: any): ServiceRequest['petType'] {
+  const t = (pet?.type ?? pet?.petType ?? '').toString().toLowerCase();
+  if (t.includes('dog') || t === '1') return 'dog';
+  if (t.includes('cat') || t === '2') return 'cat';
+  return 'other';
+}
+
+// BookingDto (with nested includes) → RequestCard's ServiceRequest shape.
+// Fields the booking API doesn't carry (client contact, location, owner notes,
+// per-booking add-ons, pet age/weight) are blank — see BACKEND_GAPS.md.
+function bookingToRequest(b: BookingDto): ServiceRequest {
+  const from = new Date(b.bookingFrom);
+  const to = new Date(b.bookingTo);
+  const hours = Math.max(0, Math.round(((to.getTime() - from.getTime()) / 3600000) * 10) / 10);
+  const status: RequestStatus =
+    b.state === BookingState.Cancelled
+      ? 'declined'
+      : b.currentStatus === BookingStatusType.ServiceRequestedByUser
+        ? 'new'
+        : 'accepted';
+  const pet: any = b.pet;
+  return {
+    id: b.id ?? 0,
+    clientName: (b as any).user?.name ?? 'Client', // BACKEND-GAP: user not populated on booking
     clientAvatar: null,
-    clientEmail: 'tom.r@email.com',
-    clientPhone: '+1 555 0404',
-    postedAgo: '6d ago',
-    petName: 'Cleo',
-    petBreed: 'Siamese',
-    petAge: '4 years',
-    petWeight: '9 lbs',
-    petImage: null,
-    petSpecialNeeds: 'Allergic to certain foods',
-    petType: 'cat',
-    serviceName: 'Pet Sitting',
-    serviceDate: 'April 12, 2026',
-    serviceTime: '2:00 PM',
-    serviceLocation: 'Client\'s Home',
-    duration: '2 hours',
-    totalPrice: 45,
-    additionalServices: ['Photo Updates'],
-    notesFromOwner: 'Please only feed the food I leave out.',
-    status: 'declined',
-  },
-];
+    clientEmail: '',
+    clientPhone: '',
+    postedAgo: relativeTime(b.createdAt),
+    petName: pet?.name ?? 'Pet',
+    petBreed: pet?.breed ?? '',
+    petAge: '',
+    petWeight: '',
+    petImage: resolveImageUrl(pet?.photos?.[0]?.src) || null,
+    petSpecialNeeds: null,
+    petType: petTypeOf(pet),
+    serviceName: b.service?.name ?? 'Service',
+    serviceDate: isNaN(from.getTime()) ? '' : from.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }),
+    serviceTime: isNaN(from.getTime()) ? '' : from.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
+    serviceLocation: '', // BACKEND-GAP: no location name on booking
+    duration: `${hours} hour${hours === 1 ? '' : 's'}`,
+    totalPrice: b.totalPrice,
+    additionalServices: [], // BACKEND-GAP: selected add-ons not recorded per booking
+    notesFromOwner: '', // BACKEND-GAP: no owner-notes field
+    status,
+  };
+}
 
 type FilterTab = 'new' | 'accepted' | 'declined' | 'all';
 
@@ -115,13 +84,38 @@ const TABS: { key: FilterTab; label: string }[] = [
 ];
 
 export default function NewRequestsScreen() {
+  const { currentUser } = useAuth();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const [activeTab, setActiveTab] = useState<FilterTab>('new');
-  const [requests, setRequests] = useState<ServiceRequest[]>(mockRequests);
+  const [bookings, setBookings] = useState<BookingDto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    if (!currentUser?.id) { setIsLoading(false); return; }
+    setIsLoading(true);
+    try {
+      const provider = await getMyProvider(currentUser.id);
+      setBookings(provider?.id ? await getBookings({ serviceProviderId: provider.id }) : []);
+    } catch (e) {
+      console.warn('[NewRequests] load failed', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentUser?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => { if (!cancelled) await load(); })();
+      return () => { cancelled = true; };
+    }, [load])
+  );
 
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]';
   const tabBg = cardBg;
 
+  const requests = useMemo(() => bookings.map(bookingToRequest), [bookings]);
   const newCount = requests.filter((r) => r.status === 'new').length;
 
   const filtered = requests.filter((r) => {
@@ -129,16 +123,43 @@ export default function NewRequestsScreen() {
     return r.status === activeTab;
   });
 
-  const handleAccept = (id: number) => {
-    setRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'accepted' as RequestStatus } : r))
-    );
+  const handleAccept = async (id: number) => {
+    if (busyId !== null) return;
+    const raw = bookings.find((b) => b.id === id);
+    if (!raw) return;
+    setBusyId(id);
+    try {
+      await setBookingStatus(raw, BookingStatusType.ServiceConfirmedByProvider);
+      await load();
+    } catch (e: any) {
+      Alert.alert('Could not accept', e?.message ?? 'Please try again.');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const handleDecline = (id: number) => {
-    setRequests((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'declined' as RequestStatus } : r))
-    );
+    if (busyId !== null) return;
+    const raw = bookings.find((b) => b.id === id);
+    if (!raw) return;
+    Alert.alert('Decline request?', 'This cancels the booking request.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Decline',
+        style: 'destructive',
+        onPress: async () => {
+          setBusyId(id);
+          try {
+            await cancelBooking(raw, 'Declined by provider');
+            await load();
+          } catch (e: any) {
+            Alert.alert('Could not decline', e?.message ?? 'Please try again.');
+          } finally {
+            setBusyId(null);
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -205,7 +226,11 @@ export default function NewRequestsScreen() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, paddingTop: 4 }}
         showsVerticalScrollIndicator={false}
       >
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <View className="items-center justify-center py-16">
+            <ActivityIndicator size="large" color="#00C870" />
+          </View>
+        ) : filtered.length === 0 ? (
           <View className="items-center justify-center py-16">
             <Ionicons
               name="clipboard-outline"
