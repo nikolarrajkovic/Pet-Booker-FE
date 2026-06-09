@@ -24,6 +24,7 @@ services/           # All API calls and storage utilities
   bookings.ts       # BookingDto, BookingViewModel, bookingToViewModel, get/create/cancel/delete + state/status enums
   payment-methods.ts  # PaymentMethodDto, getPaymentMethods, createPaymentMethod, deletePaymentMethod
   admin.ts          # Admin-only actions: approveServiceProvider, approveCertificate
+  service-discounts.ts  # ServiceDiscountDto, DiscountType, getServiceDiscounts, create/update/deleteServiceDiscount
 
 context/
   AuthContext.tsx   # isLoggedIn, isAdmin, isPartner, currentUser, auth actions
@@ -284,7 +285,7 @@ Implementation notes (`App.tsx`):
 | ServicePreviewScreen | `screens/service-preview-screen/` | Preview service before publish |
 | NotificationsScreen | `screens/notifications-screen/containers/` | Notification center + preferences |
 | NewRequestsScreen | `screens/new-requests-screen/containers/` | **API-wired** — partner's bookings via `getBookings({ serviceProviderId })`; New/Accepted/Declined from state+currentStatus; accept → `setBookingStatus`, decline → `cancelBooking` |
-| PromotionsScreen | `screens/promotions-screen/containers/` | Promotions management |
+| PromotionsScreen | `screens/promotions-screen/containers/` | **API-wired (offers only)** — loads `service-discounts` as offer cards (+ mock boost/featured); pause/resume toggles `isEnabled`. EditPromotion saves/deletes real offers. boost/featured/analytics are mock (BACKEND_GAPS PR1–PR5) |
 | AdminNewRequestsScreen | `screens/admin-new-requests-screen/containers/` | **API-wired** — `getServiceProviders()` in `useFocusEffect`, client-side pending/approved split; approve → `approveServiceProvider()` (+ certs), reject → `deleteServiceProvider()` |
 | ApplicationReviewScreen | (within admin-new-requests) | **API-wired** — approve/reject call the real admin endpoints, then `goBack()` (list refetches on focus) |
 | AdminPartnersScreen | `screens/admin-partners-screen/containers/` | Admin partner management list |

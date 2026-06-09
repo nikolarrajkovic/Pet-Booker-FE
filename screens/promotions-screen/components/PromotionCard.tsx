@@ -23,6 +23,12 @@ export interface Promotion {
   discountPercent?: number;
   usageCount?: number;
   offerNote?: string;
+  // API linkage — present for real 'offer' promotions backed by a ServiceDiscount
+  discountId?: number;
+  serviceId?: number;
+  discountType?: number;   // DiscountType: 0=Percent, 1=Fixed
+  applyFrom?: string;      // ISO
+  applyTo?: string | null; // ISO
 }
 
 interface PromotionCardProps {

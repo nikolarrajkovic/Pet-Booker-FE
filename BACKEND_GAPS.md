@@ -47,6 +47,20 @@ The real `ServiceDto` (writable fields) is: `name`, `notes`, `basePrice`, `escro
 > those back 500s, so `setBookingStatus`/`cancelBooking` strip them and send only
 > the writable scalar fields (`toWritableBooking`).
 
+## Promotions (`/api/service-discounts`)
+
+Only the **"offer"** promotion type maps to the API (a `ServiceDiscount`: percent/fixed
+amount on a service, with a date range + enabled flag). Everything else is mock.
+
+| # | UI location | Field / feature | Status | What the backend needs |
+|---|---|---|---|---|
+| PR1 | Promotions / Edit | **`boost`, `featured`, `ad` promotion types** | **Mock-only.** Kept as cards (negative ids) for UI completeness; not persisted. Pause/resume toggles them locally. | A promotions/campaigns model beyond service discounts. |
+| PR2 | Promotions "Performance Overview" | **Analytics: views, clicks, budget spent, bookings-from-promos, cost-per-booking** | **Mock (static numbers).** | Impression/click/conversion + spend tracking. |
+| PR3 | Promotion card (offer) | **`usageCount` ("8 uses")** | **Mock (0).** Not tracked per discount. | A redemption count on the discount. |
+| PR4 | PromotionAnalytics screen | Entire analytics screen | **Mock.** | As PR2. |
+| PR5 | CreatePromotionScreen | **Creating a promotion** | **Mock (not wired).** A real discount needs `serviceId` + type + date range, which the create form doesn't capture. Edit/list/toggle/delete of existing offers ARE wired to the API. | A create form with service + type + date-range pickers (then `createServiceDiscount`). |
+| PR6 | EditPromotion dates | **Start/End date inputs are free-text** (not `DatePicker`) | Parsed best-effort with `new Date(str)`; falls back to the existing value. | Use the shared `DatePicker` (frontend TODO, not a backend gap). |
+
 ## Partner applications (admin)
 
 | # | UI location | Field / feature | Status | What the backend needs |
