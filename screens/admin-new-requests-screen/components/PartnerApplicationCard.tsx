@@ -24,6 +24,9 @@ export type PartnerApplication = {
     governmentId: boolean;
     insuranceCertificate: boolean;
   };
+  // Real-data fields (present when sourced from the API):
+  providerId?: number;       // ServiceProvider id used to call the approve/delete endpoints
+  certificateIds?: number[]; // certificate ids to approve alongside the provider
 };
 
 type Props = {

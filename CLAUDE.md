@@ -23,6 +23,7 @@ services/           # All API calls and storage utilities
   reviews.ts        # ReviewDto, getReviews, createReview
   bookings.ts       # BookingDto, BookingViewModel, bookingToViewModel, get/create/cancel/delete + state/status enums
   payment-methods.ts  # PaymentMethodDto, getPaymentMethods, createPaymentMethod, deletePaymentMethod
+  admin.ts          # Admin-only actions: approveServiceProvider, approveCertificate
 
 context/
   AuthContext.tsx   # isLoggedIn, isAdmin, isPartner, currentUser, auth actions
@@ -112,8 +113,10 @@ if (!response.ok) {
 - **`ProviderViewModel`** — canonical provider shape passed through navigation params across HomeScreen → SearchScreen → ProviderDetail → BookService → ReviewBooking. Fields not yet in the API (rating, reviews, distance, lat/lng) default to 0/''. Always use this type for the `provider` nav param.
 - **`providerToViewModel(dto)`** — maps `ServiceProviderDto` → `ProviderViewModel`. Use in every screen that fetches a provider list.
 - **`resolveImageUrl(src)`** — prepends `getApiBaseUrl()` to relative `/files/...` paths; returns absolute URLs as-is.
-- `getServiceProviders(params?)` → GET `/api/service-providers` (auth) → `ServiceProviderDto[]`. Params: `name`, `city`, `type`, `page`, `perPage`.
+- `getServiceProviders(params?)` → GET `/api/service-providers` (auth) → `ServiceProviderDto[]`. Params: `name`, `city`, `type`, `page`, `perPage`. **No `isApproved` filter exists** — fetch all and filter client-side (admin screens do this).
 - `getServiceProvider(id)` → GET `/api/service-providers/{id}` (auth) → `ServiceProviderDto`
+- `deleteServiceProvider(id)` → DELETE `/api/service-providers/{id}` (auth). Used as the "reject application" action (there is no server-side rejected state).
+- `providerTypeLabel(type)` → friendly label for a `ServiceProviderType` enum value.
 - `createServiceProvider(payload)` → POST `/api/service-providers` (auth)
   - Payload (`CreateServiceProviderPayload`): `{ fullName, email, phone, streetAddress, city, state, zipCode, selectedServices[], yearsOfExperience, aboutYou, certifications, availability, profilePhoto, petPhotoFiles[], governmentIdFiles[], certificateFiles[], userId }`
   - Uploads all files (profile photo + pet photos + government IDs + certificates) in **one** `uploadFilesBulk()` call, then routes them into the DTO: profile + pet photos → `photos[]` (`isSelected`); government IDs → `governmentIdPhotos[]` (`isFront`); certificates → `certificates[]`, each referencing its upload via `fileIds: number[]`.
@@ -145,6 +148,12 @@ if (!response.ok) {
 - `createPaymentMethod(method)`, `deletePaymentMethod(id)`.
 - **`providerPaymentMethodId` is required** on create (non-empty) — 422 otherwise.
 - ReviewBookingScreen auto-creates a default placeholder payment method (synthetic `providerPaymentMethodId`) when the user has none, so bookings can be created before a real gateway exists.
+
+### `services/admin.ts`
+- Admin-only (Admin role enforced server-side via the Bearer token).
+- `approveServiceProvider(id)` → POST `/admin/service-providers/{id}/approve` — flips the provider's `isApproved` to true.
+- `approveCertificate(certificateId)` → POST `/admin/certificates/{id}/approve`.
+- **No reject endpoint exists.** "Reject" in the admin UI = `deleteServiceProvider(id)` (removes the application record). The `bookingState`-style rejected tab is therefore always empty for real data.
 
 ### Verified API behaviors (tested against live backend 2026-06-08)
 These are confirmed quirks of the real API — keep them in mind when building DTOs/payloads:
@@ -274,8 +283,8 @@ Implementation notes (`App.tsx`):
 | NotificationsScreen | `screens/notifications-screen/containers/` | Notification center + preferences |
 | NewRequestsScreen | `screens/new-requests-screen/containers/` | Partner's service request queue |
 | PromotionsScreen | `screens/promotions-screen/containers/` | Promotions management |
-| AdminNewRequestsScreen | `screens/admin-new-requests-screen/containers/` | Admin partner application queue |
-| ApplicationReviewScreen | (within admin-new-requests) | Review individual partner application |
+| AdminNewRequestsScreen | `screens/admin-new-requests-screen/containers/` | **API-wired** — `getServiceProviders()` in `useFocusEffect`, client-side pending/approved split; approve → `approveServiceProvider()` (+ certs), reject → `deleteServiceProvider()` |
+| ApplicationReviewScreen | (within admin-new-requests) | **API-wired** — approve/reject call the real admin endpoints, then `goBack()` (list refetches on focus) |
 | AdminPartnersScreen | `screens/admin-partners-screen/containers/` | Admin partner management list |
 | AdminAddPartnerScreen | `screens/admin-add-partner-screen/containers/` | Admin manually adds partner |
 | LoginScreen | `screens/login-screen/containers/` | Email/username + password + Google OAuth |
