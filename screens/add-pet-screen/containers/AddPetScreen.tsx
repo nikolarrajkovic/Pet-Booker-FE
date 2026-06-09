@@ -157,6 +157,7 @@ export default function AddPetScreen() {
           textColor={textColor}
           onPickImage={pickImage}
           onRemovePhoto={removePhoto}
+          error={petPhotos.length === 0 ? 'At least one photo is required.' : undefined}
         />
 
         {/* Pet Name */}
@@ -259,9 +260,13 @@ export default function AddPetScreen() {
       {/* Save Button */}
       <View className={`absolute bottom-0 left-0 right-0 ${cardBg} border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-200'} px-6 py-4`}>
         <TouchableOpacity
-          disabled={isSubmitting}
-          style={{ opacity: isSubmitting ? 0.7 : 1 }}
+          disabled={isSubmitting || petPhotos.length === 0}
+          style={{ opacity: isSubmitting || petPhotos.length === 0 ? 0.7 : 1 }}
           onPress={async () => {
+            if (petPhotos.length === 0) {
+              Alert.alert('Photo required', 'Please add at least one photo of your pet before saving.');
+              return;
+            }
             setIsSubmitting(true);
             try {
               const input = {

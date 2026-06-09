@@ -1,4 +1,4 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError } from './http';
+import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
 import { uploadFilesBulk } from './files';
 
 // Backend sex enum: 0 = Unspecified, 1 = Male, 2 = Female
@@ -96,16 +96,11 @@ export async function getPets(ownerUserId: number): Promise<PetResponse[]> {
   }
 
   const raw = await response.json();
-  console.log('[getPets] response', JSON.stringify(raw));
-
-  // Handle both plain array and paginated wrapper ({ items, data, results, ... })
-  if (Array.isArray(raw)) return raw as PetResponse[];
-  if (Array.isArray(raw?.items)) return raw.items as PetResponse[];
-  if (Array.isArray(raw?.data)) return raw.data as PetResponse[];
-  if (Array.isArray(raw?.results)) return raw.results as PetResponse[];
-
-  console.warn('[getPets] unexpected response shape', raw);
-  return [];
+  const items = extractPageItems<PetResponse>(raw);
+  if (!items.length && !Array.isArray(raw)) {
+    console.warn('[getPets] unexpected response shape', raw);
+  }
+  return items;
 }
 
 export type CreatePetInput = {
@@ -127,6 +122,11 @@ export type CreatePetInput = {
 
 export async function createPet(input: CreatePetInput): Promise<void> {
   const url = `${getApiBaseUrl()}/api/pets`;
+
+  // The API requires at least one photo (422 "'Request Photos' must not be empty." otherwise)
+  if (!input.petPhotos.length) {
+    throw new Error('At least one pet photo is required.');
+  }
 
   // Upload all photos in a single bulk request
   const uploadedPhotos = input.petPhotos.length
@@ -220,6 +220,12 @@ export async function updatePet(input: UpdatePetInput): Promise<void> {
   }));
 
   const allPhotos = [...existingPhotoEntries, ...newPhotoEntries];
+
+  // The API requires at least one photo (422 "'Request Photos' must not be empty." otherwise)
+  if (allPhotos.length === 0) {
+    throw new Error('At least one pet photo is required.');
+  }
+
   // Mark first photo as selected
   if (allPhotos.length > 0) allPhotos[0].isSelected = true;
 
