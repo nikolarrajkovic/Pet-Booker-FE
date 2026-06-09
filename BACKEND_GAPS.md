@@ -49,6 +49,18 @@ The real `ServiceDto` (writable fields) is: `name`, `notes`, `basePrice`, `escro
 > those back 500s, so `setBookingStatus`/`cancelBooking` strip them and send only
 > the writable scalar fields (`toWritableBooking`).
 
+## Notifications (`/api/user-notification-settings`)
+
+The DTO maps 1:1 to the screen toggles (`pushEnabled`, `emailEnabled`, `smsEnabled`,
+`bookingUpdates`, `appointmentReminders`, `messages`, `promotionsOffers`,
+`newServices`, `dndEnabled`, `dndStartTime`, `dndEndTime`, `timezone`).
+
+| # | UI location | Field / feature | Status | What the backend needs |
+|---|---|---|---|---|
+| N1 | NotificationsScreen save | **Settings POST/PUT requires a domain `Users` row** | **Backend/seed blocker.** `POST /api/user-notification-settings` FK-fails (`FK_UserNotificationSettings_Users_UserId`) for the seed `admin` (auth id 1), which isn't in the domain `dbo.Users` table; `POST /api/users` returns `id:0`, so no usable user exists in the seed env. GET works (returns empty). Client code is correct; the screen applies changes locally and shows a notice if a save fails. | The authenticated user mirrored into `dbo.Users` (or the FK relaxed) so settings can be created. |
+| N2 | NotificationsScreen "Customize Schedule" | **Editing DND start/end times** | **Mock (no-op link).** `dndStartTime`/`dndEndTime` are loaded/saved from the record (defaults otherwise) but there's no time-picker UI to change them. | A time-picker UI (frontend TODO); the fields themselves are backed. |
+| N3 | SettingsScreen | Push/Email/SMS switches | **Local-only (not wired).** Duplicate of the NotificationsScreen channels; could persist via the same service. | — |
+
 ## Promotions (`/api/service-discounts`)
 
 Only the **"offer"** promotion type maps to the API (a `ServiceDiscount`: percent/fixed
