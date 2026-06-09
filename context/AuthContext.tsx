@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { loginWithEmailPassword, getMe, CurrentUser } from '../services/auth';
+import { loginWithEmailPassword, getMe, logout as logoutApi, CurrentUser } from '../services/auth';
 import { saveTokens, getAccessToken, clearTokens } from '../services/token-storage';
 import { registerSessionExpiredHandler } from '../services/http';
 
@@ -17,6 +17,7 @@ type AuthContextType = {
   signInWithCredentials: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => void;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -86,9 +87,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
+    // Best-effort server-side logout; clear local state regardless of the result.
+    try { await logoutApi(); } catch { /* ignore — proceed with local sign-out */ }
     await clearTokens();
     setCurrentUser(null);
     setIsLoggedIn(false);
+  };
+
+  const refreshUser = async () => {
+    const user = await getMe();
+    setCurrentUser(user);
   };
 
   const signInWithGoogle = () => {
@@ -97,7 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ isLoggedIn, isLoading, isPartner, isAdmin, currentUser, signIn, signInWithCredentials, signOut, signInWithGoogle }}
+      value={{ isLoggedIn, isLoading, isPartner, isAdmin, currentUser, signIn, signInWithCredentials, signOut, signInWithGoogle, refreshUser }}
     >
       {children}
     </AuthContext.Provider>

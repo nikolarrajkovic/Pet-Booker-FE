@@ -1,39 +1,28 @@
 import React, { useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PriceBreakdown, PaymentMethodSelector } from '../components';
 import type { ProviderViewModel } from '../../../services/service-providers';
 import { createBooking, PaymentType } from '../../../services/bookings';
-import {
-  getPaymentMethods,
-  createPaymentMethod,
-  PaymentMethodStatus,
-} from '../../../services/payment-methods';
+import { getPaymentMethods, createPaymentMethod, PaymentMethodStatus } from '../../../services/payment-methods';
 
-type BookingDraft = {
-  serviceId: number;
-  serviceName: string;
-  basePrice: number;
-  price: number;
-  petId: number;
-  petName: string;
-  petImage: string;
+type Appointment = {
+  id: number;
+  service: { id: number; name: string; price: number };
+  pet: { id: number; name: string; image: string };
+  addons: { name: string; price: number }[];
   bookingFrom: string;
   bookingTo: string;
-  pickup: boolean;
-  leaveOver: boolean;
-  pickupSurcharge: number;
-  leaveOverSurcharge: number;
   total: number;
 };
 
 type ReviewBookingRouteParams = {
   provider: ProviderViewModel;
-  booking: BookingDraft;
+  appointments: Appointment[];
 };
 
 /**
@@ -51,8 +40,6 @@ async function resolvePaymentMethodId(userId: number, isCash: boolean): Promise<
     userId,
     type: isCash ? PaymentType.Cash : PaymentType.Card,
     provider: 'manual',
-    // API requires a non-empty providerPaymentMethodId; use a synthetic value
-    // until a real payment gateway is wired up (see CLAUDE.md).
     providerPaymentMethodId: `manual-${userId}-${Date.now()}`,
     isDefault: true,
     status: PaymentMethodStatus.Active,
@@ -65,18 +52,15 @@ async function resolvePaymentMethodId(userId: number, isCash: boolean): Promise<
 export default function ReviewBookingScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: ReviewBookingRouteParams }, 'params'>>();
-  const { provider, booking } = route.params;
+  const { provider, appointments } = route.params;
   const { currentUser } = useAuth();
   const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor, borderColor } = useThemeColors();
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('online');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const addonsTotal =
-    (booking.pickup ? booking.pickupSurcharge : 0) + (booking.leaveOver ? booking.leaveOverSurcharge : 0);
-
-  const start = new Date(booking.bookingFrom);
-  const dateLabel = start.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  const timeLabel = start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const serviceTotal = appointments.reduce((s, a) => s + a.service.price, 0);
+  const addonsTotal = appointments.reduce((s, a) => s + a.addons.reduce((x, ad) => x + ad.price, 0), 0);
+  const grandTotal = appointments.reduce((s, a) => s + a.total, 0);
 
   const handleConfirm = async () => {
     if (!currentUser?.id) {
@@ -88,19 +72,22 @@ export default function ReviewBookingScreen() {
       const isCash = selectedPaymentMethod === 'cash';
       const paymentMethodId = await resolvePaymentMethodId(currentUser.id, isCash);
 
-      await createBooking({
-        userId: currentUser.id,
-        serviceProviderId: provider.id,
-        serviceId: booking.serviceId,
-        petId: booking.petId,
-        paymentMethodId,
-        bookingFrom: booking.bookingFrom,
-        bookingTo: booking.bookingTo,
-        basePrice: booking.basePrice,
-        discountAmount: 0,
-        totalPrice: booking.total,
-        paymentType: isCash ? PaymentType.Cash : PaymentType.Card,
-      });
+      // One booking per appointment (the API creates a single booking per call).
+      for (const apt of appointments) {
+        await createBooking({
+          userId: currentUser.id,
+          serviceProviderId: provider.id,
+          serviceId: apt.service.id,
+          petId: apt.pet.id,
+          paymentMethodId,
+          bookingFrom: apt.bookingFrom,
+          bookingTo: apt.bookingTo,
+          basePrice: apt.service.price,
+          discountAmount: 0,
+          totalPrice: apt.total,
+          paymentType: isCash ? PaymentType.Cash : PaymentType.Card,
+        });
+      }
 
       (navigation as any).navigate('BookingConfirmed', { provider });
     } catch (error: any) {
@@ -124,22 +111,46 @@ export default function ReviewBookingScreen() {
           <Image source={{ uri: provider.image }} className="w-16 h-16 rounded-xl mr-4" resizeMode="cover" />
           <View className="flex-1">
             <Text className={`text-lg font-bold ${textColor}`}>{provider.name}</Text>
-            <Text className="text-sm text-brand-600 mt-1">{booking.serviceName}</Text>
+            <Text className="text-sm text-brand-600 mt-1">{provider.service}</Text>
+            {provider.distance ? (
+              <View className="flex-row items-center mt-1">
+                <Ionicons name="location-outline" size={14} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+                <Text className={`text-xs ${subtextColor} ml-1`}>{provider.distance} away</Text>
+              </View>
+            ) : null}
           </View>
         </View>
 
-        {/* Booking Details */}
+        {/* Booking Details — one block per appointment */}
         <View className={`px-6 py-5 border-t ${borderColor}`}>
-          <Text className={`text-base font-semibold ${textColor} mb-4`}>Booking Details</Text>
-          <DetailRow icon="paw" label="Pet" value={booking.petName} isDarkMode={isDarkMode} textColor={textColor} subtextColor={subtextColor} />
-          <DetailRow icon="calendar" label="Date" value={dateLabel} isDarkMode={isDarkMode} textColor={textColor} subtextColor={subtextColor} />
-          <DetailRow icon="time-outline" label="Time" value={timeLabel} isDarkMode={isDarkMode} textColor={textColor} subtextColor={subtextColor} />
-          {booking.pickup && (
-            <DetailRow icon="car-outline" label="Pickup" value="Included" isDarkMode={isDarkMode} textColor={textColor} subtextColor={subtextColor} />
-          )}
-          {booking.leaveOver && (
-            <DetailRow icon="bed-outline" label="Leave-over" value="Included" isDarkMode={isDarkMode} textColor={textColor} subtextColor={subtextColor} last />
-          )}
+          <Text className={`text-base font-semibold ${textColor} mb-4`}>
+            Booking Details{appointments.length > 1 ? ` (${appointments.length})` : ''}
+          </Text>
+          {appointments.map((apt, i) => {
+            const start = new Date(apt.bookingFrom);
+            return (
+              <View key={apt.id} className={i > 0 ? `mt-4 pt-4 border-t ${borderColor}` : ''}>
+                <Text className={`text-base font-semibold ${textColor}`}>
+                  {apt.service.name} <Text className={`${subtextColor} font-normal`}>for {apt.pet.name}</Text>
+                </Text>
+                <View className="flex-row items-center mt-1.5">
+                  <Ionicons name="calendar-outline" size={14} color="#00C870" style={{ marginRight: 6 }} />
+                  <Text className={`text-sm ${subtextColor}`}>
+                    {start.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                  </Text>
+                </View>
+                <View className="flex-row items-center mt-1">
+                  <Ionicons name="time-outline" size={14} color="#00C870" style={{ marginRight: 6 }} />
+                  <Text className={`text-sm ${subtextColor}`}>
+                    {start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                  </Text>
+                </View>
+                {apt.addons.length > 0 && (
+                  <Text className={`text-xs ${subtextColor} mt-1`}>+ {apt.addons.map((a) => a.name).join(', ')}</Text>
+                )}
+              </View>
+            );
+          })}
         </View>
 
         <PriceBreakdown
@@ -147,9 +158,9 @@ export default function ReviewBookingScreen() {
           textColor={textColor}
           subtextColor={subtextColor}
           borderColor={borderColor}
-          serviceTotal={booking.price}
+          serviceTotal={serviceTotal}
           addonsTotal={addonsTotal}
-          total={booking.total}
+          total={grandTotal}
         />
 
         <PaymentMethodSelector
@@ -185,28 +196,5 @@ export default function ReviewBookingScreen() {
         </TouchableOpacity>
       </View>
     </ScreenLayout>
-  );
-}
-
-function DetailRow({
-  icon, label, value, isDarkMode, textColor, subtextColor, last,
-}: {
-  icon: string; label: string; value: string;
-  isDarkMode: boolean; textColor: string; subtextColor: string; last?: boolean;
-}) {
-  return (
-    <View className={`flex-row items-start ${last ? '' : 'mb-4'}`}>
-      <View className={`w-10 h-10 ${isDarkMode ? 'bg-brand-500/20' : 'bg-brand-50'} rounded-xl items-center justify-center mr-3`}>
-        {icon === 'paw' || icon === 'calendar' ? (
-          <MaterialCommunityIcons name={icon as any} size={20} color="#00C870" />
-        ) : (
-          <Ionicons name={icon as any} size={20} color="#00C870" />
-        )}
-      </View>
-      <View className="flex-1">
-        <Text className={`text-sm ${subtextColor}`}>{label}</Text>
-        <Text className={`text-base ${textColor} font-medium mt-1`}>{value}</Text>
-      </View>
-    </View>
   );
 }

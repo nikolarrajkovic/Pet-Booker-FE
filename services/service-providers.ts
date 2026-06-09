@@ -163,6 +163,16 @@ export async function getServiceProvider(id: number): Promise<ServiceProviderDto
   return response.json();
 }
 
+/**
+ * Resolves the current user's own service-provider record.
+ * BACKEND-GAP (P1): there is no `userId` filter on GET /api/service-providers,
+ * so we fetch the list and match client-side. Returns null if the user has none.
+ */
+export async function getMyProvider(userId: number): Promise<ServiceProviderDto | null> {
+  const providers = await getServiceProviders({ perPage: 200 });
+  return providers.find((p) => p.userId === userId) ?? null;
+}
+
 export async function deleteServiceProvider(id: number): Promise<void> {
   const url = `${getApiBaseUrl()}/api/service-providers/${id}`;
   const response = await apiAuthFetch(url, { method: 'DELETE' });

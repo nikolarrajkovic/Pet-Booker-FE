@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, TextInput } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import type { Promotion, PromotionType, PromotionStatus } from '../components';
+import {
+  updateServiceDiscount,
+  deleteServiceDiscount,
+  DiscountType,
+} from '../../../services/service-discounts';
 
 const TYPE_META: Record<
   PromotionType,
@@ -78,6 +83,59 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
   const [end, setEnd] = useState(endDate);
   const [budget, setBudget] = useState(String(promotion.budgetTotal ?? ''));
   const [discount, setDiscount] = useState(String(promotion.discountPercent ?? ''));
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Real 'offer' promotions are backed by a ServiceDiscount; others are mock-only.
+  const isBackedOffer = promotion.type === 'offer' && promotion.discountId != null && promotion.serviceId != null;
+  const parseDate = (s: string, fallback?: string | null) => {
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? (fallback ?? new Date().toISOString()) : d.toISOString();
+  };
+
+  const handleSave = async () => {
+    if (!isBackedOffer) { navigation.goBack(); return; } // boost/featured: mock, no persistence
+    setIsSubmitting(true);
+    try {
+      const pct = parseFloat(discount) || 0;
+      await updateServiceDiscount(promotion.discountId!, {
+        id: promotion.discountId!,
+        serviceId: promotion.serviceId!,
+        type: promotion.discountType ?? DiscountType.Percent,
+        amount: pct,
+        percentAmount: (promotion.discountType ?? DiscountType.Percent) === DiscountType.Percent ? pct : null,
+        applyFrom: parseDate(start, promotion.applyFrom),
+        applyTo: end ? parseDate(end, promotion.applyTo) : (promotion.applyTo ?? null),
+        isEnabled: promotion.status === 'active',
+      });
+      navigation.goBack();
+    } catch (e: any) {
+      Alert.alert('Save failed', e?.message ?? 'Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (!isBackedOffer) { navigation.goBack(); return; }
+    Alert.alert('Delete promotion?', 'This permanently removes the discount.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setIsSubmitting(true);
+          try {
+            await deleteServiceDiscount(promotion.discountId!);
+            navigation.goBack();
+          } catch (e: any) {
+            Alert.alert('Delete failed', e?.message ?? 'Please try again.');
+          } finally {
+            setIsSubmitting(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]';
   const inputBorder = borderColor;
@@ -202,11 +260,17 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
 
         {/* Save Changes */}
         <TouchableOpacity
-          onPress={() => (navigation as any).goBack()}
+          onPress={handleSave}
+          disabled={isSubmitting}
           activeOpacity={0.8}
           className="bg-brand-500 rounded-2xl py-4 items-center mb-3"
+          style={{ opacity: isSubmitting ? 0.7 : 1 }}
         >
-          <Text className="text-white text-base font-bold">Save Changes</Text>
+          {isSubmitting ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text className="text-white text-base font-bold">Save Changes</Text>
+          )}
         </TouchableOpacity>
 
         {/* Pause — only for active/paused (not scheduled) */}
@@ -222,6 +286,8 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
 
         {/* Delete */}
         <TouchableOpacity
+          onPress={handleDelete}
+          disabled={isSubmitting}
           activeOpacity={0.8}
           className={`rounded-2xl py-4 items-center ${isDarkMode ? 'bg-red-900/20' : 'bg-red-50'}`}
         >

@@ -1,15 +1,27 @@
-import React, { useState } from 'react';
-import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PromotionCard } from '../components';
 import type { Promotion } from '../components';
+import { getMyProvider } from '../../../services/service-providers';
+import { getServices } from '../../../services/services';
+import {
+  getServiceDiscounts,
+  updateServiceDiscount,
+  ServiceDiscountDto,
+  DiscountType,
+} from '../../../services/service-discounts';
 
-const mockPromotions: Promotion[] = [
+// Mock boost/featured promotions kept for UI completeness — these promotion
+// types have NO backend (see BACKEND_GAPS: PR-promotions). Negative ids so they
+// never collide with real ServiceDiscount ids.
+const MOCK_EXTRAS: Promotion[] = [
   {
-    id: 1,
+    id: -1,
     type: 'boost',
     title: 'Spring Boost - Dog Walking',
     description: 'Premium Dog Walking in Golden Gate Park',
@@ -22,18 +34,7 @@ const mockPromotions: Promotion[] = [
     bookings: 12,
   },
   {
-    id: 2,
-    type: 'offer',
-    title: 'New Client 20% Off',
-    description: 'Professional Pet Grooming & Spa',
-    dateRange: 'Apr 10, 2026 - May 10, 2026',
-    status: 'active',
-    discountPercent: 20,
-    usageCount: 8,
-    offerNote: 'For new clients only',
-  },
-  {
-    id: 3,
+    id: -2,
     type: 'featured',
     title: 'Featured Badge - Pet Sitting',
     description: 'In-Home Pet Sitting & Care',
@@ -41,6 +42,31 @@ const mockPromotions: Promotion[] = [
     status: 'scheduled',
   },
 ];
+
+const fmtDate = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
+// ServiceDiscountDto → Promotion ('offer'). usageCount has no backing (BACKEND-GAP).
+function discountToPromotion(d: ServiceDiscountDto, serviceName: string): Promotion {
+  const isPercent = d.type === DiscountType.Percent;
+  const pct = d.percentAmount ?? d.amount;
+  return {
+    id: d.id ?? 0,
+    type: 'offer',
+    title: isPercent ? `${pct}% Off — ${serviceName}` : `$${d.amount} Off — ${serviceName}`,
+    description: serviceName,
+    dateRange: [fmtDate(d.applyFrom), fmtDate(d.applyTo)].filter(Boolean).join(' - '),
+    status: d.isEnabled ? 'active' : 'paused',
+    discountPercent: isPercent ? pct : undefined,
+    offerNote: isPercent ? 'Percent discount' : `$${d.amount} off`,
+    usageCount: 0, // BACKEND-GAP: not tracked
+    discountId: d.id ?? undefined,
+    serviceId: d.serviceId,
+    discountType: d.type,
+    applyFrom: d.applyFrom,
+    applyTo: d.applyTo ?? null,
+  };
+}
 
 const PERFORMANCE_STATS = [
   { icon: 'trending-up', iconLib: 'ionicons', bg: 'bg-green-100', color: '#16A34A', value: '2', label: 'Active Promotions' },
@@ -55,24 +81,76 @@ interface PromotionsScreenProps {
 
 export default function PromotionsScreen({ route }: PromotionsScreenProps) {
   const navigation = useNavigation();
+  const { currentUser } = useAuth();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const viewAll = route?.params?.viewAll ?? false;
 
-  const [promotions, setPromotions] = useState<Promotion[]>(mockPromotions);
+  const [offers, setOffers] = useState<Promotion[]>([]);
+  const [extras, setExtras] = useState<Promotion[]>(MOCK_EXTRAS);
+  const [isLoading, setIsLoading] = useState(true);
 
+  const load = useCallback(async () => {
+    if (!currentUser?.id) { setIsLoading(false); return; }
+    setIsLoading(true);
+    try {
+      const provider = await getMyProvider(currentUser.id);
+      if (!provider?.id) { setOffers([]); return; }
+      const services = await getServices({ serviceProviderId: provider.id });
+      const nameById = new Map(services.map((s) => [s.id, s.name ?? 'Service']));
+      const lists = await Promise.all(
+        services.map((s) => (s.id != null ? getServiceDiscounts({ serviceId: s.id }) : Promise.resolve([]))),
+      );
+      const mapped = lists.flat().map((d) => discountToPromotion(d, nameById.get(d.serviceId) ?? 'Service'));
+      setOffers(mapped);
+    } catch (e) {
+      console.warn('[Promotions] load failed', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentUser?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => { if (!cancelled) await load(); })();
+      return () => { cancelled = true; };
+    }, [load])
+  );
+
+  const promotions = useMemo(() => [...offers, ...extras], [offers, extras]);
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]';
 
-  const handlePause = (id: number) =>
-    setPromotions((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, status: p.status === 'active' ? 'paused' : 'active' } : p
-      )
-    );
+  // Toggle enabled state. Real offers persist via the discounts API; mock
+  // boost/featured toggle locally only.
+  const togglePromotion = async (id: number, makeActive: boolean) => {
+    const promo = promotions.find((p) => p.id === id);
+    if (!promo) return;
+    if (promo.discountId && promo.serviceId != null) {
+      try {
+        await updateServiceDiscount(promo.discountId, {
+          id: promo.discountId,
+          serviceId: promo.serviceId,
+          type: promo.discountType ?? DiscountType.Percent,
+          amount: promo.discountPercent ?? 0,
+          percentAmount: (promo.discountType ?? DiscountType.Percent) === DiscountType.Percent ? (promo.discountPercent ?? 0) : null,
+          applyFrom: promo.applyFrom ?? new Date().toISOString(),
+          applyTo: promo.applyTo ?? null,
+          isEnabled: makeActive,
+        });
+        await load();
+      } catch (e: any) {
+        Alert.alert('Update failed', e?.message ?? 'Please try again.');
+      }
+    } else {
+      setExtras((prev) => prev.map((p) => (p.id === id ? { ...p, status: makeActive ? 'active' : 'paused' } : p)));
+    }
+  };
 
-  const handleStart = (id: number) =>
-    setPromotions((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: 'active' } : p))
-    );
+  const handlePause = (id: number) => {
+    const promo = promotions.find((p) => p.id === id);
+    togglePromotion(id, promo?.status !== 'active');
+  };
+  const handleStart = (id: number) => togglePromotion(id, true);
 
   return (
     <ScreenLayout
@@ -133,7 +211,11 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
           )}
         </View>
 
-        {promotions.length === 0 ? (
+        {isLoading ? (
+          <View className="items-center justify-center py-16">
+            <ActivityIndicator size="large" color="#00C870" />
+          </View>
+        ) : promotions.length === 0 ? (
           <View className="items-center justify-center py-16">
             <Ionicons name="megaphone-outline" size={64} color={isDarkMode ? '#4B5563' : '#D1D5DB'} />
             <Text className={`${subtextColor} text-center mt-4 text-base`}>No promotions yet</Text>

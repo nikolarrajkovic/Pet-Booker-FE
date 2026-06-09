@@ -21,6 +21,8 @@ import BecomePartnerScreen from './screens/become-partner-screen/containers/Beco
 import PartnerApplicationScreen from './screens/partner-application-screen/containers/PartnerApplicationScreen';
 import ApplicationSubmittedScreen from './screens/application-submitted-screen/containers/ApplicationSubmittedScreen';
 import AccountScreen from './screens/account-screen/containers/AccountScreen';
+import ChangePasswordScreen from './screens/change-password-screen/containers/ChangePasswordScreen';
+import ForgotPasswordScreen from './screens/forgot-password-screen/containers/ForgotPasswordScreen';
 import MyBookingsScreen from './screens/my-bookings-screen/containers/MyBookingsScreen';
 import MyScheduleScreen from './screens/my-schedule-screen/containers/MyScheduleScreen';
 import MyServicesScreen from './screens/my-services-screen/containers/MyServicesScreen';
@@ -80,6 +82,7 @@ function AppContent() {
               <Stack.Screen name="PartnerApplication" component={PartnerApplicationScreen} />
               <Stack.Screen name="ApplicationSubmitted" component={ApplicationSubmittedScreen} />
               <Stack.Screen name="Account" component={AccountScreen} />
+              <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
               <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
               <Stack.Screen name="MySchedule" component={MyScheduleScreen} />
               <Stack.Screen name="MyServices" component={MyServicesScreen} />
@@ -99,6 +102,7 @@ function AppContent() {
               <Stack.Screen name="Login" component={LoginScreen} />
               <Stack.Screen name="Register" component={RegisterScreen} />
               <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+              <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             </>
           )}
         </Stack.Navigator>

@@ -41,6 +41,7 @@ export type BookingDto = {
   serviceProvider?: NestedEntity | null;
   service?: NestedEntity | null;
   pet?: NestedEntity | null;
+  review?: { rating?: number | null } | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -62,6 +63,7 @@ export type BookingViewModel = {
   status: number;      // BookingStatusType
   statusLabel: 'upcoming' | 'completed' | 'cancelled';
   image: string;
+  rating?: number; // from the booking's review, when one exists
 };
 
 function firstPhoto(entity?: NestedEntity | null): string {
@@ -105,6 +107,7 @@ export function bookingToViewModel(dto: BookingDto): BookingViewModel {
     status: dto.currentStatus,
     statusLabel: stateToLabel(dto.state),
     image: firstPhoto(dto.serviceProvider) || firstPhoto(dto.pet),
+    rating: dto.review?.rating ?? undefined,
   };
 }
 
@@ -208,11 +211,55 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
   return response.json();
 }
 
+/**
+ * Picks only the writable scalar fields for a PUT. The booking GET returns
+ * nested read-only includes (serviceProvider/service/pet/user/addresses); PUTing
+ * those back 500s, so they must be stripped before update.
+ */
+function toWritableBooking(b: BookingDto): BookingDto {
+  return {
+    id: b.id,
+    userId: b.userId,
+    serviceProviderId: b.serviceProviderId,
+    serviceId: b.serviceId,
+    petId: b.petId,
+    priceCurrency: b.priceCurrency,
+    state: b.state,
+    cancelReason: b.cancelReason,
+    bookingFrom: b.bookingFrom,
+    bookingTo: b.bookingTo,
+    basePrice: b.basePrice,
+    discountAmount: b.discountAmount,
+    totalPrice: b.totalPrice,
+    paymentType: b.paymentType,
+    paymentMethodId: b.paymentMethodId,
+    currentStatus: b.currentStatus,
+  };
+}
+
+/**
+ * Updates a booking's lifecycle status (e.g. a provider accepting a request:
+ * currentStatus = ServiceConfirmedByProvider). The booking must be a complete
+ * DTO (e.g. from getBookings); only the writable fields are sent.
+ */
+export async function setBookingStatus(booking: BookingDto, currentStatus: number): Promise<BookingDto> {
+  const url = `${getApiBaseUrl()}/api/bookings/${booking.id}`;
+  const body: BookingDto = { ...toWritableBooking(booking), currentStatus };
+
+  const response = await apiAuthFetch(url, { method: 'PUT', body: JSON.stringify(body) });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Failed to update booking.', 'setBookingStatus'));
+  }
+
+  return response.json();
+}
+
 /** Cancels a booking by setting state = Cancelled with an optional reason. */
 export async function cancelBooking(booking: BookingDto, reason?: string): Promise<BookingDto> {
   const url = `${getApiBaseUrl()}/api/bookings/${booking.id}`;
   const body: BookingDto = {
-    ...booking,
+    ...toWritableBooking(booking),
     state: BookingState.Cancelled,
     cancelReason: reason ?? booking.cancelReason ?? 'Cancelled by user',
   };

@@ -1,5 +1,6 @@
-﻿// Single source of truth for mock schedule data
-// In production, this will come from your backend API
+﻿// Schedule data source. Real bookings are injected at runtime via
+// setLiveScheduleData(); until then the mock map below is used as a fallback.
+import { BookingDto, BookingState } from '../../../services/bookings';
 
 export type ScheduleMode = 'partner' | 'user';
 
@@ -119,10 +120,54 @@ export const SERVICE_TYPE_COLORS = {
   sitting:  { pastel: '#86EFAC', dark: '#4ADE80', hex: '#10B981', label: 'Sitting'  },
 } as const;
 
+// ─── Live (API-backed) data source ───────────────────────────────────────────
+// When set, replaces the mock map above. MyScheduleScreen populates this from
+// real bookings on focus and clears it on blur.
+let liveScheduleData: { [key: string]: ServiceItem[] } | null = null;
+export const setLiveScheduleData = (map: { [key: string]: ServiceItem[] }) => { liveScheduleData = map; };
+export const clearLiveScheduleData = () => { liveScheduleData = null; };
+const scheduleSource = (): { [key: string]: ServiceItem[] } => liveScheduleData ?? mockScheduleData;
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const dateKey = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+// BACKEND-GAP: bookings don't carry a service "type", so it's inferred from the name.
+function inferScheduleType(name?: string | null): ServiceItem['type'] {
+  const n = (name ?? '').toLowerCase();
+  if (n.includes('walk')) return 'walking';
+  if (n.includes('groom')) return 'grooming';
+  return 'sitting';
+}
+
+/** Builds the date-keyed schedule map from real bookings (skips cancelled). */
+export function buildScheduleFromBookings(bookings: BookingDto[], mode: ScheduleMode): { [key: string]: ServiceItem[] } {
+  const map: { [key: string]: ServiceItem[] } = {};
+  const fmt = (d: Date) => d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  for (const b of bookings) {
+    if (b.state === BookingState.Cancelled) continue;
+    const from = new Date(b.bookingFrom);
+    const to = new Date(b.bookingTo);
+    if (isNaN(from.getTime())) continue;
+    const hours = !isNaN(to.getTime()) ? Math.max(0, Math.round(((to.getTime() - from.getTime()) / 3600000) * 10) / 10) : 1;
+    const item: ServiceItem = {
+      id: String(b.id ?? 0),
+      title: b.service?.name ?? 'Service',
+      provider: b.serviceProvider?.name ?? '',
+      petName: b.pet?.name ?? '',
+      time: isNaN(to.getTime()) ? fmt(from) : `${fmt(from)} - ${fmt(to)}`,
+      location: '', // BACKEND-GAP: no location name on booking
+      type: inferScheduleType(b.service?.name),
+      duration: hours,
+      isUserService: mode === 'user',
+    };
+    (map[dateKey(from)] ||= []).push(item);
+  }
+  return map;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 export const getServicesForDate = (date: Date): ServiceItem[] => {
-  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  return mockScheduleData[dateStr] || [];
+  return scheduleSource()[dateKey(date)] || [];
 };
 
 /** Calendar dot color for a given date and mode */
