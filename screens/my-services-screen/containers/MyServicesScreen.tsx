@@ -1,110 +1,13 @@
-﻿import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+﻿import React, { useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors, themeColors } from '../../../hooks/useThemeColors';
+import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
-
-interface PricingTier {
-  duration: string;
-  price: string;
-}
-
-interface AdditionalServiceEntry {
-  name: string;
-  price: string;
-  enabled: boolean;
-}
-
-interface WorkingHours {
-  [day: string]: { enabled: boolean; startTime: string; endTime: string };
-}
-
-interface Service {
-  id: string;
-  type: string;
-  name: string;
-  description: string;
-  rating: number;
-  reviews: number;
-  bookings: number;
-  images: string[];
-  pricingTiers: PricingTier[];
-  additionalServices: AdditionalServiceEntry[];
-  workingHours: WorkingHours;
-}
-
-const DEFAULT_WORKING_HOURS: WorkingHours = {
-  Monday: { enabled: true, startTime: '08:00 AM', endTime: '06:00 PM' },
-  Tuesday: { enabled: true, startTime: '08:00 AM', endTime: '06:00 PM' },
-  Wednesday: { enabled: true, startTime: '08:00 AM', endTime: '06:00 PM' },
-  Thursday: { enabled: true, startTime: '08:00 AM', endTime: '06:00 PM' },
-  Friday: { enabled: true, startTime: '08:00 AM', endTime: '06:00 PM' },
-  Saturday: { enabled: true, startTime: '08:00 AM', endTime: '06:00 PM' },
-  Sunday: { enabled: false, startTime: '08:00 AM', endTime: '06:00 PM' },
-};
-
-const MOCK_SERVICES: Service[] = [
-  {
-    id: '1',
-    type: 'Dog Walking',
-    name: 'Premium Dog Walking in Golden Gate Park',
-    description: "Experienced dog walker with 5+ years caring for dogs of all sizes. I love exploring Golden Gate Park's trails and ensuring your pup gets plenty of exercise and socialization.",
-    rating: 4.9,
-    reviews: 127,
-    bookings: 342,
-    images: [],
-    pricingTiers: [
-      { duration: '30 minutes', price: '25' },
-      { duration: '1 hour', price: '35' },
-      { duration: '2 hours', price: '60' },
-    ],
-    additionalServices: [
-      { name: 'Pickup', price: '10', enabled: true },
-      { name: 'Drop-off', price: '10', enabled: true },
-      { name: 'Photo Updates', price: '0', enabled: true },
-    ],
-    workingHours: DEFAULT_WORKING_HOURS,
-  },
-  {
-    id: '2',
-    type: 'Dog Boarding',
-    name: 'Comfortable Dog Boarding at My Home',
-    description: "Safe and cozy home environment for your dog while you're away. I provide personal attention, daily walks, and photo updates throughout their stay.",
-    rating: 4.8,
-    reviews: 89,
-    bookings: 215,
-    images: [],
-    pricingTiers: [
-      { duration: '2 hours', price: '75' },
-      { duration: '3 hours', price: '95' },
-    ],
-    additionalServices: [
-      { name: 'Pickup', price: '15', enabled: true },
-      { name: 'Drop-off', price: '15', enabled: true },
-      { name: 'Photo Updates', price: '0', enabled: true },
-    ],
-    workingHours: DEFAULT_WORKING_HOURS,
-  },
-  {
-    id: '3',
-    type: 'Pet Sitting',
-    name: 'In-Home Pet Sitting & Care',
-    description: 'Reliable pet sitter providing personalized care in your home. Perfect for cats, dogs, and small animals.',
-    rating: 5.0,
-    reviews: 64,
-    bookings: 178,
-    images: [],
-    pricingTiers: [
-      { duration: 'Full day', price: '50' },
-      { duration: 'Overnight', price: '80' },
-    ],
-    additionalServices: [
-      { name: 'Photo Updates', price: '0', enabled: true },
-    ],
-    workingHours: DEFAULT_WORKING_HOURS,
-  },
-];
+import { getServices, deleteService, ServiceDto } from '../../../services/services';
+import { getMyProvider, ServiceProviderDto } from '../../../services/service-providers';
+import { serviceDtoToUi, UiService } from '../serviceModel';
 
 const ADDITIONAL_SERVICE_ICONS: Record<string, string> = {
   'Pickup': 'car-outline',
@@ -116,8 +19,39 @@ const ADDITIONAL_SERVICE_ICONS: Record<string, string> = {
 
 export default function MyServicesScreen() {
   const navigation = useNavigation();
-  const { isDarkMode } = useThemeColors();
-  const [services, setServices] = useState<Service[]>(MOCK_SERVICES);
+  const { currentUser } = useAuth();
+  const { isDarkMode, hex } = useThemeColors();
+  const [provider, setProvider] = useState<ServiceProviderDto | null>(null);
+  const [services, setServices] = useState<ServiceDto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!currentUser?.id) { setIsLoading(false); return; }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const mine = await getMyProvider(currentUser.id);
+      setProvider(mine);
+      if (mine?.id) {
+        setServices(await getServices({ serviceProviderId: mine.id }));
+      } else {
+        setServices([]);
+      }
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to load your services.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentUser?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => { if (!cancelled) await load(); })();
+      return () => { cancelled = true; };
+    }, [load])
+  );
 
   const handleDelete = (id: string) => {
     Alert.alert(
@@ -128,45 +62,88 @@ export default function MyServicesScreen() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => setServices(prev => prev.filter(s => s.id !== id)),
+          onPress: async () => {
+            try {
+              await deleteService(Number(id));
+              await load();
+            } catch (e: any) {
+              Alert.alert('Delete failed', e?.message ?? 'Please try again.');
+            }
+          },
         },
       ]
     );
   };
 
-  const handleEdit = (service: Service) => {
-    (navigation as any).navigate('AddEditService', { mode: 'edit', service });
+  const handleEdit = (dto: ServiceDto) => {
+    (navigation as any).navigate('AddEditService', {
+      mode: 'edit',
+      serviceDto: dto,
+      serviceProviderId: provider?.id,
+    });
   };
 
   const addNewButton = (
     <TouchableOpacity
-      onPress={() => (navigation as any).navigate('AddEditService', { mode: 'add' })}
+      disabled={!provider?.id}
+      onPress={() => (navigation as any).navigate('AddEditService', { mode: 'add', serviceProviderId: provider?.id })}
       className="bg-white/20 rounded-full px-3 py-1.5 flex-row items-center"
+      style={{ opacity: provider?.id ? 1 : 0.5 }}
     >
       <Ionicons name="add" size={16} color="white" />
       <Text className="text-white font-semibold ml-1 text-sm">Add New</Text>
     </TouchableOpacity>
   );
 
+  const subtitle = isLoading ? 'Loading…' : `${services.length} active service${services.length === 1 ? '' : 's'}`;
+
   return (
     <ScreenLayout
       showBackButton
       headerTitle="My Services"
-      headerSubtitle={`${services.length} active services`}
+      headerSubtitle={subtitle}
       rightAction={addNewButton}
       contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50'}
     >
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="px-4 py-4" style={{ gap: 16 }}>
-          {services.map(service => (
-            <ServiceListCard
-              key={service.id}
-              service={service}
-              isDarkMode={isDarkMode}
-              onEdit={() => handleEdit(service)}
-              onDelete={() => handleDelete(service.id)}
-            />
-          ))}
+          {isLoading ? (
+            <View style={{ alignItems: 'center', paddingVertical: 64 }}>
+              <ActivityIndicator size="large" color="#00C870" />
+            </View>
+          ) : error ? (
+            <View style={{ alignItems: 'center', paddingVertical: 48 }}>
+              <Ionicons name="alert-circle-outline" size={56} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
+              <Text style={{ color: hex.subtext, textAlign: 'center', marginTop: 12 }}>{error}</Text>
+            </View>
+          ) : !provider ? (
+            <View style={{ alignItems: 'center', paddingVertical: 48 }}>
+              <Ionicons name="briefcase-outline" size={56} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
+              <Text style={{ color: hex.subtext, textAlign: 'center', marginTop: 12 }}>
+                No provider profile found for your account yet.
+              </Text>
+            </View>
+          ) : services.length === 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: 48 }}>
+              <Ionicons name="paw-outline" size={56} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
+              <Text style={{ color: hex.subtext, textAlign: 'center', marginTop: 12 }}>
+                No services yet. Tap “Add New” to create your first one.
+              </Text>
+            </View>
+          ) : (
+            services.map((dto) => {
+              const ui = serviceDtoToUi(dto);
+              return (
+                <ServiceListCard
+                  key={ui.id}
+                  service={ui}
+                  isDarkMode={isDarkMode}
+                  onEdit={() => handleEdit(dto)}
+                  onDelete={() => handleDelete(ui.id)}
+                />
+              );
+            })
+          )}
         </View>
       </ScrollView>
     </ScreenLayout>
@@ -179,7 +156,7 @@ function ServiceListCard({
   onEdit,
   onDelete,
 }: {
-  service: Service;
+  service: UiService;
   isDarkMode: boolean;
   onEdit: () => void;
   onDelete: () => void;

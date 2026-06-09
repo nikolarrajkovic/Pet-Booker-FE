@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch, Modal, Image, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Switch, Modal, Image, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useAuth } from '../../../context/AuthContext';
 import TimePicker from '../../../components/shared/TimePicker';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import { createService, updateService, ServiceDto } from '../../../services/services';
+import { getMyProvider } from '../../../services/service-providers';
+import { serviceDtoToUi, uiToServiceDto } from '../serviceModel';
 
 const SERVICE_TYPES = ['Dog Walking', 'Dog Boarding', 'Cat Sitting', 'Pet Hotels', 'Dog Sitting'];
 
@@ -55,7 +59,8 @@ interface ExistingService {
 
 type AddEditServiceParams = {
   mode?: 'add' | 'edit';
-  service?: ExistingService;
+  serviceDto?: ServiceDto;       // present in edit mode (the real record)
+  serviceProviderId?: number;    // the partner's provider id
 };
 
 const DEFAULT_WORKING_HOURS: WorkingHours = {
@@ -93,10 +98,23 @@ export default function AddEditServiceScreen() {
   const route = useRoute<RouteProp<{ params: AddEditServiceParams }, 'params'>>();
   const params = route.params;
   const isEdit = params?.mode === 'edit';
-  const existingService = params?.service;
+  const { currentUser } = useAuth();
+  // Prefill the form from the real service record (edit mode)
+  const existingService: ExistingService | undefined = params?.serviceDto
+    ? serviceDtoToUi(params.serviceDto)
+    : undefined;
 
-  const { isDarkMode, bgColor, cardBg, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor } =
+  const { isDarkMode, cardBg, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor } =
     useThemeColors();
+
+  // Resolve the provider id (passed in, or looked up as a fallback)
+  const [serviceProviderId, setServiceProviderId] = useState<number | null>(params?.serviceProviderId ?? null);
+  const [isSaving, setIsSaving] = useState(false);
+  useEffect(() => {
+    if (serviceProviderId == null && currentUser?.id) {
+      getMyProvider(currentUser.id).then((p) => setServiceProviderId(p?.id ?? null)).catch(() => {});
+    }
+  }, [serviceProviderId, currentUser?.id]);
 
   const [serviceType, setServiceType] = useState(existingService?.type || '');
   const [showServiceTypeModal, setShowServiceTypeModal] = useState(false);
@@ -228,16 +246,39 @@ export default function AddEditServiceScreen() {
     (navigation as any).navigate('ServicePreview', { service: serviceData });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!serviceType || !serviceName || !description) {
       Alert.alert('Missing Information', 'Please fill in Service Type, Service Name, and Description.');
       return;
     }
-    Alert.alert(
-      isEdit ? 'Service Updated' : 'Service Saved',
-      isEdit ? 'Your service has been updated successfully.' : 'Your new service has been created successfully.',
-      [{ text: 'OK', onPress: () => navigation.goBack() }]
-    );
+    if (serviceProviderId == null) {
+      Alert.alert('No provider profile', 'Could not determine your provider profile. Please try again.');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      // Only API-backed fields persist; pricing tiers beyond the first, working
+      // hours, and extra add-ons are UI-only (see BACKEND_GAPS.md: S1, S2, S3, S4).
+      const dto = uiToServiceDto({
+        serviceProviderId,
+        id: params?.serviceDto?.id ?? undefined,
+        serviceName,
+        description,
+        pricingTiers,
+        additionalServices,
+        existingPhotos: params?.serviceDto?.photos,
+      });
+      if (isEdit && params?.serviceDto?.id != null) {
+        await updateService(params.serviceDto.id, dto);
+      } else {
+        await createService(dto);
+      }
+      navigation.goBack();
+    } catch (e: any) {
+      Alert.alert('Save failed', e?.message ?? 'Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const anyDayEnabled = Object.values(workingHours).some(day => day.enabled);
@@ -493,11 +534,17 @@ export default function AddEditServiceScreen() {
         {/* Save / Update Button */}
         <TouchableOpacity
           onPress={handleSave}
+          disabled={isSaving}
           className="bg-brand-500 py-4 rounded-2xl items-center mb-6 mt-4"
+          style={{ opacity: isSaving ? 0.7 : 1 }}
         >
-          <Text className="text-white text-lg font-bold">
-            {isEdit ? 'Update Service' : 'Save Service'}
-          </Text>
+          {isSaving ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text className="text-white text-lg font-bold">
+              {isEdit ? 'Update Service' : 'Save Service'}
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
 
