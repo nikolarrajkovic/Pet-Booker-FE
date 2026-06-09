@@ -140,7 +140,9 @@ if (!response.ok) {
 - **Types**: `BookingDto`, `BookingViewModel`, `CreateBookingInput`. Exported enum maps: `BookingState` (0=Upcoming, 1=Completed, 2=Cancelled), `BookingStatusType` (0=ServiceRequestedByUser … 5=PostPayment), `PaymentType` (0=Cash, 1=Card, 2=BankTransfer, 3=Wallet).
 - **`bookingToViewModel(dto)`** — flattens a booking (with its nested `serviceProvider`/`service`/`pet` includes) into `BookingViewModel` for display. `statusLabel` ('upcoming'|'completed'|'cancelled') is derived from `state`.
 - `getBookings(params?)` → GET `/api/bookings`. Params: `userId`, `serviceProviderId`, `serviceId`, `petId`, `state`, `currentStatus`, `bookingFrom`, `bookingTo`, `page`, `perPage`. GET responses include populated nested `serviceProvider`, `service`, `pet`.
-- `getBooking(id)`, `createBooking(input)`, `cancelBooking(booking, reason?)` (PUT with state=Cancelled), `deleteBooking(id)`.
+- `getBooking(id)`, `createBooking(input)`, `setBookingStatus(booking, currentStatus)` (provider accept → ServiceConfirmedByProvider), `cancelBooking(booking, reason?)` (PUT with state=Cancelled), `deleteBooking(id)`.
+- **Booking PUT must send only writable scalar fields** — the GET returns nested read-only includes (`serviceProvider`/`service`/`pet`/`user`/addresses) and PUTing those back 500s. `setBookingStatus`/`cancelBooking` strip them via `toWritableBooking`.
+- **Backend quirk (BACKEND_GAPS B4)**: transitioning `currentStatus` → 1 (ServiceConfirmedByProvider) or 4 (ServiceEnded) sends an email; if the recipient's address is invalid (e.g. the seed `admin` account, email = `admin`) the API returns 500 `"...not in the form required for an e-mail address"` **but the status still persists**. Real users with valid emails are fine.
 
 ### `services/payment-methods.ts`
 - **Type**: `PaymentMethodDto`. Enum `PaymentMethodStatus` (0=Active, 1=Removed).
@@ -277,11 +279,11 @@ Implementation notes (`App.tsx`):
 | ApplicationSubmittedScreen | `screens/application-submitted-screen/containers/` | Post-application confirmation |
 | AccountScreen | `screens/account-screen/containers/` | Account settings |
 | MyBookingsScreen | `screens/my-bookings-screen/containers/` | **API-wired** — `getBookings({ userId })` in `useFocusEffect`; Upcoming/Past tabs from `bookingState` |
-| MyScheduleScreen | `screens/my-schedule-screen/containers/` | Partner schedule (day/week/month) |
+| MyScheduleScreen | `screens/my-schedule-screen/containers/` | **API-wired** — loads bookings (partner: by provider, user: by userId) into the schedule source on focus; day/week/month views unchanged |
 | MyServicesScreen | `screens/my-services-screen/containers/` | Partner's listed services |
 | ServicePreviewScreen | `screens/service-preview-screen/` | Preview service before publish |
 | NotificationsScreen | `screens/notifications-screen/containers/` | Notification center + preferences |
-| NewRequestsScreen | `screens/new-requests-screen/containers/` | Partner's service request queue |
+| NewRequestsScreen | `screens/new-requests-screen/containers/` | **API-wired** — partner's bookings via `getBookings({ serviceProviderId })`; New/Accepted/Declined from state+currentStatus; accept → `setBookingStatus`, decline → `cancelBooking` |
 | PromotionsScreen | `screens/promotions-screen/containers/` | Promotions management |
 | AdminNewRequestsScreen | `screens/admin-new-requests-screen/containers/` | **API-wired** — `getServiceProviders()` in `useFocusEffect`, client-side pending/approved split; approve → `approveServiceProvider()` (+ certs), reject → `deleteServiceProvider()` |
 | ApplicationReviewScreen | (within admin-new-requests) | **API-wired** — approve/reject call the real admin endpoints, then `goBack()` (list refetches on focus) |
