@@ -22,6 +22,27 @@ export type AddressDto = {
   country?: string | null;
 };
 
+export type GovernmentIdPhotoDto = {
+  id?: number | null;
+  alt?: string | null;
+  name?: string | null;
+  src?: string | null;
+  fileUploadId?: number | null;
+  isFront: boolean;
+};
+
+export type CertificateDto = {
+  id?: number | null;
+  serviceProviderId?: number | null;
+  name?: string | null;
+  issuer?: string | null;
+  url?: string | null;
+  issuedOn?: string | null;
+  expiresOn?: string | null;
+  isApproved: boolean;
+  fileIds?: number[] | null;
+};
+
 export type ServiceProviderDto = {
   id?: number | null;
   name?: string | null;
@@ -36,6 +57,8 @@ export type ServiceProviderDto = {
   updatedAt?: string;
   address?: AddressDto;
   photos?: PhotoDto[];
+  governmentIdPhotos?: GovernmentIdPhotoDto[];
+  certificates?: CertificateDto[];
 };
 
 /**
@@ -138,6 +161,20 @@ export async function getServiceProvider(id: number): Promise<ServiceProviderDto
   }
 
   return response.json();
+}
+
+export async function deleteServiceProvider(id: number): Promise<void> {
+  const url = `${getApiBaseUrl()}/api/service-providers/${id}`;
+  const response = await apiAuthFetch(url, { method: 'DELETE' });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Failed to delete provider.', 'deleteServiceProvider'));
+  }
+}
+
+/** Returns the friendly service-type label for a ServiceProviderType enum value. */
+export function providerTypeLabel(type: number): string {
+  return PROVIDER_TYPE_LABELS[type] ?? 'Pet Care';
 }
 
 export type CreateServiceProviderPayload = {

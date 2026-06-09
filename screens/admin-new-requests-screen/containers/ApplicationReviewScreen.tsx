@@ -5,12 +5,16 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import type { PartnerApplication, ApplicationStatus } from '../components';
+import { approveServiceProvider, approveCertificate } from '../../../services/admin';
+import { deleteServiceProvider } from '../../../services/service-providers';
 
 // ─── Static placeholder images / assets ────────────────────────────────────────
 const PROFILE_PHOTO_URL =
@@ -36,6 +40,7 @@ export default function ApplicationReviewScreen() {
   const application: PartnerApplication = route.params?.application;
   const [govIdRevealed, setGovIdRevealed] = useState(false);
   const [status, setStatus] = useState<ApplicationStatus>(application?.status ?? 'pending');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!application) {
     return (
@@ -54,18 +59,48 @@ export default function ApplicationReviewScreen() {
   const sectionBg = hex.card;
   const dividerColor = isDarkMode ? '#2d3748' : '#F3F4F6';
 
-  const handleApprove = () => {
-    navigation.navigate('AdminNewRequests', {
-      updatedId: application.id,
-      updatedStatus: 'approved',
-    });
+  const providerId = application.providerId ?? Number(application.id);
+
+  const handleApprove = async () => {
+    if (!providerId) return;
+    setIsSubmitting(true);
+    try {
+      await approveServiceProvider(providerId);
+      await Promise.all((application.certificateIds ?? []).map((cid) => approveCertificate(cid)));
+      setStatus('approved');
+      navigation.goBack();
+    } catch (e: any) {
+      Alert.alert('Approval failed', e?.message ?? 'Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleReject = () => {
-    navigation.navigate('AdminNewRequests', {
-      updatedId: application.id,
-      updatedStatus: 'rejected',
-    });
+    if (!providerId) return;
+    Alert.alert(
+      'Reject application?',
+      `This permanently removes ${application.applicantName}'s application. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            setIsSubmitting(true);
+            try {
+              await deleteServiceProvider(providerId);
+              setStatus('rejected');
+              navigation.goBack();
+            } catch (e: any) {
+              Alert.alert('Rejection failed', e?.message ?? 'Please try again.');
+            } finally {
+              setIsSubmitting(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -470,6 +505,7 @@ export default function ApplicationReviewScreen() {
           >
             <TouchableOpacity
               activeOpacity={0.8}
+              disabled={isSubmitting}
               onPress={handleReject}
               style={{
                 flex: 1,
@@ -480,6 +516,7 @@ export default function ApplicationReviewScreen() {
                 alignItems: 'center',
                 flexDirection: 'row',
                 justifyContent: 'center',
+                opacity: isSubmitting ? 0.6 : 1,
               }}
             >
               <Ionicons name="close-circle-outline" size={18} color="#EF4444" style={{ marginRight: 6 }} />
@@ -487,6 +524,7 @@ export default function ApplicationReviewScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.8}
+              disabled={isSubmitting}
               onPress={handleApprove}
               style={{
                 flex: 2,
@@ -496,10 +534,17 @@ export default function ApplicationReviewScreen() {
                 alignItems: 'center',
                 flexDirection: 'row',
                 justifyContent: 'center',
+                opacity: isSubmitting ? 0.7 : 1,
               }}
             >
-              <Ionicons name="checkmark-circle-outline" size={18} color="white" style={{ marginRight: 6 }} />
-              <Text style={{ color: 'white', fontSize: 15, fontWeight: '700' }}>Approve Application</Text>
+              {isSubmitting ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle-outline" size={18} color="white" style={{ marginRight: 6 }} />
+                  <Text style={{ color: 'white', fontSize: 15, fontWeight: '700' }}>Approve Application</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         )}
