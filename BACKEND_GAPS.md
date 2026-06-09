@@ -75,6 +75,15 @@ amount on a service, with a date range + enabled flag). Everything else is mock.
 | PR5 | CreatePromotionScreen | **Creating a promotion** | **Mock (not wired).** A real discount needs `serviceId` + type + date range, which the create form doesn't capture. Edit/list/toggle/delete of existing offers ARE wired to the API. | A create form with service + type + date-range pickers (then `createServiceDiscount`). |
 | PR6 | EditPromotion dates | **Start/End date inputs are free-text** (not `DatePicker`) | Parsed best-effort with `new Date(str)`; falls back to the existing value. | Use the shared `DatePicker` (frontend TODO, not a backend gap). |
 
+## Auth / Account (`/auth/*`)
+
+| # | UI location | Field / feature | Status | What the backend needs |
+|---|---|---|---|---|
+| AU1 | AccountScreen email | **Email change** | **Not supported.** `PUT /auth/profile` returns 400 "Email cannot be changed via profile update". The email field is read-only and sent unchanged. | An email-change flow (likely with re-verification). |
+| AU2 | AccountScreen | **Address field + profile photo + saved card** | **Mock / local-only.** `updateProfile` has no address/photo fields; the VISA card is hardcoded (real cards need the Stripe gateway — see payments, deferred). | Address/avatar on the profile DTO; payment-method UI on a real gateway. |
+| AU3 | AccountScreen (admin) | **Profile update 500** | **Seed account issue.** Updating the seed `admin` 500s ("Exception was thrown by handler"), tied to its invalid email (`admin`). A normal user with a valid email updates fine. Endpoint validates correctly otherwise. | Valid email on the account. |
+| AU4 | ForgotPasswordScreen | **Reset token delivery** | **Manual paste.** `reset-password` needs the token from the reset email; there's no deep-linking, so the user pastes the code into step 2. | Deep-link handling for the reset link (frontend). |
+
 ## Partner applications (admin)
 
 | # | UI location | Field / feature | Status | What the backend needs |

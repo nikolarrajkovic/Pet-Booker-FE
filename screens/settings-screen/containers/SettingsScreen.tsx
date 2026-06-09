@@ -68,7 +68,10 @@ export default function SettingsScreen() {
         {/* Privacy & Security */}
         <Text className={`text-base font-semibold ${sectionTextColor} mb-3`}>Privacy & Security</Text>
         <View className={`${cardBg} rounded-2xl mb-6`}>
-          <TouchableOpacity className="flex-row items-center p-4 border-b border-gray-100">
+          <TouchableOpacity
+            onPress={() => (navigation as any).navigate('ChangePassword')}
+            className="flex-row items-center p-4 border-b border-gray-100"
+          >
             <View className="w-12 h-12 bg-red-50 rounded-xl items-center justify-center mr-4"><Ionicons name="lock-closed" size={24} color="#EF4444" /></View>
             <View className="flex-1"><Text className={`text-base font-semibold ${textColor}`}>Change Password</Text></View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />

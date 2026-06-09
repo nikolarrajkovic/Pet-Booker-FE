@@ -1,21 +1,47 @@
 import React, { useState } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, TextInput, Image, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { ScrollView, Text, View, TouchableOpacity, TextInput, Image, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useAuth } from '../../../context/AuthContext';
+import { updateProfile } from '../../../services/auth';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 
 export default function AccountScreen() {
-  const navigation = useNavigation();
+  const { currentUser, refreshUser } = useAuth();
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor } =
     useThemeColors();
 
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
-  const [fullName, setFullName] = useState('Alex Johnson');
-  const [email, setEmail] = useState('alexj@email.com');
-  const [phone, setPhone] = useState('+1 (555) 123-4567');
-  const [address, setAddress] = useState('123 Main St, San Francisco, CA 94102');
+  const [fullName, setFullName] = useState(
+    [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ').trim(),
+  );
+  const [email] = useState(currentUser?.email ?? ''); // read-only: API rejects email changes
+  const [phone, setPhone] = useState(''); // BACKEND-GAP: phone not on CurrentUser (getMe); editable + saved via updateProfile
+  const [address, setAddress] = useState(''); // BACKEND-GAP: address not on profile; local only
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const parts = fullName.trim().split(/\s+/);
+      const firstName = parts.shift() ?? '';
+      const lastName = parts.join(' ');
+      await updateProfile({
+        userName: currentUser?.userName ?? email,
+        firstName,
+        lastName,
+        phone,
+        email,
+      });
+      await refreshUser();
+      Alert.alert('Success', 'Your changes have been saved!');
+    } catch (e: any) {
+      Alert.alert('Save failed', e?.message ?? 'Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const pickProfilePhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -92,17 +118,19 @@ export default function AccountScreen() {
             />
           </View>
 
-          {/* Email */}
+          {/* Email — read-only: the API rejects email changes via profile update */}
           <View className="mb-4">
             <Text className={`text-sm font-semibold ${textColor} mb-2`}>Email</Text>
             <TextInput
               value={email}
-              onChangeText={setEmail}
+              editable={false}
               keyboardType="email-address"
               autoCapitalize="none"
               className={`${inputBg} rounded-xl px-4 py-3 ${inputText} border ${borderColor}`}
+              style={{ opacity: 0.6 }}
               placeholderTextColor={placeholderColor}
             />
+            <Text className={`text-xs ${subtextColor} mt-1`}>Email can’t be changed here.</Text>
           </View>
 
           {/* Phone Number */}
@@ -159,12 +187,16 @@ export default function AccountScreen() {
       {/* Fixed Bottom Button */}
       <View className={`absolute bottom-0 left-0 right-0 ${cardBg} border-t ${borderColor} px-6 py-4`}>
         <TouchableOpacity
-          onPress={() => {
-            Alert.alert('Success', 'Your changes have been saved!');
-          }}
+          onPress={handleSave}
+          disabled={isSaving}
           className="bg-brand-500 py-4 rounded-2xl items-center"
+          style={{ opacity: isSaving ? 0.7 : 1 }}
         >
-          <Text className="text-white text-lg font-bold">Save Changes</Text>
+          {isSaving ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text className="text-white text-lg font-bold">Save Changes</Text>
+          )}
         </TouchableOpacity>
       </View>
     </ScreenLayout>

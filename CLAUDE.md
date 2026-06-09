@@ -78,6 +78,11 @@ if (!response.ok) {
 - `getMe()` → GET `/auth/me` (auth) → `CurrentUser`
 - `confirmEmail(email, code)` → POST `/auth/confirm-email`
 - `resendConfirmation(email)` → POST `/auth/resend-confirmation`
+- `updateProfile({ userName, firstName, lastName, phone, email })` → PUT `/auth/profile` (auth). **Email is read-only server-side** — sending a changed email returns 400 "Email cannot be changed via profile update"; send the current email unchanged. AccountScreen keeps the email field read-only.
+- `changePassword({ currentPassword, newPassword, confirmPassword })` → POST `/auth/change-password` (auth)
+- `forgotPassword(email)` → POST `/auth/forgot-password` (public)
+- `resetPassword({ resetToken, newPassword, confirmPassword })` → POST `/auth/reset-password` (public)
+- `logout()` → POST `/auth/logout` (auth). Called best-effort by `signOut()` before clearing tokens.
 - Type `CurrentUser`: `{ id, email, emailConfirmed, roles[], groups[], userName, firstName, lastName }`
 
 ### `services/token-storage.ts`
@@ -190,6 +195,7 @@ These are confirmed quirks of the real API — keep them in mind when building D
 | `signInWithCredentials(email, password)` | fn | Calls loginWithEmailPassword + signIn |
 | `signOut()` | fn | clearTokens() + reset state |
 | `signInWithGoogle()` | fn | expo-auth-session Google OAuth (client IDs are placeholders) |
+| `refreshUser()` | fn | Re-fetches `getMe()` and updates `currentUser` (used after profile edits) |
 
 Auth flow:
 1. On app start: check `getAccessToken()` → if valid, call `getMe()` → restore session
@@ -230,7 +236,7 @@ Returns `{ latitude, longitude, address, loading, error }`
 Root: Stack navigator guarded by `isLoggedIn`.
 
 **Public screens (unauthenticated):**
-- `Login`, `Register`, `VerifyEmail`
+- `Login`, `Register`, `VerifyEmail`, `ForgotPassword`
 
 **Authenticated root: MainTabs (bottom tab navigator) + stack screens**
 
@@ -279,7 +285,9 @@ Implementation notes (`App.tsx`):
 | BecomePartnerScreen | `screens/become-partner-screen/containers/` | Partner signup info |
 | PartnerApplicationScreen | `screens/partner-application-screen/containers/` | Multi-step partner application form |
 | ApplicationSubmittedScreen | `screens/application-submitted-screen/containers/` | Post-application confirmation |
-| AccountScreen | `screens/account-screen/containers/` | Account settings |
+| AccountScreen | `screens/account-screen/containers/` | **API-wired** — prefills from `currentUser`; Save → `updateProfile()` + `refreshUser()`. Email read-only (API rejects changes); address/photo + payment card are mock (no backend fields) |
+| ChangePasswordScreen | `screens/change-password-screen/containers/` | **API-wired** — `changePassword()` (current/new/confirm); reached from Settings |
+| ForgotPasswordScreen | `screens/forgot-password-screen/containers/` | **API-wired** — 2-step: `forgotPassword(email)` → `resetPassword(token,…)`; reached from Login |
 | MyBookingsScreen | `screens/my-bookings-screen/containers/` | **API-wired** — `getBookings({ userId })` in `useFocusEffect`; Upcoming/Past tabs from `bookingState` |
 | MyScheduleScreen | `screens/my-schedule-screen/containers/` | **API-wired** — loads bookings (partner: by provider, user: by userId) into the schedule source on focus; day/week/month views unchanged |
 | MyServicesScreen | `screens/my-services-screen/containers/` | Partner's listed services |
