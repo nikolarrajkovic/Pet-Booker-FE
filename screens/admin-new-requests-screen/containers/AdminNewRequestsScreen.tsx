@@ -1,95 +1,53 @@
 import React, { useState, useCallback } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, BackHandler } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, BackHandler, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PartnerApplicationCard } from '../components';
-import type { PartnerApplication, ApplicationStatus } from '../components';
+import type { PartnerApplication } from '../components';
+import {
+  getServiceProviders,
+  deleteServiceProvider,
+  providerTypeLabel,
+  ServiceProviderDto,
+} from '../../../services/service-providers';
+import { approveServiceProvider, approveCertificate } from '../../../services/admin';
 
-// ─── Mock partner applications ──────────────────────────────────────────────────
-const mockApplications: PartnerApplication[] = [
-  {
-    id: 'PR-001',
-    applicantName: 'Sarah Johnson',
-    submittedDate: 'May 15, 2026',
-    submittedTime: '10:30 AM',
-    services: ['Dog Walking', 'Pet Sitting'],
-    status: 'pending',
-    email: 'sarah.johnson@email.com',
-    phone: '(555) 234-5678',
-    address: '456 Oak Avenue, San Francisco, CA 94102',
-    experience: '5 years',
-    bio: "I'm a passionate pet lover with over 5 years of experience caring for dogs and cats. I understand that pets are family members and treat them with the love and attention they deserve.",
-    certifications: 'Certified Professional Dog Trainer, Pet First Aid',
-    availability: 'Monday-Friday: 9am-6pm, Weekends: Flexible',
+// Maps a raw ServiceProviderDto (a partner application) to the card's view shape.
+// Note: the provider DTO does not carry email/phone/bio/experience/availability —
+// those are blank until the backend exposes them.
+export function providerToApplication(dto: ServiceProviderDto): PartnerApplication {
+  const created = dto.createdAt ? new Date(dto.createdAt) : null;
+  const addr = dto.address;
+  const address = addr
+    ? [addr.line1, addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')
+    : '';
+  return {
+    id: String(dto.id ?? 0),
+    providerId: dto.id ?? 0,
+    applicantName: dto.name ?? 'Applicant',
+    submittedDate: created ? created.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '',
+    submittedTime: created ? created.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '',
+    services: [providerTypeLabel(dto.type)],
+    status: dto.isApproved ? 'approved' : 'pending',
+    email: '',
+    phone: '',
+    address,
+    experience: '',
+    bio: '',
+    certifications: (dto.certificates ?? []).map((c) => c.name).filter(Boolean).join(', '),
+    availability: '',
     documents: {
-      profilePhoto: true,
-      governmentId: true,
-      insuranceCertificate: true,
+      profilePhoto: (dto.photos?.length ?? 0) > 0,
+      governmentId: (dto.governmentIdPhotos?.length ?? 0) > 0,
+      insuranceCertificate: (dto.certificates?.length ?? 0) > 0,
     },
-  },
-  {
-    id: 'PR-002',
-    applicantName: 'Michael Chen',
-    submittedDate: 'May 14, 2026',
-    submittedTime: '02:20 PM',
-    services: ['Grooming', 'Training'],
-    status: 'pending',
-    email: 'michael.chen@email.com',
-    phone: '(555) 123-4567',
-    address: '789 Pine Street, Oakland, CA 94601',
-    experience: '8 years',
-    bio: 'Professional groomer with certifications in multiple breeds. I take pride in making every pet look and feel their best.',
-    certifications: 'Certified Master Groomer, AKC Canine Good Citizen Evaluator',
-    availability: 'Tuesday-Saturday: 8am-5pm',
-    documents: {
-      profilePhoto: true,
-      governmentId: true,
-      insuranceCertificate: false,
-    },
-  },
-  {
-    id: 'PR-003',
-    applicantName: 'Emma Rodriguez',
-    submittedDate: 'May 13, 2026',
-    submittedTime: '09:15 AM',
-    services: ['Boarding', 'Pet Sitting'],
-    status: 'approved',
-    email: 'emma.r@example.com',
-    phone: '(555) 345-6789',
-    address: '123 Maple Drive, Berkeley, CA 94704',
-    experience: '3 years',
-    bio: 'I run a home-based pet boarding facility with a large backyard. Your pets will have plenty of space to play and receive individual attention.',
-    certifications: 'Pet CPR Certified',
-    availability: '24/7 for boarding guests',
-    documents: {
-      profilePhoto: true,
-      governmentId: true,
-      insuranceCertificate: true,
-    },
-  },
-  {
-    id: 'PR-004',
-    applicantName: 'David Wilson',
-    submittedDate: 'May 12, 2026',
-    submittedTime: '04:45 PM',
-    services: ['Veterinary'],
-    status: 'rejected',
-    email: 'd.wilson@mail.com',
-    phone: '(555) 567-8901',
-    address: '321 Elm Street, San Jose, CA 95110',
-    experience: '1 year',
-    bio: 'Recent veterinary assistant looking to provide mobile vet services.',
-    certifications: '',
-    availability: 'Weekends only',
-    documents: {
-      profilePhoto: false,
-      governmentId: true,
-      insuranceCertificate: false,
-    },
-  },
-];
+    certificateIds: (dto.certificates ?? [])
+      .map((c) => c.id)
+      .filter((x): x is number => x != null),
+  };
+}
 
 type FilterTab = 'pending' | 'approved' | 'rejected';
 
@@ -101,10 +59,23 @@ const TABS: { key: FilterTab; label: string; icon: any; activeColor: string; act
 
 export default function AdminNewRequestsScreen() {
   const navigation = useNavigation<any>();
-  const route = useRoute<any>();
   const { isDarkMode, hex } = useThemeColors();
   const [activeTab, setActiveTab] = useState<FilterTab>('pending');
-  const [applications, setApplications] = useState<PartnerApplication[]>(mockApplications);
+  const [applications, setApplications] = useState<PartnerApplication[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const dtos = await getServiceProviders({ perPage: 200 });
+      setApplications(dtos.map(providerToApplication));
+    } catch (e) {
+      console.warn('[AdminNewRequests] load failed', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   // Always navigate to AdminDashboard on Android hardware back
   useFocusEffect(
@@ -118,18 +89,15 @@ export default function AdminNewRequestsScreen() {
     }, [navigation])
   );
 
-  // Receive result back from ApplicationReviewScreen
+  // Re-fetch on every focus (covers returning from ApplicationReview)
   useFocusEffect(
     useCallback(() => {
-      const updatedId = route.params?.updatedId;
-      const updatedStatus = route.params?.updatedStatus as ApplicationStatus | undefined;
-      if (updatedId && updatedStatus) {
-        setApplications((prev) =>
-          prev.map((a) => (a.id === updatedId ? { ...a, status: updatedStatus } : a))
-        );
-        navigation.setParams({ updatedId: undefined, updatedStatus: undefined });
-      }
-    }, [route.params?.updatedId, route.params?.updatedStatus])
+      let cancelled = false;
+      (async () => {
+        if (!cancelled) await load();
+      })();
+      return () => { cancelled = true; };
+    }, [load])
   );
 
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]';
@@ -148,19 +116,48 @@ export default function AdminNewRequestsScreen() {
 
   const filtered = applications.filter((a) => a.status === activeTab);
 
-  const handleApprove = (id: string) => {
-    setApplications((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'approved' as ApplicationStatus } : a))
-    );
+  const handleApprove = async (id: string) => {
+    const app = applications.find((a) => a.id === id);
+    if (!app?.providerId) return;
+    setBusyId(id);
+    try {
+      await approveServiceProvider(app.providerId);
+      // Approve any attached certificates alongside the application
+      await Promise.all((app.certificateIds ?? []).map((cid) => approveCertificate(cid)));
+      await load();
+    } catch (e: any) {
+      Alert.alert('Approval failed', e?.message ?? 'Please try again.');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const handleReject = (id: string) => {
-    setApplications((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: 'rejected' as ApplicationStatus } : a))
+    const app = applications.find((a) => a.id === id);
+    if (!app?.providerId) return;
+    Alert.alert(
+      'Reject application?',
+      `This permanently removes ${app.applicantName}'s application. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            setBusyId(id);
+            try {
+              await deleteServiceProvider(app.providerId!);
+              await load();
+            } catch (e: any) {
+              Alert.alert('Rejection failed', e?.message ?? 'Please try again.');
+            } finally {
+              setBusyId(null);
+            }
+          },
+        },
+      ],
     );
   };
-
-  const activeTabCfg = TABS.find((t) => t.key === activeTab)!;
 
   return (
     <ScreenLayout
@@ -243,7 +240,11 @@ export default function AdminNewRequestsScreen() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, paddingTop: 4 }}
         showsVerticalScrollIndicator={false}
       >
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
+            <ActivityIndicator size="large" color="#00C870" />
+          </View>
+        ) : filtered.length === 0 ? (
           <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
             <Ionicons
               name="clipboard-outline"
@@ -264,8 +265,8 @@ export default function AdminNewRequestsScreen() {
               textColor={textColor}
               subTextColor={subTextColor}
               borderColor={borderColor}
-              onApprove={handleApprove}
-              onReject={handleReject}
+              onApprove={busyId ? undefined : handleApprove}
+              onReject={busyId ? undefined : handleReject}
             />
           ))
         )}
