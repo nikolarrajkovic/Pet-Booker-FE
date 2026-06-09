@@ -32,6 +32,7 @@ The real `ServiceDto` (writable fields) is: `name`, `notes`, `basePrice`, `escro
 |---|---|---|---|---|
 | P1 | (various partner screens) | **Resolve the current user's own provider** | **Worked around.** No `userId` filter on `GET /api/service-providers`; `getMyProvider(userId)` fetches all and filters client-side. | A `UserId` query param (or a `/auth/me`-embedded providerId). |
 | P2 | ApplicationReview | Applicant **email / phone / bio / experience / availability** | **Blank.** The provider DTO doesn't carry these (collected at apply time but not returned). | These fields surfaced on the provider/application DTO. |
+| P3 | ProviderDetail "About" | **Provider about / bio text** | **Mocked** (generated from name + type). No about/bio on the provider DTO (providerProfile.bio is null for applications). | A bio/about field on the provider. |
 
 ## Bookings (`/api/bookings`)
 
@@ -39,6 +40,7 @@ The real `ServiceDto` (writable fields) is: `name`, `notes`, `basePrice`, `escro
 |---|---|---|---|---|
 | B1 | NewRequests / MySchedule | **Client (booker) name, email, phone** | **Blank / "Client".** The booking GET does not populate the `user` object. | `user` populated on the booking GET (or contact fields on the DTO). |
 | B2 | NewRequests / MySchedule | **Service location name, owner notes, selected add-ons** | **Blank.** Not carried on the booking. | Location label, notes, and per-booking add-on selections on the booking DTO. |
+| B5 | BookService add-ons | **"Photo Updates" / "Detailed Report" add-ons** | **Mock-priced, not persisted.** Pickup/Drop-off use the service's real pickup/leave-over surcharges; the other two are mock and only affect the displayed total. Multi-appointment creates one real booking per appointment, but the add-on breakdown isn't stored (only `totalPrice`). | Per-booking add-on line items. |
 | B3 | MySchedule | **Service type** (walking/grooming/sitting colour) | **Inferred from the service name.** The booking doesn't expose a type. | A `type` on the nested service. |
 | B4 | NewRequests "Accept" (and any confirm) | **Status transition emails 500 on an invalid recipient email** | **Backend bug, surfaced as an error.** Setting `currentStatus` = 1 (ServiceConfirmedByProvider) or 4 (ServiceEnded) makes the backend send an email; if the recipient's address is invalid (e.g. the seed `admin` account whose email is literally `admin`) it throws `500: "The specified string is not in the form required for an e-mail address."` — **the status still persists**. Real users with valid emails are unaffected. Client payload is correct (writable fields only). | Validate/guard the recipient email before sending, or make the notification non-fatal to the status update. |
 

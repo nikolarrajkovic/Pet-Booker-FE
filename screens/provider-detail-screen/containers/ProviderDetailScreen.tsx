@@ -129,6 +129,28 @@ export default function ProviderDetailScreen() {
           )}
         </View>
 
+        {/* About — BACKEND-GAP P3: provider DTO has no about/bio field, so this copy is mocked */}
+        <View className="px-6 mb-4">
+          <Text className={`text-lg font-semibold ${textColor} mb-2`}>About</Text>
+          <Text className={`${subtextColor} leading-6`}>
+            {provider.name} is a trusted {provider.service.toLowerCase()} provider on PawCare,
+            dedicated to giving every pet attentive, loving care.
+          </Text>
+        </View>
+
+        {/* Location — uses the real provider address when available */}
+        <View className="px-6 mb-4">
+          <Text className={`text-lg font-semibold ${textColor} mb-3`}>Location</Text>
+          <View className={`${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'} rounded-2xl p-4 items-center`}>
+            <View className="w-12 h-12 bg-brand-100 rounded-full items-center justify-center mb-2">
+              <Ionicons name="location" size={24} color="#00C870" />
+            </View>
+            <Text className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'} font-medium text-center`}>
+              {address || 'Location available after booking'}
+            </Text>
+          </View>
+        </View>
+
         {/* Services or loading */}
         {isLoading ? (
           <View className="py-8 items-center">

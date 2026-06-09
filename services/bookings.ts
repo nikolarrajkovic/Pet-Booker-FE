@@ -41,6 +41,7 @@ export type BookingDto = {
   serviceProvider?: NestedEntity | null;
   service?: NestedEntity | null;
   pet?: NestedEntity | null;
+  review?: { rating?: number | null } | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -62,6 +63,7 @@ export type BookingViewModel = {
   status: number;      // BookingStatusType
   statusLabel: 'upcoming' | 'completed' | 'cancelled';
   image: string;
+  rating?: number; // from the booking's review, when one exists
 };
 
 function firstPhoto(entity?: NestedEntity | null): string {
@@ -105,6 +107,7 @@ export function bookingToViewModel(dto: BookingDto): BookingViewModel {
     status: dto.currentStatus,
     statusLabel: stateToLabel(dto.state),
     image: firstPhoto(dto.serviceProvider) || firstPhoto(dto.pet),
+    rating: dto.review?.rating ?? undefined,
   };
 }
 
