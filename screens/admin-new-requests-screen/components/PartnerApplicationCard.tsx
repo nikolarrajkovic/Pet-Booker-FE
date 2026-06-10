@@ -20,9 +20,16 @@ export type PartnerApplication = {
   certifications: string;
   availability: string;
   documents: {
-    profilePhoto: boolean;
-    governmentId: boolean;
-    insuranceCertificate: boolean;
+    profilePhoto: { src: string; name: string } | null;
+    governmentId: { src: string; name: string } | null;
+    insuranceCertificate: {
+      name: string;
+      issuer: string;
+      fileSrc: string;
+      fileName: string;
+      sizeBytes: number;
+      mimeType: string;
+    } | null;
   };
   // Real-data fields (present when sourced from the API):
   providerId?: number;       // ServiceProvider id used to call the approve/delete endpoints
@@ -218,19 +225,19 @@ export function PartnerApplicationCard({
           </Text>
           <DocStatus
             label="Profile Photo"
-            uploaded={application.documents.profilePhoto}
+            uploaded={!!application.documents.profilePhoto}
             subTextColor={subTextColor}
             textColor={textColor}
           />
           <DocStatus
             label="Government ID"
-            uploaded={application.documents.governmentId}
+            uploaded={!!application.documents.governmentId}
             subTextColor={subTextColor}
             textColor={textColor}
           />
           <DocStatus
             label="Insurance Certificate"
-            uploaded={application.documents.insuranceCertificate}
+            uploaded={!!application.documents.insuranceCertificate}
             subTextColor={subTextColor}
             textColor={textColor}
           />

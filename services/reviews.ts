@@ -8,14 +8,14 @@ export type ReviewDto = {
   rating: number;
   title?: string | null;
   comment?: string | null;
-  photos?: Array<{
+  photos?: {
     id?: number | null;
     alt?: string | null;
     name?: string | null;
     src?: string | null;
     fileUploadId?: number | null;
     isSelected: boolean;
-  }>;
+  }[];
 };
 
 export type GetReviewsParams = {

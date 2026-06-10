@@ -31,6 +31,15 @@ export type GovernmentIdPhotoDto = {
   isFront: boolean;
 };
 
+export type CertificateFileDto = {
+  id: number;
+  src?: string | null;
+  originalName?: string | null;
+  mimeType?: string | null;
+  contentType?: number | null;
+  sizeBytes?: number | null;
+};
+
 export type CertificateDto = {
   id?: number | null;
   serviceProviderId?: number | null;
@@ -41,6 +50,8 @@ export type CertificateDto = {
   expiresOn?: string | null;
   isApproved: boolean;
   fileIds?: number[] | null;
+  // GET inflates this even though the swagger DTO omits it.
+  files?: CertificateFileDto[];
 };
 
 export type ServiceProviderDto = {
@@ -202,9 +213,9 @@ export type CreateServiceProviderPayload = {
   availability: string;
   // files
   profilePhoto: { uri: string; fileName?: string } | null;
-  petPhotoFiles: Array<{ uri: string; fileName?: string }>;
-  governmentIdFiles: Array<{ uri: string; fileName?: string; isFront: boolean }>;
-  certificateFiles: Array<{ uri: string; fileName?: string; certName?: string; issuer?: string; issuedDate?: string }>;
+  petPhotoFiles: { uri: string; fileName?: string }[];
+  governmentIdFiles: { uri: string; fileName?: string; isFront: boolean }[];
+  certificateFiles: { uri: string; fileName?: string; certName?: string; issuer?: string; issuedDate?: string }[];
   userId: number;
 };
 
@@ -213,7 +224,7 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
 
   // Build a single flat upload list, tracking where each group starts:
   // [profilePhoto?, ...petPhotos, ...governmentIdFiles, ...certificateFiles]
-  const allFiles: Array<{ uri: string; fileName?: string }> = [];
+  const allFiles: { uri: string; fileName?: string }[] = [];
 
   const profileIndex = payload.profilePhoto ? 0 : -1;
   if (payload.profilePhoto) allFiles.push(payload.profilePhoto);

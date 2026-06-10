@@ -7,6 +7,7 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,11 +17,20 @@ import type { PartnerApplication, ApplicationStatus } from '../components';
 import { approveServiceProvider, approveCertificate } from '../../../services/admin';
 import { deleteServiceProvider } from '../../../services/service-providers';
 
-// ─── Static placeholder images / assets ────────────────────────────────────────
-const PROFILE_PHOTO_URL =
-  'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&q=80';
-const GOV_ID_URL =
-  'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&q=80';
+function formatBytes(n: number): string {
+  if (!n) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function openDownload(url: string) {
+  try {
+    await Linking.openURL(url);
+  } catch {
+    Alert.alert('Unable to open file', 'The file could not be opened.');
+  }
+}
 
 const STATUS_CONFIG: Record<
   ApplicationStatus,
@@ -279,14 +289,17 @@ export default function ApplicationReviewScreen() {
                   </View>
                   <Ionicons name="checkmark-circle" size={20} color="#00C870" />
                 </View>
-                <Text style={{ color: subTextColor, fontSize: 11, marginBottom: 8 }}>Uploaded</Text>
+                <Text style={{ color: subTextColor, fontSize: 11, marginBottom: 8 }}>
+                  {application.documents.profilePhoto.name}
+                </Text>
                 <Image
-                  source={{ uri: PROFILE_PHOTO_URL }}
+                  source={{ uri: application.documents.profilePhoto.src }}
                   style={{ width: '100%', height: 160, borderRadius: 10 }}
                   resizeMode="cover"
                 />
                 <TouchableOpacity
                   activeOpacity={0.8}
+                  onPress={() => openDownload(application.documents.profilePhoto!.src)}
                   style={{
                     marginTop: 10,
                     paddingVertical: 10,
@@ -323,14 +336,14 @@ export default function ApplicationReviewScreen() {
                     </View>
                     <View>
                       <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>Government ID</Text>
-                      <Text style={{ color: subTextColor, fontSize: 11 }}>Driver's License</Text>
+                      <Text style={{ color: subTextColor, fontSize: 11 }}>{application.documents.governmentId.name}</Text>
                     </View>
                   </View>
                   <Ionicons name="checkmark-circle" size={20} color="#00C870" />
                 </View>
                 <View style={{ position: 'relative', marginBottom: 10 }}>
                   <Image
-                    source={{ uri: GOV_ID_URL }}
+                    source={{ uri: application.documents.governmentId.src }}
                     style={{ width: '100%', height: 140, borderRadius: 10 }}
                     resizeMode="cover"
                     blurRadius={govIdRevealed ? 0 : 12}
@@ -384,6 +397,7 @@ export default function ApplicationReviewScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     activeOpacity={0.8}
+                    onPress={() => openDownload(application.documents.governmentId!.src)}
                     style={{
                       paddingVertical: 10,
                       paddingHorizontal: 14,
@@ -416,11 +430,17 @@ export default function ApplicationReviewScreen() {
                     <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#E8F5EF', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
                       <Ionicons name="document-outline" size={18} color="#00C870" />
                     </View>
-                    <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>Insurance Certificate</Text>
+                    <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>
+                      {application.documents.insuranceCertificate.name}
+                    </Text>
                   </View>
                   <Ionicons name="checkmark-circle" size={20} color="#00C870" />
                 </View>
-                <Text style={{ color: subTextColor, fontSize: 11, marginBottom: 10 }}>Liability Insurance</Text>
+                {application.documents.insuranceCertificate.issuer ? (
+                  <Text style={{ color: subTextColor, fontSize: 11, marginBottom: 10 }}>
+                    {application.documents.insuranceCertificate.issuer}
+                  </Text>
+                ) : null}
                 <View
                   style={{
                     flexDirection: 'row',
@@ -436,13 +456,21 @@ export default function ApplicationReviewScreen() {
                   <Ionicons name="document-text-outline" size={20} color={subTextColor} />
                   <View style={{ marginLeft: 10 }}>
                     <Text style={{ color: textColor, fontSize: 12, fontWeight: '500' }}>
-                      insurance_certificate.pdf
+                      {application.documents.insuranceCertificate.fileName}
                     </Text>
-                    <Text style={{ color: subTextColor, fontSize: 11 }}>2.4 MB • PDF Document</Text>
+                    <Text style={{ color: subTextColor, fontSize: 11 }}>
+                      {[
+                        formatBytes(application.documents.insuranceCertificate.sizeBytes),
+                        application.documents.insuranceCertificate.mimeType,
+                      ]
+                        .filter(Boolean)
+                        .join(' • ')}
+                    </Text>
                   </View>
                 </View>
                 <TouchableOpacity
                   activeOpacity={0.8}
+                  onPress={() => openDownload(application.documents.insuranceCertificate!.fileSrc)}
                   style={{
                     paddingVertical: 10,
                     borderRadius: 10,

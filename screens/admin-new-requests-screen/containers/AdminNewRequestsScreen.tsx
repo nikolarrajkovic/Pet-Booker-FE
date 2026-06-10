@@ -10,6 +10,7 @@ import {
   getServiceProviders,
   deleteServiceProvider,
   providerTypeLabel,
+  resolveImageUrl,
   ServiceProviderDto,
 } from '../../../services/service-providers';
 import { approveServiceProvider, approveCertificate } from '../../../services/admin';
@@ -23,6 +24,12 @@ export function providerToApplication(dto: ServiceProviderDto): PartnerApplicati
   const address = addr
     ? [addr.line1, addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')
     : '';
+
+  const profilePhotoDto = dto.photos?.find((p) => p.isSelected) ?? dto.photos?.[0];
+  const govIdFrontDto = dto.governmentIdPhotos?.find((p) => p.isFront) ?? dto.governmentIdPhotos?.[0];
+  const firstCert = dto.certificates?.[0];
+  const firstCertFile = firstCert?.files?.[0];
+
   return {
     id: String(dto.id ?? 0),
     providerId: dto.id ?? 0,
@@ -39,9 +46,22 @@ export function providerToApplication(dto: ServiceProviderDto): PartnerApplicati
     certifications: (dto.certificates ?? []).map((c) => c.name).filter(Boolean).join(', '),
     availability: '',
     documents: {
-      profilePhoto: (dto.photos?.length ?? 0) > 0,
-      governmentId: (dto.governmentIdPhotos?.length ?? 0) > 0,
-      insuranceCertificate: (dto.certificates?.length ?? 0) > 0,
+      profilePhoto: profilePhotoDto?.src
+        ? { src: resolveImageUrl(profilePhotoDto.src), name: profilePhotoDto.name ?? 'Profile Photo' }
+        : null,
+      governmentId: govIdFrontDto?.src
+        ? { src: resolveImageUrl(govIdFrontDto.src), name: govIdFrontDto.name ?? 'Government ID' }
+        : null,
+      insuranceCertificate: firstCertFile?.src
+        ? {
+            name: firstCert?.name ?? 'Certificate',
+            issuer: firstCert?.issuer ?? '',
+            fileSrc: resolveImageUrl(firstCertFile.src),
+            fileName: firstCertFile.originalName ?? 'certificate',
+            sizeBytes: firstCertFile.sizeBytes ?? 0,
+            mimeType: firstCertFile.mimeType ?? '',
+          }
+        : null,
     },
     certificateIds: (dto.certificates ?? [])
       .map((c) => c.id)

@@ -36,8 +36,8 @@ export default function PartnerApplicationScreen() {
   const [governmentIdBack, setGovernmentIdBack] = useState<string | null>(null);
   const [governmentIdBackFileName, setGovernmentIdBackFileName] = useState<string | undefined>(undefined);
   const [certificates, setCertificates] = useState<CertificateEntry[]>([]);
-  const [petPhotos, setPetPhotos] = useState<Array<string | null>>([null, null, null]);
-  const [petPhotoFileNames, setPetPhotoFileNames] = useState<Array<string | undefined>>([undefined, undefined, undefined]);
+  const [petPhotos, setPetPhotos] = useState<(string | null)[]>([null, null, null]);
+  const [petPhotoFileNames, setPetPhotoFileNames] = useState<(string | undefined)[]>([undefined, undefined, undefined]);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -237,15 +237,15 @@ export default function PartnerApplicationScreen() {
 
             setIsSubmitting(true);
             try {
-              const governmentIdFiles: Array<{ uri: string; fileName?: string; isFront: boolean }> = [
+              const governmentIdFiles: { uri: string; fileName?: string; isFront: boolean }[] = [
                 ...(governmentIdFront ? [{ uri: governmentIdFront, fileName: governmentIdFrontFileName, isFront: true }] : []),
                 ...(governmentIdBack ? [{ uri: governmentIdBack, fileName: governmentIdBackFileName, isFront: false }] : []),
               ];
-              const certificateFiles: Array<{ uri: string; fileName?: string; certName?: string; issuer?: string; issuedDate?: string }> =
+              const certificateFiles: { uri: string; fileName?: string; certName?: string; issuer?: string; issuedDate?: string }[] =
                 certificates.map((c) => ({ uri: c.uri, fileName: c.fileName, certName: c.fileName ?? 'Certificate', issuer: c.issuer, issuedDate: c.issuedDate }));
               const petPhotoFiles = petPhotos
                 .map((uri, i) => uri ? { uri, fileName: petPhotoFileNames[i] } : null)
-                .filter(Boolean) as Array<{ uri: string; fileName?: string }>;
+                .filter(Boolean) as { uri: string; fileName?: string }[];
               await createServiceProvider({
                 ...formData,
                 profilePhoto: profilePhoto ? { uri: profilePhoto, fileName: profilePhotoFileName } : null,

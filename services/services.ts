@@ -31,14 +31,14 @@ export type ServiceDto = {
     supportsLeaveOver: boolean;
     leaveOverPriceSurcharge?: number | null;
   };
-  photos?: Array<{
+  photos?: {
     id?: number | null;
     alt?: string | null;
     name?: string | null;
     src?: string | null;
     fileUploadId?: number | null;
     isSelected: boolean;
-  }>;
+  }[];
 };
 
 export type GetServicesParams = {

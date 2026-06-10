@@ -5,8 +5,8 @@ import TabBar from '../../../components/shared/TabBar';
 import ServiceCard from '../../../components/shared/ServiceCard';
 import SeeMoreCard from '../../../components/shared/SeeMoreCard';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
-import { Ionicons } from '@expo/vector-icons';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons , MaterialCommunityIcons } from '@expo/vector-icons';
+
 import { useLocation } from '../../../hooks/useLocation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { getServiceProviders, providerToViewModel, ProviderViewModel } from '../../../services/service-providers';

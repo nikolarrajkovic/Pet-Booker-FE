@@ -7,7 +7,7 @@ export type CertificateEntry = { uri: string; fileName?: string; issuer: string;
 
 interface DocumentsStepProps {
   profilePhoto: string | null;
-  petPhotos: Array<string | null>;
+  petPhotos: (string | null)[];
   governmentIdFront: string | null;
   governmentIdBack: string | null;
   certificates: CertificateEntry[];

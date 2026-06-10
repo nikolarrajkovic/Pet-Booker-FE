@@ -25,7 +25,7 @@ type AddPetRouteParams = {
     favoriteFood?: string;
     additionalNotes?: string;
     image: string | null;
-    photos?: Array<{
+    photos?: {
       id: number;
       src: string;
       alt: string;
@@ -34,7 +34,7 @@ type AddPetRouteParams = {
       isSelected: boolean;
       contentType: number;
       uploadedAt: string;
-    }>;
+    }[];
   };
 };
 
@@ -84,7 +84,7 @@ export default function AddPetScreen() {
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
   const placeholderColor = isDarkMode ? '#6B7280' : undefined;
 
-  const [petPhotos, setPetPhotos] = useState<Array<{ uri: string; fileName?: string }>>(() => {
+  const [petPhotos, setPetPhotos] = useState<{ uri: string; fileName?: string }[]>(() => {
     if (existingPet?.photos?.length) {
       const base = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? '';
       return existingPet.photos.map((p) => ({

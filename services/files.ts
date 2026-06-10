@@ -90,7 +90,7 @@ export async function uploadFile(
  * @param files - Array of { uri, fileName?, mimeType? } descriptors
  */
 export async function uploadFilesBulk(
-  files: Array<{ uri: string; fileName?: string; mimeType?: string }>,
+  files: { uri: string; fileName?: string; mimeType?: string }[],
 ): Promise<UploadedFile[]> {
   const url = `${getApiBaseUrl()}/files/upload/bulk`;
 

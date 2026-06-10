@@ -74,7 +74,7 @@ export type PetResponse = {
   additionalNotes: string;
   photoUrl: string;
   isActive: boolean;
-  photos: Array<{
+  photos: {
     id: number;
     name: string;
     src: string;
@@ -83,7 +83,7 @@ export type PetResponse = {
     uploadedAt: string;
     fileUploadId: number;
     isSelected: boolean;
-  }>;
+  }[];
 };
 
 export async function getPets(ownerUserId: number): Promise<PetResponse[]> {
@@ -117,7 +117,7 @@ export type CreatePetInput = {
   dietaryNotes: string;
   favoriteFood: string;
   additionalNotes: string;
-  petPhotos: Array<{ uri: string; fileName?: string }>;
+  petPhotos: { uri: string; fileName?: string }[];
 };
 
 export async function createPet(input: CreatePetInput): Promise<void> {

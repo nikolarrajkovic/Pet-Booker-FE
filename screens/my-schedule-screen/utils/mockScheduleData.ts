@@ -1,4 +1,4 @@
-﻿// Schedule data source. Real bookings are injected at runtime via
+// Schedule data source. Real bookings are injected at runtime via
 // setLiveScheduleData(); until then the mock map below is used as a fallback.
 import { BookingDto, BookingState } from '../../../services/bookings';
 
