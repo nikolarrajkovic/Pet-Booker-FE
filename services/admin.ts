@@ -15,6 +15,23 @@ export async function approveServiceProvider(serviceProviderId: number): Promise
   }
 }
 
+/**
+ * Declines a partner application / service provider (sets approvalStatus =
+ * Declined with an optional reason). The record is kept — this replaces the
+ * old "reject = delete the provider" workaround.
+ */
+export async function declineServiceProvider(serviceProviderId: number, reason?: string): Promise<void> {
+  const url = `${getApiBaseUrl()}/admin/service-providers/${serviceProviderId}/decline`;
+  const response = await apiAuthFetch(url, {
+    method: 'POST',
+    body: JSON.stringify({ reason: reason ?? null }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Failed to decline provider.', 'declineServiceProvider'));
+  }
+}
+
 /** Approves a single certificate attached to a provider application. */
 export async function approveCertificate(certificateId: number): Promise<void> {
   const url = `${getApiBaseUrl()}/admin/certificates/${certificateId}/approve`;
@@ -22,5 +39,18 @@ export async function approveCertificate(certificateId: number): Promise<void> {
 
   if (!response.ok) {
     throw new Error(await parseApiError(response, 'Failed to approve certificate.', 'approveCertificate'));
+  }
+}
+
+/** Declines a single certificate attached to a provider application. */
+export async function declineCertificate(certificateId: number, reason?: string): Promise<void> {
+  const url = `${getApiBaseUrl()}/admin/certificates/${certificateId}/decline`;
+  const response = await apiAuthFetch(url, {
+    method: 'POST',
+    body: JSON.stringify({ reason: reason ?? null }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Failed to decline certificate.', 'declineCertificate'));
   }
 }

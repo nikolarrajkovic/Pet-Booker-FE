@@ -7,7 +7,6 @@ import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PromotionCard } from '../components';
 import type { Promotion } from '../components';
-import { getMyProvider } from '../../../services/service-providers';
 import { getServices } from '../../../services/services';
 import {
   getServiceDiscounts,
@@ -93,9 +92,9 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
     if (!currentUser?.id) { setIsLoading(false); return; }
     setIsLoading(true);
     try {
-      const provider = await getMyProvider(currentUser.id);
-      if (!provider?.id) { setOffers([]); return; }
-      const services = await getServices({ serviceProviderId: provider.id });
+      const providerId = currentUser.serviceProviderId || null;
+      if (!providerId) { setOffers([]); return; }
+      const services = await getServices({ serviceProviderId: providerId });
       const nameById = new Map(services.map((s) => [s.id, s.name ?? 'Service']));
       const lists = await Promise.all(
         services.map((s) => (s.id != null ? getServiceDiscounts({ serviceId: s.id }) : Promise.resolve([]))),
@@ -107,7 +106,7 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser?.id]);
+  }, [currentUser?.id, currentUser?.serviceProviderId]);
 
   useFocusEffect(
     useCallback(() => {

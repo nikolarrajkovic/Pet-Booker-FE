@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
@@ -9,6 +9,7 @@ import { BookingCard } from '../components';
 import { getBookings, bookingToViewModel, BookingViewModel } from '../../../services/bookings';
 
 export default function MyBookingsScreen() {
+  const navigation = useNavigation();
   const { currentUser } = useAuth();
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
@@ -98,6 +99,7 @@ export default function MyBookingsScreen() {
             textColor={textColor}
             subtextColor={subtextColor}
             borderColor={borderColor}
+            onViewDetails={() => (navigation as any).navigate('BookingDetails', { bookingId: booking.id })}
           />
         ))}
       </>

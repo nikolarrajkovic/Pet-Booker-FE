@@ -1,13 +1,14 @@
 import React from 'react';
 import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import AnimatedCheckmark from '../../../components/shared/AnimatedCheckmark';
 import { VerificationProgress, NeedHelpCard, WhileYouWaitCard } from '../components';
 
 export default function ApplicationSubmittedScreen() {
-  const navigation = useNavigation();
+  // Terminal screen — reset so back can't re-enter the application form.
+  const { resetToTab } = useAppNavigation();
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
 
   return (
@@ -17,8 +18,8 @@ export default function ApplicationSubmittedScreen() {
       contentRounded={false}
       headerChildren={
         <View className="items-center py-4">
-          <View className="w-24 h-24 bg-white/20 rounded-full items-center justify-center mb-6">
-            <Ionicons name="time-outline" size={48} color="white" />
+          <View className="mb-6">
+            <AnimatedCheckmark size={96} color="white" ringColor="rgba(255,255,255,0.2)" />
           </View>
           <Text className="text-white text-2xl font-bold mb-2">Application Submitted!</Text>
           <Text className="text-white/90 text-base text-center">We're reviewing your application</Text>
@@ -50,13 +51,13 @@ export default function ApplicationSubmittedScreen() {
       {/* Fixed Bottom Buttons */}
       <View className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
         <TouchableOpacity
-          onPress={() => (navigation as any).navigate('MainTabs', { screen: 'Home' })}
+          onPress={() => resetToTab('Home')}
           className="bg-brand-500 py-4 rounded-2xl items-center mb-3"
         >
           <Text className="text-white text-lg font-bold">Back to Home</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => (navigation as any).navigate('MainTabs', { screen: 'Profile' })}
+          onPress={() => resetToTab('Profile')}
           className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} py-4 rounded-2xl items-center`}
         >
           <Text className={`${textColor} text-lg font-semibold`}>View Profile</Text>

@@ -1,14 +1,12 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Ionicons } from '@expo/vector-icons';
 
-interface Provider {
+interface ServiceItem {
   id: number;
   name: string;
   service: string;
   price: number;
-  verified: boolean;
   latitude: number;
   longitude: number;
 }
@@ -20,11 +18,11 @@ interface LocationData {
 }
 
 interface MapViewComponentProps {
-  providers: Provider[];
+  services: ServiceItem[];
   location: LocationData;
 }
 
-export default function MapViewComponent({ providers, location }: MapViewComponentProps) {
+export default function MapViewComponent({ services, location }: MapViewComponentProps) {
   if (location.loading) {
     return (
       <View className="flex-1 items-center justify-center">
@@ -57,26 +55,21 @@ export default function MapViewComponent({ providers, location }: MapViewCompone
           pinColor="#00C870"
         />
 
-        {/* Provider markers */}
-        {providers.map((provider) => (
+        {/* Service markers */}
+        {services.map((item) => (
           <Marker
-            key={provider.id}
+            key={item.id}
             coordinate={{
-              latitude: provider.latitude,
-              longitude: provider.longitude,
+              latitude: item.latitude,
+              longitude: item.longitude,
             }}
-            title={provider.name}
-            description={`${provider.service} - $${provider.price}`}
+            title={item.name}
+            description={`${item.service} - $${item.price}`}
           >
             <View className="items-center">
               <View className="bg-white rounded-full px-3 py-1.5 shadow-lg border border-gray-200">
-                <Text className="text-gray-900 font-bold text-xs">${provider.price}</Text>
+                <Text className="text-gray-900 font-bold text-xs">${item.price}</Text>
               </View>
-              {provider.verified && (
-                <View className="absolute -top-1 -right-1 w-4 h-4 bg-brand-500 rounded-full items-center justify-center border border-white">
-                  <Ionicons name="checkmark" size={10} color="white" />
-                </View>
-              )}
             </View>
           </Marker>
         ))}

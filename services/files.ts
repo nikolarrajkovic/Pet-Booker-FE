@@ -40,7 +40,9 @@ export type UploadedFile = {
   id: string;
   src: string;
   originalName: string;
-  contentType: string;
+  // Backend enum (0=Unknown, 1=JPEG, 2=PNG, 3=WebP) — often 0; prefer mimeType
+  contentType: number;
+  mimeType: string;
   sizeBytes: number;
 };
 
@@ -90,7 +92,7 @@ export async function uploadFile(
  * @param files - Array of { uri, fileName?, mimeType? } descriptors
  */
 export async function uploadFilesBulk(
-  files: Array<{ uri: string; fileName?: string; mimeType?: string }>,
+  files: { uri: string; fileName?: string; mimeType?: string }[],
 ): Promise<UploadedFile[]> {
   const url = `${getApiBaseUrl()}/files/upload/bulk`;
 

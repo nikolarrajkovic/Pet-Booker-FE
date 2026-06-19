@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, TextInput, Image, Alert, ActivityIndicator } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,9 +15,9 @@ type AddPetRouteParams = {
   pet?: {
     id: string;
     name: string;
-    type?: string;
+    petTypeNum?: number;
+    sexNum?: number;
     breed: string;
-    sex: string;
     dateOfBirth?: string;
     weight: string;
     height: string;
@@ -25,7 +25,7 @@ type AddPetRouteParams = {
     favoriteFood?: string;
     additionalNotes?: string;
     image: string | null;
-    photos?: Array<{
+    photos?: {
       id: number;
       src: string;
       alt: string;
@@ -34,7 +34,7 @@ type AddPetRouteParams = {
       isSelected: boolean;
       contentType: number;
       uploadedAt: string;
-    }>;
+    }[];
   };
 };
 
@@ -81,10 +81,9 @@ export default function AddPetScreen() {
     })();
   }, []);
 
-  const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
   const placeholderColor = isDarkMode ? '#6B7280' : undefined;
 
-  const [petPhotos, setPetPhotos] = useState<Array<{ uri: string; fileName?: string }>>(() => {
+  const [petPhotos, setPetPhotos] = useState<{ uri: string; fileName?: string }[]>(() => {
     if (existingPet?.photos?.length) {
       const base = process.env.EXPO_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? '';
       return existingPet.photos.map((p) => ({
@@ -96,10 +95,14 @@ export default function AddPetScreen() {
     }
     return existingPet?.image ? [{ uri: existingPet.image }] : [];
   });
+  const [mainPhotoIndex, setMainPhotoIndex] = useState(() => {
+    const i = existingPet?.photos?.findIndex((p) => p.isSelected) ?? -1;
+    return i >= 0 ? i : 0;
+  });
   const [petName, setPetName] = useState(existingPet?.name || '');
-  const [petType, setPetType] = useState(existingPet?.type || '');
+  const [petType, setPetType] = useState<number | null>(existingPet?.petTypeNum ?? null);
   const [breed, setBreed] = useState(existingPet?.breed || '');
-  const [sex, setSex] = useState(existingPet?.sex || '');
+  const [sex, setSex] = useState<number | null>(existingPet?.sexNum ?? null);
   const [birthDate, setBirthDate] = useState<Date | null>(
     existingPet?.dateOfBirth ? new Date(existingPet.dateOfBirth) : null
   );
@@ -110,6 +113,20 @@ export default function AddPetScreen() {
   const [favoriteFood, setFavoriteFood] = useState(existingPet?.favoriteFood || '');
   const [additionalNotes, setAdditionalNotes] = useState(existingPet?.additionalNotes || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
+
+  const errors = hasAttemptedSave
+    ? {
+        photos: petPhotos.length === 0 ? 'At least one photo is required.' : undefined,
+        petName: !petName.trim() ? 'Pet name is required.' : undefined,
+        petType: petType === null ? 'Pet type is required.' : undefined,
+        breed: !breed.trim() ? 'Breed is required.' : undefined,
+        sex: sex === null ? 'Sex is required.' : undefined,
+        birthDate: !birthDate ? 'Birth date is required.' : undefined,
+        weight: !weight.trim() ? 'Weight is required.' : undefined,
+        height: !height.trim() ? 'Height is required.' : undefined,
+      }
+    : ({} as Record<string, string | undefined>);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -139,6 +156,7 @@ export default function AddPetScreen() {
 
   const removePhoto = (index: number) => {
     setPetPhotos(petPhotos.filter((_, i) => i !== index));
+    setMainPhotoIndex((cur) => (index === cur ? 0 : index < cur ? cur - 1 : cur));
   };
 
   return (
@@ -157,7 +175,9 @@ export default function AddPetScreen() {
           textColor={textColor}
           onPickImage={pickImage}
           onRemovePhoto={removePhoto}
-          error={petPhotos.length === 0 ? 'At least one photo is required.' : undefined}
+          selectedIndex={mainPhotoIndex}
+          onSetMain={setMainPhotoIndex}
+          error={errors.photos}
         />
 
         {/* Pet Name */}
@@ -165,7 +185,8 @@ export default function AddPetScreen() {
           <Text className={`text-sm font-semibold ${textColor} mb-2`}>
             Pet Name <Text className="text-red-500">*</Text>
           </Text>
-          <TextInput placeholder="Enter pet's name" placeholderTextColor={placeholderColor} value={petName} onChangeText={setPetName} className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`} />
+          <TextInput placeholder="Enter pet's name" placeholderTextColor={placeholderColor} value={petName} onChangeText={setPetName} className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${errors.petName ? 'border-2 border-red-500' : ''}`} />
+          {errors.petName ? <Text className="text-xs text-red-500 mt-1">{errors.petName}</Text> : null}
         </View>
 
         <PetTypeSelector
@@ -174,12 +195,16 @@ export default function AddPetScreen() {
           isDarkMode={isDarkMode}
           textColor={textColor}
           inputBg={inputBg}
+          error={errors.petType}
         />
 
         {/* Breed */}
         <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-2`}>Breed</Text>
-          <TextInput placeholder="Enter breed" placeholderTextColor={placeholderColor} value={breed} onChangeText={setBreed} className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`} />
+          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+            Breed <Text className="text-red-500">*</Text>
+          </Text>
+          <TextInput placeholder="Enter breed" placeholderTextColor={placeholderColor} value={breed} onChangeText={setBreed} className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${errors.breed ? 'border-2 border-red-500' : ''}`} />
+          {errors.breed ? <Text className="text-xs text-red-500 mt-1">{errors.breed}</Text> : null}
         </View>
 
         <SexSelector
@@ -188,11 +213,14 @@ export default function AddPetScreen() {
           isDarkMode={isDarkMode}
           textColor={textColor}
           inputBg={inputBg}
+          error={errors.sex}
         />
 
         {/* Birth Date */}
         <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-2`}>Birth Date</Text>
+          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+            Birth Date <Text className="text-red-500">*</Text>
+          </Text>
           <TouchableOpacity
             onPress={() => setShowBirthDatePicker(v => !v)}
             style={{
@@ -201,6 +229,8 @@ export default function AddPetScreen() {
               borderRadius: 12,
               paddingHorizontal: 16,
               paddingVertical: 13,
+              borderWidth: errors.birthDate ? 2 : 0,
+              borderColor: errors.birthDate ? '#EF4444' : undefined,
             }}
             className={`${inputBg}`}
           >
@@ -224,17 +254,24 @@ export default function AddPetScreen() {
               onClose={() => setShowBirthDatePicker(false)}
             />
           )}
+          {errors.birthDate ? <Text className="text-xs text-red-500 mt-1">{errors.birthDate}</Text> : null}
         </View>
 
         {/* Weight, Height */}
         <View className="flex-row mb-4 gap-3">
           <View className="flex-1">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>Weight ({weightUnit})</Text>
-            <TextInput placeholder={`e.g. ${isMetric ? '20' : '50'}`} placeholderTextColor={placeholderColor} value={weight} onChangeText={setWeight} keyboardType="numeric" className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`} />
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              Weight ({weightUnit}) <Text className="text-red-500">*</Text>
+            </Text>
+            <TextInput placeholder={`e.g. ${isMetric ? '20' : '50'}`} placeholderTextColor={placeholderColor} value={weight} onChangeText={setWeight} keyboardType="numeric" className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${errors.weight ? 'border-2 border-red-500' : ''}`} />
+            {errors.weight ? <Text className="text-xs text-red-500 mt-1">{errors.weight}</Text> : null}
           </View>
           <View className="flex-1">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>Height ({heightUnit})</Text>
-            <TextInput placeholder={`e.g. ${isMetric ? '50' : '20'}`} placeholderTextColor={placeholderColor} value={height} onChangeText={setHeight} keyboardType="numeric" className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`} />
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              Height ({heightUnit}) <Text className="text-red-500">*</Text>
+            </Text>
+            <TextInput placeholder={`e.g. ${isMetric ? '50' : '20'}`} placeholderTextColor={placeholderColor} value={height} onChangeText={setHeight} keyboardType="numeric" className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${errors.height ? 'border-2 border-red-500' : ''}`} />
+            {errors.height ? <Text className="text-xs text-red-500 mt-1">{errors.height}</Text> : null}
           </View>
         </View>
 
@@ -260,21 +297,28 @@ export default function AddPetScreen() {
       {/* Save Button */}
       <View className={`absolute bottom-0 left-0 right-0 ${cardBg} border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-200'} px-6 py-4`}>
         <TouchableOpacity
-          disabled={isSubmitting || petPhotos.length === 0}
-          style={{ opacity: isSubmitting || petPhotos.length === 0 ? 0.7 : 1 }}
+          disabled={isSubmitting}
+          style={{ opacity: isSubmitting ? 0.7 : 1 }}
           onPress={async () => {
-            if (petPhotos.length === 0) {
-              Alert.alert('Photo required', 'Please add at least one photo of your pet before saving.');
-              return;
-            }
+            setHasAttemptedSave(true);
+            const hasErrors =
+              petPhotos.length === 0 ||
+              !petName.trim() ||
+              petType === null ||
+              !breed.trim() ||
+              sex === null ||
+              !birthDate ||
+              !weight.trim() ||
+              !height.trim();
+            if (hasErrors) return;
             setIsSubmitting(true);
             try {
               const input = {
                 ownerUserId: currentUser?.id ?? 0,
                 petName,
-                petType,
+                petType: petType!,
                 breed,
-                sex,
+                sex: sex!,
                 birthDate,
                 weight,
                 weightUnit,
@@ -283,7 +327,7 @@ export default function AddPetScreen() {
                 dietaryNotes,
                 favoriteFood,
                 additionalNotes,
-                petPhotos,
+                petPhotos: petPhotos.map((p, i) => ({ ...p, isSelected: i === mainPhotoIndex })),
               };
               if (existingPet?.id) {
                 await updatePet({ ...input, petId: existingPet.id, originalPhotos: existingPet.photos });

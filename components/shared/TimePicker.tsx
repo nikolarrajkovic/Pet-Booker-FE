@@ -12,45 +12,55 @@ interface TimePickerProps {
   minDate?: Date;
 }
 
+// Total minutes since midnight at the top of the range: 24:00 (end of day).
+const MAX_MINUTES = 24 * 60;
+
+// 24:00 can't be held by a JS Date (hour 24 rolls to next-day 00:00), so it is
+// encoded as the end-of-day sentinel 23:59:59 — a value the whole-minute picker
+// never produces normally (it always sets seconds to 0).
+const isMaxSentinel = (d: Date) =>
+  d.getHours() === 23 && d.getMinutes() === 59 && d.getSeconds() === 59;
+
+/**
+ * Formats a picker Date as 24-hour "HH:mm", rendering the end-of-day sentinel
+ * (23:59:59, produced when 24:00 is selected) as "24:00". Consumers should use
+ * this to display/store a value coming out of TimePicker.
+ */
+export function formatTime24(date: Date): string {
+  if (isMaxSentinel(date)) return '24:00';
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
 export default function TimePicker({ value, onChange, onClose, isDarkMode, minDate }: TimePickerProps) {
   // Clamp initial value to minDate if it is in the past
   const clampedInit = minDate && value < minDate ? minDate : value;
-  const initH = clampedInit.getHours();
 
-  const [isAM, setIsAM] = useState(initH < 12);
-  const [hour12, setHour12] = useState(initH % 12 === 0 ? 12 : initH % 12);
-  const [minute, setMinute] = useState(clampedInit.getMinutes());
+  // 24-hour state: hour 0–24, minute 0–59 (hour 24 only as 24:00).
+  const startAtMax = isMaxSentinel(value);
+  const [hour, setHour] = useState(startAtMax ? 24 : clampedInit.getHours());
+  const [minute, setMinute] = useState(startAtMax ? 0 : clampedInit.getMinutes());
 
   const { hex } = themeColors(isDarkMode);
   const cardBg = hex.card;
   const borderColor = hex.border;
   const textColor = hex.text;
   const subtextColor = hex.subtext;
-  const inputBg = hex.inputBg;
   const stripBg = isDarkMode ? '#243447' : '#F0FDF8';
 
-  // Convert current picker state to total minutes since midnight (0–1439)
-  const toTotalMinutes = (h12 = hour12, am = isAM, min = minute) => {
-    const h24 = am ? (h12 === 12 ? 0 : h12) : (h12 === 12 ? 12 : h12 + 12);
-    return h24 * 60 + min;
-  };
+  // Current picker state as total minutes since midnight (0–1440)
+  const toTotalMinutes = (h = hour, min = minute) => h * 60 + min;
 
   // Minimum allowed total minutes since midnight (if minDate provided)
   const minTotalMinutes = minDate ? minDate.getHours() * 60 + minDate.getMinutes() : 0;
 
-  // Apply a delta (in minutes) to the current time, carrying hours and flipping AM/PM
+  // Apply a delta (in minutes), clamped to [min, 24:00] (no wrap-around).
   const changeTime = (deltaMinutes: number) => {
-    const total = toTotalMinutes();
-    let next = total + deltaMinutes;
-    // Wrap within a day
-    next = ((next % 1440) + 1440) % 1440;
-    // Clamp to minimum if enforcing
-    if (minDate && next < minTotalMinutes) next = minTotalMinutes;
-    const newH24 = Math.floor(next / 60);
-    const newMin = next % 60;
-    setMinute(newMin);
-    setIsAM(newH24 < 12);
-    setHour12(newH24 % 12 === 0 ? 12 : newH24 % 12);
+    let next = toTotalMinutes() + deltaMinutes;
+    if (next > MAX_MINUTES) next = MAX_MINUTES;
+    if (next < minTotalMinutes) next = minTotalMinutes;
+    if (next < 0) next = 0;
+    setHour(Math.floor(next / 60));
+    setMinute(next % 60);
   };
 
   const changeHour = (delta: number) => changeTime(delta * 60);
@@ -61,15 +71,21 @@ export default function TimePicker({ value, onChange, onClose, isDarkMode, minDa
     if (!minDate) return true;
     return toTotalMinutes() + deltaMinutes >= minTotalMinutes;
   };
+  // At the 24:00 ceiling the up arrows can't go higher.
+  const atMax = toTotalMinutes() >= MAX_MINUTES;
 
   const handleDone = () => {
-    const h24 = isAM ? (hour12 === 12 ? 0 : hour12) : (hour12 === 12 ? 12 : hour12 + 12);
     let result = new Date(value);
-    result.setHours(h24, minute, 0, 0);
-    // Ensure result is not before minDate
-    if (minDate && result < minDate) {
-      result = new Date(minDate);
-      result.setSeconds(0, 0);
+    if (hour >= 24) {
+      // 24:00 — encode as the end-of-day sentinel (see isMaxSentinel).
+      result.setHours(23, 59, 59, 0);
+    } else {
+      result.setHours(hour, minute, 0, 0);
+      // Ensure result is not before minDate
+      if (minDate && result < minDate) {
+        result = new Date(minDate);
+        result.setSeconds(0, 0);
+      }
     }
     onChange(result);
     onClose();
@@ -79,17 +95,20 @@ export default function TimePicker({ value, onChange, onClose, isDarkMode, minDa
     value: displayVal,
     onUp,
     onDown,
+    upDisabled = false,
     downDisabled = false,
   }: {
     value: string;
     onUp: () => void;
     onDown: () => void;
+    upDisabled?: boolean;
     downDisabled?: boolean;
   }) => (
     <View style={{ alignItems: 'center', flex: 1 }}>
       <TouchableOpacity
         onPress={onUp}
-        style={{ padding: 8, marginBottom: 2 }}
+        disabled={upDisabled}
+        style={{ padding: 8, marginBottom: 2, opacity: upDisabled ? 0.3 : 1 }}
         activeOpacity={0.6}
       >
         <Ionicons name="chevron-up" size={22} color="#00C870" />
@@ -132,15 +151,23 @@ export default function TimePicker({ value, onChange, onClose, isDarkMode, minDa
       }}
     >
       <Text style={{ color: subtextColor, fontSize: 13, fontWeight: '500', textAlign: 'center', marginBottom: 12 }}>
-        Select Time
+        Select Time (24h)
       </Text>
 
-      {/* Spinner row */}
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      {/* Spinner row — hour : minute (24-hour clock, 00:00–24:00, no AM/PM) */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: '12%',
+        }}
+      >
         <SpinnerColumn
-          value={String(hour12).padStart(2, '0')}
+          value={String(hour).padStart(2, '0')}
           onUp={() => changeHour(1)}
           onDown={() => changeHour(-1)}
+          upDisabled={atMax}
           downDisabled={!canDecrement(-60)}
         />
 
@@ -151,41 +178,9 @@ export default function TimePicker({ value, onChange, onClose, isDarkMode, minDa
           value={String(minute).padStart(2, '0')}
           onUp={() => changeMinute(1)}
           onDown={() => changeMinute(-1)}
+          upDisabled={atMax}
           downDisabled={!canDecrement(-1)}
         />
-
-        {/* AM/PM toggle */}
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <TouchableOpacity
-            onPress={() => setIsAM(true)}
-            style={{
-              width: '80%',
-              paddingVertical: 12,
-              borderRadius: 10,
-              alignItems: 'center',
-              marginBottom: 6,
-              backgroundColor: isAM ? '#00C870' : inputBg,
-              borderWidth: 1.5,
-              borderColor: isAM ? '#00C870' : borderColor,
-            }}
-          >
-            <Text style={{ color: isAM ? '#ffffff' : subtextColor, fontSize: 15, fontWeight: '600' }}>AM</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setIsAM(false)}
-            style={{
-              width: '80%',
-              paddingVertical: 12,
-              borderRadius: 10,
-              alignItems: 'center',
-              backgroundColor: !isAM ? '#00C870' : inputBg,
-              borderWidth: 1.5,
-              borderColor: !isAM ? '#00C870' : borderColor,
-            }}
-          >
-            <Text style={{ color: !isAM ? '#ffffff' : subtextColor, fontSize: 15, fontWeight: '600' }}>PM</Text>
-          </TouchableOpacity>
-        </View>
       </View>
 
       {/* Done button */}

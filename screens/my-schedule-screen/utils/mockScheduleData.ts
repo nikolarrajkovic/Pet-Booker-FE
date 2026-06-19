@@ -1,6 +1,11 @@
-﻿// Schedule data source. Real bookings are injected at runtime via
+// Schedule data source. Real bookings are injected at runtime via
 // setLiveScheduleData(); until then the mock map below is used as a fallback.
-import { BookingDto, BookingState } from '../../../services/bookings';
+import {
+  BookingDto,
+  BookingState,
+  BookingStatusType,
+  parseBookingDate,
+} from '../../../services/bookings';
 
 export type ScheduleMode = 'partner' | 'user';
 
@@ -139,14 +144,21 @@ function inferScheduleType(name?: string | null): ServiceItem['type'] {
   return 'sitting';
 }
 
-/** Builds the date-keyed schedule map from real bookings (skips cancelled). */
+/**
+ * Builds the date-keyed schedule map from real bookings. Skips cancelled
+ * bookings, and in partner mode also skips not-yet-accepted requests
+ * (currentStatus = ServiceRequestedByUser) — those belong in New Requests and
+ * only enter the schedule once the partner accepts. Users keep seeing their
+ * own pending requests on their schedule.
+ */
 export function buildScheduleFromBookings(bookings: BookingDto[], mode: ScheduleMode): { [key: string]: ServiceItem[] } {
   const map: { [key: string]: ServiceItem[] } = {};
   const fmt = (d: Date) => d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   for (const b of bookings) {
     if (b.state === BookingState.Cancelled) continue;
-    const from = new Date(b.bookingFrom);
-    const to = new Date(b.bookingTo);
+    if (mode === 'partner' && b.currentStatus === BookingStatusType.ServiceRequestedByUser) continue;
+    const from = parseBookingDate(b.bookingFrom);
+    const to = parseBookingDate(b.bookingTo);
     if (isNaN(from.getTime())) continue;
     const hours = !isNaN(to.getTime()) ? Math.max(0, Math.round(((to.getTime() - from.getTime()) / 3600000) * 10) / 10) : 1;
     const item: ServiceItem = {

@@ -1,50 +1,11 @@
 import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
 import { uploadFilesBulk } from './files';
 
-// Backend sex enum: 0 = Unspecified, 1 = Male, 2 = Female
-function mapSex(sex: string): number {
-  if (sex === 'male') return 1;
-  if (sex === 'female') return 2;
-  return 0;
-}
-
-// Backend pet type enum: 1=Dog, 2=Cat, 3=Parrot, 4=Turtle, 5=Fish, 6=Snake
-function mapPetType(type: string): number {
-  switch (type.toLowerCase()) {
-    case 'dog': return 1;
-    case 'cat': return 2;
-    case 'parrot': return 3;
-    case 'turtle': return 4;
-    case 'fish': return 5;
-    case 'snake': return 6;
-    default: return 1;
-  }
-}
-
-// Backend file content type enum: 0=Unknown, 1=JPEG, 2=PNG, 3=WebP
-function mapContentType(mimeType: string): number {
-  switch (mimeType.toLowerCase()) {
-    case 'image/jpeg':
-    case 'image/jpg':
-      return 1;
-    case 'image/png':
-      return 2;
-    case 'image/webp':
-      return 3;
-    default:
-      return 0;
-  }
-}
-
 function formatDateOnly(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
-}
-
-function calcAgeYears(birthDate: Date): number {
-  return Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
 }
 
 function toKg(value: string, unit: string): number {
@@ -57,12 +18,38 @@ function toCm(value: string, unit: string): number {
   return unit === 'in' ? Math.round(n * 2.54 * 100) / 100 : n;
 }
 
+// PetSpeciesType is a FLAGS enum (verified /enums): 0=None, 1=Dog, 2=Cat,
+// 4=Parrot, 8=Turtle, 16=Fish, 32=Snake, 63=All. A pet carries a single flag;
+// service.details.acceptedSpecies combines them bitwise.
+export const PetSpecies = {
+  Dog: 1,
+  Cat: 2,
+  Parrot: 4,
+  Turtle: 8,
+  Fish: 16,
+  Snake: 32,
+  All: 63,
+} as const;
+
+// Friendly label for a PetSpeciesType flag value
+export function petTypeLabel(type: number): string {
+  switch (type) {
+    case PetSpecies.Dog: return 'Dog';
+    case PetSpecies.Cat: return 'Cat';
+    case PetSpecies.Parrot: return 'Parrot';
+    case PetSpecies.Turtle: return 'Turtle';
+    case PetSpecies.Fish: return 'Fish';
+    case PetSpecies.Snake: return 'Snake';
+    default: return '';
+  }
+}
+
 export type PetResponse = {
   id: string;
   ownerUserId: number;
   name: string;
-  type: string;
-  petType: number;
+  // PetSpeciesType flag (see PetSpecies): 1=Dog, 2=Cat, 4=Parrot, 8=Turtle, 16=Fish, 32=Snake
+  type: number;
   breed: string;
   sex: number;
   dateOfBirth: string | null;
@@ -74,16 +61,19 @@ export type PetResponse = {
   additionalNotes: string;
   photoUrl: string;
   isActive: boolean;
-  photos: Array<{
+  createdAt?: string;
+  updatedAt?: string;
+  // Populated on GET (read-only include)
+  ownerUser?: { id: number; userName: string; email: string } | null;
+  photos: {
     id: number;
     name: string;
     src: string;
     alt: string;
-    contentType: number;
     uploadedAt: string;
-    fileUploadId: number;
+    fileUploadId: number | null;
     isSelected: boolean;
-  }>;
+  }[];
 };
 
 export async function getPets(ownerUserId: number): Promise<PetResponse[]> {
@@ -106,9 +96,10 @@ export async function getPets(ownerUserId: number): Promise<PetResponse[]> {
 export type CreatePetInput = {
   ownerUserId: number;
   petName: string;
-  petType: string;
+  // PetSpeciesType flag (see PetSpecies)
+  petType: number;
   breed: string;
-  sex: string;
+  sex: number;
   birthDate: Date | null;
   weight: string;
   weightUnit: string;
@@ -117,7 +108,8 @@ export type CreatePetInput = {
   dietaryNotes: string;
   favoriteFood: string;
   additionalNotes: string;
-  petPhotos: Array<{ uri: string; fileName?: string }>;
+  // `isSelected` marks the profile photo (the one the user picked as main).
+  petPhotos: { uri: string; fileName?: string; isSelected?: boolean }[];
 };
 
 export async function createPet(input: CreatePetInput): Promise<void> {
@@ -133,29 +125,34 @@ export async function createPet(input: CreatePetInput): Promise<void> {
     ? await uploadFilesBulk(input.petPhotos.map(({ uri, fileName }) => ({ uri, fileName })))
     : [];
 
+  // uploadedPhotos[i] corresponds to input.petPhotos[i] — carry the picked
+  // profile photo through as isSelected (defaulting to the first if none picked).
+  const photos = uploadedPhotos.map((photo, index) => ({
+    id: 0,
+    alt: photo.originalName,
+    name: photo.originalName,
+    src: photo.src,
+    fileUploadId: photo.id,
+    isSelected: !!input.petPhotos[index]?.isSelected,
+  }));
+  if (photos.length && !photos.some((p) => p.isSelected)) photos[0].isSelected = true;
+  const selectedSrc = (photos.find((p) => p.isSelected) ?? photos[0])?.src ?? '';
+
   const body = {
     ownerUserId: input.ownerUserId,
     name: input.petName,
-    type: mapPetType(input.petType),
+    type: input.petType,
     breed: input.breed,
-    sex: mapSex(input.sex),
+    sex: input.sex,
     dateOfBirth: input.birthDate ? formatDateOnly(input.birthDate) : null,
     weightKg: toKg(input.weight, input.weightUnit),
     heightCm: toCm(input.height, input.heightUnit),
     dietaryNotes: input.dietaryNotes,
     favoriteFood: input.favoriteFood,
     additionalNotes: input.additionalNotes,
-    photoUrl: uploadedPhotos[0]?.src ?? '',
+    photoUrl: selectedSrc,
     isActive: true,
-    photos: uploadedPhotos.map((photo, index) => ({
-      id: 0,
-      alt: photo.originalName,
-      name: photo.originalName,
-      src: photo.src,
-      contentType: mapContentType(photo.contentType),
-      fileUploadId: photo.id,
-      isSelected: index === 0,
-    })),
+    photos,
   };
 
   console.log('[createPet] body', JSON.stringify(body, null, 2));
@@ -203,9 +200,8 @@ export async function updatePet(input: UpdatePetInput): Promise<void> {
       alt: original?.alt ?? '',
       name: original?.name ?? '',
       src: relativeSrc,
-      contentType: original?.contentType ?? 0,
       fileUploadId: original?.fileUploadId ?? 0,
-      isSelected: original?.isSelected ?? false,
+      isSelected: !!p.isSelected,
     };
   });
 
@@ -214,9 +210,8 @@ export async function updatePet(input: UpdatePetInput): Promise<void> {
     alt: photo.originalName,
     name: photo.originalName,
     src: photo.src,
-    contentType: mapContentType(photo.contentType),
     fileUploadId: photo.id,
-    isSelected: index === 0,
+    isSelected: !!newPhotos[index]?.isSelected,
   }));
 
   const allPhotos = [...existingPhotoEntries, ...newPhotoEntries];
@@ -226,17 +221,16 @@ export async function updatePet(input: UpdatePetInput): Promise<void> {
     throw new Error('At least one pet photo is required.');
   }
 
-  // Mark first photo as selected
-  if (allPhotos.length > 0) allPhotos[0].isSelected = true;
-
-  const firstSrc = allPhotos[0]?.src ?? '';
+  // Keep the user's picked profile photo (default to the first if none).
+  if (!allPhotos.some((p) => p.isSelected)) allPhotos[0].isSelected = true;
+  const firstSrc = (allPhotos.find((p) => p.isSelected) ?? allPhotos[0])?.src ?? '';
 
   const body = {
     ownerUserId: input.ownerUserId,
     name: input.petName,
-    type: mapPetType(input.petType),
+    type: input.petType,
     breed: input.breed,
-    sex: mapSex(input.sex),
+    sex: input.sex,
     dateOfBirth: input.birthDate ? formatDateOnly(input.birthDate) : null,
     weightKg: toKg(input.weight, input.weightUnit),
     heightCm: toCm(input.height, input.heightUnit),

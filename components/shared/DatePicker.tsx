@@ -10,25 +10,48 @@ interface DatePickerProps {
   isDarkMode: boolean;
   minDate?: Date;
   maxDate?: Date;
+  // Optional per-day gate (on top of min/max). Return false to disable a date —
+  // e.g. weekdays a service isn't scheduled for. Receives the day's start.
+  isDateEnabled?: (date: Date) => boolean;
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 function isSameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() &&
+  return (
+    a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate();
+    a.getDate() === b.getDate()
+  );
 }
 
 function startOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
-export default function DatePicker({ value, onChange, onClose, isDarkMode, minDate, maxDate }: DatePickerProps) {
+export default function DatePicker({
+  value,
+  onChange,
+  onClose,
+  isDarkMode,
+  minDate,
+  maxDate,
+  isDateEnabled,
+}: DatePickerProps) {
   const today = new Date();
   const [viewMonth, setViewMonth] = useState(value.getMonth());
   const [viewYear, setViewYear] = useState(value.getFullYear());
@@ -57,18 +80,18 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
   const prevMonth = () => {
     if (viewMonth === 0) {
       setViewMonth(11);
-      setViewYear(y => y - 1);
+      setViewYear((y) => y - 1);
     } else {
-      setViewMonth(m => m - 1);
+      setViewMonth((m) => m - 1);
     }
   };
 
   const nextMonth = () => {
     if (viewMonth === 11) {
       setViewMonth(0);
-      setViewYear(y => y + 1);
+      setViewYear((y) => y + 1);
     } else {
-      setViewMonth(m => m + 1);
+      setViewMonth((m) => m + 1);
     }
   };
 
@@ -87,6 +110,7 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
     const cellDate = new Date(viewYear, viewMonth, day);
     if (minDate && cellDate < startOfDay(minDate)) return true;
     if (maxDate && cellDate > startOfDay(maxDate)) return true;
+    if (isDateEnabled && !isDateEnabled(cellDate)) return true;
     return false;
   };
 
@@ -132,15 +156,22 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
         borderColor,
         borderRadius: 16,
         padding: 16,
-      }}
-    >
+      }}>
       {/* Month/Year navigation */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 12,
+        }}>
         <TouchableOpacity
-          onPress={showYearPicker ? () => setYearPage(p => p - 1) : prevMonth}
+          onPress={showYearPicker ? () => setYearPage((p) => p - 1) : prevMonth}
           disabled={showYearPicker ? yearPage === 0 : !canGoPrev()}
-          style={{ padding: 4, opacity: (showYearPicker ? yearPage === 0 : !canGoPrev()) ? 0.3 : 1 }}
-        >
+          style={{
+            padding: 4,
+            opacity: (showYearPicker ? yearPage === 0 : !canGoPrev()) ? 0.3 : 1,
+          }}>
           <Ionicons name="chevron-back" size={20} color={subtextColor} />
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -155,26 +186,23 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
                 const page = Math.floor((viewYear - minYear) / YEARS_PER_PAGE);
                 setYearPage(page);
               }
-              setShowYearPicker(v => !v);
+              setShowYearPicker((v) => !v);
             }}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: showYearPicker ? '#00C870' : (isDarkMode ? '#243447' : '#F3F4F6'),
+              backgroundColor: showYearPicker ? '#00C870' : isDarkMode ? '#243447' : '#F3F4F6',
               borderRadius: 8,
               paddingHorizontal: 8,
               paddingVertical: 3,
               gap: 3,
-            }}
-          >
+            }}>
             {showYearPicker ? (
               <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 15 }}>
                 {yearPageStart}–{yearPageEnd}
               </Text>
             ) : (
-              <Text style={{ color: textColor, fontWeight: '700', fontSize: 15 }}>
-                {viewYear}
-              </Text>
+              <Text style={{ color: textColor, fontWeight: '700', fontSize: 15 }}>{viewYear}</Text>
             )}
             <Ionicons
               name={showYearPicker ? 'chevron-up' : 'chevron-down'}
@@ -184,10 +212,12 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
           </TouchableOpacity>
         </View>
         <TouchableOpacity
-          onPress={showYearPicker ? () => setYearPage(p => p + 1) : nextMonth}
+          onPress={showYearPicker ? () => setYearPage((p) => p + 1) : nextMonth}
           disabled={showYearPicker ? yearPage >= totalYearPages - 1 : !canGoNext()}
-          style={{ padding: 4, opacity: (showYearPicker ? yearPage >= totalYearPages - 1 : !canGoNext()) ? 0.3 : 1 }}
-        >
+          style={{
+            padding: 4,
+            opacity: (showYearPicker ? yearPage >= totalYearPages - 1 : !canGoNext()) ? 0.3 : 1,
+          }}>
           <Ionicons name="chevron-forward" size={20} color={subtextColor} />
         </TouchableOpacity>
       </View>
@@ -195,12 +225,15 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
       {/* Year picker — replaces calendar grid */}
       {showYearPicker ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', minHeight: 44 * 4 }}>
-          {yearPageYears.map(year => {
+          {yearPageYears.map((year) => {
             const isActive = year === viewYear;
             return (
               <TouchableOpacity
                 key={year}
-                onPress={() => { setViewYear(year); setShowYearPicker(false); }}
+                onPress={() => {
+                  setViewYear(year);
+                  setShowYearPicker(false);
+                }}
                 style={{
                   width: '25%',
                   height: 44,
@@ -208,13 +241,13 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
                   justifyContent: 'center',
                   borderRadius: 10,
                   backgroundColor: isActive ? '#00C870' : 'transparent',
-                }}
-              >
-                <Text style={{
-                  fontSize: 14,
-                  fontWeight: isActive ? '700' : '400',
-                  color: isActive ? '#ffffff' : textColor,
                 }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: isActive ? '700' : '400',
+                    color: isActive ? '#ffffff' : textColor,
+                  }}>
                   {year}
                 </Text>
               </TouchableOpacity>
@@ -225,7 +258,7 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
         <>
           {/* Day headers */}
           <View style={{ flexDirection: 'row', marginBottom: 4 }}>
-            {DAYS.map(d => (
+            {DAYS.map((d) => (
               <View key={d} style={{ flex: 1, alignItems: 'center', paddingVertical: 4 }}>
                 <Text style={{ color: subtextColor, fontSize: 12, fontWeight: '500' }}>{d}</Text>
               </View>
@@ -257,15 +290,13 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
                       borderWidth: today_ && !selected_ ? 1.5 : 0,
                       borderColor: '#00C870',
                       opacity: disabled ? 0.3 : 1,
-                    }}
-                  >
+                    }}>
                     <Text
                       style={{
                         fontSize: 14,
                         fontWeight: selected_ ? '700' : '400',
                         color: selected_ ? '#ffffff' : today_ ? '#00C870' : textColor,
-                      }}
-                    >
+                      }}>
                       {day}
                     </Text>
                   </TouchableOpacity>
@@ -288,8 +319,7 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
             backgroundColor: inputBg,
             borderWidth: 1,
             borderColor,
-          }}
-        >
+          }}>
           <Text style={{ color: subtextColor, fontWeight: '600', fontSize: 14 }}>Clear</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -300,8 +330,7 @@ export default function DatePicker({ value, onChange, onClose, isDarkMode, minDa
             borderRadius: 12,
             alignItems: 'center',
             backgroundColor: '#00C870',
-          }}
-        >
+          }}>
           <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>Done</Text>
         </TouchableOpacity>
       </View>

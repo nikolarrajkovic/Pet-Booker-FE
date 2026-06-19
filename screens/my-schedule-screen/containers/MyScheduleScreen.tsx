@@ -15,7 +15,6 @@ import {
   clearLiveScheduleData,
 } from '../utils/mockScheduleData';
 import { getBookings } from '../../../services/bookings';
-import { getMyProvider } from '../../../services/service-providers';
 
 type ViewType = 'day' | 'week' | 'month';
 
@@ -41,8 +40,8 @@ export default function MyScheduleScreen() {
           if (mode === 'user') {
             bookings = currentUser?.id ? await getBookings({ userId: currentUser.id }) : [];
           } else {
-            const provider = currentUser?.id ? await getMyProvider(currentUser.id) : null;
-            bookings = provider?.id ? await getBookings({ serviceProviderId: provider.id }) : [];
+            const providerId = currentUser?.serviceProviderId || null;
+            bookings = providerId ? await getBookings({ serviceProviderId: providerId }) : [];
           }
           if (cancelled) return;
           setLiveScheduleData(buildScheduleFromBookings(bookings, mode));
@@ -52,7 +51,7 @@ export default function MyScheduleScreen() {
         }
       })();
       return () => { cancelled = true; clearLiveScheduleData(); };
-    }, [mode, currentUser?.id])
+    }, [mode, currentUser?.id, currentUser?.serviceProviderId])
   );
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
