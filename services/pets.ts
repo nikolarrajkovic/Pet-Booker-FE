@@ -44,6 +44,15 @@ export function petTypeLabel(type: number): string {
   }
 }
 
+// Friendly label for a pet's `sex` value (createPet maps male→1, female→2).
+export function petSexLabel(sex: number): string {
+  switch (sex) {
+    case 1: return 'Male';
+    case 2: return 'Female';
+    default: return '';
+  }
+}
+
 export type PetResponse = {
   id: string;
   ownerUserId: number;
@@ -60,6 +69,7 @@ export type PetResponse = {
   favoriteFood: string;
   additionalNotes: string;
   photoUrl: string;
+  hasSpecialNeeds?: boolean;
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -91,6 +101,23 @@ export async function getPets(ownerUserId: number): Promise<PetResponse[]> {
     console.warn('[getPets] unexpected response shape', raw);
   }
   return items;
+}
+
+/**
+ * Fetches a single pet with its full detail set. The booking GET only embeds a
+ * shallow pet include (name/photos/id), so screens that need breed/age/weight/
+ * notes (e.g. LiveSession) fetch the pet by id here.
+ */
+export async function getPet(petId: string | number): Promise<PetResponse> {
+  const url = `${getApiBaseUrl()}/api/pets/${petId}`;
+
+  const response = await apiAuthFetch(url, { method: 'GET' });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, 'Failed to load pet.', 'getPet'));
+  }
+
+  return response.json();
 }
 
 export type CreatePetInput = {

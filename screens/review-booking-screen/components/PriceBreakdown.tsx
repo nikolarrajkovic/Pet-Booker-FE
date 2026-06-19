@@ -1,13 +1,18 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 
+interface AddonLine {
+  name: string;
+  price: number;
+}
+
 interface PriceBreakdownProps {
   isDarkMode: boolean;
   textColor: string;
   subtextColor: string;
   borderColor: string;
   serviceTotal: number;
-  addonsTotal: number;
+  addons: AddonLine[];
   total: number;
 }
 
@@ -17,7 +22,7 @@ export default function PriceBreakdown({
   subtextColor,
   borderColor,
   serviceTotal,
-  addonsTotal,
+  addons,
   total,
 }: PriceBreakdownProps) {
   return (
@@ -27,12 +32,12 @@ export default function PriceBreakdown({
         <Text className={`text-sm ${subtextColor}`}>Service</Text>
         <Text className={`text-sm ${textColor}`}>${serviceTotal}</Text>
       </View>
-      {addonsTotal > 0 && (
-        <View className="flex-row justify-between mb-3">
-          <Text className={`text-sm ${subtextColor}`}>Pickup Fee</Text>
-          <Text className={`text-sm ${textColor}`}>${addonsTotal}</Text>
+      {addons.map((addon) => (
+        <View key={addon.name} className="flex-row justify-between mb-3">
+          <Text className={`text-sm ${subtextColor}`}>{addon.name}</Text>
+          <Text className={`text-sm ${textColor}`}>${addon.price}</Text>
         </View>
-      )}
+      ))}
       <View className={`border-t ${borderColor} mt-3 pt-3 flex-row justify-between`}>
         <Text className={`text-base font-bold ${textColor}`}>Total</Text>
         <Text className="text-2xl font-bold text-brand-600">${total}</Text>

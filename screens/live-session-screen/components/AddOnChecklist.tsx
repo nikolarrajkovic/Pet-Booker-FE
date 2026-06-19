@@ -3,10 +3,17 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 export type AddOnItem = {
-  key: 'pickup' | 'dropoff';
+  key: 'pickup' | 'dropoff' | 'specialNeeds';
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   completed: boolean;
+  /** Secondary line, e.g. the pickup/drop-off address — "where to go". */
+  detail?: string;
+  /**
+   * Whether the partner can mark this complete (gates End Service). Pickup/
+   * Drop-off are toggleable tasks; Special Needs is informational only.
+   */
+  toggleable?: boolean;
 };
 
 type Props = {
@@ -22,10 +29,11 @@ type Props = {
 };
 
 /**
- * Pickup / Drop-off completion checklist for a live session. The partner must
- * mark each included add-on complete before the service can be ended (the parent
- * gates the End button on these). The backend has no field to persist this, so
- * completion is local-only state (BACKEND_GAPS B7) — the user view is read-only.
+ * Selected add-ons for a live session. Pickup / Drop-off are completion tasks —
+ * the partner marks each complete before the service can be ended (the parent
+ * gates the End button on these); each shows its address so the provider knows
+ * where to go. Special Needs is shown as an informational row (not toggleable).
+ * Completion is local-only — the backend has no field for it (BACKEND_GAPS B7).
  */
 export default function AddOnChecklist({
   items,
@@ -43,11 +51,20 @@ export default function AddOnChecklist({
     <View className={`${cardBg} rounded-2xl border ${borderColor} overflow-hidden`}>
       {items.map((item, index) => {
         const done = item.completed;
+        const toggleable = item.toggleable !== false;
+        const rowReadOnly = readOnly || !toggleable;
+        const statusText = toggleable
+          ? done
+            ? 'Completed'
+            : readOnly
+              ? 'In progress'
+              : 'Tap to mark complete'
+          : 'Requested';
         return (
           <TouchableOpacity
             key={item.key}
-            activeOpacity={readOnly ? 1 : 0.7}
-            disabled={readOnly}
+            activeOpacity={rowReadOnly ? 1 : 0.7}
+            disabled={rowReadOnly}
             onPress={() => onToggle?.(item.key)}
             className={`flex-row items-center px-4 py-4 ${
               index < items.length - 1 ? `border-b ${borderColor}` : ''
@@ -66,15 +83,20 @@ export default function AddOnChecklist({
             </View>
             <View className="flex-1">
               <Text className={`text-base font-semibold ${textColor}`}>{item.label}</Text>
-              <Text className={`text-xs ${subtextColor} mt-0.5`}>
-                {done ? 'Completed' : readOnly ? 'In progress' : 'Tap to mark complete'}
-              </Text>
+              {item.detail ? (
+                <Text className={`text-xs ${subtextColor} mt-0.5`}>{item.detail}</Text>
+              ) : null}
+              <Text className={`text-xs ${subtextColor} mt-0.5`}>{statusText}</Text>
             </View>
-            <Ionicons
-              name={done ? 'checkmark-circle' : 'ellipse-outline'}
-              size={26}
-              color={done ? '#00C870' : isDarkMode ? '#4B5563' : '#D1D5DB'}
-            />
+            {toggleable ? (
+              <Ionicons
+                name={done ? 'checkmark-circle' : 'ellipse-outline'}
+                size={26}
+                color={done ? '#00C870' : isDarkMode ? '#4B5563' : '#D1D5DB'}
+              />
+            ) : (
+              <Ionicons name="information-circle-outline" size={24} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
+            )}
           </TouchableOpacity>
         );
       })}

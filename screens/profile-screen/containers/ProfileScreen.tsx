@@ -8,7 +8,7 @@ import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
-import { getBookings, BookingState, BookingStatusType } from '../../../services/bookings';
+import { getBookings, BookingStatusType } from '../../../services/bookings';
 import { MenuItem } from '../components';
 
 const USER_MENU_ITEMS = [
@@ -53,7 +53,6 @@ export default function ProfileScreen() {
         getBookings({
           userId: currentUser.id,
           currentStatus: BookingStatusType.ServiceStarted,
-          state: BookingState.Upcoming,
         })
           .then((list) => { if (!cancelled) setHasLiveSession(list.length > 0); })
           .catch(() => { if (!cancelled) setHasLiveSession(false); });

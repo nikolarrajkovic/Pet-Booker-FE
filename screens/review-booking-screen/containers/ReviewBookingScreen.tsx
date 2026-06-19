@@ -66,7 +66,15 @@ export default function ReviewBookingScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const serviceTotal = appointments.reduce((s, a) => s + a.service.price, 0);
-  const addonsTotal = appointments.reduce((s, a) => s + a.addons.reduce((x, ad) => x + ad.price, 0), 0);
+  // Aggregate add-ons by name across all appointments so each one is its own breakdown line.
+  const addonLines = Object.values(
+    appointments
+      .flatMap((a) => a.addons)
+      .reduce<Record<string, { name: string; price: number }>>((acc, ad) => {
+        acc[ad.name] = { name: ad.name, price: (acc[ad.name]?.price ?? 0) + ad.price };
+        return acc;
+      }, {}),
+  );
   const grandTotal = appointments.reduce((s, a) => s + a.total, 0);
 
   const handleConfirm = async () => {
@@ -186,7 +194,7 @@ export default function ReviewBookingScreen() {
           subtextColor={subtextColor}
           borderColor={borderColor}
           serviceTotal={serviceTotal}
-          addonsTotal={addonsTotal}
+          addons={addonLines}
           total={grandTotal}
         />
 

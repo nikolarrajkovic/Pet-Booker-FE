@@ -24,7 +24,10 @@ import {
   BookingStatusType,
 } from '../../../services/bookings';
 import { resolveImageUrl, providerTypeLabel } from '../../../services/service-providers';
-import { CountdownTimer, AddOnChecklist, AddOnItem } from '../components';
+import { getPet, PetResponse } from '../../../services/pets';
+import { getService, ServiceDto } from '../../../services/services';
+import { addressLabel } from '../../../services/geocoding';
+import { CountdownTimer, AddOnChecklist, AddOnItem, PetDetailsCard } from '../components';
 
 type RouteParams = { mode?: 'partner' | 'user' };
 
@@ -35,18 +38,33 @@ const byFrom = (a: BookingDto, b: BookingDto) =>
 /**
  * Partner's current session: a started booking takes priority (in-progress);
  * otherwise the soonest confirmed-but-not-yet-started one is offered to start.
+ *
+ * Keyed off `currentStatus` (the precise lifecycle), not a single `state` value:
+ * the API moves `state` to Accepted(3) on confirm and InProgress(4) on start, so
+ * gating on `state === Upcoming` would drop every accepted booking. We instead
+ * exclude terminal bookings and ignore confirmed ones whose window has already
+ * passed (stale requests that were never started).
  */
 function pickPartnerSession(bookings: BookingDto[]): BookingDto | null {
-  const upcoming = bookings.filter((b) => b.state === BookingState.Upcoming);
-  const started = upcoming
+  const active = bookings.filter(
+    (b) =>
+      b.state !== BookingState.Cancelled &&
+      b.state !== BookingState.Completed &&
+      b.currentStatus !== BookingStatusType.ServiceEnded &&
+      b.currentStatus !== BookingStatusType.DeclinedByProvider &&
+      b.currentStatus !== BookingStatusType.CancelledByUser,
+  );
+  const started = active
     .filter((b) => b.currentStatus === BookingStatusType.ServiceStarted)
     .sort(byFrom);
   if (started.length) return started[0];
-  const ready = upcoming
+  const now = Date.now();
+  const ready = active
     .filter(
       (b) =>
-        b.currentStatus === BookingStatusType.ServiceConfirmedByProvider ||
-        b.currentStatus === BookingStatusType.PrePayment,
+        (b.currentStatus === BookingStatusType.ServiceConfirmedByProvider ||
+          b.currentStatus === BookingStatusType.PrePayment) &&
+        parseBookingDate(b.bookingTo).getTime() >= now,
     )
     .sort(byFrom);
   return ready[0] ?? null;
@@ -57,8 +75,8 @@ function pickUserSession(bookings: BookingDto[]): BookingDto | null {
   const started = bookings
     .filter(
       (b) =>
-        b.state === BookingState.Upcoming &&
-        b.currentStatus === BookingStatusType.ServiceStarted,
+        b.currentStatus === BookingStatusType.ServiceStarted &&
+        b.state !== BookingState.Cancelled,
     )
     .sort(byFrom);
   return started[0] ?? null;
@@ -90,6 +108,10 @@ export default function LiveSessionScreen() {
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
 
   const [dto, setDto] = useState<BookingDto | null>(null);
+  // Full pet/service detail — the booking's embedded includes are shallow
+  // (name/photos/id only), so we fetch the complete records by id.
+  const [pet, setPet] = useState<PetResponse | null>(null);
+  const [service, setService] = useState<ServiceDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState<'start' | 'end' | null>(null);
   const [justCompleted, setJustCompleted] = useState(false);
@@ -113,14 +135,29 @@ export default function LiveSessionScreen() {
         const list = await getBookings({
           userId: currentUser.id,
           currentStatus: BookingStatusType.ServiceStarted,
-          state: BookingState.Upcoming,
         });
         found = pickUserSession(list);
       }
       setDto(found);
+      // Fetch the full pet + service so the provider has all the detail (the
+      // booking include is shallow). Best-effort — a failure just falls back to
+      // the shallow embedded data.
+      if (found) {
+        const [fullPet, fullService] = await Promise.all([
+          getPet(found.petId).catch(() => null),
+          getService(found.serviceId).catch(() => null),
+        ]);
+        setPet(fullPet);
+        setService(fullService);
+      } else {
+        setPet(null);
+        setService(null);
+      }
     } catch (e) {
       console.warn('[LiveSession] load failed', e);
       setDto(null);
+      setPet(null);
+      setService(null);
     } finally {
       setIsLoading(false);
     }
@@ -144,17 +181,40 @@ export default function LiveSessionScreen() {
     if (!dto) return [];
     const items: AddOnItem[] = [];
     if (dto.includePickup)
-      items.push({ key: 'pickup', label: 'Pickup', icon: 'car-outline', completed: pickupDone });
+      items.push({
+        key: 'pickup',
+        label: 'Pickup',
+        icon: 'car-outline',
+        completed: pickupDone,
+        detail: dto.pickupAddress ? addressLabel(dto.pickupAddress) : undefined,
+        toggleable: true,
+      });
     if (dto.includePetReturn)
-      items.push({ key: 'dropoff', label: 'Drop-off', icon: 'home-outline', completed: dropoffDone });
+      items.push({
+        key: 'dropoff',
+        label: 'Drop-off',
+        icon: 'home-outline',
+        completed: dropoffDone,
+        detail: dto.leaveOverAddress ? addressLabel(dto.leaveOverAddress) : undefined,
+        toggleable: true,
+      });
+    if (dto.includeSpecialNeeds)
+      items.push({
+        key: 'specialNeeds',
+        label: 'Special Needs Care',
+        icon: 'medkit-outline',
+        completed: false,
+        toggleable: false,
+      });
     return items;
   }, [dto, pickupDone, dropoffDone]);
 
-  const canEnd = addOns.every((a) => a.completed);
+  // Only the actionable (pickup/drop-off) tasks gate ending the service.
+  const canEnd = addOns.filter((a) => a.toggleable !== false).every((a) => a.completed);
 
   const toggleAddOn = (key: AddOnItem['key']) => {
     if (key === 'pickup') setPickupDone((v) => !v);
-    else setDropoffDone((v) => !v);
+    else if (key === 'dropoff') setDropoffDone((v) => !v);
   };
 
   const handleStart = async () => {
@@ -195,14 +255,17 @@ export default function LiveSessionScreen() {
     }
   };
 
-  // ── Derived display values ──
-  const svc: any = dto?.service;
-  const pet: any = dto?.pet;
-  const serviceName = svc?.name ?? 'Service';
-  const serviceType =
-    typeof svc?.type === 'number' ? providerTypeLabel(svc.type) : (svc?.type ?? '');
-  const serviceImage = firstPhoto(svc?.photos) || firstPhoto(dto?.serviceProvider?.photos);
-  const petImage = firstPhoto(pet?.photos);
+  // ── Derived display values ── (prefer the full service; fall back to the
+  // shallow booking include while it loads / if the fetch failed)
+  const shallowSvc: any = dto?.service;
+  const serviceName = service?.name ?? shallowSvc?.name ?? 'Service';
+  const serviceType = typeof service?.type === 'number' ? providerTypeLabel(service.type) : '';
+  const serviceDescription = service?.description ?? service?.about ?? '';
+  const serviceImage =
+    resolveImageUrl(service?.imageUrl) ||
+    firstPhoto(service?.photos) ||
+    firstPhoto(shallowSvc?.photos) ||
+    firstPhoto(dto?.serviceProvider?.photos);
   const counterpartyName = isPartner
     ? dto?.user?.userName || 'Client'
     : dto?.serviceProvider?.name || 'Provider';
@@ -302,6 +365,14 @@ export default function LiveSessionScreen() {
             </View>
           </View>
 
+          {/* What the service involves */}
+          {serviceDescription ? (
+            <View className={`${cardBg} rounded-2xl border ${borderColor} p-4 mb-5`}>
+              <Text className={`text-xs font-bold uppercase ${subtextColor} mb-1`}>About this service</Text>
+              <Text className={`text-sm ${textColor} leading-5`}>{serviceDescription}</Text>
+            </View>
+          ) : null}
+
           {/* Countdown — only while started */}
           {started && dto.bookingTo ? (
             <View className="mb-5">
@@ -309,23 +380,32 @@ export default function LiveSessionScreen() {
             </View>
           ) : null}
 
-          {/* Pet card */}
+          {/* Pet — full detail so the provider knows the animal */}
           <Text className={`text-base font-bold ${textColor} mb-2`}>Pet</Text>
-          <View className={`${cardBg} rounded-2xl border ${borderColor} p-4 mb-5 flex-row items-center`}>
-            {petImage ? (
-              <Image source={{ uri: petImage }} className="w-14 h-14 rounded-xl mr-3" resizeMode="cover" />
+          <View className="mb-5">
+            {pet ? (
+              <PetDetailsCard
+                pet={pet}
+                isDarkMode={isDarkMode}
+                cardBg={cardBg}
+                textColor={textColor}
+                subtextColor={subtextColor}
+                borderColor={borderColor}
+              />
             ) : (
-              <View
-                className={`w-14 h-14 rounded-xl mr-3 items-center justify-center ${
-                  isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'
-                }`}>
-                <Ionicons name="paw" size={24} color="#9CA3AF" />
+              // Fallback to the shallow booking include while the full pet loads / on error.
+              <View className={`${cardBg} rounded-2xl border ${borderColor} p-4 flex-row items-center`}>
+                <View
+                  className={`w-14 h-14 rounded-xl mr-3 items-center justify-center ${
+                    isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'
+                  }`}>
+                  <Ionicons name="paw" size={24} color="#9CA3AF" />
+                </View>
+                <Text className={`text-base font-semibold ${textColor} flex-1`}>
+                  {(dto.pet as any)?.name ?? 'Pet'}
+                </Text>
               </View>
             )}
-            <View className="flex-1">
-              <Text className={`text-base font-semibold ${textColor}`}>{pet?.name ?? 'Pet'}</Text>
-              {pet?.breed ? <Text className={`text-sm ${subtextColor} mt-0.5`}>{pet.breed}</Text> : null}
-            </View>
           </View>
 
           {/* Counterparty + schedule */}
@@ -347,13 +427,13 @@ export default function LiveSessionScreen() {
             </View>
           </View>
 
-          {/* Add-ons */}
+          {/* Add-ons — the additional services the client chose */}
           {addOns.length > 0 ? (
             <>
-              <Text className={`text-base font-bold ${textColor} mb-1`}>Add-ons</Text>
+              <Text className={`text-base font-bold ${textColor} mb-1`}>Additional services</Text>
               <Text className={`text-xs ${subtextColor} mb-2`}>
                 {isPartner && started
-                  ? 'Mark each as complete before ending the service.'
+                  ? 'Mark each pickup/drop-off complete before ending the service.'
                   : isPartner
                     ? 'You can complete these once the service starts.'
                     : 'Your provider will complete these during the session.'}

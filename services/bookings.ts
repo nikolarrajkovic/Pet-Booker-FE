@@ -1,8 +1,18 @@
 import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
 import { resolveImageUrl, AddressDto } from './service-providers';
 
-// BookingState enum (verified /enums): 0=Upcoming, 1=Completed, 2=Cancelled
-export const BookingState = { Upcoming: 0, Completed: 1, Cancelled: 2 } as const;
+// BookingState enum (verified /enums 2026-06-19). The API advances `state` as the
+// provider acts on a booking: confirming moves it to Accepted(3), starting the
+// service moves it to InProgress(4). NOTE: a confirmed booking is therefore
+// state=Accepted, NOT Upcoming — code that gated on `state === Upcoming` (e.g. the
+// old Live Session selectors) silently dropped every accepted booking.
+export const BookingState = {
+  Upcoming: 0,
+  Completed: 1,
+  Cancelled: 2,
+  Accepted: 3,
+  InProgress: 4,
+} as const;
 
 // BookingStatusType enum (verified /enums): the detailed lifecycle status
 export const BookingStatusType = {
@@ -13,6 +23,7 @@ export const BookingStatusType = {
   ServiceEnded: 4,
   PostPayment: 5,
   DeclinedByProvider: 6,
+  CancelledByUser: 7,
 } as const;
 
 // PaymentType enum (verified /enums): 0=Cash, 1=Card, 2=BankTransfer, 3=Wallet

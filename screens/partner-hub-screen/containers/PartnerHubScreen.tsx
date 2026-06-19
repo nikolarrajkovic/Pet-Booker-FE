@@ -11,7 +11,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
-import { getBookings, BookingState, BookingStatusType } from '../../../services/bookings';
+import { getBookings, BookingStatusType } from '../../../services/bookings';
 import TabBar from '../../../components/shared/TabBar';
 
 // ─── Stats Pills Data ──────────────────────────────────────────────────────────
@@ -173,10 +173,11 @@ export default function PartnerHubScreen() {
           return;
         }
         try {
+          // A started service is state=InProgress (not Upcoming) — filter by the
+          // precise lifecycle status only, or the banner never lights up.
           const live = await getBookings({
             serviceProviderId: providerId,
             currentStatus: BookingStatusType.ServiceStarted,
-            state: BookingState.Upcoming,
           });
           if (!cancelled) setHasLiveSession(live.length > 0);
         } catch {
