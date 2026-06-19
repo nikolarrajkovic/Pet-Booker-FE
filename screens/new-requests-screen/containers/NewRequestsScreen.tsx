@@ -1,5 +1,14 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import {
+  ScrollView,
+  Text,
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  TextInput,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -7,11 +16,12 @@ import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { RequestCard } from '../components';
 import type { ServiceRequest, RequestStatus } from '../components';
-import { getMyProvider, resolveImageUrl } from '../../../services/service-providers';
+import { resolveImageUrl } from '../../../services/service-providers';
 import {
   getBookings,
-  setBookingStatus,
-  cancelBooking,
+  confirmBooking,
+  declineBooking,
+  parseBookingDate,
   BookingDto,
   BookingState,
   BookingStatusType,
@@ -34,12 +44,27 @@ function petTypeOf(pet: any): ServiceRequest['petType'] {
   return 'other';
 }
 
+// Add-ons the booker selected, derived from the booking's include* flags. Labels
+// match the catalog (services/service-addons.ts); the server-computed surcharge
+// is appended when it's non-zero. Pickup ↔ includePickup, Drop-off ↔
+// includePetReturn, Special Needs Care ↔ includeSpecialNeeds.
+function selectedAddOns(b: BookingDto): string[] {
+  const label = (name: string, price?: number | null) =>
+    price && price > 0 ? `${name} • $${price}` : name;
+  const out: string[] = [];
+  if (b.includePickup) out.push(label('Pickup', b.pickupPrice));
+  if (b.includePetReturn) out.push(label('Drop-off', b.petReturnPrice));
+  if (b.includeSpecialNeeds) out.push(label('Special Needs Care', b.specialNeedsPrice));
+  return out;
+}
+
 // BookingDto (with nested includes) → RequestCard's ServiceRequest shape.
-// Fields the booking API doesn't carry (client contact, location, owner notes,
-// per-booking add-ons, pet age/weight) are blank — see BACKEND_GAPS.md.
+// Add-ons come from the booking's include* flags (selectedAddOns). Fields the
+// booking API still doesn't carry (client phone, location, owner notes, pet
+// age/weight) are blank — see BACKEND_GAPS.md.
 function bookingToRequest(b: BookingDto): ServiceRequest {
-  const from = new Date(b.bookingFrom);
-  const to = new Date(b.bookingTo);
+  const from = parseBookingDate(b.bookingFrom);
+  const to = parseBookingDate(b.bookingTo);
   const hours = Math.max(0, Math.round(((to.getTime() - from.getTime()) / 3600000) * 10) / 10);
   const status: RequestStatus =
     b.state === BookingState.Cancelled
@@ -50,10 +75,10 @@ function bookingToRequest(b: BookingDto): ServiceRequest {
   const pet: any = b.pet;
   return {
     id: b.id ?? 0,
-    clientName: (b as any).user?.name ?? 'Client', // BACKEND-GAP: user not populated on booking
-    clientAvatar: null,
-    clientEmail: '',
-    clientPhone: '',
+    clientName: b.user?.userName ?? 'Client',
+    clientAvatar: resolveImageUrl(b.user?.photos?.[0]?.src) || null,
+    clientEmail: b.user?.email ?? '',
+    clientPhone: '', // BACKEND-GAP B1: no phone on the booking's user include
     postedAgo: relativeTime(b.createdAt),
     petName: pet?.name ?? 'Pet',
     petBreed: pet?.breed ?? '',
@@ -63,12 +88,16 @@ function bookingToRequest(b: BookingDto): ServiceRequest {
     petSpecialNeeds: null,
     petType: petTypeOf(pet),
     serviceName: b.service?.name ?? 'Service',
-    serviceDate: isNaN(from.getTime()) ? '' : from.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }),
-    serviceTime: isNaN(from.getTime()) ? '' : from.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
+    serviceDate: isNaN(from.getTime())
+      ? ''
+      : from.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }),
+    serviceTime: isNaN(from.getTime())
+      ? ''
+      : from.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
     serviceLocation: '', // BACKEND-GAP: no location name on booking
     duration: `${hours} hour${hours === 1 ? '' : 's'}`,
     totalPrice: b.totalPrice,
-    additionalServices: [], // BACKEND-GAP: selected add-ons not recorded per booking
+    additionalServices: selectedAddOns(b), // pickup / drop-off / special-needs the booker picked
     notesFromOwner: '', // BACKEND-GAP: no owner-notes field
     status,
   };
@@ -85,30 +114,49 @@ const TABS: { key: FilterTab; label: string }[] = [
 
 export default function NewRequestsScreen() {
   const { currentUser } = useAuth();
-  const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
+  const {
+    isDarkMode,
+    cardBg,
+    textColor,
+    subtextColor,
+    borderColor,
+    inputBg,
+    inputText,
+    placeholderColor,
+  } = useThemeColors();
   const [activeTab, setActiveTab] = useState<FilterTab>('new');
   const [bookings, setBookings] = useState<BookingDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
+  // Decline-reason modal: the request being declined + the partner's reason text.
+  const [declineTargetId, setDeclineTargetId] = useState<number | null>(null);
+  const [declineReason, setDeclineReason] = useState('');
 
   const load = useCallback(async () => {
-    if (!currentUser?.id) { setIsLoading(false); return; }
+    if (!currentUser?.id) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
-      const provider = await getMyProvider(currentUser.id);
-      setBookings(provider?.id ? await getBookings({ serviceProviderId: provider.id }) : []);
+      const providerId = currentUser.serviceProviderId || null;
+      setBookings(providerId ? await getBookings({ serviceProviderId: providerId }) : []);
     } catch (e) {
       console.warn('[NewRequests] load failed', e);
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser?.id]);
+  }, [currentUser?.id, currentUser?.serviceProviderId]);
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      (async () => { if (!cancelled) await load(); })();
-      return () => { cancelled = true; };
+      (async () => {
+        if (!cancelled) await load();
+      })();
+      return () => {
+        cancelled = true;
+      };
     }, [load])
   );
 
@@ -123,13 +171,13 @@ export default function NewRequestsScreen() {
     return r.status === activeTab;
   });
 
+  // Accept/decline use the dedicated /bookings/{id}/confirm|decline endpoints.
+  // Both are server-guarded to bookings still in ServiceRequestedByUser.
   const handleAccept = async (id: number) => {
     if (busyId !== null) return;
-    const raw = bookings.find((b) => b.id === id);
-    if (!raw) return;
     setBusyId(id);
     try {
-      await setBookingStatus(raw, BookingStatusType.ServiceConfirmedByProvider);
+      await confirmBooking(id);
       await load();
     } catch (e: any) {
       Alert.alert('Could not accept', e?.message ?? 'Please try again.');
@@ -138,28 +186,30 @@ export default function NewRequestsScreen() {
     }
   };
 
+  // Open the decline-reason modal for a request (reason is collected, then sent).
   const handleDecline = (id: number) => {
     if (busyId !== null) return;
-    const raw = bookings.find((b) => b.id === id);
-    if (!raw) return;
-    Alert.alert('Decline request?', 'This cancels the booking request.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Decline',
-        style: 'destructive',
-        onPress: async () => {
-          setBusyId(id);
-          try {
-            await cancelBooking(raw, 'Declined by provider');
-            await load();
-          } catch (e: any) {
-            Alert.alert('Could not decline', e?.message ?? 'Please try again.');
-          } finally {
-            setBusyId(null);
-          }
-        },
-      },
-    ]);
+    setDeclineReason('');
+    setDeclineTargetId(id);
+  };
+
+  // Submit the decline: POST /bookings/{id}/decline with the partner's reason
+  // (falls back to a generic reason when left blank). declineBooking is the
+  // dedicated partner-decline endpoint — guarded server-side to pending requests.
+  const confirmDecline = async () => {
+    if (declineTargetId === null) return;
+    const id = declineTargetId;
+    const reason = declineReason.trim() || 'Declined by provider';
+    setDeclineTargetId(null);
+    setBusyId(id);
+    try {
+      await declineBooking(id, reason);
+      await load();
+    } catch (e: any) {
+      Alert.alert('Could not decline', e?.message ?? 'Please try again.');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
@@ -169,19 +219,18 @@ export default function NewRequestsScreen() {
       headerTitle="Requests"
       headerSubtitle={`${newCount} pending request${newCount !== 1 ? 's' : ''}`}
       contentBg={contentBg}
-      showNotificationButton
-    >
+      showNotificationButton>
       {/* Filter tabs */}
-      <View className={`mx-4 mt-4 mb-3 ${tabBg} rounded-2xl p-1 flex-row border ${borderColor}`}>
+      <View className={`mx-4 mb-3 mt-4 ${tabBg} flex-row rounded-2xl border p-1 ${borderColor}`}>
         {TABS.map((tab) => {
           const count =
             tab.key === 'new'
               ? requests.filter((r) => r.status === 'new').length
               : tab.key === 'accepted'
-              ? requests.filter((r) => r.status === 'accepted').length
-              : tab.key === 'declined'
-              ? requests.filter((r) => r.status === 'declined').length
-              : requests.length;
+                ? requests.filter((r) => r.status === 'accepted').length
+                : tab.key === 'declined'
+                  ? requests.filter((r) => r.status === 'declined').length
+                  : requests.length;
 
           const isActive = activeTab === tab.key;
 
@@ -190,28 +239,19 @@ export default function NewRequestsScreen() {
               key={tab.key}
               onPress={() => setActiveTab(tab.key)}
               activeOpacity={0.7}
-              className={`flex-1 py-2 rounded-xl flex-row items-center justify-center ${
+              className={`flex-1 flex-row items-center justify-center rounded-xl py-2 ${
                 isActive ? 'bg-brand-500' : ''
-              }`}
-            >
-              <Text
-                className={`text-xs font-semibold ${
-                  isActive ? 'text-white' : subtextColor
-                }`}
-              >
+              }`}>
+              <Text className={`text-xs font-semibold ${isActive ? 'text-white' : subtextColor}`}>
                 {tab.label}
               </Text>
               {count > 0 && (
                 <View
-                  className={`ml-1.5 min-w-[18px] h-[18px] rounded-full items-center justify-center px-1 ${
+                  className={`ml-1.5 h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 ${
                     isActive ? 'bg-white/30' : 'bg-brand-500'
-                  }`}
-                >
+                  }`}>
                   <Text
-                    className={`text-[10px] font-bold ${
-                      isActive ? 'text-white' : 'text-white'
-                    }`}
-                  >
+                    className={`text-[10px] font-bold ${isActive ? 'text-white' : 'text-white'}`}>
                     {count}
                   </Text>
                 </View>
@@ -224,8 +264,7 @@ export default function NewRequestsScreen() {
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, paddingTop: 4 }}
-        showsVerticalScrollIndicator={false}
-      >
+        showsVerticalScrollIndicator={false}>
         {isLoading ? (
           <View className="items-center justify-center py-16">
             <ActivityIndicator size="large" color="#00C870" />
@@ -237,7 +276,7 @@ export default function NewRequestsScreen() {
               size={64}
               color={isDarkMode ? '#4B5563' : '#D1D5DB'}
             />
-            <Text className={`${subtextColor} text-center mt-4 text-base`}>
+            <Text className={`${subtextColor} mt-4 text-center text-base`}>
               No {activeTab === 'all' ? '' : activeTab} requests
             </Text>
           </View>
@@ -257,6 +296,48 @@ export default function NewRequestsScreen() {
           ))
         )}
       </ScrollView>
+
+      {/* Decline-reason modal */}
+      <Modal
+        visible={declineTargetId !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeclineTargetId(null)}>
+        <View className="flex-1 justify-center bg-black/50 px-6">
+          <View className={`${cardBg} rounded-2xl p-5`}>
+            <Text className={`text-lg font-bold ${textColor} mb-1`}>Decline request?</Text>
+            <Text className={`text-sm ${subtextColor} mb-4`}>
+              This cancels the booking request. Add a reason for the client (optional).
+            </Text>
+            <TextInput
+              value={declineReason}
+              onChangeText={setDeclineReason}
+              placeholder="e.g. Fully booked that day"
+              placeholderTextColor={placeholderColor}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+              className={`${inputBg} rounded-xl px-4 py-3 ${inputText} mb-4`}
+              style={{ minHeight: 80 }}
+              selectionColor="#00C870"
+            />
+            <View className="flex-row" style={{ gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setDeclineTargetId(null)}
+                activeOpacity={0.7}
+                className={`flex-1 items-center rounded-xl border py-3 ${borderColor}`}>
+                <Text className={`font-semibold ${textColor}`}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmDecline}
+                activeOpacity={0.7}
+                className="flex-1 items-center rounded-xl bg-red-500 py-3">
+                <Text className="font-semibold text-white">Decline</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScreenLayout>
   );
 }

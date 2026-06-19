@@ -1,11 +1,10 @@
 import React, { useMemo } from 'react';
 
-interface Provider {
+interface ServiceItem {
   id: number;
   name: string;
   service: string;
   price: number;
-  verified: boolean;
   latitude: number;
   longitude: number;
 }
@@ -17,26 +16,26 @@ interface LocationData {
 }
 
 interface MapViewComponentProps {
-  providers: Provider[];
+  services: ServiceItem[];
   location: LocationData;
 }
 
-export default function MapViewComponent({ providers, location }: MapViewComponentProps) {
+export default function MapViewComponent({ services, location }: MapViewComponentProps) {
   const srcdoc = useMemo(() => {
     if (location.loading) return '';
     const { latitude, longitude } = location;
 
-    const providerMarkersJs = providers.map((p) => `
-      L.circleMarker([${p.latitude}, ${p.longitude}], {
+    const serviceMarkersJs = services.map((s) => `
+      L.circleMarker([${s.latitude}, ${s.longitude}], {
         radius: 18,
-        fillColor: '${p.verified ? '#00C870' : '#6B7280'}',
+        fillColor: '#00C870',
         fillOpacity: 1,
         color: 'white',
         weight: 2,
       })
-      .bindPopup('<div><strong>${p.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}</strong><br/>${p.service} \u2014 $${p.price}${p.verified ? ' <span style=\\"display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#00C870;color:white;font-size:10px;font-weight:bold;margin-left:2px\\">\u2713</span>' : ''}</div>')
+      .bindPopup('<div><strong>${s.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}</strong><br/>${s.service} \u2014 $${s.price}</div>')
       .addTo(map)
-      .bindTooltip('$${p.price}', { permanent: true, direction: 'center', className: 'price-label' });
+      .bindTooltip('$${s.price}', { permanent: true, direction: 'center', className: 'price-label' });
     `).join('');
 
     return `<!DOCTYPE html>
@@ -71,11 +70,11 @@ export default function MapViewComponent({ providers, location }: MapViewCompone
       icon: L.divIcon({ className: '', html: '<div class="user-dot"></div>', iconSize: [16,16], iconAnchor: [8,8] })
     }).addTo(map).bindPopup('You are here');
 
-    ${providerMarkersJs}
+    ${serviceMarkersJs}
   </script>
 </body>
 </html>`;
-  }, [location, providers]);
+  }, [location, services]);
 
   if (location.loading) {
     return (

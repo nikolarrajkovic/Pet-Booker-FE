@@ -6,7 +6,7 @@ import * as Location from 'expo-location';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DatePicker from './shared/DatePicker';
-import TimePicker from './shared/TimePicker';
+import TimePicker, { formatTime24 } from './shared/TimePicker';
 
 interface FilterModalProps {
   visible: boolean;
@@ -110,12 +110,8 @@ export default function FilterModal({ visible, onClose, onApplyFilters, currentF
 
   const onTimeChange = (time: Date) => {
     setSelectedTime(time);
-    const hours = time.getHours();
-    const minutes = time.getMinutes();
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    const formattedTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
-    setFilters(prev => ({ ...prev, time: formattedTime }));
+    // 24-hour display, e.g. "08:00" / "18:30" / "24:00".
+    setFilters(prev => ({ ...prev, time: formatTime24(time) }));
   };
 
   const handleUseMyLocation = async () => {
@@ -221,7 +217,7 @@ export default function FilterModal({ visible, onClose, onApplyFilters, currentF
                   >
                     <Ionicons name="time-outline" size={20} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
                     <Text className={`flex-1 ml-2 ${filters.time ? inputText : placeholderColor}`}>
-                      {filters.time || '--:-- --'}
+                      {filters.time || '--:--'}
                     </Text>
                   </TouchableOpacity>
                 </View>

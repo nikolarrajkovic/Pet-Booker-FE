@@ -20,12 +20,18 @@ services/           # All API calls and storage utilities
   files.ts          # File/image upload utilities
   service-providers.ts  # ServiceProviderDto, ProviderViewModel, providerToViewModel, resolveImageUrl, getServiceProviders, getServiceProvider, createServiceProvider
   services.ts       # ServiceDto, getServices, getService, createService, updateService, deleteService
+  service-schedules.ts  # ServiceScheduleDto CRUD + saveServiceSchedules (reconcile) — per-day working hours for AddEditService
   reviews.ts        # ReviewDto, getReviews, createReview
   bookings.ts       # BookingDto, BookingViewModel, bookingToViewModel, get/create/cancel/delete + state/status enums
   payment-methods.ts  # PaymentMethodDto, getPaymentMethods, createPaymentMethod, deletePaymentMethod
-  admin.ts          # Admin-only actions: approveServiceProvider, approveCertificate
+  admin.ts          # Admin-only actions: approve/declineServiceProvider, approve/declineCertificate
   service-discounts.ts  # ServiceDiscountDto, DiscountType, getServiceDiscounts, create/update/deleteServiceDiscount
-  notifications.ts  # UserNotificationSettingsDto, getNotificationSettings, saveNotificationSettings, defaultNotificationSettings
+  notifications.ts  # UserNotificationSettingsDto, getNotificationSettings, saveNotificationSettings, defaultNotificationSettings (notification PREFERENCES)
+  app-notifications.ts  # AppNotificationDto, NotificationType, getAppNotifications, getUnreadNotificationCount, markNotificationRead, markAllNotificationsRead, notificationBookingId (in-app notification INBOX)
+  service-addons.ts # SERVICE_ADDON_DEFS catalog + getEnabledServiceAddons (single source of truth for service add-ons / DTO mapping)
+  home.ts           # getMostPopular / getOnSale / getRecentlyBooked / getNearMe — per-row Home endpoints (/api/home/*) → ServiceDto[]
+  users.ts          # UserDto, getUser(id), updateUser(user) — profile data (GET + PUT; NO PATCH — see note)
+  geocoding.ts      # reverseGeocodeToAddress + forwardGeocode + getCurrentPosition + addressLabel (native: expo-location, web: Nominatim/navigator.geolocation)
 
 context/
   AuthContext.tsx   # isLoggedIn, isAdmin, isPartner, currentUser, auth actions
@@ -42,6 +48,7 @@ screens/<name>-screen/
 hooks/          # Custom hooks
   useLocation.ts      # Geolocation + reverse geocode
   useThemeColors.ts   # Single source of truth for the dark/light palette (see Styling System)
+  useAppNavigation.ts # Back-vs-Up navigation helpers: resetToTab/resetToScreen/resetToAuth/goUp (see Navigation)
 assets/         # Images, fonts
 CLAUDE.md       # This file — primary AI context. (.github/copilot-instructions.md is a legacy copy for GitHub Copilot)
 ```
@@ -83,7 +90,7 @@ if (!response.ok) {
 - `forgotPassword(email)` → POST `/auth/forgot-password` (public)
 - `resetPassword({ resetToken, newPassword, confirmPassword })` → POST `/auth/reset-password` (public)
 - `logout()` → POST `/auth/logout` (auth). Called best-effort by `signOut()` before clearing tokens.
-- Type `CurrentUser`: `{ id, email, emailConfirmed, roles[], groups[], userName, firstName, lastName }`
+- Type `CurrentUser`: `{ id, email, emailConfirmed, roles[], groups[], userName, firstName, lastName, serviceProviderId?, providerProfileId? }`. `serviceProviderId` (0 = none) is the partner's own provider — partner screens read it directly instead of fetching the provider list (P1).
 
 ### `services/token-storage.ts`
 - `saveTokens(accessToken, refreshToken?)` — stores with TTL (access: 30 min, refresh: 7 days)
@@ -95,18 +102,20 @@ if (!response.ok) {
 ### `services/enums.ts`
 - `fetchEnums()` → GET `/enums` (auth) → `EnumsData`
 - **Never call directly from screens** — always use `useEnums()` from EnumsContext.
-- `EnumsData` keys: `paymentType`, `serviceProviderType`, `discountType`, `bookingStatusType`, `paymentStatus`, `sex`, `paymentMethodStatus`, `bookingState`, `providerProfileStatus`, `pushPlatform`, `emailTemplateType`
+- `EnumsData` keys: `paymentType`, `serviceProviderType`, `discountType`, `bookingStatusType`, `paymentStatus`, `sex`, `paymentMethodStatus`, `bookingState`, `providerProfileStatus`, `pushPlatform`, `emailTemplateType`, `petSpeciesType`
 - Each key is `EnumEntry[] = { value: number, name: string }[]`
+- **`petSpeciesType` is a FLAGS enum**: 0=None, 1=Dog, 2=Cat, 4=Parrot, 8=Turtle, 16=Fish, 32=Snake, 63=All. Other new enums (`ApprovalStatus`, `NotificationType`, `PricingUnit`, `PetWeightBracket`, `DayOfWeek`) exist in swagger but are NOT exposed via `/enums`.
 
 ### `services/pets.ts`
 - `getPets(ownerUserId)` → GET `/api/pets?OwnerUserId={id}` (auth) → `PetResponse[]`
   - Handles paginated wrappers: plain array, `{ items }`, `{ data }`, `{ results }`
 - `createPet(input)` → auto-uploads photos via `uploadFilesBulk()` first, then POST `/api/pets`
-  - Sex mapping: "male" → 1, "female" → 2 (else 0). Pet type: dog=1, cat=2, parrot=3, turtle=4, fish=5, snake=6.
+  - Sex mapping: "male" → 1, "female" → 2 (else 0). **Pet type is the `petSpeciesType` FLAGS enum**: Dog=1, Cat=2, Parrot=4, Turtle=8, Fish=16, Snake=32 — use the exported `PetSpecies` const, never sequential 1–6 (the old 1–6 mapping is wrong for everything past Cat).
   - Weight/height unit conversion (kg↔lbs, cm↔in) via geolocation
 - `updatePet(input)` → PUT `/api/pets/{petId}`. Takes `UpdatePetInput` (= `CreatePetInput` + `petId` + optional `originalPhotos`). Separates already-uploaded photos (http/https URIs) from new local photos, uploads only the new ones, and preserves existing photo metadata.
 - `deletePet(petId)` → DELETE `/api/pets/{petId}`
-- Type `PetResponse`: `{ id, ownerUserId, name, type, petType, breed, sex, dateOfBirth, ageYears, weightKg, heightCm, dietaryNotes, favoriteFood, additionalNotes, photoUrl, isActive, photos[] }`
+- `petTypeLabel(type)` → friendly label for a `PetSpecies` flag value.
+- Type `PetResponse`: `{ id, ownerUserId, name, type, breed, sex, dateOfBirth, ageYears, weightKg, heightCm, dietaryNotes, favoriteFood, additionalNotes, photoUrl, isActive, createdAt?, updatedAt?, ownerUser?, photos[] }`. GET also populates the read-only `ownerUser` include (`{ id, userName, email }`). Photo entries have no `contentType` (removed from the API's `PhotoDto`).
 
 ### `services/files.ts`
 - `uploadFile(uri, fileName?, mimeType?)` → POST `/files/upload` (auth, multipart) → `UploadedFile`
@@ -114,42 +123,65 @@ if (!response.ok) {
 - Type `UploadedFile`: `{ id, src, originalName, contentType, sizeBytes }`
 - Web: handles base64 data URIs. Native: handles file system URIs.
 - Prefer bulk upload over individual uploads.
+- **`GET /files/{src}` requires auth since the 2026-06 API update** — plain `<Image>`/`<img>` tags get 401 on every relative `/files/...` photo (they can't send the Bearer header). See BACKEND_GAPS F1; needs a backend fix (anonymous file GET or signed URLs).
 
 ### `services/service-providers.ts`
-- **Types**: `ServiceProviderDto`, `AddressDto`, `PhotoDto`, `ProviderViewModel`
-- **`ProviderViewModel`** — canonical provider shape passed through navigation params across HomeScreen → SearchScreen → ProviderDetail → BookService → ReviewBooking. Fields not yet in the API (rating, reviews, distance, lat/lng) default to 0/''. Always use this type for the `provider` nav param.
-- **`providerToViewModel(dto)`** — maps `ServiceProviderDto` → `ProviderViewModel`. Use in every screen that fetches a provider list.
+- **Types**: `ServiceProviderDto`, `AddressDto`, `PhotoDto`, `CertificateDto`, `ProviderViewModel`. Exported const `ApprovalStatus` = { Pending: 0, Approved: 1, Declined: 2 } (shared by providers, certificates, and reviews).
+- **`ProviderViewModel`** / **`providerToViewModel(dto)`** — provider display shape + mapper. **No longer used by any user screen** — the whole app is service-centric now: Home, Search, ProviderDetail(orphaned) → BookService → ReviewBooking → BookingConfirmed all pass the `ServiceDto` (which carries `serviceProviderId`), not a provider. These remain only for the orphaned ProviderDetailScreen; user screens never fetch providers. (Admin screens use `ServiceProviderDto` directly.)
 - **`resolveImageUrl(src)`** — prepends `getApiBaseUrl()` to relative `/files/...` paths; returns absolute URLs as-is.
-- `getServiceProviders(params?)` → GET `/api/service-providers` (auth) → `ServiceProviderDto[]`. Params: `name`, `city`, `type`, `page`, `perPage`. **No `isApproved` filter exists** — fetch all and filter client-side (admin screens do this).
+- `getServiceProviders(params?)` → GET `/api/service-providers` (auth) → `ServiceProviderDto[]`. Params: `name`, `city`, `type`, `isApproved`, `approvalStatus`, `page`, `perPage`. The **`IsApproved`/`ApprovalStatus` server filters exist (verified live)** — use them instead of fetching all and filtering. There is still no `UserId` filter, but a partner's own provider id is now on `/auth/me` as `currentUser.serviceProviderId` (P1 resolved) — read it directly; don't fetch the list to find your own provider.
 - `getServiceProvider(id)` → GET `/api/service-providers/{id}` (auth) → `ServiceProviderDto`
-- `deleteServiceProvider(id)` → DELETE `/api/service-providers/{id}` (auth). Used as the "reject application" action (there is no server-side rejected state).
+- `deleteServiceProvider(id)` → DELETE `/api/service-providers/{id}` (auth). No longer used for rejection — admin reject now uses `declineServiceProvider()` (see `services/admin.ts`).
 - `providerTypeLabel(type)` → friendly label for a `ServiceProviderType` enum value.
+- Provider GET carries read-only `approvalStatus` (ApprovalStatus), `declineReason`, `isApproved` (legacy mirror), and writable `contactEmail` (the applicant's email).
 - `createServiceProvider(payload)` → POST `/api/service-providers` (auth)
   - Payload (`CreateServiceProviderPayload`): `{ fullName, email, phone, streetAddress, city, state, zipCode, selectedServices[], yearsOfExperience, aboutYou, certifications, availability, profilePhoto, petPhotoFiles[], governmentIdFiles[], certificateFiles[], userId }`
   - Uploads all files (profile photo + pet photos + government IDs + certificates) in **one** `uploadFilesBulk()` call, then routes them into the DTO: profile + pet photos → `photos[]` (`isSelected`); government IDs → `governmentIdPhotos[]` (`isFront`); certificates → `certificates[]`, each referencing its upload via `fileIds: number[]`.
-  - New applications post with top-level `isApproved: false` (and per-certificate `isApproved: false`) — an admin approves later. The DTO has no top-level `city`/`photoUrl`; city lives in `address`.
+  - The applicant's email is sent as `contactEmail`. Approval is server-controlled: new applications start Pending (`approvalStatus = 0`); an admin approves/declines later. Certificate `isApproved` is read-only too. The DTO has no top-level `city`/`photoUrl`; city lives in `address`.
 
 ### `services/services.ts`
-- **Type**: `ServiceDto` — `{ id?, serviceProviderId, name?, notes?, basePrice, escrowAmount, isEscrowPercentEnabled, escrowPercent?, pricing?, details?, photos? }`
-- `details` contains: `{ supportsPickup, pickupPriceSurcharge?, supportsLeaveOver, leaveOverPriceSurcharge? }`
-- `getServices(params?)` → GET `/api/services` (auth) → `ServiceDto[]`. Params: `serviceProviderId`, `name`, `supportsPickup`, `supportsLeaveOver`, `page`, `perPage`.
+- **Types**: `ServiceDto`, `ServiceScheduleDto`, `ServiceFoodPricingDto`
+- **`ServiceDto`** — `{ id?, serviceProviderId, name?, description?, type?, isActive?, pricing?, details?, schedules?, photos? }`. There are **no top-level `notes`/`basePrice`/escrow fields** (removed from the API) — the description is `description` and all money fields live under `pricing`.
+- `pricing` contains: `{ basePrice, unit? (PricingUnit 0–3), isEscrowPercentEnabled, escrowPercent?, escrowAmount, pickupPrice?, petReturnPrice?, specialNeedsPrice? }`. **The add-on SURCHARGE money lives here (2026-06 update moved it out of `details`)**: `pickupPrice`/`petReturnPrice` are `LocationBasedPriceDto` (`{ baseFee, perKmFee, freeDistanceKm?, maxDistanceKm? }`, `null` when the add-on is off); `specialNeedsPrice` is a flat `number | null`. The AddEditService form captures only a single flat fee → mapped to `baseFee` (perKmFee/distance default 0/null, round-trip on edit). Verified live: PUT persists all three.
+- `details` contains: `{ isPickupProvided, isPetReturnProvided, isSpecialNeedsProvided, canSpecialNeedsChange, supportsLiveTracking, acceptedSpecies? (PetSpeciesType FLAGS, 63=All), minWeightKg?, maxWeightKg?, minDurationMinutes?, maxDurationMinutes?, leadTimeHours?, maxConcurrentBookings?, foodPricings? }`. The add-on **on/off flags are here** (`is*Provided`); the **money is under `pricing`** (above). The five booleans + `acceptedSpecies`/`maxConcurrentBookings` are **non-nullable server-side** — omitting any on a PUT resets it to false/0/None, so `uiToServiceDto(form, original)` round-trips them all from the original DTO (defaults: 63 / 1 on create). The add-on read/write mapping (flag→details, money→pricing) is centralized in `services/service-addons.ts`. Verified live: a PUT with this shape preserves all values.
+- `schedules` — per-day working-hours windows (`{ serviceId, day (0=Sun…6=Sat), from, to }` with `from`/`to` as `"HH:mm:ss"`), embedded on GET and managed via `/api/service-schedules` CRUD. **Wired** for the AddEditService "Working Hours" section — see `services/service-schedules.ts` (write side) + `serviceModel.ts` (`schedulesToWorkingHours`/`workingHoursToSchedules`).
+- `type` is **writable** (ServiceProviderType) — the Service Type picker persists now (old gap S4 is closed).
+- `getServices(params?)` → GET `/api/services` (auth) → `ServiceDto[]`. Params: `serviceProviderId`, `name`, `type`, `isActive`, `supportsPickup`, `supportsLeaveOver`, `supportsSpecialNeeds`, `page`, `perPage`. (Server filter names were renamed in the 2026-06 update — `IsProvidingPickup`/`IsProvidingReturn`/`IsProvidingSpecialNeeds`; the FE param names are kept stable and mapped internally.)
 - `getService(id)` → GET `/api/services/{id}` (auth) → `ServiceDto`
 - `createService(service)` → POST `/api/services` (auth) → `ServiceDto`
 - `updateService(id, service)` → PUT `/api/services/{id}` (auth) → `ServiceDto`
 - `deleteService(id)` → DELETE `/api/services/{id}` (auth)
+- NEW (not yet wired): `GET /api/services/{id}/availability?from=&to=` → `{ serviceId, days: [{ date, windows[] }] }`. `from`/`to` must be **date-only** strings (`2026-06-12`) — full ISO datetimes 400. `windows` derives from the service's schedules.
+
+### `services/service-schedules.ts`
+- **Type**: `ServiceScheduleDto` (re-exported from `services.ts`) — `{ id?, serviceId, day (0=Sun…6=Sat, .NET DayOfWeek), from, to }`; `from`/`to` are `"HH:mm:ss"`.
+- `getServiceSchedules(serviceId)` → GET `/api/service-schedules?ServiceId=` (auth, unwrapped) → `ServiceScheduleDto[]`. (Reads usually come from the embedded `service.schedules[]` instead.)
+- `createServiceSchedule(s)` → POST, `updateServiceSchedule(id, s)` → PUT, `deleteServiceSchedule(id)` → DELETE.
+- **`saveServiceSchedules(serviceId, desired, existing?)`** — the high-level entry point used on service save. Diffs `desired` (one row per enabled day) against `existing` (the service's current `schedules[]`) keyed by `day`: POST new days, PUT days whose times changed, DELETE removed days; unchanged days make no call. Runs the calls in parallel. Verified live against the seed backend.
+- UI↔DTO translation lives in `screens/my-services-screen/serviceModel.ts`: `schedulesToWorkingHours(schedules)` (prefill, disabled-by-default Mon→Sun) and `workingHoursToSchedules(workingHours, serviceId)` (enabled days only). AddEditService calls `saveServiceSchedules` after `create`/`updateService` (best-effort: a schedule failure warns but doesn't block, since the service is already saved).
 
 ### `services/reviews.ts`
-- **Type**: `ReviewDto` — `{ id?, bookingId, userId, serviceProviderId, rating, title?, comment?, photos? }`
-- `getReviews(params?)` → GET `/api/reviews` (auth) → `ReviewDto[]`. Params: `serviceProviderId`, `userId`, `bookingId`, `rating`, `page`, `perPage`.
+- **Type**: `ReviewDto` — `{ id?, bookingId, userId, serviceProviderId, rating, serviceQualityRating?, communicationRating?, timelinessRating?, valueRating?, title?, comment?, approvalStatus?, declineReason?, createdAt?, photos? }`
+- The four **per-category sub-ratings are non-nullable server-side** — `createReview` defaults any missing one to the overall `rating`.
+- **Reviews are admin-moderated**: read carries `approvalStatus` (ApprovalStatus 0=Pending, 1=Approved, 2=Declined) + `declineReason`. Public screens (ProviderDetail) fetch with `approvalStatus: Approved`. Admin moderation endpoints: `POST /admin/reviews/{id}/approve`, `/admin/reviews/{id}/decline` (`{ reason }`), `/admin/reviews/approve` (bulk `{ ids[] }`) — not yet wired in the FE.
+- `getReviews(params?)` → GET `/api/reviews` (auth) → `ReviewDto[]`. Params: `serviceProviderId`, `userId`, `bookingId`, `rating`, `approvalStatus`, `page`, `perPage`.
 - `createReview(review)` → POST `/api/reviews` (auth) → `ReviewDto`. **`bookingId` must reference a real, existing booking** — the API validates the FK and rejects otherwise. So reviews can only be created after a booking exists.
 
 ### `services/bookings.ts`
-- **Types**: `BookingDto`, `BookingViewModel`, `CreateBookingInput`. Exported enum maps: `BookingState` (0=Upcoming, 1=Completed, 2=Cancelled), `BookingStatusType` (0=ServiceRequestedByUser … 5=PostPayment), `PaymentType` (0=Cash, 1=Card, 2=BankTransfer, 3=Wallet).
-- **`bookingToViewModel(dto)`** — flattens a booking (with its nested `serviceProvider`/`service`/`pet` includes) into `BookingViewModel` for display. `statusLabel` ('upcoming'|'completed'|'cancelled') is derived from `state`.
-- `getBookings(params?)` → GET `/api/bookings`. Params: `userId`, `serviceProviderId`, `serviceId`, `petId`, `state`, `currentStatus`, `bookingFrom`, `bookingTo`, `page`, `perPage`. GET responses include populated nested `serviceProvider`, `service`, `pet`.
-- `getBooking(id)`, `createBooking(input)`, `setBookingStatus(booking, currentStatus)` (provider accept → ServiceConfirmedByProvider), `cancelBooking(booking, reason?)` (PUT with state=Cancelled), `deleteBooking(id)`.
+- **Types**: `BookingDto`, `BookingViewModel`, `CreateBookingInput`. Exported enum maps: `BookingState` (0=Upcoming, 1=Completed, 2=Cancelled), `BookingStatusType` (0=ServiceRequestedByUser … 5=PostPayment, 6=DeclinedByProvider), `PaymentType` (0=Cash, 1=Card, 2=BankTransfer, 3=Wallet).
+- **`bookingToViewModel(dto)`** — flattens a booking (with its nested `serviceProvider`/`service`/`pet`/`user` includes) into `BookingViewModel` for display. `statusLabel` ('upcoming'|'completed'|'cancelled') is derived from `state`; `clientName`/`clientEmail`/`clientAvatar` come from the populated `user`.
+- `getBookings(params?)` → GET `/api/bookings`. Params: `userId`, `serviceProviderId`, `serviceId`, `petId`, `state`, `currentStatus`, `bookingFrom`, `bookingTo`, `page`, `perPage`. GET responses include populated nested `serviceProvider`, `service`, `pet`, **`user` (the booker: id/userName/email/photos)**, `review`, `pickupAddress`, `leaveOverAddress`.
+- **`bookingFrom`/`bookingTo` are range filters (verified live)**: passing a day's start/end ISO strings returns only bookings within that window — this is the building block for slot availability.
+- **Slot windows are driven by `service.schedules`; availability is computed client-side.** BookServiceScreen builds hourly (1h) slots from the service's per-day working-hours window for the selected weekday (`schedules[].day` is .NET DayOfWeek 0=Sun…6=Sat, matching JS `getDay()`); a weekday with **no** schedule entry yields no slots and is grayed out in the calendar (via DatePicker's `isDateEnabled` prop, applied only when the service has ≥1 schedule). Within a scheduled day, a slot is unavailable when overlapping non-cancelled bookings (`state !== 2`) + locally-added appointments ≥ the service's `details.maxConcurrentBookings` (default 1), or the slot start is in the past (provider bookings fetched for the day via the `bookingFrom`/`bookingTo` range filter). The standalone `GET /api/services/{id}/availability` endpoint is still not used (schedules are read off the embedded `service.schedules`). Caveat: the backend does NOT reject overlapping bookings, so this is advisory, not race-proof.
+- `getBooking(id)`, `createBooking(input)`, `setBookingStatus(booking, currentStatus)`, `cancelBooking(booking, reason?)` (PUT with state=Cancelled — for cancelling already-accepted bookings), `deleteBooking(id)`.
+- **Add-on selection is driven by flags, not addresses (verified live):** the write DTO carries `includePickup` / `includePetReturn` / `includeSpecialNeeds` (+ nullable `distanceKm`). **Sending `location.pickupAddress` alone does NOT register pickup** — the flag must be set, or it reads back `includePickup=false` / `addOnsTotal=0`. The server computes the surcharge from the service's `pricing` and returns the read-only breakdown (`pickupPrice` / `petReturnPrice` / `specialNeedsPrice` / `addOnsTotal` / `depositAmount`); a client-sent `totalPrice` is **recomputed server-side**. `createBooking` sets the flags from the selected add-ons (Pickup ↔ `pickupAddress` → `includePickup`; Drop-off ↔ `leaveOverAddress` → `includePetReturn`), and `toWritableBooking` round-trips them so a status/cancel PUT doesn't reset them. The **address text itself still doesn't persist** (BACKEND_GAPS B2) — only the flag + computed price do.
+- **`confirmBooking(id)` / `declineBooking(id, reason?)`** → `POST /bookings/{id}/confirm` / `/decline` — the provider accept/decline used by NewRequests. **Server-guarded (verified live): only bookings still in ServiceRequestedByUser can be confirmed/declined** (422 otherwise). Confirm sets currentStatus=1; decline sets state=Cancelled, currentStatus=6 (DeclinedByProvider) and stores the reason as `cancelReason`. Confirm does NOT hit the B4 email-500 quirk that `setBookingStatus` has.
+- **`startBookingService(booking)` / `endBookingService(booking)`** — dedicated lifecycle endpoints for the LiveSession screen (POST, id-only, no body — same shape as confirm/decline): Start → `POST /bookings/{id}/start-service` (→ `currentStatus = ServiceStarted (3)`), End → `POST /bookings/{id}/complete-service` (→ `ServiceEnded (4)`). Both are preferred over the generic `setBookingStatus` PUT; **End can still 500 on the completion email for an invalid recipient like the seed `admin`** (BACKEND_GAPS B4) but the status persists — LiveSession re-fetches on error to confirm. Pickup/drop-off *completion* is local-only (no backend field — BACKEND_GAPS B7).
+- **Request-vs-schedule rule**: a booking with `currentStatus = ServiceRequestedByUser` is a *pending request*, not an appointment. `buildScheduleFromBookings` (my-schedule utils) excludes those in partner mode — they only appear on the partner's schedule after Accept. Users still see their own pending requests in user mode.
+- **`deleteBooking` caveat (backend bug, BACKEND_GAPS B6)**: deleting a booking that has gone through any status transition 500s on the `FK_BookingStatuses_Bookings_BookingId` constraint. No UI currently calls it.
 - **Booking PUT must send only writable scalar fields** — the GET returns nested read-only includes (`serviceProvider`/`service`/`pet`/`user`/addresses) and PUTing those back 500s. `setBookingStatus`/`cancelBooking` strip them via `toWritableBooking`.
-- **Backend quirk (BACKEND_GAPS B4)**: transitioning `currentStatus` → 1 (ServiceConfirmedByProvider) or 4 (ServiceEnded) sends an email; if the recipient's address is invalid (e.g. the seed `admin` account, email = `admin`) the API returns 500 `"...not in the form required for an e-mail address"` **but the status still persists**. Real users with valid emails are fine.
+- **`bookingFrom`/`bookingTo` are naive wall-clock, not UTC** — the API serializes them with a `+00:00` suffix (e.g. `"2026-06-18T13:00:00+00:00"`) but the value means 13:00 **local**, not 13:00 UTC. **Never `new Date(booking.bookingFrom)` directly** — that converts from UTC and shifts the time by the device offset. Read every booking time with **`parseBookingDate(iso)`** (drops the offset → local wall-clock) and write/serialize one with **`formatBookingDate(date)`** (local `Date` → naive `"YYYY-MM-DDTHH:mm:ss"`, no offset) so created bookings round-trip. Both are exported from `services/bookings.ts`; applied across BookService (slots/overlap/day-filter/create), ReviewBooking, NewRequests, LiveSession (+ CountdownTimer), my-schedule, and `bookingToViewModel`.
+- **Backend quirk (BACKEND_GAPS B4)**: transitioning `currentStatus` via the generic PUT (`setBookingStatus`) to 1 (ServiceConfirmedByProvider) or 4 (ServiceEnded) sends an email; if the recipient's address is invalid (e.g. the seed `admin` account, email = `admin`) the API returns 500 `"...not in the form required for an e-mail address"` **but the status still persists**. The dedicated `confirmBooking` endpoint does not exhibit this (verified live with the seed admin). Real users with valid emails are fine either way.
 
 ### `services/payment-methods.ts`
 - **Type**: `PaymentMethodDto`. Enum `PaymentMethodStatus` (0=Active, 1=Removed).
@@ -160,21 +192,34 @@ if (!response.ok) {
 
 ### `services/admin.ts`
 - Admin-only (Admin role enforced server-side via the Bearer token).
-- `approveServiceProvider(id)` → POST `/admin/service-providers/{id}/approve` — flips the provider's `isApproved` to true.
+- `approveServiceProvider(id)` → POST `/admin/service-providers/{id}/approve` — sets the provider's `approvalStatus` to Approved.
+- `declineServiceProvider(id, reason?)` → POST `/admin/service-providers/{id}/decline` (`{ reason }`) — sets `approvalStatus` to Declined and stores `declineReason`. **This is the admin "Reject" action** (it keeps the record; the old delete-as-reject workaround is gone). The admin Rejected tab shows providers with `approvalStatus === 2`.
 - `approveCertificate(certificateId)` → POST `/admin/certificates/{id}/approve`.
-- **No reject endpoint exists.** "Reject" in the admin UI = `deleteServiceProvider(id)` (removes the application record). The `bookingState`-style rejected tab is therefore always empty for real data.
+- `declineCertificate(certificateId, reason?)` → POST `/admin/certificates/{id}/decline`.
+- Review moderation endpoints also live under `/admin/reviews/...` (see `services/reviews.ts`) — not yet wired.
 
-### Verified API behaviors (tested against live backend 2026-06-08)
+### Verified API behaviors (tested against live backend 2026-06-12)
 These are confirmed quirks of the real API — keep them in mind when building DTOs/payloads:
-- **All `/api/*` list endpoints return a pagination wrapper**: `{ totalItems, totalPages, currentPage, itemsPerPage, items }`. Always unwrap with `extractPageItems()`.
+- **All `/api/*` list endpoints return a pagination wrapper**: `{ totalItems, totalPages, currentPage, itemsPerPage, items }`. Always unwrap with `extractPageItems()`. List endpoints also accept a `Paginate` bool param.
+- **Read/write DTO split**: every entity has a `*ReadDto` (GET) and a plain write DTO. Read-only includes/fields must not be PUT back (see the booking `toWritableBooking` rule).
 - **Service Provider XOR constraint**: the API enforces *"Exactly one of UserId or ProviderProfileId must be provided, not both and not neither."* Backed by the `CK_ServiceProvider_OwnerXor` DB CHECK constraint. Sending `0` counts as "provided" → 500. For the partner-application flow, send `userId` and `providerProfileId: null`.
-- **`isApproved` is server-controlled**: POSTing a provider with `isApproved: true` is ignored — it's always saved as `false`. An admin must approve via `POST /admin/service-providers/{id}/approve`.
-- **Provider GET returns more than the swagger DTO**: also includes `ratingAvg` (real average rating, null until reviews exist), `isApplicationPartner`, `addressId`, `createdAt`, `updatedAt`, `bookings[]`, `providerProfile`. `providerToViewModel()` maps `ratingAvg` → `rating`.
-- **Service GET returns more than the swagger DTO**: also includes `rating`, `totalRatingNumber`, `price` (effective price after discount — prefer over `basePrice` for display), `about` (long description), `imageUrl`, `basicServiceName`, `appliedDiscountType`, `appliedDiscountAmount`. These extra fields are typed as optional on `ServiceDto`.
-- **Creating a booking REQUIRES a valid `paymentMethodId`** referencing an existing PaymentMethod for the user. Posting with `null`/`0`/missing → 422 ("must not be empty" + "must reference a real one"). So the booking flow has a hard prerequisite: the user must have a saved payment method. `location` is optional, but if sent must have at least one address (`pickupAddressId` or `leaveOverAddressId`).
+- **Approval is server-controlled** (`approvalStatus`: 0=Pending, 1=Approved, 2=Declined): new providers always start Pending. Admin transitions via `POST /admin/service-providers/{id}/approve` / `/decline`. Same model on certificates and reviews.
+- **Provider GET returns more than the write DTO**: also includes `approvalStatus`, `declineReason`, `isApproved`, `ratingAvg` (null until reviews exist), `isApplicationPartner`, `addressId`, `createdAt`, `updatedAt`, `bookings[]`, `providerProfile`. `providerToViewModel()` maps `ratingAvg` → `rating`.
+- **Service GET returns more than the write DTO**: also includes `rating`, `totalRatingNumber`, `price` (effective price after discount — prefer over `pricing.basePrice` for display), `about` (read-only mirror of `description`), `imageUrl`, `basicServiceName`, `appliedDiscountType`, `appliedDiscountAmount`, `discounts[]`, `schedules[]`. These extra fields are typed as optional on `ServiceDto`.
+- **Non-nullable service details reset if omitted on PUT**: `details.acceptedSpecies` (FLAGS) and `details.maxConcurrentBookings` must always be sent — `uiToServiceDto(form, original)` round-trips them (verified live: PUT with the full shape preserves all values).
+- **Creating a booking REQUIRES a valid `paymentMethodId`** referencing an existing PaymentMethod for the user. Posting with `null`/`0`/missing → 422 ("must not be empty" + "must reference a real one"). So the booking flow has a hard prerequisite: the user must have a saved payment method. Picking the Pickup / Drop-off add-on is registered by the `includePickup` / `includePetReturn` flags (see the bookings.ts section) — the server computes the surcharge. `location` (write DTO: `BookingLocationDto`) is also sent **inline** under `location.pickupAddress` / `location.leaveOverAddress`, but the create path currently **drops the address** — the GET returns `pickupAddress`/`leaveOverAddress` as null for every payload shape (inline, `pickupAddressId`, top-level), so the captured address does not round-trip (BACKEND_GAPS B2). (`/api/addresses` still exists and works standalone but requires a non-empty `state`; it is not used by the booking flow.)
 - **Creating a pet REQUIRES at least one photo** — `'Request Photos' must not be empty`. `createPet()`/`AddPetScreen` must enforce ≥1 photo before POST (currently it does not — a photoless pet 422s).
-- **Booking GET includes populated nested objects**: `serviceProvider` (with photos), `service`, `pet` — enough to render a booking card from a single list call.
-- **Verified enum names** (`GET /enums`): `serviceProviderType` = 0:Sitter, 1:Walker, 2:Boarder, 3:PetHotel, 4:Groomer. `bookingState` = 0:Upcoming, 1:Completed, 2:Cancelled. `petType` = 1:Dog, 2:Cat, 3:Parrot, 4:Turtle, 5:Fish, 6:Snake. `paymentType` = 0:Cash, 1:Card, 2:BankTransfer, 3:Wallet.
+- **Booking GET includes populated nested objects**: `serviceProvider` (with photos), `service`, `pet`, `user` (the booker), `review` — enough to render a booking card from a single list call. (`pickupAddress`/`leaveOverAddress` are in the read schema but always read back null — B2.)
+- **Verified enum names** (`GET /enums`): `serviceProviderType` = 0:Sitter, 1:Walker, 2:Boarder, 3:PetHotel, 4:Groomer. `bookingState` = 0:Upcoming, 1:Completed, 2:Cancelled. `petSpeciesType` (FLAGS) = 0:None, 1:Dog, 2:Cat, 4:Parrot, 8:Turtle, 16:Fish, 32:Snake, 63:All. `paymentType` = 0:Cash, 1:Card, 2:BankTransfer, 3:Wallet.
+
+### New backend endpoints not yet wired in the FE (added in the 2026-06 API update)
+Candidates for future phases — they exist and are documented in swagger:
+- `GET /api/services/{id}/availability?from=&to=` (date-only params) — schedule-driven slot windows for BookServiceScreen.
+- ~~`GET/POST/PUT/DELETE /api/service-schedules`~~ — **now wired** (per-day working hours for the AddEditService "Working Hours" section) via `services/service-schedules.ts`. The standalone WorkingHours screen was removed.
+- `POST /payments/checkout-session` + `/payments/checkout-session/direct` — Stripe-style checkout (amounts in minor units); `GET/POST /api/booking-payments` — per-booking payment records.
+- ~~`GET /api/app-notifications` (+ mark-as-read PUT)~~ — **now wired** (in-app notification inbox) via `services/app-notifications.ts` → NotificationsScreen. Read-only on the collection (no POST in swagger — notifications are created server-side by booking/account events); `GET /{id}`, `PUT /{id}` (write DTO is only `{ id, isRead }` — server stamps `readAt`), `DELETE /{id}`. List filters: `UserId`, `IsRead`, `Type`, `Page`/`PerPage`/`Paginate`. `NotificationType` (0..10) is a swagger enum NOT exposed via `/enums` — names verified from live data and mirrored in `app-notifications.ts`. `GET/POST /api/user-push-devices` (push token registration) is still not wired.
+- `POST /admin/reviews/{id}/approve|decline`, `POST /admin/reviews/approve` (bulk) — review moderation UI.
+- `POST /auth/provider-profiles/register` (`{ providerProfileId, password }`) — create a login account from a provider profile.
 
 ### Test login
 - Dev/seed admin account: identifier `admin` / password `admin` (use for live API testing via curl).
@@ -249,15 +294,20 @@ Stack screens (on top of tabs):
 ```
 ProviderDetail, BookService, ReviewBooking, BookingConfirmed,
 MyPets, AddPet, Settings, BecomePartner, PartnerApplication,
-ApplicationSubmitted, Account, MyBookings, MySchedule, MyServices,
-AddEditService, ServicePreview, Notifications, NewRequests, Promotions,
-AdminNewRequests, ApplicationReview, AdminPartners, PartnerDetails, AdminAddPartner
+ApplicationSubmitted, Account, MyBookings, BookingDetails, MySchedule, MyServices,
+AddEditService, ServicePreview, Notifications, NotificationSettings, NewRequests, LiveSession, Promotions,
+AdminNewRequests, ApplicationReview, AdminPartners,
+PartnerDetails, AdminAddPartner
 ```
 
 Navigation patterns:
 - `useNavigation()` for imperative navigation
 - `useRoute()` with `RouteProp` for typed params
 - Route params passed as objects: `navigate('ProviderDetail', { provider })`
+
+**Back vs. Up — use `useAppNavigation()` (`hooks/useAppNavigation.ts`):** the app is one flat stack, so bare `goBack()` follows push *history*, which can re-enter a completed flow. Distinguish the two intents:
+- **Back (history)** — linear drill-downs (Home → Detail → Book) use `goBack()`. `AppHeader`'s default back already guards with `canGoBack()` and falls back to Home, so it never no-ops.
+- **Done / Up (hierarchy)** — terminal screens must NOT `navigate()` back to a tab (that leaves the finished flow in history). Use `resetToTab(tab)` / `resetToScreen(route, params, tab)` to wipe the stack so back can't re-enter. Auth completion uses `navigation.reset({ index: 0, routes: [{ name: 'Login' }] })` (or `resetToAuth()`). Already applied to BookingConfirmed, ApplicationSubmitted, VerifyEmail, ForgotPassword.
 
 Implementation notes (`App.tsx`):
 - The whole stack is gated on `isLoggedIn`; while `isLoading` (session restore), a full-screen `ActivityIndicator` is shown.
@@ -270,33 +320,36 @@ Implementation notes (`App.tsx`):
 
 | Screen | Container | Purpose |
 |---|---|---|
-| HomeScreen | `screens/home-screen/containers/HomeScreen.tsx` | **API-wired** — `getServiceProviders()` in `useFocusEffect`; sections, skeletons, empty state |
-| SearchScreen | `screens/search-screen/` | **API-wired** — `getServiceProviders()`; client-side filter; map/list toggle |
+| HomeScreen | `screens/home-screen/containers/HomeScreen.tsx` | **API-wired** — each row is its own backend endpoint (`services/home.ts`): Near You → `getNearMe({lat,lng})`, Most Popular → `getMostPopular()`, Recently Booked → `getRecentlyBooked()`, Special Deals → `getOnSale()`, all fetched in parallel in `useFocusEffect` (each wrapped so one failing row doesn't blank the page; re-runs when location resolves). Each returns a **leaner `ServiceDto[]`** (no precomputed `rating`/`price`/`imageUrl`/`appliedDiscountAmount` — cards fall back to `pricing.basePrice`, photos, 0-rating). **Card tap → BookService for that specific service** (service-centric — no provider step); pills match `serviceProviderType` enum labels. |
+| SearchScreen | `screens/search-screen/` | **API-wired (service-centric)** — `getServices({ isActive: true })`; client-side filter (type/price/rating); list/map toggle; **card tap → BookService for that service** (no provider step). ListView/MapView take `services: ServiceSearchItem[]`. |
 | PartnerHubScreen | `screens/partner-hub-screen/containers/` | Partner dashboard (partner-only) |
 | AdminDashboardScreen | `screens/admin-dashboard-screen/containers/` | Admin panel (admin-only) |
-| ProfileScreen | `screens/profile-screen/containers/` | User profile + settings menu |
-| ProviderDetailScreen | `screens/provider-detail-screen/containers/` | **API-wired** — fetches real services + reviews; computed rating + starting price |
-| BookServiceScreen | `screens/book-service-screen/containers/` | **API-wired** — real services + real pets + shared DatePicker/TimePicker. Single booking (default +1h duration). Passes a `booking` draft to ReviewBooking. |
-| ReviewBookingScreen | `screens/review-booking-screen/` | **API-wired** — Confirm resolves a payment method (auto-creates a default if none) and POSTs a real booking via `createBooking()`. Payment selector is still UI-only (online/cash → Card/Cash). |
-| BookingConfirmedScreen | `screens/booking-confirmed-screen/containers/` | Post-booking confirmation |
+| ProfileScreen | `screens/profile-screen/containers/` | **API-wired** — header shows the real avatar (`getUser(currentUser.id).avatarUrl` → `resolveImageUrl`, initials fallback on error/none) + first/last name + email, loaded on focus; + settings menu |
+| ProviderDetailScreen | `screens/provider-detail-screen/containers/` | **ORPHANED** — still registered in `App.tsx` but no longer reachable: Home and Search now go straight to BookService, so nothing navigates here. (`providerToViewModel`/`ProviderViewModel` are unused by user screens as a result.) Kept for now in case a "view provider profile" entry is wanted; safe to delete otherwise. |
+| BookServiceScreen | `screens/book-service-screen/containers/` | **API-wired** — books **one specific service passed in as a route param** (`{ service }`, a `ServiceDto`); `serviceProviderId` is read off the service. There is **no "Choose Service" step** — Step 1 shows the fixed service. Add-ons come from the service's own config (`getEnabledServiceAddons` — Pickup/Drop-off only); selecting **Pickup or Drop-off requires picking a location on a map** (`MapAddressPicker`) before continuing — the dropped pin is reverse-geocoded into an `AddressDto` via `services/geocoding.ts` and carried on the appointment as `pickupAddress`/`leaveOverAddress`. Real pets + shared DatePicker for the date (unscheduled weekdays grayed out via `isDateEnabled`). Time is picked via `TimeSlotPicker` (hourly 1h slots **derived from `service.schedules`** per weekday — a day with no schedule shows no slots; availability also factors the provider's real bookings for that day; see `services/bookings.ts` notes). Passes `{ service, appointments }` to ReviewBooking. |
+| ReviewBookingScreen | `screens/review-booking-screen/` | **API-wired** — takes `{ service, appointments }`; shows the **service** (name/type/image), not a provider. Confirm resolves a payment method (auto-creates a default if none) and POSTs a real booking via `createBooking()` (`serviceProviderId` from the service). Payment selector is still UI-only (online/cash → Card/Cash). |
+| BookingConfirmedScreen | `screens/booking-confirmed-screen/containers/` | Post-booking confirmation — takes `{ serviceName }` |
 | MyPetsScreen | `screens/my-pets-screen/containers/` | User's pets list |
-| AddPetScreen | `screens/add-pet-screen/containers/` | Create/edit pet + bulk photo upload |
+| AddPetScreen | `screens/add-pet-screen/containers/` | Create/edit pet + bulk photo upload. Tap a photo to pick the **profile photo** (`isSelected` + `photoUrl`); defaults to the first |
 | SettingsScreen | `screens/settings-screen/` | App settings |
 | BecomePartnerScreen | `screens/become-partner-screen/containers/` | Partner signup info |
 | PartnerApplicationScreen | `screens/partner-application-screen/containers/` | Multi-step partner application form |
 | ApplicationSubmittedScreen | `screens/application-submitted-screen/containers/` | Post-application confirmation |
-| AccountScreen | `screens/account-screen/containers/` | **API-wired** — prefills from `currentUser`; Save → `updateProfile()` + `refreshUser()`. Email read-only (API rejects changes); address/photo + payment card are mock (no backend fields) |
+| AccountScreen | `screens/account-screen/containers/` | **API-wired** — loads `getUser(currentUser.id)`; edits first/last name, phone, avatar, address. Save: upload new photo via `uploadFile` → `avatarUrl`; picked address sent **inline** in the user body (`address` with `id:0` — backend creates + links it, verified); then `updateUser({ ...original, ...edits })` (**PUT** — no PATCH; full record round-tripped so passwordHash/salt survive) + `refreshUser()`. Address uses `MapAddressPicker` (opens on current location). Email read-only; payment card is mock |
 | ChangePasswordScreen | `screens/change-password-screen/containers/` | **API-wired** — `changePassword()` (current/new/confirm); reached from Settings |
 | ForgotPasswordScreen | `screens/forgot-password-screen/containers/` | **API-wired** — 2-step: `forgotPassword(email)` → `resetPassword(token,…)`; reached from Login |
-| MyBookingsScreen | `screens/my-bookings-screen/containers/` | **API-wired** — `getBookings({ userId })` in `useFocusEffect`; Upcoming/Past tabs from `bookingState` |
-| MyScheduleScreen | `screens/my-schedule-screen/containers/` | **API-wired** — loads bookings (partner: by provider, user: by userId) into the schedule source on focus; day/week/month views unchanged |
-| MyServicesScreen | `screens/my-services-screen/containers/` | Partner's listed services |
+| MyBookingsScreen | `screens/my-bookings-screen/containers/` | **API-wired** — `getBookings({ userId })` in `useFocusEffect`; Upcoming/Past tabs from `bookingState`. Each card's **View Details → BookingDetails** (`{ bookingId }`) |
+| BookingDetailsScreen | `screens/booking-details-screen/containers/` | **API-wired** — `getBooking(bookingId)`; read-only recap (service/provider, status, date/time, pet, pickup/drop-off addresses, payment method + price breakdown) |
+| MyScheduleScreen | `screens/my-schedule-screen/containers/` | **API-wired** — loads bookings (partner: by provider, user: by userId) into the schedule source on focus; partner mode excludes pending requests (`currentStatus = ServiceRequestedByUser`) — they enter the schedule only after Accept in NewRequests; day/week/month views unchanged |
+| MyServicesScreen | `screens/my-services-screen/containers/` | Partner's listed services. Add/Edit Service (`AddEditServiceScreen`) lets the partner tap a service image to pick the **profile photo** (`isSelected`, round-trips in edit). The **"Working Hours"** section now persists via `/api/service-schedules` (`saveServiceSchedules` after create/update; edit prefills from `service.schedules[]`) — see BACKEND_GAPS S2 |
 | ServicePreviewScreen | `screens/service-preview-screen/` | Preview service before publish |
-| NotificationsScreen | `screens/notifications-screen/containers/` | **API-wired** — `getNotificationSettings` on focus; each toggle persists via `saveNotificationSettings` (POST/PUT). Save FK-fails for the seed admin (BACKEND_GAPS N1) → applies locally + shows a notice |
-| NewRequestsScreen | `screens/new-requests-screen/containers/` | **API-wired** — partner's bookings via `getBookings({ serviceProviderId })`; New/Accepted/Declined from state+currentStatus; accept → `setBookingStatus`, decline → `cancelBooking` |
+| NotificationsScreen | `screens/notifications-screen/containers/NotificationsScreen.tsx` | **API-wired — the in-app notification INBOX** (route `Notifications`). `getAppNotifications({ userId })` on focus; rows show a per-`type` icon (`NotificationItem`), title/message, relative time, and an unread dot + brand tint. Tap → marks read (optimistic, `markNotificationRead`) and deep-links to BookingDetails when `dataJson` carries a `bookingId`. "Mark all read" header action (`markAllNotificationsRead`); pull-to-refresh; empty/error states. Reached from the Home bell, the AppHeader bell (default `onNotificationPress`), and the Profile "Notifications" menu item. The Home bell shows an unread badge from `getUnreadNotificationCount` (refreshed on focus). |
+| NotificationSettingsScreen | `screens/notifications-screen/containers/NotificationSettingsScreen.tsx` | **API-wired — notification PREFERENCES** (route `NotificationSettings`, header "Notification Settings"). Formerly the `Notifications` screen; renamed/moved here. `getNotificationSettings` on focus; each toggle persists via `saveNotificationSettings` (POST/PUT). Save FK-fails for the seed admin (BACKEND_GAPS N1) → applies locally + shows a notice. Reached from the Profile "Notifications settings" menu item. |
+| NewRequestsScreen | `screens/new-requests-screen/containers/` | **API-wired** — partner's bookings via `getBookings({ serviceProviderId })`; New/Accepted/Declined from state+currentStatus; accept → `confirmBooking` (POST /bookings/{id}/confirm), decline → a reason-input modal → `declineBooking(id, reason)` (POST /bookings/{id}/decline; reason stored as `cancelReason`, blank falls back to a generic reason); client name/email/avatar from the booking's populated `user` include; each card lists the booker's selected add-ons (Pickup/Drop-off/Special Needs) from the `include*` flags |
+| LiveSessionScreen | `screens/live-session-screen/containers/` | **API-wired** — real-time run of the current booking, route param `{ mode: 'partner' \| 'user' }`. Selects the active booking on focus (partner: `getBookings({ serviceProviderId })` → in-progress `ServiceStarted` first, else soonest confirmed; user: in-progress booking they booked). Shows service/pet/counterparty + scheduled window + included add-ons. **Partner:** Start → `startBookingService` (currentStatus→3), then a `CountdownTimer` to `bookingTo` + a pickup/drop-off completion checklist (`AddOnChecklist`, local-only gate) + End → `endBookingService` (currentStatus→4, re-fetch-verifies past the B4 email-500). **User:** read-only tracking. Entry points: PartnerHub "Live Session" card + live banner; Profile menu item (shown only while a booking of theirs is in progress). Caveats: BACKEND_GAPS B7. |
 | PromotionsScreen | `screens/promotions-screen/containers/` | **API-wired (offers only)** — loads `service-discounts` as offer cards (+ mock boost/featured); pause/resume toggles `isEnabled`. EditPromotion saves/deletes real offers. boost/featured/analytics are mock (BACKEND_GAPS PR1–PR5) |
-| AdminNewRequestsScreen | `screens/admin-new-requests-screen/containers/` | **API-wired** — `getServiceProviders()` in `useFocusEffect`, client-side pending/approved split; approve → `approveServiceProvider()` (+ certs), reject → `deleteServiceProvider()` |
-| ApplicationReviewScreen | (within admin-new-requests) | **API-wired** — approve/reject call the real admin endpoints, then `goBack()` (list refetches on focus) |
+| AdminNewRequestsScreen | `screens/admin-new-requests-screen/containers/` | **API-wired** — `getServiceProviders()` in `useFocusEffect`; pending/approved/rejected tabs split on `approvalStatus`; approve → `approveServiceProvider()` (+ certs), reject → `declineServiceProvider()` (record kept, shows in Rejected tab); applicant email from `contactEmail` |
+| ApplicationReviewScreen | (within admin-new-requests) | **API-wired** — approve → `approveServiceProvider()` (+ certs), reject → `declineServiceProvider()`, then `goBack()` (list refetches on focus) |
 | AdminPartnersScreen | `screens/admin-partners-screen/containers/` | Admin partner management list |
 | AdminAddPartnerScreen | `screens/admin-add-partner-screen/containers/` | Admin manually adds partner |
 | LoginScreen | `screens/login-screen/containers/` | Email/username + password + Google OAuth |
@@ -322,6 +375,7 @@ Always check this folder before creating a new component. If a new component is 
 | `DatePicker` | `value`, `onChange`, `onClose`, `isDarkMode`, `minDate?`, `maxDate?` | Calendar month picker |
 | `TimePicker` | `value`, `onChange`, `onClose`, `isDarkMode`, `minDate?` | Spinner hour/minute/AM-PM picker |
 | `ServiceDetailView` | `service`, `isDarkMode`, `showBookButton?`, `onBookPress?` | Full service detail layout |
+| `MapAddressPicker` | `visible`, `title`, `initialRegion`, `isDarkMode`, `onClose`, `onSelect(address, label)` | Full-screen map location picker — type an address to jump to it (`forwardGeocode`), or pan the map under a fixed centre pin; opens on the user's current location, with a "locate me" button. On confirm, the centre is reverse-geocoded to an `AddressDto` via `services/geocoding.ts`. Platform-split: `.tsx` (react-native-maps) / `.web.tsx` (Leaflet iframe). Used for booking pickup/drop-off. |
 
 ---
 
@@ -410,7 +464,7 @@ Genuinely bespoke colors stay inline (sourced from the hook's `isDarkMode`): e.g
 ### Forms
 - Touched state: only show field errors after user has interacted with the field
 - Visual feedback: red border (error), green border (valid), default (untouched)
-- **Always use `DatePicker` (from `components/shared/DatePicker.tsx`) for any date input** — never use a plain `TextInput` for dates. Pass `isDarkMode`, `value`, `onChange`, and `onClose` props. For time inputs, use `TimePicker` from the same folder.
+- **Always use `DatePicker` (from `components/shared/DatePicker.tsx`) for any date input** — never use a plain `TextInput` for dates. Pass `isDarkMode`, `value`, `onChange`, and `onClose` props. For time inputs, use `TimePicker` from the same folder — **except booking start times**, which use `TimeSlotPicker` (`screens/book-service-screen/components/`) so unavailable slots are disabled based on existing bookings.
 
 ### File uploads
 - Always use `uploadFilesBulk()` for multiple files — more efficient than individual uploads

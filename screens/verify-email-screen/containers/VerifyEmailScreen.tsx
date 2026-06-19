@@ -80,7 +80,8 @@ export default function VerifyEmailScreen() {
       setIsSubmitting(true);
       setVerifyError('');
       await confirmEmail(email, fullCode);
-      navigation.navigate('Login');
+      // Terminal step — reset so back can't return to the verify screen.
+      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Verification failed. Please try again.';
       setVerifyError(message);

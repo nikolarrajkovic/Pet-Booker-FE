@@ -21,6 +21,7 @@ interface BookingCardProps {
   textColor: string;
   subtextColor: string;
   borderColor: string;
+  onViewDetails?: () => void;
 }
 
 const getStatusColor = (status: string) => {
@@ -41,6 +42,7 @@ export default function BookingCard({
   textColor,
   subtextColor,
   borderColor,
+  onViewDetails,
 }: BookingCardProps) {
   return (
     <View className={`${cardBg} rounded-2xl p-4 mb-3 border ${borderColor}`}>
@@ -60,15 +62,17 @@ export default function BookingCard({
           </View>
           <View className="flex-row items-center justify-between">
             <Text className="text-brand-600 text-base font-bold">${booking.price}</Text>
-            {booking.status === 'upcoming' && (
-              <TouchableOpacity><Text className="text-brand-600 font-semibold text-sm">View Details →</Text></TouchableOpacity>
-            )}
-            {booking.rating && (
-              <View className="flex-row items-center">
-                <Ionicons name="star" size={16} color="#FFC107" />
-                <Text className={`text-sm font-semibold ${textColor} ml-1`}>{booking.rating}</Text>
-              </View>
-            )}
+            <View className="flex-row items-center" style={{ gap: 12 }}>
+              {booking.rating ? (
+                <View className="flex-row items-center">
+                  <Ionicons name="star" size={16} color="#FFC107" />
+                  <Text className={`text-sm font-semibold ${textColor} ml-1`}>{booking.rating}</Text>
+                </View>
+              ) : null}
+              <TouchableOpacity onPress={onViewDetails}>
+                <Text className="text-brand-600 font-semibold text-sm">View Details →</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>

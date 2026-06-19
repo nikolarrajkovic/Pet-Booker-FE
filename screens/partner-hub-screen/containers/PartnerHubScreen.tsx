@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,12 @@ import {
   TouchableOpacity,
   SafeAreaView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useAuth } from '../../../context/AuthContext';
+import { getBookings, BookingState, BookingStatusType } from '../../../services/bookings';
 import TabBar from '../../../components/shared/TabBar';
 
 // ─── Stats Pills Data ──────────────────────────────────────────────────────────
@@ -58,6 +60,18 @@ const STATS = [
 
 // ─── Quick Actions Data ────────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
+  {
+    id: 'live-session',
+    title: 'Live Session',
+    subtitle: 'Start & run a service',
+    icon: 'radio-outline' as const,
+    iconLib: 'ionicons',
+    iconBg: '#FEE2E2',
+    iconColor: '#EF4444',
+    badge: null,
+    badgeColor: null,
+    route: 'LiveSession',
+  },
   {
     id: 'schedule',
     title: 'My Schedule',
@@ -138,15 +152,42 @@ const RECENT_ACTIVITY = [
 
 export default function PartnerHubScreen() {
   const navigation = useNavigation();
-  const { isDarkMode, hex, textColor } = useThemeColors();
+  const { isDarkMode, hex } = useThemeColors();
+  const { currentUser } = useAuth();
   const insets = useSafeAreaInsets();
 
   const bgColor = hex.bg;
   const cardBg = hex.card;
-  const sectionTitleColor = textColor;
-  const subtitleColor = isDarkMode ? 'text-gray-400' : 'text-gray-500';
   const borderColor = hex.border;
   const activityBorder = isDarkMode ? '#2d3748' : '#F3F4F6';
+
+  // Is a service currently in progress? Drives the "live" banner + card badge.
+  const [hasLiveSession, setHasLiveSession] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        const providerId = currentUser?.serviceProviderId || null;
+        if (!providerId) {
+          if (!cancelled) setHasLiveSession(false);
+          return;
+        }
+        try {
+          const live = await getBookings({
+            serviceProviderId: providerId,
+            currentStatus: BookingStatusType.ServiceStarted,
+            state: BookingState.Upcoming,
+          });
+          if (!cancelled) setHasLiveSession(live.length > 0);
+        } catch {
+          if (!cancelled) setHasLiveSession(false);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [currentUser?.serviceProviderId]),
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#00C870' }}>
@@ -258,17 +299,61 @@ export default function PartnerHubScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100 }}
         >
+          {/* ── Active Live Session banner ── */}
+          {hasLiveSession && (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => (navigation as any).navigate('LiveSession', { mode: 'partner' })}
+              style={{
+                marginHorizontal: 20,
+                marginTop: 24,
+                backgroundColor: '#EF4444',
+                borderRadius: 16,
+                padding: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(255,255,255,0.25)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="radio" size={22} color="white" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: 'white', fontSize: 15, fontWeight: '700' }}>
+                  Service in progress
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12, marginTop: 2 }}>
+                  Tap to open your live session
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="white" />
+            </TouchableOpacity>
+          )}
+
           {/* ── Quick Actions ── */}
           <View style={{ paddingHorizontal: 20, paddingTop: 24 }}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: isDarkMode ? '#ffffff' : '#111827', marginBottom: 14 }}>
               Quick Actions
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-              {QUICK_ACTIONS.map((action) => (
+              {QUICK_ACTIONS.map((action) => {
+                const isLive = action.id === 'live-session';
+                const badgeText = isLive ? (hasLiveSession ? 'LIVE' : null) : action.badge;
+                const badgeColor = isLive ? '#EF4444' : action.badgeColor;
+                return (
                 <TouchableOpacity
                   key={action.id}
                   activeOpacity={0.85}
-                  onPress={() => (navigation as any).navigate(action.route, action.id === 'schedule' ? { mode: 'partner' } : undefined)}
+                  onPress={() => (navigation as any).navigate(action.route, action.id === 'schedule' || isLive ? { mode: 'partner' } : undefined)}
                   style={{
                     width: '47%',
                     backgroundColor: cardBg,
@@ -280,24 +365,24 @@ export default function PartnerHubScreen() {
                     shadowRadius: 3,
                     elevation: 2,
                     borderWidth: 1,
-                    borderColor: borderColor,
+                    borderColor: isLive && hasLiveSession ? '#EF4444' : borderColor,
                   }}
                 >
                   {/* Badge */}
-                  {action.badge && (
+                  {badgeText && (
                     <View
                       style={{
                         position: 'absolute',
                         top: 10,
                         right: 10,
-                        backgroundColor: action.badgeColor!,
+                        backgroundColor: badgeColor!,
                         borderRadius: 8,
                         paddingHorizontal: 7,
                         paddingVertical: 2,
                       }}
                     >
                       <Text style={{ color: 'white', fontSize: 10, fontWeight: '600' }}>
-                        {action.badge}
+                        {badgeText}
                       </Text>
                     </View>
                   )}
@@ -324,7 +409,8 @@ export default function PartnerHubScreen() {
                     {action.subtitle}
                   </Text>
                 </TouchableOpacity>
-              ))}
+                );
+              })}
             </View>
           </View>
 

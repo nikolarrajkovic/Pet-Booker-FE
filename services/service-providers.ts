@@ -40,6 +40,9 @@ export type CertificateFileDto = {
   sizeBytes?: number | null;
 };
 
+// ApprovalStatus enum (providers, certificates, reviews): 0=Pending, 1=Approved, 2=Declined
+export const ApprovalStatus = { Pending: 0, Approved: 1, Declined: 2 } as const;
+
 export type CertificateDto = {
   id?: number | null;
   serviceProviderId?: number | null;
@@ -48,9 +51,11 @@ export type CertificateDto = {
   url?: string | null;
   issuedOn?: string | null;
   expiresOn?: string | null;
-  isApproved: boolean;
   fileIds?: number[] | null;
-  // GET inflates this even though the swagger DTO omits it.
+  // Read-only fields (GET only — approval is admin-controlled):
+  approvalStatus?: number;
+  declineReason?: string | null;
+  isApproved?: boolean;
   files?: CertificateFileDto[];
 };
 
@@ -58,18 +63,23 @@ export type ServiceProviderDto = {
   id?: number | null;
   name?: string | null;
   type: number;
-  isApproved: boolean;
-  ratingAvg?: number | null;       // server-computed average rating (null until reviews exist)
+  currency?: string | null;
+  contactEmail?: string | null;
   userId?: number | null;
   providerProfileId?: number | null;
-  addressId?: number | null;
-  isApplicationPartner?: boolean;  // true when created via the partner-application flow
-  createdAt?: string;
-  updatedAt?: string;
   address?: AddressDto;
   photos?: PhotoDto[];
   governmentIdPhotos?: GovernmentIdPhotoDto[];
   certificates?: CertificateDto[];
+  // Read-only fields (GET only):
+  approvalStatus?: number; // ApprovalStatus — admin-controlled via approve/decline endpoints
+  declineReason?: string | null;
+  isApproved?: boolean; // legacy mirror of approvalStatus === Approved
+  ratingAvg?: number | null; // server-computed average rating (null until reviews exist)
+  addressId?: number | null;
+  isApplicationPartner?: boolean; // true when created via the partner-application flow
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 /**
@@ -81,28 +91,34 @@ export type ServiceProviderDto = {
 export type ProviderViewModel = {
   id: number;
   name: string;
-  service: string;     // mapped from ServiceProviderType enum
-  rating: number;      // from dto.ratingAvg (0 until reviews exist)
-  reviews: number;     // 0 until review count is exposed at list level (Phase 2)
-  distance: string;    // '' until geocoding (Phase 2)
-  price: number;       // 0 until services are loaded (populated in ProviderDetail)
-  image: string;       // first isSelected photo, or first photo
-  verified: boolean;   // = isApproved
-  latitude: number;    // 0 — not in API
-  longitude: number;   // 0 — not in API
+  service: string; // mapped from ServiceProviderType enum
+  rating: number; // from dto.ratingAvg (0 until reviews exist)
+  reviews: number; // 0 until review count is exposed at list level (Phase 2)
+  distance: string; // '' until geocoding (Phase 2)
+  price: number; // 0 until services are loaded (populated in ProviderDetail)
+  image: string; // first isSelected photo, or first photo
+  verified: boolean; // = isApproved
+  latitude: number; // 0 — not in API
+  longitude: number; // 0 — not in API
   address?: AddressDto;
 };
 
 // ServiceProviderType enum (verified against /enums): 0=Sitter, 1=Walker,
 // 2=Boarder, 3=PetHotel, 4=Groomer. Mapped here to the friendly labels used by
 // the HomeScreen service-type pills.
-const PROVIDER_TYPE_LABELS: Record<number, string> = {
+export const PROVIDER_TYPE_LABELS: Record<number, string> = {
   0: 'Pet Sitting',
   1: 'Dog Walking',
   2: 'Boarding',
   3: 'Pet Hotel',
   4: 'Grooming',
 };
+
+/** Reverse of PROVIDER_TYPE_LABELS — friendly label → ServiceProviderType value. */
+export function providerTypeValue(label: string): number | undefined {
+  const entry = Object.entries(PROVIDER_TYPE_LABELS).find(([, l]) => l === label);
+  return entry ? Number(entry[0]) : undefined;
+}
 
 /** Builds a full image URL from a relative `/files/...` path or returns as-is if already absolute. */
 export function resolveImageUrl(src: string | null | undefined): string {
@@ -127,10 +143,88 @@ export function providerToViewModel(dto: ServiceProviderDto): ProviderViewModel 
     distance: '',
     price: 0,
     image: resolveImageUrl(selectedPhoto?.src),
-    verified: dto.isApproved,
+    verified:
+      dto.approvalStatus != null
+        ? dto.approvalStatus === ApprovalStatus.Approved
+        : !!dto.isApproved,
     latitude: 0,
     longitude: 0,
     address: dto.address,
+  };
+}
+
+// ─── Provider documents (profile photo / pet photos / gov ID / certificates) ──
+
+/** A viewable image document — absolute URL ready for <Image>. */
+export type ProviderDocumentImage = { src: string; name: string };
+
+/** A certificate file: an image (viewable inline) or another file type (downloadable). */
+export type ProviderDocumentCertificate = {
+  name: string;
+  issuer: string;
+  fileSrc: string;
+  fileName: string;
+  sizeBytes: number;
+  mimeType: string;
+  isImage: boolean;
+};
+
+/** The full set of documents a provider/applicant uploads, with resolved URLs. */
+export type ProviderDocuments = {
+  profilePhoto: ProviderDocumentImage | null;
+  petPhotos: ProviderDocumentImage[];
+  governmentIdFront: ProviderDocumentImage | null;
+  governmentIdBack: ProviderDocumentImage | null;
+  certificates: ProviderDocumentCertificate[];
+};
+
+/**
+ * Pulls a provider's documents out of a ServiceProviderDto into a flat,
+ * render-ready shape with absolute URLs. Single source of truth for the
+ * profile-photo / pet-photo / government-ID / certificate split used by the
+ * admin review and partner-details screens.
+ *
+ * - profile photo = the `isSelected` photo (or the first photo)
+ * - pet photos    = every other uploaded photo
+ * - government ID  = `governmentIdPhotos` split into front/back via `isFront`
+ * - certificates   = every certificate's files flattened into viewable entries
+ */
+export function extractProviderDocuments(dto: ServiceProviderDto): ProviderDocuments {
+  const photos = dto.photos ?? [];
+  const profilePhotoDto = photos.find((p) => p.isSelected) ?? photos[0];
+  const petPhotoDtos = photos.filter((p) => p !== profilePhotoDto && p.src);
+  const govIds = dto.governmentIdPhotos ?? [];
+  const govFrontDto = govIds.find((p) => p.isFront) ?? govIds[0];
+  const govBackDto = govIds.find((p) => p !== govFrontDto);
+  const certificates = (dto.certificates ?? []).flatMap((cert) =>
+    (cert.files ?? [])
+      .filter((f) => f.src)
+      .map((f) => ({
+        name: cert.name ?? 'Certificate',
+        issuer: cert.issuer ?? '',
+        fileSrc: resolveImageUrl(f.src ?? ''),
+        fileName: f.originalName ?? 'certificate',
+        sizeBytes: f.sizeBytes ?? 0,
+        mimeType: f.mimeType ?? '',
+        isImage: (f.mimeType ?? '').startsWith('image/'),
+      }))
+  );
+
+  return {
+    profilePhoto: profilePhotoDto?.src
+      ? { src: resolveImageUrl(profilePhotoDto.src), name: profilePhotoDto.name ?? 'Profile Photo' }
+      : null,
+    petPhotos: petPhotoDtos.map((p) => ({
+      src: resolveImageUrl(p.src as string),
+      name: p.name ?? 'Pet Photo',
+    })),
+    governmentIdFront: govFrontDto?.src
+      ? { src: resolveImageUrl(govFrontDto.src), name: govFrontDto.name ?? 'Government ID (Front)' }
+      : null,
+    governmentIdBack: govBackDto?.src
+      ? { src: resolveImageUrl(govBackDto.src), name: govBackDto.name ?? 'Government ID (Back)' }
+      : null,
+    certificates,
   };
 }
 
@@ -140,15 +234,22 @@ export type GetServiceProvidersParams = {
   name?: string;
   city?: string;
   type?: number;
+  isApproved?: boolean;
+  approvalStatus?: number; // ApprovalStatus
   page?: number;
   perPage?: number;
 };
 
-export async function getServiceProviders(params?: GetServiceProvidersParams): Promise<ServiceProviderDto[]> {
+export async function getServiceProviders(
+  params?: GetServiceProvidersParams
+): Promise<ServiceProviderDto[]> {
   const query = new URLSearchParams();
   if (params?.name) query.set('Name', params.name);
   if (params?.city) query.set('City', params.city);
   if (params?.type !== undefined) query.set('Type', String(params.type));
+  if (params?.isApproved !== undefined) query.set('IsApproved', String(params.isApproved));
+  if (params?.approvalStatus !== undefined)
+    query.set('ApprovalStatus', String(params.approvalStatus));
   query.set('Page', String(params?.page ?? 1));
   query.set('PerPage', String(params?.perPage ?? 50));
 
@@ -156,7 +257,9 @@ export async function getServiceProviders(params?: GetServiceProvidersParams): P
   const response = await apiAuthFetch(url, { method: 'GET' });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to load providers.', 'getServiceProviders'));
+    throw new Error(
+      await parseApiError(response, 'Failed to load providers.', 'getServiceProviders')
+    );
   }
 
   const raw = await response.json();
@@ -168,28 +271,26 @@ export async function getServiceProvider(id: number): Promise<ServiceProviderDto
   const response = await apiAuthFetch(url, { method: 'GET' });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to load provider.', 'getServiceProvider'));
+    throw new Error(
+      await parseApiError(response, 'Failed to load provider.', 'getServiceProvider')
+    );
   }
 
   return response.json();
 }
 
-/**
- * Resolves the current user's own service-provider record.
- * BACKEND-GAP (P1): there is no `userId` filter on GET /api/service-providers,
- * so we fetch the list and match client-side. Returns null if the user has none.
- */
-export async function getMyProvider(userId: number): Promise<ServiceProviderDto | null> {
-  const providers = await getServiceProviders({ perPage: 200 });
-  return providers.find((p) => p.userId === userId) ?? null;
-}
+// NOTE: a partner's own provider id is now exposed on /auth/me as
+// `currentUser.serviceProviderId` (P1 resolved) — read it directly instead of
+// fetching the provider list. (The old getMyProvider helper has been removed.)
 
 export async function deleteServiceProvider(id: number): Promise<void> {
   const url = `${getApiBaseUrl()}/api/service-providers/${id}`;
   const response = await apiAuthFetch(url, { method: 'DELETE' });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to delete provider.', 'deleteServiceProvider'));
+    throw new Error(
+      await parseApiError(response, 'Failed to delete provider.', 'deleteServiceProvider')
+    );
   }
 }
 
@@ -215,7 +316,13 @@ export type CreateServiceProviderPayload = {
   profilePhoto: { uri: string; fileName?: string } | null;
   petPhotoFiles: { uri: string; fileName?: string }[];
   governmentIdFiles: { uri: string; fileName?: string; isFront: boolean }[];
-  certificateFiles: { uri: string; fileName?: string; certName?: string; issuer?: string; issuedDate?: string }[];
+  certificateFiles: {
+    uri: string;
+    fileName?: string;
+    certName?: string;
+    issuer?: string;
+    issuedDate?: string;
+  }[];
   userId: number;
 };
 
@@ -249,17 +356,20 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
   const today = new Date().toISOString().split('T')[0];
 
   // One certificate entry per uploaded file, referencing it by fileIds[].
-  // serviceProviderId is omitted — the provider does not exist yet (created in this request).
+  // serviceProviderId is omitted — the provider does not exist yet (created in
+  // this request). Approval state is server-controlled (starts Pending).
   const certificates = certUploads.map((f, i) => {
     const originalFile = payload.certificateFiles[i];
     return {
-      id: Number(f.id),
+      // The certificate is a NEW entity — its id must be 0 so the DB generates it.
+      // Sending the file-upload id here 500s with "Cannot insert explicit value for
+      // identity column in table 'Certificates'". The upload is referenced via fileIds.
+      id: 0,
       name: originalFile.certName ?? f.originalName,
       issuer: originalFile.issuer ?? '',
       url: '',
       issuedOn: originalFile.issuedDate || today,
       expiresOn: today,
-      isApproved: false,
       fileIds: [Number(f.id)],
     };
   });
@@ -288,8 +398,9 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
     id: 0,
     name: payload.fullName,
     type: 0,
-    // New applications are not approved yet — an admin reviews and approves later
-    isApproved: false,
+    // Approval is server-controlled: new applications start Pending — an admin
+    // approves/declines later via the /admin endpoints.
+    contactEmail: payload.email,
     // The API enforces a XOR: exactly ONE of userId / providerProfileId may be set.
     // An applicant is a user, so providerProfileId MUST be null here (sending 0 counts
     // as "provided" and trips the CK_ServiceProvider_OwnerXor DB constraint → 500).
@@ -331,6 +442,8 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
   });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to submit application.', 'createServiceProvider'));
+    throw new Error(
+      await parseApiError(response, 'Failed to submit application.', 'createServiceProvider')
+    );
   }
 }

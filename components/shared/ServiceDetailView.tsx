@@ -17,9 +17,6 @@ interface ServiceDetailViewProps {
     additionalServices?: {
       pickup?: number;
       dropOff?: number;
-      photoUpdates?: number;
-      medicationAdmin?: number;
-      specialNeeds?: number;
     };
   };
   isDarkMode: boolean;

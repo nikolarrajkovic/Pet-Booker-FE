@@ -9,6 +9,10 @@ export type CurrentUser = {
   userName: string;
   firstName: string;
   lastName: string;
+  // The user's own provider profile, when they're a partner (0 = none).
+  // Lets partner screens resolve their provider without fetching the list.
+  serviceProviderId?: number | null;
+  providerProfileId?: number | null;
 };
 
 type LoginPayload = {

@@ -5,6 +5,20 @@ import { useNavigation } from '@react-navigation/native';
 
 export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
 
+/** A viewable image document (absolute URL ready for <Image>). */
+export type ApplicationImage = { src: string; name: string };
+
+/** A certificate file: an image (viewable inline) or another file type (downloadable). */
+export type ApplicationCertificate = {
+  name: string;
+  issuer: string;
+  fileSrc: string;
+  fileName: string;
+  sizeBytes: number;
+  mimeType: string;
+  isImage: boolean;
+};
+
 export type PartnerApplication = {
   id: string;
   applicantName: string;
@@ -20,19 +34,14 @@ export type PartnerApplication = {
   certifications: string;
   availability: string;
   documents: {
-    profilePhoto: { src: string; name: string } | null;
-    governmentId: { src: string; name: string } | null;
-    insuranceCertificate: {
-      name: string;
-      issuer: string;
-      fileSrc: string;
-      fileName: string;
-      sizeBytes: number;
-      mimeType: string;
-    } | null;
+    profilePhoto: ApplicationImage | null;
+    petPhotos: ApplicationImage[];
+    governmentIdFront: ApplicationImage | null;
+    governmentIdBack: ApplicationImage | null;
+    certificates: ApplicationCertificate[];
   };
   // Real-data fields (present when sourced from the API):
-  providerId?: number;       // ServiceProvider id used to call the approve/delete endpoints
+  providerId?: number; // ServiceProvider id used to call the approve/delete endpoints
   certificateIds?: number[]; // certificate ids to approve alongside the provider
 };
 
@@ -81,16 +90,15 @@ export function PartnerApplicationCard({
         borderWidth: 1,
         borderColor,
         overflow: 'hidden',
-      }}
-    >
+      }}>
       {/* ── Card header row ── */}
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => setExpanded((v) => !v)}
-        style={{ padding: 16 }}
-      >
+        style={{ padding: 16 }}>
         {/* Name + status + chevron */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
             <Text style={{ color: textColor, fontSize: 16, fontWeight: '700' }}>
               {application.applicantName}
@@ -104,8 +112,7 @@ export function PartnerApplicationCard({
                 paddingVertical: 3,
                 borderWidth: 1,
                 borderColor: cfg.borderColor,
-              }}
-            >
+              }}>
               <Text style={{ color: cfg.text, fontSize: 11, fontWeight: '600' }}>{cfg.label}</Text>
             </View>
           </View>
@@ -131,8 +138,7 @@ export function PartnerApplicationCard({
                 borderRadius: 20,
                 paddingHorizontal: 10,
                 paddingVertical: 3,
-              }}
-            >
+              }}>
               <Text style={{ color: '#00A85A', fontSize: 11, fontWeight: '500' }}>{svc}</Text>
             </View>
           ))}
@@ -142,9 +148,7 @@ export function PartnerApplicationCard({
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() =>
-              navigation.navigate('ApplicationReview', { application })
-            }
+            onPress={() => navigation.navigate('ApplicationReview', { application })}
             style={{
               flex: 1,
               paddingVertical: 10,
@@ -152,8 +156,7 @@ export function PartnerApplicationCard({
               borderWidth: 1.5,
               borderColor: isDarkMode ? '#4B5563' : '#D1D5DB',
               alignItems: 'center',
-            }}
-          >
+            }}>
             <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>View Details</Text>
           </TouchableOpacity>
           {application.status === 'pending' && (
@@ -168,9 +171,13 @@ export function PartnerApplicationCard({
                 alignItems: 'center',
                 flexDirection: 'row',
                 justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="checkmark-circle-outline" size={16} color="white" style={{ marginRight: 4 }} />
+              }}>
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={16}
+                color="white"
+                style={{ marginRight: 4 }}
+              />
               <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>Approve</Text>
             </TouchableOpacity>
           )}
@@ -186,9 +193,24 @@ export function PartnerApplicationCard({
           <Text style={{ color: textColor, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>
             Personal Information
           </Text>
-          <InfoRow icon="mail-outline" text={application.email} textColor={textColor} subTextColor={subTextColor} />
-          <InfoRow icon="call-outline" text={application.phone} textColor={textColor} subTextColor={subTextColor} />
-          <InfoRow icon="location-outline" text={application.address} textColor={textColor} subTextColor={subTextColor} />
+          <InfoRow
+            icon="mail-outline"
+            text={application.email}
+            textColor={textColor}
+            subTextColor={subTextColor}
+          />
+          <InfoRow
+            icon="call-outline"
+            text={application.phone}
+            textColor={textColor}
+            subTextColor={subTextColor}
+          />
+          <InfoRow
+            icon="location-outline"
+            text={application.address}
+            textColor={textColor}
+            subTextColor={subTextColor}
+          />
 
           <View style={{ height: 1, backgroundColor: infoBorderColor, marginVertical: 14 }} />
 
@@ -202,8 +224,12 @@ export function PartnerApplicationCard({
               Experience: {application.experience}
             </Text>
           </View>
-          <Text style={{ color: subTextColor, fontSize: 12, marginBottom: 6, fontWeight: '600' }}>Bio:</Text>
-          <Text style={{ color: textColor, fontSize: 12, marginBottom: 10 }}>{application.bio}</Text>
+          <Text style={{ color: subTextColor, fontSize: 12, marginBottom: 6, fontWeight: '600' }}>
+            Bio:
+          </Text>
+          <Text style={{ color: textColor, fontSize: 12, marginBottom: 10 }}>
+            {application.bio}
+          </Text>
           <Text style={{ color: subTextColor, fontSize: 12, marginBottom: 2, fontWeight: '500' }}>
             Certifications:
           </Text>
@@ -230,14 +256,26 @@ export function PartnerApplicationCard({
             textColor={textColor}
           />
           <DocStatus
-            label="Government ID"
-            uploaded={!!application.documents.governmentId}
+            label={`Pet Photos (${application.documents.petPhotos.length})`}
+            uploaded={application.documents.petPhotos.length > 0}
             subTextColor={subTextColor}
             textColor={textColor}
           />
           <DocStatus
-            label="Insurance Certificate"
-            uploaded={!!application.documents.insuranceCertificate}
+            label="Government ID — Front"
+            uploaded={!!application.documents.governmentIdFront}
+            subTextColor={subTextColor}
+            textColor={textColor}
+          />
+          <DocStatus
+            label="Government ID — Back"
+            uploaded={!!application.documents.governmentIdBack}
+            subTextColor={subTextColor}
+            textColor={textColor}
+          />
+          <DocStatus
+            label={`Certificates (${application.documents.certificates.length})`}
+            uploaded={application.documents.certificates.length > 0}
             subTextColor={subTextColor}
             textColor={textColor}
           />

@@ -50,7 +50,7 @@ export default function ServiceCard({
         )}
         
         {/* Price Badge */}
-        {price && (
+        {price > 0 && (
           <View className="absolute top-2 right-2 bg-brand-500 rounded-full px-3 py-1">
             <Text className="text-white text-xs font-bold">${price}+</Text>
           </View>

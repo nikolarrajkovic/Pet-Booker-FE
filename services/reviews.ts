@@ -6,8 +6,19 @@ export type ReviewDto = {
   userId: number;
   serviceProviderId: number;
   rating: number;
+  // Per-category sub-ratings (non-nullable server-side — createReview defaults
+  // any missing one to the overall rating so they never post as 0)
+  serviceQualityRating?: number;
+  communicationRating?: number;
+  timelinessRating?: number;
+  valueRating?: number;
   title?: string | null;
   comment?: string | null;
+  // Read-only moderation fields (reviews are admin-moderated via
+  // /admin/reviews/{id}/approve|decline): ApprovalStatus 0=Pending, 1=Approved, 2=Declined
+  approvalStatus?: number;
+  declineReason?: string | null;
+  createdAt?: string;
   photos?: {
     id?: number | null;
     alt?: string | null;
@@ -23,6 +34,7 @@ export type GetReviewsParams = {
   userId?: number;
   bookingId?: number;
   rating?: number;
+  approvalStatus?: number; // ApprovalStatus (see services/service-providers.ts)
   page?: number;
   perPage?: number;
 };
@@ -33,6 +45,7 @@ export async function getReviews(params?: GetReviewsParams): Promise<ReviewDto[]
   if (params?.userId !== undefined) query.set('UserId', String(params.userId));
   if (params?.bookingId !== undefined) query.set('BookingId', String(params.bookingId));
   if (params?.rating !== undefined) query.set('Rating', String(params.rating));
+  if (params?.approvalStatus !== undefined) query.set('ApprovalStatus', String(params.approvalStatus));
   query.set('Page', String(params?.page ?? 1));
   query.set('PerPage', String(params?.perPage ?? 20));
 
@@ -49,9 +62,17 @@ export async function getReviews(params?: GetReviewsParams): Promise<ReviewDto[]
 
 export async function createReview(review: Omit<ReviewDto, 'id'>): Promise<ReviewDto> {
   const url = `${getApiBaseUrl()}/api/reviews`;
+  // Sub-ratings are non-nullable on the API — default them to the overall rating
+  const body: Omit<ReviewDto, 'id'> = {
+    ...review,
+    serviceQualityRating: review.serviceQualityRating ?? review.rating,
+    communicationRating: review.communicationRating ?? review.rating,
+    timelinessRating: review.timelinessRating ?? review.rating,
+    valueRating: review.valueRating ?? review.rating,
+  };
   const response = await apiAuthFetch(url, {
     method: 'POST',
-    body: JSON.stringify(review),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {

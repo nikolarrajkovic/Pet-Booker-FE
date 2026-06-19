@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Text, View, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
-import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
+import { Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import TabBar from '../../../components/shared/TabBar';
 import Button from '../../../components/shared/Button';
@@ -9,26 +9,25 @@ import FilterModal, { FilterState } from '../../../components/FilterModal';
 import { useLocation } from '../../../hooks/useLocation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { ListView, MapViewComponent } from '../components';
-import { getServiceProviders, providerToViewModel, ProviderViewModel } from '../../../services/service-providers';
+import type { ServiceSearchItem } from '../components/ListView';
+import { getServices } from '../../../services/services';
+import { resolveImageUrl, providerTypeLabel } from '../../../services/service-providers';
 
 type SearchRouteParams = {
   serviceType?: string;
 };
 
-const { height } = Dimensions.get('window');
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600';
 
 export default function SearchScreen() {
-  const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: SearchRouteParams }, 'params'>>();
   const serviceType = route.params?.serviceType;
   const location = useLocation();
   const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor, borderColor } = useThemeColors();
 
-  const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
-
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [allProviders, setAllProviders] = useState<ProviderViewModel[]>([]);
+  const [allServices, setAllServices] = useState<ServiceSearchItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<FilterState>({
     serviceTypes: serviceType ? [serviceType] : [],
@@ -57,10 +56,31 @@ export default function SearchScreen() {
       const load = async () => {
         setIsLoading(true);
         try {
-          const dtos = await getServiceProviders({ perPage: 100 });
-          if (!cancelled) setAllProviders(dtos.map(providerToViewModel));
+          // Search is service-centric — list bookable services, not providers.
+          const dtos = await getServices({ isActive: true, perPage: 100 });
+          if (cancelled) return;
+          setAllServices(
+            dtos.flatMap((svc) => {
+              if (svc.id == null) return [];
+              const photoSrc =
+                svc.imageUrl ?? (svc.photos?.find((p) => p.isSelected) ?? svc.photos?.[0])?.src;
+              return [{
+                id: svc.id,
+                name: svc.name ?? svc.basicServiceName ?? 'Service',
+                service: svc.type != null ? providerTypeLabel(svc.type) : (svc.basicServiceName ?? ''),
+                rating: svc.rating ?? 0,
+                reviews: svc.totalRatingNumber ?? 0,
+                distance: svc.distanceFromMyLocationKm != null ? `${Math.round(svc.distanceFromMyLocationKm)} km` : '',
+                price: svc.price ?? svc.pricing?.basePrice ?? 0,
+                image: resolveImageUrl(photoSrc) || FALLBACK_IMAGE,
+                latitude: 0,
+                longitude: 0,
+                dto: svc,
+              }];
+            }),
+          );
         } catch (e) {
-          if (!cancelled) console.warn('[SearchScreen] Failed to load providers', e);
+          if (!cancelled) console.warn('[SearchScreen] Failed to load services', e);
         } finally {
           if (!cancelled) setIsLoading(false);
         }
@@ -72,18 +92,18 @@ export default function SearchScreen() {
   );
 
   // Client-side filtering on the loaded data
-  const providers = allProviders.filter((provider) => {
-    if (filters.serviceTypes.length > 0 && !filters.serviceTypes.includes(provider.service)) {
+  const services = allServices.filter((item) => {
+    if (filters.serviceTypes.length > 0 && !filters.serviceTypes.includes(item.service)) {
       return false;
     }
-    if (provider.price > 0) {
-      if (provider.price < filters.priceRange[0] || provider.price > filters.priceRange[1]) {
+    if (item.price > 0) {
+      if (item.price < filters.priceRange[0] || item.price > filters.priceRange[1]) {
         return false;
       }
     }
-    if (filters.minimumRating !== 'Any' && provider.rating > 0) {
+    if (filters.minimumRating !== 'Any' && item.rating > 0) {
       const minRating = parseFloat(filters.minimumRating.replace('+', ''));
-      if (provider.rating < minRating) return false;
+      if (item.rating < minRating) return false;
     }
     return true;
   });
@@ -134,11 +154,11 @@ export default function SearchScreen() {
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
           <ActivityIndicator size="large" color="#00C870" />
-          <Text className={`mt-4 text-sm ${subtextColor}`}>Finding providers...</Text>
+          <Text className={`mt-4 text-sm ${subtextColor}`}>Finding services...</Text>
         </View>
       ) : viewMode === 'list' ? (
         <ListView
-          providers={providers}
+          services={services}
           isDarkMode={isDarkMode}
           textColor={textColor}
           subtextColor={subtextColor}
@@ -147,7 +167,7 @@ export default function SearchScreen() {
         />
       ) : (
         <MapViewComponent
-          providers={providers}
+          services={services}
           location={location}
         />
       )}

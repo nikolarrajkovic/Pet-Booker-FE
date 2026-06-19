@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import TabBar from '../../../components/shared/TabBar';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import { resolveImageUrl } from '../../../services/service-providers';
+import { getUser, UserDto } from '../../../services/users';
+import { getBookings, BookingState, BookingStatusType } from '../../../services/bookings';
 import { MenuItem } from '../components';
 
 const USER_MENU_ITEMS = [
@@ -13,7 +16,8 @@ const USER_MENU_ITEMS = [
   { id: 'pets', icon: 'paw', iconType: 'material', title: 'My Pets', subtitle: 'Add and manage your pets', color: '#00C870' },
   { id: 'bookings', icon: 'briefcase-outline', iconType: 'ionicons', title: 'My Bookings', subtitle: 'View booking history', color: '#00C870' },
   { id: 'schedule', icon: 'calendar-outline', iconType: 'ionicons', title: 'My Schedule', subtitle: 'View your appointments', color: '#00C870' },
-  { id: 'notifications', icon: 'notifications-outline', iconType: 'ionicons', title: 'Notifications', subtitle: 'Manage your preferences', color: '#00C870' },
+  { id: 'notifications', icon: 'notifications-outline', iconType: 'ionicons', title: 'Notifications', subtitle: 'View your notifications', color: '#00C870' },
+  { id: 'notification-settings', icon: 'options-outline', iconType: 'ionicons', title: 'Notifications settings', subtitle: 'Manage your preferences', color: '#00C870' },
   { id: 'settings', icon: 'settings-outline', iconType: 'ionicons', title: 'Settings', subtitle: 'App configuration', color: '#00C870' },
 ];
 
@@ -22,22 +26,69 @@ const PARTNER_MENU_ITEMS = [
   { id: 'pets', icon: 'paw', iconType: 'material', title: 'My Pets', subtitle: 'Add and manage your pets', color: '#00C870' },
   { id: 'bookings', icon: 'briefcase-outline', iconType: 'ionicons', title: 'My Bookings', subtitle: 'View booking history', color: '#00C870' },
   { id: 'schedule', icon: 'calendar-outline', iconType: 'ionicons', title: 'My Schedule', subtitle: 'View your appointments', color: '#00C870' },
-  { id: 'notifications', icon: 'notifications-outline', iconType: 'ionicons', title: 'Notifications', subtitle: 'Manage your preferences', color: '#00C870' },
+  { id: 'notifications', icon: 'notifications-outline', iconType: 'ionicons', title: 'Notifications', subtitle: 'View your notifications', color: '#00C870' },
+  { id: 'notification-settings', icon: 'options-outline', iconType: 'ionicons', title: 'Notifications settings', subtitle: 'Manage your preferences', color: '#00C870' },
   { id: 'settings', icon: 'settings-outline', iconType: 'ionicons', title: 'Settings', subtitle: 'App configuration', color: '#00C870' },
 ];
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor, borderColor } = useThemeColors();
-  const { signOut, isPartner } = useAuth();
+  const { signOut, isPartner, currentUser } = useAuth();
 
-  const menuItems = isPartner ? PARTNER_MENU_ITEMS : USER_MENU_ITEMS;
+  const [user, setUser] = useState<UserDto | null>(null);
+  const [avatarError, setAvatarError] = useState(false);
+  // Surfaces the "Live Session" menu item only while one of the user's own
+  // bookings is in progress (currentStatus = ServiceStarted).
+  const [hasLiveSession, setHasLiveSession] = useState(false);
 
-  const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
-  const headerTextColor = 'text-white';
+  // Load the real profile (name + avatar) on focus — auth/me has no avatarUrl.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      if (currentUser?.id) {
+        getUser(currentUser.id)
+          .then((u) => { if (!cancelled) { setUser(u); setAvatarError(false); } })
+          .catch(() => {});
+        getBookings({
+          userId: currentUser.id,
+          currentStatus: BookingStatusType.ServiceStarted,
+          state: BookingState.Upcoming,
+        })
+          .then((list) => { if (!cancelled) setHasLiveSession(list.length > 0); })
+          .catch(() => { if (!cancelled) setHasLiveSession(false); });
+      }
+      return () => { cancelled = true; };
+    }, [currentUser?.id])
+  );
+
+  const fullName =
+    [user?.firstName ?? currentUser?.firstName, user?.lastName ?? currentUser?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim() || currentUser?.userName || 'Your Profile';
+  const email = user?.email ?? currentUser?.email ?? '';
+  const avatarUri = avatarError ? '' : resolveImageUrl(user?.avatarUrl);
+  const initials = ((user?.firstName ?? currentUser?.firstName ?? email ?? '?').trim()[0] ?? '?').toUpperCase();
+
+  const baseMenu = isPartner ? PARTNER_MENU_ITEMS : USER_MENU_ITEMS;
+  const menuItems = hasLiveSession
+    ? [
+        {
+          id: 'live-session',
+          icon: 'radio',
+          iconType: 'ionicons',
+          title: 'Live Session',
+          subtitle: 'Service in progress — tap to track',
+          color: '#EF4444',
+        },
+        ...baseMenu,
+      ]
+    : baseMenu;
 
   const handleMenuPress = (id: string) => {
-    if (id === 'account') (navigation as any).navigate('Account');
+    if (id === 'live-session') (navigation as any).navigate('LiveSession', { mode: 'user' });
+    else if (id === 'account') (navigation as any).navigate('Account');
     else if (id === 'pets') (navigation as any).navigate('MyPets');
     else if (id === 'bookings') (navigation as any).navigate('MyBookings');
     else if (id === 'new-requests') (navigation as any).navigate('NewRequests');
@@ -45,6 +96,7 @@ export default function ProfileScreen() {
     else if (id === 'services') (navigation as any).navigate('MyServices');
     else if (id === 'promotions') (navigation as any).navigate('Promotions');
     else if (id === 'notifications') (navigation as any).navigate('Notifications');
+    else if (id === 'notification-settings') (navigation as any).navigate('NotificationSettings');
     else if (id === 'settings') (navigation as any).navigate('Settings');
   };
 
@@ -57,12 +109,20 @@ export default function ProfileScreen() {
         <>
           <Text className="text-white text-2xl font-bold mb-6">Profile</Text>
           <View className={`${isDarkMode ? 'bg-[#243447]' : 'bg-brand-400'} rounded-2xl p-4 flex-row items-center mb-8`}>
-            <View className="w-16 h-16 bg-orange-400 rounded-full items-center justify-center mr-4">
-              <Text className="text-3xl">👩</Text>
-            </View>
+            {avatarUri ? (
+              <Image
+                source={{ uri: avatarUri }}
+                className="w-16 h-16 rounded-full mr-4"
+                onError={() => setAvatarError(true)}
+              />
+            ) : (
+              <View className="w-16 h-16 rounded-full items-center justify-center mr-4 bg-white/25">
+                <Text className="text-white text-2xl font-bold">{initials}</Text>
+              </View>
+            )}
             <View className="flex-1">
-              <Text className="text-white text-lg font-bold">Alex Johnson</Text>
-              <Text className="text-brand-100 text-sm mt-1">alex@email.com</Text>
+              <Text className="text-white text-lg font-bold">{fullName}</Text>
+              {email ? <Text className="text-brand-100 text-sm mt-1">{email}</Text> : null}
             </View>
           </View>
         </>

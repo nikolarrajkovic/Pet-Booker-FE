@@ -1,76 +1,97 @@
 import React, { useState, useCallback } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Switch, ActivityIndicator } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import {
+  ScrollView,
+  Text,
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
-import { EnableNotificationsCard, NotificationToggle } from '../components';
+import { NotificationItem } from '../components';
 import {
-  getNotificationSettings,
-  saveNotificationSettings,
-  defaultNotificationSettings,
-  UserNotificationSettingsDto,
-} from '../../../services/notifications';
-
-// "HH:MM:SS" → "10:00 PM"
-function formatTime(t?: string): string {
-  if (!t) return '';
-  const [h, m] = t.split(':').map(Number);
-  if (isNaN(h)) return '';
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 || 12;
-  return `${h12}:${String(m ?? 0).padStart(2, '0')} ${ampm}`;
-}
+  getAppNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  notificationBookingId,
+  AppNotificationDto,
+} from '../../../services/app-notifications';
 
 export default function NotificationsScreen() {
+  const navigation = useNavigation();
   const { currentUser } = useAuth();
-  const { isDarkMode, cardBg, textColor, subtextColor } = useThemeColors();
+  const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
 
-  const [settings, setSettings] = useState<UserNotificationSettingsDto | null>(null);
+  const [notifications, setNotifications] = useState<AppNotificationDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showEnableModal, setShowEnableModal] = useState(true);
-  const [saveError, setSaveError] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const load = useCallback(
+    async (silent = false) => {
+      const userId = currentUser?.id;
+      if (!userId) {
+        setIsLoading(false);
+        return;
+      }
+      if (!silent) setIsLoading(true);
+      setError(null);
+      try {
+        const items = await getAppNotifications({ userId, perPage: 100 });
+        setNotifications(items);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load notifications.');
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [currentUser?.id]
+  );
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      const userId = currentUser?.id;
-      if (!userId) { setIsLoading(false); return; }
       (async () => {
-        setIsLoading(true);
-        try {
-          const record = await getNotificationSettings(userId);
-          if (!cancelled) setSettings(record ?? defaultNotificationSettings(userId));
-        } catch {
-          if (!cancelled) setSettings(defaultNotificationSettings(userId));
-        } finally {
-          if (!cancelled) setIsLoading(false);
-        }
+        if (!cancelled) await load();
       })();
-      return () => { cancelled = true; };
-    }, [currentUser?.id])
+      return () => {
+        cancelled = true;
+      };
+    }, [load])
   );
 
-  // Apply a change locally (responsive) and persist it. Persisting may fail for
-  // accounts missing a domain Users row (see BACKEND_GAPS N1) — handled gracefully.
-  const update = (partial: Partial<UserNotificationSettingsDto>) => {
-    setSettings((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev, ...partial };
-      saveNotificationSettings(next)
-        .then((saved) => { setSaveError(false); setSettings((cur) => (cur ? { ...cur, id: saved.id ?? cur.id } : cur)); })
-        .catch(() => setSaveError(true));
-      return next;
-    });
+  const onRefresh = () => {
+    setIsRefreshing(true);
+    load(true);
   };
 
-  const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
-  const borderColor = isDarkMode ? 'border-[#243447]' : 'border-gray-200';
-  const sectionHeaderColor = isDarkMode ? 'text-white' : 'text-[#1a365d]';
+  const handlePress = (n: AppNotificationDto) => {
+    // Mark read optimistically; persist best-effort.
+    if (!n.isRead) {
+      setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
+      markNotificationRead(n.id).catch(() => {});
+    }
+    // Deep-link to the related booking when the payload carries one.
+    const bookingId = notificationBookingId(n);
+    if (bookingId != null) {
+      (navigation as any).navigate('BookingDetails', { bookingId });
+    }
+  };
 
-  const s = settings ?? defaultNotificationSettings(currentUser?.id ?? 0);
-  const dndRange = `${formatTime(s.dndStartTime) || '10:00 PM'} to ${formatTime(s.dndEndTime) || '8:00 AM'}`;
+  const handleMarkAll = () => {
+    const unreadIds = notifications.filter((n) => !n.isRead).map((n) => n.id);
+    if (unreadIds.length === 0) return;
+    setNotifications((prev) => prev.map((x) => ({ ...x, isRead: true })));
+    markAllNotificationsRead(unreadIds).catch(() => {});
+  };
 
   return (
     <ScreenLayout
@@ -78,100 +99,72 @@ export default function NotificationsScreen() {
       showBackButton
       headerTitle="Notifications"
       contentBg={bgColor}
-    >
+      rightAction={
+        unreadCount > 0 ? (
+          <TouchableOpacity
+            onPress={handleMarkAll}
+            className="h-10 items-center justify-center rounded-full bg-brand-600 px-3">
+            <Text className="text-xs font-semibold text-white">Mark all read</Text>
+          </TouchableOpacity>
+        ) : undefined
+      }>
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
           <ActivityIndicator size="large" color="#00C870" />
         </View>
       ) : (
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-          {showEnableModal && !s.pushEnabled && (
-            <EnableNotificationsCard
-              isDarkMode={isDarkMode}
-              onEnable={() => update({ pushEnabled: true })}
-              onDismiss={() => setShowEnableModal(false)}
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ padding: 16, paddingBottom: 40, flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor="#00C870"
+              colors={['#00C870']}
             />
-          )}
-
-          {saveError && (
-            <View className="mx-4 mt-4 rounded-xl bg-yellow-50 border border-yellow-200 px-4 py-3 flex-row items-center">
-              <Ionicons name="warning-outline" size={16} color="#D97706" style={{ marginRight: 8 }} />
-              <Text className="text-yellow-700 text-xs flex-1">Couldn’t save your last change. It’s applied on this device only.</Text>
+          }>
+          {error ? (
+            <View className="flex-1 items-center justify-center px-6 py-20">
+              <Ionicons name="cloud-offline-outline" size={48} color="#9CA3AF" />
+              <Text className={`text-base font-semibold ${textColor} mt-4 text-center`}>
+                Couldn’t load notifications
+              </Text>
+              <Text className={`text-sm ${subtextColor} mt-2 text-center`}>{error}</Text>
+              <TouchableOpacity
+                onPress={() => load()}
+                className="mt-4 rounded-full bg-brand-500 px-5 py-2.5">
+                <Text className="font-semibold text-white">Try again</Text>
+              </TouchableOpacity>
             </View>
-          )}
-
-          {/* Notification Channels */}
-          <View className="px-4 mt-6">
-            <Text className={`text-sm font-bold ${sectionHeaderColor} mb-3`}>Notification Channels</Text>
-            <View className={`${cardBg} rounded-2xl border ${borderColor} overflow-hidden`}>
-              <NotificationToggle
-                icon="phone-portrait-outline"
-                title="Push Notifications"
-                subtitle="Receive notifications on this device"
-                value={s.pushEnabled}
-                onValueChange={(v) => update({ pushEnabled: v })}
-                isDarkMode={isDarkMode}
-                textColor={textColor}
-                subtextColor={subtextColor}
-              />
-              <View className={`h-px ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'} mx-4`} />
-              <NotificationToggle
-                icon="mail-outline"
-                title="Email Notifications"
-                subtitle="Receive updates via email"
-                value={s.emailEnabled}
-                onValueChange={(v) => update({ emailEnabled: v })}
-                isDarkMode={isDarkMode}
-                textColor={textColor}
-                subtextColor={subtextColor}
-              />
-            </View>
-          </View>
-
-          {/* What You'll Receive */}
-          <View className="px-4 mt-6">
-            <Text className={`text-sm font-bold ${sectionHeaderColor} mb-3`}>What You'll Receive</Text>
-            <View className={`${cardBg} rounded-2xl border ${borderColor} overflow-hidden`}>
-              <NotificationToggle title="Booking Updates" subtitle="Confirmations, cancellations, and changes" value={s.bookingUpdates} onValueChange={(v) => update({ bookingUpdates: v })} isDarkMode={isDarkMode} textColor={textColor} subtextColor={subtextColor} />
-              <View className={`h-px ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'} mx-4`} />
-              <NotificationToggle title="Appointment Reminders" subtitle="Get reminded before your appointments" value={s.appointmentReminders} onValueChange={(v) => update({ appointmentReminders: v })} isDarkMode={isDarkMode} textColor={textColor} subtextColor={subtextColor} />
-              <View className={`h-px ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'} mx-4`} />
-              <NotificationToggle title="Messages" subtitle="New messages from pet care providers" value={s.messages} onValueChange={(v) => update({ messages: v })} isDarkMode={isDarkMode} textColor={textColor} subtextColor={subtextColor} />
-              <View className={`h-px ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'} mx-4`} />
-              <NotificationToggle title="Promotions & Offers" subtitle="Special deals and discounts" value={s.promotionsOffers} onValueChange={(v) => update({ promotionsOffers: v })} isDarkMode={isDarkMode} textColor={textColor} subtextColor={subtextColor} />
-              <View className={`h-px ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'} mx-4`} />
-              <NotificationToggle title="New Services" subtitle="New pet care services in your area" value={s.newServices} onValueChange={(v) => update({ newServices: v })} isDarkMode={isDarkMode} textColor={textColor} subtextColor={subtextColor} />
-            </View>
-          </View>
-
-          {/* Quiet Hours */}
-          <View className="px-4 mt-6 mb-6">
-            <Text className={`text-sm font-bold ${sectionHeaderColor} mb-3`}>Quiet Hours</Text>
-            <View className={`${cardBg} rounded-2xl border ${borderColor} overflow-hidden`}>
-              <View className="px-4 py-4 flex-row items-center justify-between">
-                <View className="flex-row items-center flex-1">
-                  <MaterialIcons name="do-not-disturb-on" size={20} color={isDarkMode ? '#9ca3af' : '#6b7280'} />
-                  <View className="ml-3 flex-1">
-                    <Text className={`text-base font-semibold ${textColor}`}>Do Not Disturb</Text>
-                    <Text className={`text-sm ${subtextColor} mt-0.5`}>Mute non-urgent notifications from {dndRange}</Text>
-                  </View>
-                </View>
-                <Switch value={s.dndEnabled} onValueChange={(v) => update({ dndEnabled: v })} trackColor={{ false: isDarkMode ? '#374151' : '#d1d5db', true: '#00C870' }} thumbColor="white" ios_backgroundColor={isDarkMode ? '#374151' : '#d1d5db'} />
+          ) : notifications.length === 0 ? (
+            <View className="flex-1 items-center justify-center px-6 py-20">
+              <View
+                className={`mb-4 h-20 w-20 items-center justify-center rounded-full ${isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-50'}`}>
+                <Ionicons name="notifications-off-outline" size={36} color="#00C870" />
               </View>
-              {s.dndEnabled && (
-                <>
-                  <View className={`h-px ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'} mx-4`} />
-                  <TouchableOpacity className="px-4 py-3">
-                    <Text className="text-brand-500 font-semibold text-sm">Customize Schedule</Text>
-                  </TouchableOpacity>
-                </>
-              )}
+              <Text className={`text-lg font-semibold ${textColor} text-center`}>
+                No notifications yet
+              </Text>
+              <Text className={`text-sm ${subtextColor} mt-2 text-center`}>
+                Updates about your bookings and account will show up here.
+              </Text>
             </View>
-            <View className="flex-row mt-4 px-3">
-              <Ionicons name="information-circle" size={16} color="#60a5fa" style={{ marginTop: 2 }} />
-              <Text className={`text-xs ${subtextColor} ml-2 flex-1`}>You can manage notification permissions in your device settings at any time.</Text>
-            </View>
-          </View>
+          ) : (
+            notifications.map((n) => (
+              <NotificationItem
+                key={n.id}
+                notification={n}
+                isDarkMode={isDarkMode}
+                cardBg={cardBg}
+                textColor={textColor}
+                subtextColor={subtextColor}
+                borderColor={borderColor}
+                onPress={() => handlePress(n)}
+              />
+            ))
+          )}
         </ScrollView>
       )}
     </ScreenLayout>

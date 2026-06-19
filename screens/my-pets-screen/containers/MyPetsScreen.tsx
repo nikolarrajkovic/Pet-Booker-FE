@@ -15,23 +15,6 @@ function mapSexLabel(sex: number): string {
   return 'Unspecified';
 }
 
-function mapSexToInput(sex: number): string {
-  if (sex === 1) return 'male';
-  if (sex === 2) return 'female';
-  return '';
-}
-
-function mapTypeToInput(type: number): string {
-  switch (type) {
-    case 1: return 'dog';
-    case 2: return 'cat';
-    case 3: return 'parrot';
-    case 4: return 'turtle';
-    case 5: return 'fish';
-    case 6: return 'snake';
-    default: return '';
-  }
-}
 
 function resolveUrl(path: string | null | undefined): string | null {
   if (!path) return null;
@@ -154,8 +137,8 @@ export default function MyPetsScreen() {
               onEdit={() => (navigation as any).navigate('AddPet', {
                 pet: {
                   ...toPetCardShape(pet),
-                  type: mapTypeToInput(pet.type as unknown as number),
-                  sex: mapSexToInput(pet.sex),
+                  petTypeNum: pet.type,
+                  sexNum: pet.sex,
                   weight: pet.weightKg ? String(pet.weightKg) : '',
                   height: pet.heightCm ? String(pet.heightCm) : '',
                   dateOfBirth: pet.dateOfBirth ?? undefined,

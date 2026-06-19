@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { getServices, ServiceDto } from '../../../services/services';
 import { getReviews, ReviewDto } from '../../../services/reviews';
+import { ApprovalStatus } from '../../../services/service-providers';
 import type { ProviderViewModel } from '../../../services/service-providers';
 
 type ProviderDetailRouteParams = {
@@ -32,7 +33,8 @@ export default function ProviderDetailScreen() {
       try {
         const [svc, rev] = await Promise.all([
           getServices({ serviceProviderId: provider.id }),
-          getReviews({ serviceProviderId: provider.id }),
+          // Reviews are admin-moderated — only show approved ones publicly
+          getReviews({ serviceProviderId: provider.id, approvalStatus: ApprovalStatus.Approved }),
         ]);
         if (!cancelled) {
           setServices(svc);
@@ -54,7 +56,7 @@ export default function ProviderDetailScreen() {
     : provider.rating;
   const reviewCount = reviews.length || provider.reviews;
   // Prefer the effective price (after any applied discount) the API returns
-  const servicePrice = (s: ServiceDto) => s.price ?? s.basePrice;
+  const servicePrice = (s: ServiceDto) => s.price ?? s.pricing?.basePrice ?? 0;
   const startingPrice = services.length
     ? Math.min(...services.map(servicePrice))
     : provider.price;
@@ -82,7 +84,7 @@ export default function ProviderDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         {/* Header info */}
         <View className="px-6 py-5">
           <Text className={`text-2xl font-bold ${textColor}`}>{provider.name}</Text>
@@ -159,31 +161,41 @@ export default function ProviderDetailScreen() {
           </View>
         ) : (
           <>
-            {/* Services list */}
+            {/* Services list — tap a service to book that specific service */}
             {services.length > 0 && (
               <View className="px-6 mb-6">
-                <Text className={`text-lg font-semibold ${textColor} mb-3`}>Services</Text>
+                <Text className={`text-lg font-semibold ${textColor} mb-1`}>Services</Text>
+                <Text className={`text-sm ${subtextColor} mb-3`}>Tap a service to book it</Text>
                 {services.map((svc, idx) => (
-                  <View
+                  <TouchableOpacity
                     key={svc.id ?? idx}
+                    onPress={() =>
+                      (navigation as any).navigate('BookService', { service: svc })
+                    }
                     className={`${cardBg} border ${borderColor} rounded-2xl p-4 mb-3`}
                   >
                     <View className="flex-row justify-between items-start">
                       <View className="flex-1 mr-3">
                         <Text className={`font-semibold ${textColor}`}>{svc.name ?? 'Service'}</Text>
-                        {svc.about || svc.notes ? (
-                          <Text className={`text-sm ${subtextColor} mt-1`}>{svc.about ?? svc.notes}</Text>
+                        {svc.description || svc.about ? (
+                          <Text className={`text-sm ${subtextColor} mt-1`}>{svc.description ?? svc.about}</Text>
                         ) : null}
-                        {svc.details?.supportsPickup && (
+                        {svc.details?.isPickupProvided && (
                           <Text className="text-xs text-brand-600 mt-1">Pickup available</Text>
                         )}
-                        {svc.details?.supportsLeaveOver && (
+                        {svc.details?.isPetReturnProvided && (
                           <Text className="text-xs text-brand-600 mt-0.5">Leave-over available</Text>
                         )}
                       </View>
-                      <Text className="text-brand-600 font-bold text-base">${servicePrice(svc)}</Text>
+                      <View className="items-end">
+                        <Text className="text-brand-600 font-bold text-base">${servicePrice(svc)}</Text>
+                        <View className="flex-row items-center mt-2 bg-brand-500 px-4 py-1.5 rounded-full">
+                          <Ionicons name="calendar-outline" size={13} color="white" />
+                          <Text className="text-white text-xs font-bold ml-1">Book</Text>
+                        </View>
+                      </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
@@ -222,23 +234,6 @@ export default function ProviderDetailScreen() {
           </>
         )}
       </ScrollView>
-
-      {/* Book Now CTA */}
-      <View
-        className={`absolute bottom-0 left-0 right-0 ${cardBg} border-t ${borderColor} px-6 py-4`}
-      >
-        <TouchableOpacity
-          onPress={() =>
-            (navigation as any).navigate('BookService', {
-              provider: { ...provider, price: startingPrice, rating: avgRating, reviews: reviewCount },
-            })
-          }
-          className="bg-brand-500 py-4 rounded-2xl items-center"
-          style={{ shadowColor: '#00C870', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 }}
-        >
-          <Text className="text-white text-lg font-bold">Book Now</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }

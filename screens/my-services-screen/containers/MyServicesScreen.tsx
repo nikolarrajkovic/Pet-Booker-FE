@@ -1,19 +1,16 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors, themeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { getServices, deleteService, ServiceDto } from '../../../services/services';
-import { getMyProvider, ServiceProviderDto } from '../../../services/service-providers';
 import { serviceDtoToUi, UiService } from '../serviceModel';
 
 const ADDITIONAL_SERVICE_ICONS: Record<string, string> = {
   'Pickup': 'car-outline',
   'Drop-off': 'car-outline',
-  'Photo Updates': 'camera-outline',
-  'Medication Administration': 'medkit-outline',
   'Special Needs Care': 'heart-outline',
 };
 
@@ -21,29 +18,24 @@ export default function MyServicesScreen() {
   const navigation = useNavigation();
   const { currentUser } = useAuth();
   const { isDarkMode, hex } = useThemeColors();
-  const [provider, setProvider] = useState<ServiceProviderDto | null>(null);
+  // The partner's own provider id comes straight from /auth/me (0 → none).
+  const providerId = currentUser?.serviceProviderId || null;
   const [services, setServices] = useState<ServiceDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!currentUser?.id) { setIsLoading(false); return; }
+    if (!providerId) { setServices([]); setIsLoading(false); return; }
     setIsLoading(true);
     setError(null);
     try {
-      const mine = await getMyProvider(currentUser.id);
-      setProvider(mine);
-      if (mine?.id) {
-        setServices(await getServices({ serviceProviderId: mine.id }));
-      } else {
-        setServices([]);
-      }
+      setServices(await getServices({ serviceProviderId: providerId }));
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load your services.');
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser?.id]);
+  }, [providerId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -79,16 +71,16 @@ export default function MyServicesScreen() {
     (navigation as any).navigate('AddEditService', {
       mode: 'edit',
       serviceDto: dto,
-      serviceProviderId: provider?.id,
+      serviceProviderId: providerId,
     });
   };
 
   const addNewButton = (
     <TouchableOpacity
-      disabled={!provider?.id}
-      onPress={() => (navigation as any).navigate('AddEditService', { mode: 'add', serviceProviderId: provider?.id })}
+      disabled={!providerId}
+      onPress={() => (navigation as any).navigate('AddEditService', { mode: 'add', serviceProviderId: providerId })}
       className="bg-white/20 rounded-full px-3 py-1.5 flex-row items-center"
-      style={{ opacity: provider?.id ? 1 : 0.5 }}
+      style={{ opacity: providerId ? 1 : 0.5 }}
     >
       <Ionicons name="add" size={16} color="white" />
       <Text className="text-white font-semibold ml-1 text-sm">Add New</Text>
@@ -116,7 +108,7 @@ export default function MyServicesScreen() {
               <Ionicons name="alert-circle-outline" size={56} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
               <Text style={{ color: hex.subtext, textAlign: 'center', marginTop: 12 }}>{error}</Text>
             </View>
-          ) : !provider ? (
+          ) : !providerId ? (
             <View style={{ alignItems: 'center', paddingVertical: 48 }}>
               <Ionicons name="briefcase-outline" size={56} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
               <Text style={{ color: hex.subtext, textAlign: 'center', marginTop: 12 }}>
@@ -172,9 +164,17 @@ function ServiceListCard({
     >
       {/* Image Area */}
       <View className="relative bg-gray-200" style={{ height: 180 }}>
-        <View className="flex-1 items-center justify-center">
-          <Ionicons name="paw-outline" size={52} color="#C4C9D4" />
-        </View>
+        {service.images[0] ? (
+          <Image
+            source={{ uri: service.images[0] }}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
+        ) : (
+          <View className="flex-1 items-center justify-center">
+            <Ionicons name="paw-outline" size={52} color="#C4C9D4" />
+          </View>
+        )}
 
         {/* Edit / Delete overlay buttons */}
         <View className="absolute top-3 right-3 flex-row" style={{ gap: 8 }}>

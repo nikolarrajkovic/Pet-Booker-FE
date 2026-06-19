@@ -43,7 +43,8 @@ export default function ForgotPasswordScreen() {
     try {
       await resetPassword({ resetToken: resetToken.trim(), newPassword, confirmPassword });
       Alert.alert('Password reset', 'You can now sign in with your new password.', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') },
+        // Terminal step — reset so back can't return to the reset form.
+        { text: 'OK', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }) },
       ]);
     } catch (e: any) {
       Alert.alert('Could not reset password', e?.message ?? 'Please try again.');

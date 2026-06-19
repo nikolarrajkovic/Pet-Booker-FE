@@ -9,42 +9,96 @@ import { Ionicons , MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useLocation } from '../../../hooks/useLocation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import { getServiceProviders, providerToViewModel, ProviderViewModel } from '../../../services/service-providers';
+import { useAuth } from '../../../context/AuthContext';
+import { resolveImageUrl, providerTypeLabel } from '../../../services/service-providers';
+import { ServiceDto } from '../../../services/services';
+import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
+import { getUnreadNotificationCount } from '../../../services/app-notifications';
 
-// Service type pills — used to navigate to SearchScreen with a pre-set filter
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600';
+
+// Service type pills — labels must match PROVIDER_TYPE_LABELS (serviceProviderType enum:
+// 0 Sitter, 1 Walker, 2 Boarder, 3 PetHotel, 4 Groomer) so SearchScreen's filter matches.
 const SERVICE_TYPES = [
-  { id: 'dog-walking', label: 'Dog Walking', icon: 'walk' },
-  { id: 'grooming', label: 'Grooming', icon: 'cut' },
-  { id: 'boarding', label: 'Boarding', icon: 'home' },
-  { id: 'training', label: 'Training', icon: 'school' },
-  { id: 'veterinary', label: 'Veterinary', icon: 'medical' },
   { id: 'pet-sitting', label: 'Pet Sitting', icon: 'bed' },
+  { id: 'dog-walking', label: 'Dog Walking', icon: 'walk' },
+  { id: 'boarding', label: 'Boarding', icon: 'home' },
+  { id: 'pet-hotel', label: 'Pet Hotel', icon: 'business' },
+  { id: 'grooming', label: 'Grooming', icon: 'cut' },
 ];
+
+/** A service flattened for ServiceCard. Booking targets the service itself. */
+type ServiceItem = {
+  id: number;
+  name: string;
+  subtitle: string;
+  rating: number;
+  reviews: number;
+  price: number;
+  image: string;
+  dto: ServiceDto; // the real service record — carries serviceProviderId for booking
+};
+
+/** Flattens a ServiceDto from a home endpoint into a card item. */
+function toServiceItem(svc: ServiceDto): ServiceItem | null {
+  if (svc.id == null) return null;
+  const photoSrc = svc.imageUrl ?? (svc.photos?.find((p) => p.isSelected) ?? svc.photos?.[0])?.src;
+  return {
+    id: svc.id,
+    name: svc.name ?? svc.basicServiceName ?? 'Service',
+    subtitle: svc.basicServiceName ?? (svc.type != null ? providerTypeLabel(svc.type) : ''),
+    rating: svc.rating ?? 0,
+    reviews: svc.totalRatingNumber ?? 0,
+    price: svc.price ?? svc.pricing?.basePrice ?? 0,
+    image: resolveImageUrl(photoSrc) || FALLBACK_IMAGE,
+    dto: svc,
+  };
+}
+
+const toItems = (dtos: ServiceDto[]): ServiceItem[] =>
+  dtos.map(toServiceItem).filter((i): i is ServiceItem => i !== null);
 
 export default function HomeScreen() {
   const navigation = useNavigation();
   const location = useLocation();
   const { isDarkMode, textColor } = useThemeColors();
+  const { currentUser } = useAuth();
 
-  const [providers, setProviders] = useState<ProviderViewModel[]>([]);
+  const [nearYou, setNearYou] = useState<ServiceItem[]>([]);
+  const [mostPopular, setMostPopular] = useState<ServiceItem[]>([]);
+  const [recentlyBooked, setRecentlyBooked] = useState<ServiceItem[]>([]);
+  const [specialDeals, setSpecialDeals] = useState<ServiceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-brand-500';
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
   const sectionTitleColor = textColor;
   const subtitleColor = isDarkMode ? 'text-gray-400' : 'text-brand-100';
 
+  const { latitude, longitude } = location;
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
 
       const load = async () => {
         setIsLoading(true);
+        // Each Home row is its own backend endpoint. Wrap each so one failing
+        // section doesn't blank the whole page.
+        const safe = (p: Promise<ServiceDto[]>) => p.catch(() => [] as ServiceDto[]);
         try {
-          const dtos = await getServiceProviders({ perPage: 40 });
-          if (!cancelled) setProviders(dtos.map(providerToViewModel));
+          const [popular, sale, recent, near] = await Promise.all([
+            safe(getMostPopular()),
+            safe(getOnSale()),
+            safe(getRecentlyBooked()),
+            safe(getNearMe({ lat: latitude, lng: longitude })),
+          ]);
+          if (cancelled) return;
+          setMostPopular(toItems(popular));
+          setSpecialDeals(toItems(sale));
+          setRecentlyBooked(toItems(recent));
+          setNearYou(toItems(near));
         } catch (e) {
-          if (!cancelled) console.warn('[HomeScreen] Failed to load providers', e);
+          if (!cancelled) console.warn('[HomeScreen] Failed to load home sections', e);
         } finally {
           if (!cancelled) setIsLoading(false);
         }
@@ -52,18 +106,25 @@ export default function HomeScreen() {
 
       load();
       return () => { cancelled = true; };
-    }, [])
+    }, [latitude, longitude])
   );
 
-  // Distribute providers across sections.
-  // Phase 2: recentlyBooked → real booking history; specialDeals → providers with active discounts.
-  const nearYou = providers.slice(0, 8);
-  const mostPopular = [...providers].reverse().slice(0, 8);
-  const recentlyBooked = providers.slice(0, 8);
-  const specialDeals = providers.filter((_, i) => i % 3 === 0).slice(0, 8);
+  // Unread-notification badge on the bell — refreshed on every focus.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      const userId = currentUser?.id;
+      if (!userId) { setUnreadCount(0); return; }
+      getUnreadNotificationCount(userId)
+        .then((count) => { if (!cancelled) setUnreadCount(count); })
+        .catch(() => {});
+      return () => { cancelled = true; };
+    }, [currentUser?.id])
+  );
 
-  const handleServicePress = (provider: ProviderViewModel) => {
-    (navigation as any).navigate('ProviderDetail', { provider });
+  const handleServicePress = (item: ServiceItem) => {
+    // Service-centric: book the tapped service directly (no provider middle-step).
+    (navigation as any).navigate('BookService', { service: item.dto });
   };
 
   const handleServiceTypePress = (serviceType: string) => {
@@ -77,7 +138,7 @@ export default function HomeScreen() {
   const renderSection = (
     title: string,
     icon: string,
-    items: ProviderViewModel[],
+    items: ServiceItem[],
     category: string,
     badge?: 'popular' | 'deal',
   ) => {
@@ -104,18 +165,17 @@ export default function HomeScreen() {
                     </View>
                   </View>
                 ))
-              : items.map((provider) => (
+              : items.map((item) => (
                   <ServiceCard
-                    key={provider.id}
-                    image={provider.image}
-                    name={provider.name}
-                    service={provider.service}
-                    rating={provider.rating}
-                    reviews={provider.reviews}
-                    distance={provider.distance || undefined}
-                    price={provider.price}
+                    key={item.id}
+                    image={item.image}
+                    name={item.name}
+                    service={item.subtitle}
+                    rating={item.rating}
+                    reviews={item.reviews}
+                    price={item.price}
                     badge={badge}
-                    onPress={() => handleServicePress(provider)}
+                    onPress={() => handleServicePress(item)}
                   />
                 ))}
             {!isLoading && <SeeMoreCard onPress={() => handleSeeAll(category)} />}
@@ -143,6 +203,11 @@ export default function HomeScreen() {
             </View>
             <TouchableOpacity className="p-2" onPress={() => (navigation as any).navigate('Notifications')}>
               <Ionicons name="notifications-outline" size={22} color="white" />
+              {unreadCount > 0 && (
+                <View className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 items-center justify-center border border-brand-500">
+                  <Text className="text-white text-[10px] font-bold">{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -183,10 +248,10 @@ export default function HomeScreen() {
         {renderSection('Most Popular', 'trending-up-outline', mostPopular, 'most-popular', 'popular')}
         {renderSection('Special Deals', 'pricetag-outline', specialDeals, 'special-deals', 'deal')}
 
-        {!isLoading && providers.length === 0 && (
+        {!isLoading && nearYou.length === 0 && mostPopular.length === 0 && recentlyBooked.length === 0 && specialDeals.length === 0 && (
           <View className="flex-1 items-center justify-center py-20 px-6">
             <Ionicons name="paw-outline" size={48} color="#9CA3AF" />
-            <Text className={`text-lg font-semibold ${sectionTitleColor} mt-4 text-center`}>No providers found</Text>
+            <Text className={`text-lg font-semibold ${sectionTitleColor} mt-4 text-center`}>No services found</Text>
             <Text className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2 text-center`}>
               Check back soon — new partners are joining every day.
             </Text>

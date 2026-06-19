@@ -1,2 +1,7 @@
 export { PartnerApplicationCard } from './PartnerApplicationCard';
-export type { PartnerApplication, ApplicationStatus } from './PartnerApplicationCard';
+export type {
+  PartnerApplication,
+  ApplicationStatus,
+  ApplicationImage,
+  ApplicationCertificate,
+} from './PartnerApplicationCard';

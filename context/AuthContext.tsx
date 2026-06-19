@@ -27,8 +27,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
-  const isAdmin = currentUser?.roles.includes('Admin') ?? false;
-  const isPartner = currentUser?.roles.includes('Partner') ?? false;
+  const isAdmin = (currentUser?.roles.includes('Admin') || currentUser?.groups?.includes('Admin')) ?? false;
+  // The backend marks an approved partner by adding them to the 'ServiceProvider'
+  // group (there is no 'Partner' role); keep the role check as a fallback.
+  const isPartner =
+    (currentUser?.groups?.includes('ServiceProvider') || currentUser?.roles.includes('Partner')) ?? false;
 
   const [, googleResponse, googlePromptAsync] = Google.useAuthRequest({
     androidClientId: 'YOUR_ANDROID_CLIENT_ID',

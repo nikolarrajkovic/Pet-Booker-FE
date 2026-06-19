@@ -57,8 +57,11 @@ export default function AppHeader({
   const handleBackPress = () => {
     if (onBackPress) {
       onBackPress();
-    } else {
+    } else if (navigation.canGoBack()) {
       navigation.goBack();
+    } else {
+      // Nothing to pop (e.g. a reset landed us here) — go up to Home instead of no-op.
+      (navigation as any).navigate('MainTabs', { screen: 'Home' });
     }
   };
 

@@ -6,8 +6,10 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PriceBreakdown, PaymentMethodSelector } from '../components';
-import type { ProviderViewModel } from '../../../services/service-providers';
-import { createBooking, PaymentType } from '../../../services/bookings';
+import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
+import { addressLabel } from '../../../services/geocoding';
+import { ServiceDto } from '../../../services/services';
+import { createBooking, parseBookingDate, PaymentType } from '../../../services/bookings';
 import { getPaymentMethods, createPaymentMethod, PaymentMethodStatus } from '../../../services/payment-methods';
 
 type Appointment = {
@@ -18,10 +20,12 @@ type Appointment = {
   bookingFrom: string;
   bookingTo: string;
   total: number;
+  pickupAddress?: AddressDto;
+  leaveOverAddress?: AddressDto;
 };
 
 type ReviewBookingRouteParams = {
-  provider: ProviderViewModel;
+  service: ServiceDto;
   appointments: Appointment[];
 };
 
@@ -52,8 +56,11 @@ async function resolvePaymentMethodId(userId: number, isCash: boolean): Promise<
 export default function ReviewBookingScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: ReviewBookingRouteParams }, 'params'>>();
-  const { provider, appointments } = route.params;
+  const { service, appointments } = route.params;
   const { currentUser } = useAuth();
+  const serviceImage = resolveImageUrl(
+    service.imageUrl ?? (service.photos?.find((p) => p.isSelected) ?? service.photos?.[0])?.src,
+  );
   const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor, borderColor } = useThemeColors();
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('online');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,7 +83,7 @@ export default function ReviewBookingScreen() {
       for (const apt of appointments) {
         await createBooking({
           userId: currentUser.id,
-          serviceProviderId: provider.id,
+          serviceProviderId: service.serviceProviderId,
           serviceId: apt.service.id,
           petId: apt.pet.id,
           paymentMethodId,
@@ -86,10 +93,12 @@ export default function ReviewBookingScreen() {
           discountAmount: 0,
           totalPrice: apt.total,
           paymentType: isCash ? PaymentType.Cash : PaymentType.Card,
+          pickupAddress: apt.pickupAddress,
+          leaveOverAddress: apt.leaveOverAddress,
         });
       }
 
-      (navigation as any).navigate('BookingConfirmed', { provider });
+      (navigation as any).navigate('BookingConfirmed', { serviceName: service.name ?? 'your service' });
     } catch (error: any) {
       Alert.alert('Booking Failed', error?.message ?? 'Something went wrong. Please try again.');
     } finally {
@@ -106,17 +115,19 @@ export default function ReviewBookingScreen() {
       contentRounded={false}
     >
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* Provider Info */}
+        {/* Service Info */}
         <View className="px-6 py-5 flex-row items-center">
-          <Image source={{ uri: provider.image }} className="w-16 h-16 rounded-xl mr-4" resizeMode="cover" />
+          {serviceImage ? (
+            <Image source={{ uri: serviceImage }} className="w-16 h-16 rounded-xl mr-4" resizeMode="cover" />
+          ) : (
+            <View className={`w-16 h-16 rounded-xl mr-4 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
+              <Ionicons name="paw" size={26} color="#9CA3AF" />
+            </View>
+          )}
           <View className="flex-1">
-            <Text className={`text-lg font-bold ${textColor}`}>{provider.name}</Text>
-            <Text className="text-sm text-brand-600 mt-1">{provider.service}</Text>
-            {provider.distance ? (
-              <View className="flex-row items-center mt-1">
-                <Ionicons name="location-outline" size={14} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
-                <Text className={`text-xs ${subtextColor} ml-1`}>{provider.distance} away</Text>
-              </View>
+            <Text className={`text-lg font-bold ${textColor}`}>{service.name ?? 'Service'}</Text>
+            {service.basicServiceName ? (
+              <Text className="text-sm text-brand-600 mt-1">{service.basicServiceName}</Text>
             ) : null}
           </View>
         </View>
@@ -127,7 +138,7 @@ export default function ReviewBookingScreen() {
             Booking Details{appointments.length > 1 ? ` (${appointments.length})` : ''}
           </Text>
           {appointments.map((apt, i) => {
-            const start = new Date(apt.bookingFrom);
+            const start = parseBookingDate(apt.bookingFrom);
             return (
               <View key={apt.id} className={i > 0 ? `mt-4 pt-4 border-t ${borderColor}` : ''}>
                 <Text className={`text-base font-semibold ${textColor}`}>
@@ -142,12 +153,28 @@ export default function ReviewBookingScreen() {
                 <View className="flex-row items-center mt-1">
                   <Ionicons name="time-outline" size={14} color="#00C870" style={{ marginRight: 6 }} />
                   <Text className={`text-sm ${subtextColor}`}>
-                    {start.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                    {start.toLocaleTimeString(undefined, {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false,
+                    })}
                   </Text>
                 </View>
                 {apt.addons.length > 0 && (
                   <Text className={`text-xs ${subtextColor} mt-1`}>+ {apt.addons.map((a) => a.name).join(', ')}</Text>
                 )}
+                {apt.pickupAddress ? (
+                  <View className="flex-row items-start mt-1">
+                    <Ionicons name="car-outline" size={14} color="#00C870" style={{ marginRight: 6, marginTop: 1 }} />
+                    <Text className={`text-xs ${subtextColor} flex-1`}>Pickup: {addressLabel(apt.pickupAddress)}</Text>
+                  </View>
+                ) : null}
+                {apt.leaveOverAddress ? (
+                  <View className="flex-row items-start mt-1">
+                    <Ionicons name="home-outline" size={14} color="#00C870" style={{ marginRight: 6, marginTop: 1 }} />
+                    <Text className={`text-xs ${subtextColor} flex-1`}>Drop-off: {addressLabel(apt.leaveOverAddress)}</Text>
+                  </View>
+                ) : null}
               </View>
             );
           })}

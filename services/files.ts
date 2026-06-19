@@ -40,7 +40,9 @@ export type UploadedFile = {
   id: string;
   src: string;
   originalName: string;
-  contentType: string;
+  // Backend enum (0=Unknown, 1=JPEG, 2=PNG, 3=WebP) — often 0; prefer mimeType
+  contentType: number;
+  mimeType: string;
   sizeBytes: number;
 };
 

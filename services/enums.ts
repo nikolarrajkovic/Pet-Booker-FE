@@ -12,6 +12,8 @@ export type EnumsData = {
   bookingStatusType: EnumEntry[];
   paymentStatus: EnumEntry[];
   sex: EnumEntry[];
+  // FLAGS enum: 0=None, 1=Dog, 2=Cat, 4=Parrot, 8=Turtle, 16=Fish, 32=Snake, 63=All
+  petSpeciesType: EnumEntry[];
   paymentMethodStatus: EnumEntry[];
   bookingState: EnumEntry[];
   providerProfileStatus: EnumEntry[];

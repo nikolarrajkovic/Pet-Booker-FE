@@ -17,9 +17,6 @@ type ServicePreviewRouteParams = {
     additionalServices?: {
       pickup?: number;
       dropOff?: number;
-      photoUpdates?: number;
-      medicationAdmin?: number;
-      specialNeeds?: number;
     };
     workingHours?: any;
   };

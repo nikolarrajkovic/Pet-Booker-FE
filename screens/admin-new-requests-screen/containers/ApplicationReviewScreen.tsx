@@ -8,14 +8,19 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import type { PartnerApplication, ApplicationStatus } from '../components';
-import { approveServiceProvider, approveCertificate } from '../../../services/admin';
-import { deleteServiceProvider } from '../../../services/service-providers';
+import type { PartnerApplication, ApplicationStatus, ApplicationImage } from '../components';
+import {
+  approveServiceProvider,
+  declineServiceProvider,
+  approveCertificate,
+} from '../../../services/admin';
 
 function formatBytes(n: number): string {
   if (!n) return '';
@@ -48,7 +53,9 @@ export default function ApplicationReviewScreen() {
   const insets = useSafeAreaInsets();
 
   const application: PartnerApplication = route.params?.application;
-  const [govIdRevealed, setGovIdRevealed] = useState(false);
+  const [idFrontRevealed, setIdFrontRevealed] = useState(false);
+  const [idBackRevealed, setIdBackRevealed] = useState(false);
+  const [viewerUri, setViewerUri] = useState<string | null>(null);
   const [status, setStatus] = useState<ApplicationStatus>(application?.status ?? 'pending');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -69,6 +76,7 @@ export default function ApplicationReviewScreen() {
   const sectionBg = hex.card;
   const dividerColor = isDarkMode ? '#2d3748' : '#F3F4F6';
 
+  const docs = application.documents;
   const providerId = application.providerId ?? Number(application.id);
 
   const handleApprove = async () => {
@@ -90,7 +98,7 @@ export default function ApplicationReviewScreen() {
     if (!providerId) return;
     Alert.alert(
       'Reject application?',
-      `This permanently removes ${application.applicantName}'s application. This cannot be undone.`,
+      `${application.applicantName}'s application will be marked as declined.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -99,7 +107,7 @@ export default function ApplicationReviewScreen() {
           onPress: async () => {
             setIsSubmitting(true);
             try {
-              await deleteServiceProvider(providerId);
+              await declineServiceProvider(providerId, 'Application declined by admin');
               setStatus('rejected');
               navigation.goBack();
             } catch (e: any) {
@@ -109,7 +117,7 @@ export default function ApplicationReviewScreen() {
             }
           },
         },
-      ],
+      ]
     );
   };
 
@@ -122,8 +130,7 @@ export default function ApplicationReviewScreen() {
           paddingHorizontal: 20,
           paddingTop: insets.top + 12,
           paddingBottom: 28,
-        }}
-      >
+        }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -135,13 +142,16 @@ export default function ApplicationReviewScreen() {
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: 12,
-            }}
-          >
+            }}>
             <Ionicons name="arrow-back" size={20} color="white" />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: 'white', fontSize: 20, fontWeight: '700' }}>Application Review</Text>
-            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>ID: {application.id}</Text>
+            <Text style={{ color: 'white', fontSize: 20, fontWeight: '700' }}>
+              Application Review
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>
+              ID: {application.id}
+            </Text>
           </View>
         </View>
       </View>
@@ -154,12 +164,10 @@ export default function ApplicationReviewScreen() {
           borderTopLeftRadius: 24,
           borderTopRightRadius: 24,
           marginTop: -20,
-        }}
-      >
+        }}>
         <ScrollView
           contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-          showsVerticalScrollIndicator={false}
-        >
+          showsVerticalScrollIndicator={false}>
           {/* ── Applicant summary card ── */}
           <View
             style={{
@@ -169,18 +177,55 @@ export default function ApplicationReviewScreen() {
               marginBottom: 16,
               borderWidth: 1,
               borderColor,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: textColor, fontSize: 18, fontWeight: '700' }}>
-                  {application.applicantName}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                  <Ionicons name="calendar-outline" size={13} color={subTextColor} />
-                  <Text style={{ color: subTextColor, fontSize: 12, marginLeft: 4 }}>
-                    Submitted {application.submittedDate} at {application.submittedTime}
+            }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+              }}>
+              {/* Avatar (profile photo) + name */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                {docs.profilePhoto ? (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => setViewerUri(docs.profilePhoto!.src)}
+                    style={{ marginRight: 12 }}>
+                    <Image
+                      source={{ uri: docs.profilePhoto.src }}
+                      style={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: 26,
+                        backgroundColor: dividerColor,
+                      }}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                ) : (
+                  <View
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: 26,
+                      backgroundColor: dividerColor,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: 12,
+                    }}>
+                    <Ionicons name="person" size={24} color={subTextColor} />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: textColor, fontSize: 18, fontWeight: '700' }}>
+                    {application.applicantName}
                   </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                    <Ionicons name="calendar-outline" size={13} color={subTextColor} />
+                    <Text style={{ color: subTextColor, fontSize: 12, marginLeft: 4 }}>
+                      Submitted {application.submittedDate} at {application.submittedTime}
+                    </Text>
+                  </View>
                 </View>
               </View>
               <View
@@ -192,9 +237,10 @@ export default function ApplicationReviewScreen() {
                   borderWidth: 1,
                   borderColor: cfg.borderColor,
                   marginLeft: 8,
-                }}
-              >
-                <Text style={{ color: cfg.text, fontSize: 12, fontWeight: '700' }}>{cfg.label}</Text>
+                }}>
+                <Text style={{ color: cfg.text, fontSize: 12, fontWeight: '700' }}>
+                  {cfg.label}
+                </Text>
               </View>
             </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
@@ -206,8 +252,7 @@ export default function ApplicationReviewScreen() {
                     borderRadius: 20,
                     paddingHorizontal: 10,
                     paddingVertical: 3,
-                  }}
-                >
+                  }}>
                   <Text style={{ color: '#00A85A', fontSize: 11, fontWeight: '500' }}>{svc}</Text>
                 </View>
               ))}
@@ -220,11 +265,28 @@ export default function ApplicationReviewScreen() {
             title="Personal Information"
             sectionBg={sectionBg}
             borderColor={borderColor}
-            textColor={textColor}
-          >
-            <LabelValueRow icon="mail-outline" label="Email" value={application.email} textColor={textColor} subTextColor={subTextColor} />
-            <LabelValueRow icon="call-outline" label="Phone" value={application.phone} textColor={textColor} subTextColor={subTextColor} />
-            <LabelValueRow icon="location-outline" label="Address" value={application.address} textColor={textColor} subTextColor={subTextColor} />
+            textColor={textColor}>
+            <LabelValueRow
+              icon="mail-outline"
+              label="Email"
+              value={application.email}
+              textColor={textColor}
+              subTextColor={subTextColor}
+            />
+            <LabelValueRow
+              icon="call-outline"
+              label="Phone"
+              value={application.phone}
+              textColor={textColor}
+              subTextColor={subTextColor}
+            />
+            <LabelValueRow
+              icon="location-outline"
+              label="Address"
+              value={application.address}
+              textColor={textColor}
+              subTextColor={subTextColor}
+            />
           </SectionCard>
 
           {/* ── Service Information ── */}
@@ -233,259 +295,217 @@ export default function ApplicationReviewScreen() {
             title="Service Information"
             sectionBg={sectionBg}
             borderColor={borderColor}
-            textColor={textColor}
-          >
+            textColor={textColor}>
             <View style={{ marginBottom: 10 }}>
-              <Text style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 2 }}>Experience</Text>
+              <Text
+                style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 2 }}>
+                Experience
+              </Text>
               <Text style={{ color: textColor, fontSize: 13 }}>{application.experience}</Text>
             </View>
             <View style={{ height: 1, backgroundColor: dividerColor, marginBottom: 10 }} />
             <View style={{ marginBottom: 10 }}>
-              <Text style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 4 }}>About</Text>
-              <Text style={{ color: textColor, fontSize: 13, lineHeight: 19 }}>{application.bio}</Text>
+              <Text
+                style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 4 }}>
+                About
+              </Text>
+              <Text style={{ color: textColor, fontSize: 13, lineHeight: 19 }}>
+                {application.bio}
+              </Text>
             </View>
             {application.certifications ? (
               <>
                 <View style={{ height: 1, backgroundColor: dividerColor, marginBottom: 10 }} />
                 <View style={{ marginBottom: 10 }}>
-                  <Text style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 2 }}>Certifications</Text>
-                  <Text style={{ color: textColor, fontSize: 13 }}>{application.certifications}</Text>
+                  <Text
+                    style={{
+                      color: subTextColor,
+                      fontSize: 11,
+                      fontWeight: '600',
+                      marginBottom: 2,
+                    }}>
+                    Certifications
+                  </Text>
+                  <Text style={{ color: textColor, fontSize: 13 }}>
+                    {application.certifications}
+                  </Text>
                 </View>
               </>
             ) : null}
             <View style={{ height: 1, backgroundColor: dividerColor, marginBottom: 10 }} />
             <View>
-              <Text style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 2 }}>Availability</Text>
+              <Text
+                style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 2 }}>
+                Availability
+              </Text>
               <Text style={{ color: textColor, fontSize: 13 }}>{application.availability}</Text>
             </View>
           </SectionCard>
 
-          {/* ── Documents ── */}
+          {/* ── Documents & Photos ── */}
           <SectionCard
             icon="document-text-outline"
-            title="Documents"
+            title="Documents & Photos"
             sectionBg={sectionBg}
             borderColor={borderColor}
-            textColor={textColor}
-          >
+            textColor={textColor}>
             {/* Profile Photo */}
-            {application.documents.profilePhoto && (
-              <View
-                style={{
-                  backgroundColor: isDarkMode ? '#243447' : '#F9FAFB',
-                  borderRadius: 12,
-                  padding: 14,
-                  marginBottom: 12,
-                  borderWidth: 1,
-                  borderColor,
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#E8F5EF', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-                      <Ionicons name="image-outline" size={18} color="#00C870" />
-                    </View>
-                    <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>Profile Photo</Text>
-                  </View>
-                  <Ionicons name="checkmark-circle" size={20} color="#00C870" />
-                </View>
-                <Text style={{ color: subTextColor, fontSize: 11, marginBottom: 8 }}>
-                  {application.documents.profilePhoto.name}
-                </Text>
-                <Image
-                  source={{ uri: application.documents.profilePhoto.src }}
-                  style={{ width: '100%', height: 160, borderRadius: 10 }}
-                  resizeMode="cover"
+            <DocBlock
+              title="Profile Photo"
+              icon="person-circle-outline"
+              iconBg="#E8F5EF"
+              iconColor="#00C870"
+              isDarkMode={isDarkMode}
+              borderColor={borderColor}
+              textColor={textColor}>
+              {docs.profilePhoto ? (
+                <ViewableImage
+                  uri={docs.profilePhoto.src}
+                  height={180}
+                  onPress={() => setViewerUri(docs.profilePhoto!.src)}
                 />
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => openDownload(application.documents.profilePhoto!.src)}
-                  style={{
-                    marginTop: 10,
-                    paddingVertical: 10,
-                    borderRadius: 10,
-                    borderWidth: 1.5,
-                    borderColor: isDarkMode ? '#4B5563' : '#D1D5DB',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Ionicons name="download-outline" size={16} color={textColor} style={{ marginRight: 6 }} />
-                  <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>Download Photo</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+              ) : (
+                <EmptyDoc text="No profile photo uploaded" subTextColor={subTextColor} />
+              )}
+            </DocBlock>
 
-            {/* Government ID */}
-            {application.documents.governmentId && (
-              <View
-                style={{
-                  backgroundColor: isDarkMode ? '#243447' : '#F9FAFB',
-                  borderRadius: 12,
-                  padding: 14,
-                  marginBottom: 12,
-                  borderWidth: 1,
-                  borderColor,
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-                      <Ionicons name="shield-outline" size={18} color="#6366F1" />
-                    </View>
-                    <View>
-                      <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>Government ID</Text>
-                      <Text style={{ color: subTextColor, fontSize: 11 }}>{application.documents.governmentId.name}</Text>
-                    </View>
-                  </View>
-                  <Ionicons name="checkmark-circle" size={20} color="#00C870" />
-                </View>
-                <View style={{ position: 'relative', marginBottom: 10 }}>
-                  <Image
-                    source={{ uri: application.documents.governmentId.src }}
-                    style={{ width: '100%', height: 140, borderRadius: 10 }}
-                    resizeMode="cover"
-                    blurRadius={govIdRevealed ? 0 : 12}
-                  />
-                  {!govIdRevealed && (
+            {/* Pet Photos */}
+            <DocBlock
+              title={`Pet Photos${docs.petPhotos.length ? ` (${docs.petPhotos.length})` : ''}`}
+              icon="paw-outline"
+              iconBg="#FEF3C7"
+              iconColor="#D97706"
+              isDarkMode={isDarkMode}
+              borderColor={borderColor}
+              textColor={textColor}>
+              {docs.petPhotos.length ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {docs.petPhotos.map((p, i) => (
                     <TouchableOpacity
-                      activeOpacity={0.8}
-                      onPress={() => setGovIdRevealed(true)}
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                      }}
-                    >
+                      key={`${p.src}-${i}`}
+                      activeOpacity={0.85}
+                      onPress={() => setViewerUri(p.src)}
+                      style={{ width: '31.7%', aspectRatio: 1 }}>
+                      <Image
+                        source={{ uri: p.src }}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          borderRadius: 10,
+                          backgroundColor: isDarkMode ? '#1a2332' : '#fff',
+                        }}
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <EmptyDoc text="No pet photos uploaded" subTextColor={subTextColor} />
+              )}
+            </DocBlock>
+
+            {/* Government ID — front & back */}
+            <DocBlock
+              title="Government ID"
+              icon="shield-checkmark-outline"
+              iconBg="#EEF2FF"
+              iconColor="#6366F1"
+              isDarkMode={isDarkMode}
+              borderColor={borderColor}
+              textColor={textColor}>
+              {docs.governmentIdFront || docs.governmentIdBack ? (
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <IdSide
+                    label="Front"
+                    img={docs.governmentIdFront}
+                    revealed={idFrontRevealed}
+                    onReveal={() => setIdFrontRevealed(true)}
+                    onView={setViewerUri}
+                    isDarkMode={isDarkMode}
+                    textColor={textColor}
+                    subTextColor={subTextColor}
+                  />
+                  <IdSide
+                    label="Back"
+                    img={docs.governmentIdBack}
+                    revealed={idBackRevealed}
+                    onReveal={() => setIdBackRevealed(true)}
+                    onView={setViewerUri}
+                    isDarkMode={isDarkMode}
+                    textColor={textColor}
+                    subTextColor={subTextColor}
+                  />
+                </View>
+              ) : (
+                <EmptyDoc text="No government ID uploaded" subTextColor={subTextColor} />
+              )}
+            </DocBlock>
+
+            {/* Certificates */}
+            <DocBlock
+              title={`Certificates${docs.certificates.length ? ` (${docs.certificates.length})` : ''}`}
+              icon="ribbon-outline"
+              iconBg="#E8F5EF"
+              iconColor="#00C870"
+              isDarkMode={isDarkMode}
+              borderColor={borderColor}
+              textColor={textColor}
+              last>
+              {docs.certificates.length ? (
+                docs.certificates.map((c, i) => (
+                  <View key={`${c.fileSrc}-${i}`} style={{ marginTop: i === 0 ? 0 : 12 }}>
+                    <Text style={{ color: textColor, fontSize: 12, fontWeight: '600' }}>
+                      {c.name}
+                    </Text>
+                    {c.issuer ? (
+                      <Text style={{ color: subTextColor, fontSize: 11, marginBottom: 6 }}>
+                        {c.issuer}
+                      </Text>
+                    ) : (
+                      <View style={{ height: 6 }} />
+                    )}
+                    {c.isImage ? (
+                      <ViewableImage
+                        uri={c.fileSrc}
+                        height={150}
+                        onPress={() => setViewerUri(c.fileSrc)}
+                      />
+                    ) : (
                       <View
                         style={{
-                          backgroundColor: 'rgba(0,0,0,0.5)',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          backgroundColor: isDarkMode ? '#1a2332' : 'white',
                           borderRadius: 8,
-                          paddingHorizontal: 14,
-                          paddingVertical: 8,
-                        }}
-                      >
-                        <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>
-                          Click to view full document
-                        </Text>
+                          padding: 10,
+                          borderWidth: 1,
+                          borderColor,
+                        }}>
+                        <Ionicons name="document-text-outline" size={22} color={subTextColor} />
+                        <View style={{ marginLeft: 10, flex: 1 }}>
+                          <Text
+                            style={{ color: textColor, fontSize: 12, fontWeight: '500' }}
+                            numberOfLines={1}>
+                            {c.fileName}
+                          </Text>
+                          <Text style={{ color: subTextColor, fontSize: 11 }}>
+                            {[formatBytes(c.sizeBytes), c.mimeType].filter(Boolean).join(' • ')}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={() => openDownload(c.fileSrc)}
+                          style={{ padding: 8 }}>
+                          <Ionicons name="open-outline" size={20} color="#00C870" />
+                        </TouchableOpacity>
                       </View>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => setGovIdRevealed((v) => !v)}
-                    style={{
-                      flex: 1,
-                      paddingVertical: 10,
-                      borderRadius: 10,
-                      borderWidth: 1.5,
-                      borderColor: isDarkMode ? '#4B5563' : '#D1D5DB',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>
-                      {govIdRevealed ? 'Hide Document' : 'View Full Document'}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => openDownload(application.documents.governmentId!.src)}
-                    style={{
-                      paddingVertical: 10,
-                      paddingHorizontal: 14,
-                      borderRadius: 10,
-                      borderWidth: 1.5,
-                      borderColor: isDarkMode ? '#4B5563' : '#D1D5DB',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Ionicons name="download-outline" size={16} color={textColor} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {/* Insurance Certificate */}
-            {application.documents.insuranceCertificate && (
-              <View
-                style={{
-                  backgroundColor: isDarkMode ? '#243447' : '#F9FAFB',
-                  borderRadius: 12,
-                  padding: 14,
-                  borderWidth: 1,
-                  borderColor,
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#E8F5EF', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-                      <Ionicons name="document-outline" size={18} color="#00C870" />
-                    </View>
-                    <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>
-                      {application.documents.insuranceCertificate.name}
-                    </Text>
+                    )}
                   </View>
-                  <Ionicons name="checkmark-circle" size={20} color="#00C870" />
-                </View>
-                {application.documents.insuranceCertificate.issuer ? (
-                  <Text style={{ color: subTextColor, fontSize: 11, marginBottom: 10 }}>
-                    {application.documents.insuranceCertificate.issuer}
-                  </Text>
-                ) : null}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: isDarkMode ? '#1a2332' : 'white',
-                    borderRadius: 8,
-                    padding: 10,
-                    marginBottom: 10,
-                    borderWidth: 1,
-                    borderColor,
-                  }}
-                >
-                  <Ionicons name="document-text-outline" size={20} color={subTextColor} />
-                  <View style={{ marginLeft: 10 }}>
-                    <Text style={{ color: textColor, fontSize: 12, fontWeight: '500' }}>
-                      {application.documents.insuranceCertificate.fileName}
-                    </Text>
-                    <Text style={{ color: subTextColor, fontSize: 11 }}>
-                      {[
-                        formatBytes(application.documents.insuranceCertificate.sizeBytes),
-                        application.documents.insuranceCertificate.mimeType,
-                      ]
-                        .filter(Boolean)
-                        .join(' • ')}
-                    </Text>
-                  </View>
-                </View>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => openDownload(application.documents.insuranceCertificate!.fileSrc)}
-                  style={{
-                    paddingVertical: 10,
-                    borderRadius: 10,
-                    borderWidth: 1.5,
-                    borderColor: isDarkMode ? '#4B5563' : '#D1D5DB',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Ionicons name="download-outline" size={16} color={textColor} style={{ marginRight: 6 }} />
-                  <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>Download Certificate</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+                ))
+              ) : (
+                <EmptyDoc text="No certificates uploaded" subTextColor={subTextColor} />
+              )}
+            </DocBlock>
           </SectionCard>
 
           {/* ── Background Check info box ── */}
@@ -499,15 +519,21 @@ export default function ApplicationReviewScreen() {
               alignItems: 'flex-start',
               borderWidth: 1,
               borderColor: isDarkMode ? '#1e40af44' : '#BFDBFE',
-            }}
-          >
-            <Ionicons name="information-circle-outline" size={20} color="#3B82F6" style={{ marginTop: 1 }} />
+            }}>
+            <Ionicons
+              name="information-circle-outline"
+              size={20}
+              color="#3B82F6"
+              style={{ marginTop: 1 }}
+            />
             <View style={{ flex: 1, marginLeft: 10 }}>
               <Text style={{ color: '#1D4ED8', fontSize: 13, fontWeight: '700', marginBottom: 3 }}>
                 Background Check
               </Text>
-              <Text style={{ color: isDarkMode ? '#93C5FD' : '#3B82F6', fontSize: 12, lineHeight: 18 }}>
-                A background check will be conducted as part of the approval process. This helps ensure the safety of all pets and pet owners on the platform.
+              <Text
+                style={{ color: isDarkMode ? '#93C5FD' : '#3B82F6', fontSize: 12, lineHeight: 18 }}>
+                A background check will be conducted as part of the approval process. This helps
+                ensure the safety of all pets and pet owners on the platform.
               </Text>
             </View>
           </View>
@@ -529,8 +555,7 @@ export default function ApplicationReviewScreen() {
               borderTopColor: borderColor,
               flexDirection: 'row',
               gap: 12,
-            }}
-          >
+            }}>
             <TouchableOpacity
               activeOpacity={0.8}
               disabled={isSubmitting}
@@ -545,9 +570,13 @@ export default function ApplicationReviewScreen() {
                 flexDirection: 'row',
                 justifyContent: 'center',
                 opacity: isSubmitting ? 0.6 : 1,
-              }}
-            >
-              <Ionicons name="close-circle-outline" size={18} color="#EF4444" style={{ marginRight: 6 }} />
+              }}>
+              <Ionicons
+                name="close-circle-outline"
+                size={18}
+                color="#EF4444"
+                style={{ marginRight: 6 }}
+              />
               <Text style={{ color: '#EF4444', fontSize: 15, fontWeight: '700' }}>Reject</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -563,14 +592,20 @@ export default function ApplicationReviewScreen() {
                 flexDirection: 'row',
                 justifyContent: 'center',
                 opacity: isSubmitting ? 0.7 : 1,
-              }}
-            >
+              }}>
               {isSubmitting ? (
                 <ActivityIndicator color="white" />
               ) : (
                 <>
-                  <Ionicons name="checkmark-circle-outline" size={18} color="white" style={{ marginRight: 6 }} />
-                  <Text style={{ color: 'white', fontSize: 15, fontWeight: '700' }}>Approve Application</Text>
+                  <Ionicons
+                    name="checkmark-circle-outline"
+                    size={18}
+                    color="white"
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={{ color: 'white', fontSize: 15, fontWeight: '700' }}>
+                    Approve Application
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -592,14 +627,62 @@ export default function ApplicationReviewScreen() {
               borderTopWidth: 1,
               borderTopColor: STATUS_CONFIG[status].borderColor,
               alignItems: 'center',
-            }}
-          >
+            }}>
             <Text style={{ color: STATUS_CONFIG[status].text, fontSize: 15, fontWeight: '700' }}>
               Application {STATUS_CONFIG[status].label}
             </Text>
           </View>
         )}
       </View>
+
+      {/* ── Full-screen image viewer ── */}
+      <Modal
+        visible={!!viewerUri}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setViewerUri(null)}>
+        <Pressable
+          onPress={() => setViewerUri(null)}
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.93)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}>
+          {viewerUri ? (
+            <Image
+              source={{ uri: viewerUri }}
+              style={{ width: '100%', height: '82%' }}
+              resizeMode="contain"
+            />
+          ) : null}
+          <TouchableOpacity
+            onPress={() => setViewerUri(null)}
+            style={{
+              position: 'absolute',
+              top: insets.top + 14,
+              right: 18,
+              width: 42,
+              height: 42,
+              borderRadius: 21,
+              backgroundColor: 'rgba(255,255,255,0.18)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+            <Ionicons name="close" size={26} color="white" />
+          </TouchableOpacity>
+          <Text
+            style={{
+              position: 'absolute',
+              bottom: insets.bottom + 22,
+              color: 'rgba(255,255,255,0.7)',
+              fontSize: 12,
+            }}>
+            Tap anywhere to close
+          </Text>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -629,10 +712,18 @@ function SectionCard({
         marginBottom: 16,
         borderWidth: 1,
         borderColor,
-      }}
-    >
+      }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-        <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: '#E8F5EF', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+        <View
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 8,
+            backgroundColor: '#E8F5EF',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 10,
+          }}>
           <Ionicons name={icon} size={16} color="#00C870" />
         </View>
         <Text style={{ color: textColor, fontSize: 15, fontWeight: '700' }}>{title}</Text>
@@ -659,9 +750,181 @@ function LabelValueRow({
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
       <Ionicons name={icon} size={16} color={subTextColor} style={{ marginTop: 1 }} />
       <View style={{ marginLeft: 10, flex: 1 }}>
-        <Text style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 1 }}>{label}</Text>
-        <Text style={{ color: textColor, fontSize: 13 }}>{value}</Text>
+        <Text style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 1 }}>
+          {label}
+        </Text>
+        <Text style={{ color: textColor, fontSize: 13 }}>{value || '—'}</Text>
       </View>
+    </View>
+  );
+}
+
+/** A labelled grey block grouping one document type inside the Documents card. */
+function DocBlock({
+  title,
+  icon,
+  iconBg,
+  iconColor,
+  children,
+  isDarkMode,
+  borderColor,
+  textColor,
+  last,
+}: {
+  title: string;
+  icon: any;
+  iconBg: string;
+  iconColor: string;
+  children: React.ReactNode;
+  isDarkMode: boolean;
+  borderColor: string;
+  textColor: string;
+  last?: boolean;
+}) {
+  return (
+    <View
+      style={{
+        backgroundColor: isDarkMode ? '#243447' : '#F9FAFB',
+        borderRadius: 12,
+        padding: 14,
+        marginBottom: last ? 0 : 12,
+        borderWidth: 1,
+        borderColor,
+      }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            backgroundColor: iconBg,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 10,
+          }}>
+          <Ionicons name={icon} size={18} color={iconColor} />
+        </View>
+        <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>{title}</Text>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+/** A tappable image that opens the full-screen viewer, with a small "expand" hint. */
+function ViewableImage({
+  uri,
+  height,
+  onPress,
+}: {
+  uri: string;
+  height: number;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{ position: 'relative' }}>
+      <Image
+        source={{ uri }}
+        style={{ width: '100%', height, borderRadius: 10 }}
+        resizeMode="cover"
+      />
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 8,
+          right: 8,
+          backgroundColor: 'rgba(0,0,0,0.55)',
+          borderRadius: 8,
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}>
+        <Ionicons name="expand-outline" size={13} color="white" />
+        <Text style={{ color: 'white', fontSize: 11, marginLeft: 4 }}>Tap to view</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+/** One side (front/back) of the government ID — blurred until revealed, then tappable to view full. */
+function IdSide({
+  label,
+  img,
+  revealed,
+  onReveal,
+  onView,
+  isDarkMode,
+  textColor,
+  subTextColor,
+}: {
+  label: string;
+  img: ApplicationImage | null;
+  revealed: boolean;
+  onReveal: () => void;
+  onView: (uri: string) => void;
+  isDarkMode: boolean;
+  textColor: string;
+  subTextColor: string;
+}) {
+  return (
+    <View style={{ flex: 1 }}>
+      <Text style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 6 }}>
+        {label}
+      </Text>
+      {img ? (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => (revealed ? onView(img.src) : onReveal())}
+          style={{ position: 'relative' }}>
+          <Image
+            source={{ uri: img.src }}
+            style={{ width: '100%', height: 110, borderRadius: 10 }}
+            resizeMode="cover"
+            blurRadius={revealed ? 0 : 14}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              bottom: 6,
+              right: 6,
+              backgroundColor: 'rgba(0,0,0,0.55)',
+              borderRadius: 7,
+              paddingHorizontal: 7,
+              paddingVertical: 3,
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}>
+            <Ionicons name={revealed ? 'expand-outline' : 'eye-outline'} size={12} color="white" />
+            <Text style={{ color: 'white', fontSize: 10, marginLeft: 3 }}>
+              {revealed ? 'View' : 'Reveal'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      ) : (
+        <View
+          style={{
+            height: 110,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderStyle: 'dashed',
+            borderColor: isDarkMode ? '#4B5563' : '#D1D5DB',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          <Ionicons name="image-outline" size={20} color={subTextColor} />
+          <Text style={{ color: subTextColor, fontSize: 11, marginTop: 4 }}>Not provided</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function EmptyDoc({ text, subTextColor }: { text: string; subTextColor: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}>
+      <Ionicons name="close-circle-outline" size={16} color={subTextColor} />
+      <Text style={{ color: subTextColor, fontSize: 12, marginLeft: 6 }}>{text}</Text>
     </View>
   );
 }

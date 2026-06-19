@@ -1,5 +1,13 @@
 import React, { useState, useCallback } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, BackHandler, ActivityIndicator, Alert } from 'react-native';
+import {
+  ScrollView,
+  Text,
+  View,
+  TouchableOpacity,
+  BackHandler,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -8,15 +16,19 @@ import { PartnerApplicationCard } from '../components';
 import type { PartnerApplication } from '../components';
 import {
   getServiceProviders,
-  deleteServiceProvider,
   providerTypeLabel,
-  resolveImageUrl,
+  extractProviderDocuments,
+  ApprovalStatus,
   ServiceProviderDto,
 } from '../../../services/service-providers';
-import { approveServiceProvider, approveCertificate } from '../../../services/admin';
+import {
+  approveServiceProvider,
+  declineServiceProvider,
+  approveCertificate,
+} from '../../../services/admin';
 
 // Maps a raw ServiceProviderDto (a partner application) to the card's view shape.
-// Note: the provider DTO does not carry email/phone/bio/experience/availability —
+// Note: the provider DTO does not carry phone/bio/experience/availability —
 // those are blank until the backend exposes them.
 export function providerToApplication(dto: ServiceProviderDto): PartnerApplication {
   const created = dto.createdAt ? new Date(dto.createdAt) : null;
@@ -25,57 +37,66 @@ export function providerToApplication(dto: ServiceProviderDto): PartnerApplicati
     ? [addr.line1, addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')
     : '';
 
-  const profilePhotoDto = dto.photos?.find((p) => p.isSelected) ?? dto.photos?.[0];
-  const govIdFrontDto = dto.governmentIdPhotos?.find((p) => p.isFront) ?? dto.governmentIdPhotos?.[0];
-  const firstCert = dto.certificates?.[0];
-  const firstCertFile = firstCert?.files?.[0];
+  const documents = extractProviderDocuments(dto);
 
   return {
     id: String(dto.id ?? 0),
     providerId: dto.id ?? 0,
     applicantName: dto.name ?? 'Applicant',
-    submittedDate: created ? created.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '',
-    submittedTime: created ? created.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '',
+    submittedDate: created
+      ? created.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+      : '',
+    submittedTime: created
+      ? created.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+      : '',
     services: [providerTypeLabel(dto.type)],
-    status: dto.isApproved ? 'approved' : 'pending',
-    email: '',
+    status:
+      dto.approvalStatus === ApprovalStatus.Declined
+        ? 'rejected'
+        : dto.approvalStatus === ApprovalStatus.Approved || dto.isApproved
+          ? 'approved'
+          : 'pending',
+    email: dto.contactEmail ?? '',
     phone: '',
     address,
     experience: '',
     bio: '',
-    certifications: (dto.certificates ?? []).map((c) => c.name).filter(Boolean).join(', '),
+    certifications: (dto.certificates ?? [])
+      .map((c) => c.name)
+      .filter(Boolean)
+      .join(', '),
     availability: '',
-    documents: {
-      profilePhoto: profilePhotoDto?.src
-        ? { src: resolveImageUrl(profilePhotoDto.src), name: profilePhotoDto.name ?? 'Profile Photo' }
-        : null,
-      governmentId: govIdFrontDto?.src
-        ? { src: resolveImageUrl(govIdFrontDto.src), name: govIdFrontDto.name ?? 'Government ID' }
-        : null,
-      insuranceCertificate: firstCertFile?.src
-        ? {
-            name: firstCert?.name ?? 'Certificate',
-            issuer: firstCert?.issuer ?? '',
-            fileSrc: resolveImageUrl(firstCertFile.src),
-            fileName: firstCertFile.originalName ?? 'certificate',
-            sizeBytes: firstCertFile.sizeBytes ?? 0,
-            mimeType: firstCertFile.mimeType ?? '',
-          }
-        : null,
-    },
-    certificateIds: (dto.certificates ?? [])
-      .map((c) => c.id)
-      .filter((x): x is number => x != null),
+    documents,
+    certificateIds: (dto.certificates ?? []).map((c) => c.id).filter((x): x is number => x != null),
   };
 }
 
 type FilterTab = 'pending' | 'approved' | 'rejected';
 
-const TABS: { key: FilterTab; label: string; icon: any; activeColor: string; activeBg: string }[] = [
-  { key: 'pending', label: 'Pending', icon: 'time-outline', activeColor: '#A16207', activeBg: '#FEF9C3' },
-  { key: 'approved', label: 'Approved', icon: 'checkmark-circle-outline', activeColor: '#15803D', activeBg: '#DCFCE7' },
-  { key: 'rejected', label: 'Rejected', icon: 'close-circle-outline', activeColor: '#B91C1C', activeBg: '#FEE2E2' },
-];
+const TABS: { key: FilterTab; label: string; icon: any; activeColor: string; activeBg: string }[] =
+  [
+    {
+      key: 'pending',
+      label: 'Pending',
+      icon: 'time-outline',
+      activeColor: '#A16207',
+      activeBg: '#FEF9C3',
+    },
+    {
+      key: 'approved',
+      label: 'Approved',
+      icon: 'checkmark-circle-outline',
+      activeColor: '#15803D',
+      activeBg: '#DCFCE7',
+    },
+    {
+      key: 'rejected',
+      label: 'Rejected',
+      icon: 'close-circle-outline',
+      activeColor: '#B91C1C',
+      activeBg: '#FEE2E2',
+    },
+  ];
 
 export default function AdminNewRequestsScreen() {
   const navigation = useNavigation<any>();
@@ -116,7 +137,9 @@ export default function AdminNewRequestsScreen() {
       (async () => {
         if (!cancelled) await load();
       })();
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     }, [load])
   );
 
@@ -157,7 +180,7 @@ export default function AdminNewRequestsScreen() {
     if (!app?.providerId) return;
     Alert.alert(
       'Reject application?',
-      `This permanently removes ${app.applicantName}'s application. This cannot be undone.`,
+      `${app.applicantName}'s application will be marked as declined.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -166,7 +189,7 @@ export default function AdminNewRequestsScreen() {
           onPress: async () => {
             setBusyId(id);
             try {
-              await deleteServiceProvider(app.providerId!);
+              await declineServiceProvider(app.providerId!, 'Application declined by admin');
               await load();
             } catch (e: any) {
               Alert.alert('Rejection failed', e?.message ?? 'Please try again.');
@@ -175,7 +198,7 @@ export default function AdminNewRequestsScreen() {
             }
           },
         },
-      ],
+      ]
     );
   };
 
@@ -186,8 +209,7 @@ export default function AdminNewRequestsScreen() {
       onBackPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })}
       headerTitle="New Requests"
       headerSubtitle="Review and manage partner applications"
-      contentBg={contentBg}
-    >
+      contentBg={contentBg}>
       {/* ── Filter tabs ── */}
       <View
         style={{
@@ -196,8 +218,7 @@ export default function AdminNewRequestsScreen() {
           marginTop: 20,
           marginBottom: 12,
           gap: 8,
-        }}
-      >
+        }}>
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key;
           return (
@@ -214,38 +235,38 @@ export default function AdminNewRequestsScreen() {
                 backgroundColor: isActive ? tab.activeBg : tabBg,
                 borderWidth: 1.5,
                 borderColor: isActive ? tab.activeColor + '55' : tabBorder,
-              }}
-            >
-              <Ionicons name={tab.icon} size={14} color={isActive ? tab.activeColor : subTextColor} />
+              }}>
+              <Ionicons
+                name={tab.icon}
+                size={14}
+                color={isActive ? tab.activeColor : subTextColor}
+              />
               <Text
                 style={{
                   color: isActive ? tab.activeColor : subTextColor,
                   fontSize: 13,
                   fontWeight: '600',
                   marginLeft: 5,
-                }}
-              >
+                }}>
                 {tab.label}
               </Text>
               <View
                 style={{
                   marginLeft: 5,
-                  backgroundColor: isActive ? tab.activeColor : (isDarkMode ? '#374151' : '#E5E7EB'),
+                  backgroundColor: isActive ? tab.activeColor : isDarkMode ? '#374151' : '#E5E7EB',
                   borderRadius: 8,
                   minWidth: 18,
                   height: 18,
                   alignItems: 'center',
                   justifyContent: 'center',
                   paddingHorizontal: 4,
-                }}
-              >
+                }}>
                 <Text
                   style={{
                     color: isActive ? 'white' : subTextColor,
                     fontSize: 10,
                     fontWeight: '700',
-                  }}
-                >
+                  }}>
                   {counts[tab.key]}
                 </Text>
               </View>
@@ -258,8 +279,7 @@ export default function AdminNewRequestsScreen() {
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, paddingTop: 4 }}
-        showsVerticalScrollIndicator={false}
-      >
+        showsVerticalScrollIndicator={false}>
         {isLoading ? (
           <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
             <ActivityIndicator size="large" color="#00C870" />

@@ -24,12 +24,15 @@ import AccountScreen from './screens/account-screen/containers/AccountScreen';
 import ChangePasswordScreen from './screens/change-password-screen/containers/ChangePasswordScreen';
 import ForgotPasswordScreen from './screens/forgot-password-screen/containers/ForgotPasswordScreen';
 import MyBookingsScreen from './screens/my-bookings-screen/containers/MyBookingsScreen';
+import BookingDetailsScreen from './screens/booking-details-screen/containers/BookingDetailsScreen';
 import MyScheduleScreen from './screens/my-schedule-screen/containers/MyScheduleScreen';
 import MyServicesScreen from './screens/my-services-screen/containers/MyServicesScreen';
 import AddEditServiceScreen from './screens/my-services-screen/containers/AddEditServiceScreen';
 import ServicePreviewScreen from './screens/service-preview-screen/containers/ServicePreviewScreen';
 import NotificationsScreen from './screens/notifications-screen/containers/NotificationsScreen';
+import NotificationSettingsScreen from './screens/notifications-screen/containers/NotificationSettingsScreen';
 import NewRequestsScreen from './screens/new-requests-screen/containers/NewRequestsScreen';
+import LiveSessionScreen from './screens/live-session-screen/containers/LiveSessionScreen';
 import PartnerHubScreen from './screens/partner-hub-screen/containers/PartnerHubScreen';
 import PromotionsScreen from './screens/promotions-screen/containers/PromotionsScreen';
 import AdminDashboardScreen from './screens/admin-dashboard-screen/containers/AdminDashboardScreen';
@@ -67,29 +70,38 @@ function AppContent() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            animationDuration: 250,
+          }}
+        >
           {isLoggedIn ? (
             <>
-              <Stack.Screen name="MainTabs" component={MainTabs} />
+              <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
               <Stack.Screen name="ProviderDetail" component={ProviderDetailScreen} />
               <Stack.Screen name="BookService" component={BookServiceScreen} />
               <Stack.Screen name="ReviewBooking" component={ReviewBookingScreen} />
-              <Stack.Screen name="BookingConfirmed" component={BookingConfirmedScreen} />
+              <Stack.Screen name="BookingConfirmed" component={BookingConfirmedScreen} options={{ animation: 'fade' }} />
               <Stack.Screen name="MyPets" component={MyPetsScreen} />
-              <Stack.Screen name="AddPet" component={AddPetScreen} />
+              <Stack.Screen name="AddPet" component={AddPetScreen} options={{ animation: 'slide_from_bottom' }} />
               <Stack.Screen name="Settings" component={SettingsScreen} />
               <Stack.Screen name="BecomePartner" component={BecomePartnerScreen} />
               <Stack.Screen name="PartnerApplication" component={PartnerApplicationScreen} />
-              <Stack.Screen name="ApplicationSubmitted" component={ApplicationSubmittedScreen} />
+              <Stack.Screen name="ApplicationSubmitted" component={ApplicationSubmittedScreen} options={{ animation: 'fade' }} />
               <Stack.Screen name="Account" component={AccountScreen} />
               <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
               <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
+              <Stack.Screen name="BookingDetails" component={BookingDetailsScreen} />
               <Stack.Screen name="MySchedule" component={MyScheduleScreen} />
               <Stack.Screen name="MyServices" component={MyServicesScreen} />
-              <Stack.Screen name="AddEditService" component={AddEditServiceScreen} />
-              <Stack.Screen name="ServicePreview" component={ServicePreviewScreen} />
+              <Stack.Screen name="AddEditService" component={AddEditServiceScreen} options={{ animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="ServicePreview" component={ServicePreviewScreen} options={{ animation: 'slide_from_bottom' }} />
               <Stack.Screen name="Notifications" component={NotificationsScreen} />
+              <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
               <Stack.Screen name="NewRequests" component={NewRequestsScreen} />
+              <Stack.Screen name="LiveSession" component={LiveSessionScreen} />
               <Stack.Screen name="Promotions" component={PromotionsScreen} />
               <Stack.Screen name="AdminNewRequests" component={AdminNewRequestsScreen} />
               <Stack.Screen name="ApplicationReview" component={ApplicationReviewScreen} />
@@ -99,7 +111,7 @@ function AppContent() {
             </>
           ) : (
             <>
-              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="Login" component={LoginScreen} options={{ animation: 'fade' }} />
               <Stack.Screen name="Register" component={RegisterScreen} />
               <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
               <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
@@ -119,6 +131,7 @@ function MainTabs() {
         headerShown: false,
         tabBarShowLabel: false,
         tabBarStyle: { display: 'none' },
+        animation: 'fade',
         unmountOnBlur: true,
         tabBarIcon: ({ color, size }) => {
           if (route.name === 'Home') return <Ionicons name="home" size={size} color={color} />;
