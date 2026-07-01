@@ -4,8 +4,10 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors, themeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { getServices, deleteService, ServiceDto } from '../../../services/services';
+import { getErrorMessage } from '../../../services/http';
 import { serviceDtoToUi, UiService } from '../serviceModel';
 
 const ADDITIONAL_SERVICE_ICONS: Record<string, string> = {
@@ -18,6 +20,7 @@ export default function MyServicesScreen() {
   const navigation = useNavigation();
   const { currentUser } = useAuth();
   const { isDarkMode, hex } = useThemeColors();
+  const { showError } = useToast();
   // The partner's own provider id comes straight from /auth/me (0 → none).
   const providerId = currentUser?.serviceProviderId || null;
   const [services, setServices] = useState<ServiceDto[]>([]);
@@ -58,8 +61,8 @@ export default function MyServicesScreen() {
             try {
               await deleteService(Number(id));
               await load();
-            } catch (e: any) {
-              Alert.alert('Delete failed', e?.message ?? 'Please try again.');
+            } catch (e) {
+              showError(getErrorMessage(e, 'Could not delete the service. Please try again.'));
             }
           },
         },
@@ -211,7 +214,7 @@ function ServiceListCard({
         {/* Rating row */}
         <View className="flex-row items-center mb-3">
           <Ionicons name="star" size={14} color="#FBBF24" />
-          <Text className={`text-sm font-semibold ${textColor} ml-1`}>{service.rating}</Text>
+          <Text className={`text-sm font-semibold ${textColor} ml-1`}>{service.rating.toFixed(1)}</Text>
           <Text className={`text-sm ${subtextColor} ml-0.5`}>({service.reviews})</Text>
           <View className="w-1 h-1 bg-gray-400 rounded-full mx-2" />
           <Text className={`text-sm ${subtextColor}`}>{service.bookings} bookings</Text>

@@ -91,39 +91,71 @@ export default function MapAddressPicker({
     };
   }, []);
 
-  const srcdoc = useMemo(
+  const html = useMemo(
     () => `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"/>
   <style>html,body,#map{margin:0;padding:0;width:100%;height:100%}</style>
 </head>
 <body>
   <div id="map"></div>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script>
-    const map = L.map('map', { zoomControl: true }).setView([${initialRegion.latitude}, ${initialRegion.longitude}], 16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }).addTo(map);
+    // OpenFreeMap = free, keyless OpenMapTiles vector tiles. Because labels are
+    // vector (rendered client-side), we can force Latin script — so Serbian place
+    // names show in Serbian Latin instead of the tiles' default Cyrillic.
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [${initialRegion.longitude}, ${initialRegion.latitude}],
+      zoom: 15,
+      attributionControl: false
+    });
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
+    // Override every label layer to prefer the Latin name (name:latin), falling
+    // back to the default name. OpenMapTiles provides name:latin for all features.
+    function setLatinLabels() {
+      for (const layer of (map.getStyle().layers || [])) {
+        if (layer.type === 'symbol' && layer.layout && 'text-field' in layer.layout) {
+          map.setLayoutProperty(layer.id, 'text-field',
+            ['coalesce', ['get', 'name:latin'], ['get', 'name']]);
+        }
+      }
+    }
     function postCenter() {
       const c = map.getCenter();
       parent.postMessage({ type: 'pb-map-center', lat: c.lat, lng: c.lng }, '*');
     }
     map.on('moveend', postCenter);
     window.addEventListener('message', function (e) {
+      // MapLibre uses [lng, lat] order (opposite of Leaflet's [lat, lng]).
       if (e.data && e.data.type === 'pb-set-center') {
-        map.setView([e.data.lat, e.data.lng], 16);
+        map.jumpTo({ center: [e.data.lng, e.data.lat], zoom: 16 });
       }
     });
-    parent.postMessage({ type: 'pb-map-ready' }, '*');
-    postCenter();
+    map.on('load', function () {
+      setLatinLabels();
+      parent.postMessage({ type: 'pb-map-ready' }, '*');
+      postCenter();
+    });
   </script>
 </body>
 </html>`,
     [initialRegion.latitude, initialRegion.longitude],
   );
+
+  // MapLibre GL can't spawn its Web Worker inside an iframe `srcDoc` document
+  // (the worker's blob URL resolves against `about:srcdoc` and fails to load), so
+  // the WebGL map silently never renders. Serving the same HTML from a blob: URL
+  // gives the iframe a real origin where the worker + WebGL work.
+  const [mapUrl, setMapUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    setMapUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [html]);
 
   const runSearch = async () => {
     if (!query.trim()) return;
@@ -184,7 +216,7 @@ export default function MapAddressPicker({
 
         {/* Map + fixed centre pin */}
         <View style={{ flex: 1 }}>
-          <iframe ref={iframeRef} srcDoc={srcdoc} style={{ border: 0, width: '100%', height: '100%' }} title="Pick location" />
+          <iframe ref={iframeRef} src={mapUrl ?? undefined} style={{ border: 0, width: '100%', height: '100%' }} title="Pick location" />
           <View
             pointerEvents="none"
             style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' }}

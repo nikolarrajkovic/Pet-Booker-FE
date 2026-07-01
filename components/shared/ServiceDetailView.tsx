@@ -57,7 +57,7 @@ export default function ServiceDetailView({
               <>
                 <View className="flex-row items-center bg-brand-50 px-2 py-1 rounded-lg">
                   <Ionicons name="star" size={16} color="#00C870" />
-                  <Text className="text-brand-700 font-semibold ml-1">{service.rating}</Text>
+                  <Text className="text-brand-700 font-semibold ml-1">{service.rating.toFixed(1)}</Text>
                 </View>
                 <Text className={`${subtextColor} ml-2`}>{service.reviews || 0} reviews</Text>
               </>

@@ -15,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import Button from '../../../components/shared/Button';
 import DatePicker from '../../../components/shared/DatePicker';
+import PhoneInput from '../../../components/shared/PhoneInput';
 import { registerUser } from '../../../services/auth';
 
 type RootStackParamList = {
@@ -49,8 +50,11 @@ function validateName(v: string) {
 
 function validatePhone(v: string) {
   if (!v.trim()) return 'Phone number is required';
-  if (!/^\+381[0-9]{8,9}$/.test(v.trim()))
-    return 'Phone number must be in format +381XXXXXXXXX';
+  // Country-agnostic: a "+" dial code followed by 6–14 national digits
+  // (spaces allowed). The dial code + flag come from the PhoneInput picker.
+  const digits = v.replace(/[^\d]/g, '');
+  if (!v.trim().startsWith('+') || digits.length < 8 || digits.length > 15)
+    return 'Enter a valid phone number';
   return '';
 }
 
@@ -287,14 +291,17 @@ export default function RegisterScreen() {
               <Text className={`text-sm font-semibold ${textColor}`}>Phone Number</Text>
               <Text className="text-red-500 ml-1 text-sm font-semibold">*</Text>
             </View>
-            <TextInput
+            <PhoneInput
               value={phone}
               onChangeText={(t) => { setPhone(t); touch('phone'); }}
-              onBlur={() => touch('phone')}
-              placeholder="+381XXXXXXXXX"
-              keyboardType="phone-pad"
-              style={inputStyle('phone')}
-              placeholderTextColor={placeholderColor}
+              isDarkMode={isDarkMode}
+              textColor={textColor}
+              subtextColor={subtextColor}
+              inputBg={inputBg === '#ffffff' ? 'bg-white' : 'bg-[#243447]'}
+              inputText={textColor}
+              borderColor={isDarkMode ? 'border-gray-700' : 'border-gray-200'}
+              placeholderColor={placeholderColor}
+              cardBg={isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}
             />
             {touched.phone && errors.phone ? (
               <Text className="text-red-500 text-xs mt-1">{errors.phone}</Text>

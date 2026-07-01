@@ -22,14 +22,19 @@ interface BookingCardProps {
   subtextColor: string;
   borderColor: string;
   onViewDetails?: () => void;
+  onLeaveReview?: () => void;
 }
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case 'upcoming': return 'text-blue-600';
-    case 'completed': return 'text-green-600';
-    case 'cancelled': return 'text-red-600';
-    default: return 'text-gray-600';
+    case 'upcoming':
+      return 'text-blue-600';
+    case 'completed':
+      return 'text-green-600';
+    case 'cancelled':
+      return 'text-red-600';
+    default:
+      return 'text-gray-600';
   }
 };
 
@@ -43,34 +48,59 @@ export default function BookingCard({
   subtextColor,
   borderColor,
   onViewDetails,
+  onLeaveReview,
 }: BookingCardProps) {
+  const canReview = booking.status === 'completed' && !booking.rating && !!onLeaveReview;
   return (
-    <View className={`${cardBg} rounded-2xl p-4 mb-3 border ${borderColor}`}>
+    <View className={`${cardBg} mb-3 rounded-2xl border p-4 ${borderColor}`}>
       <View className="flex-row">
-        <Image source={{ uri: booking.image }} className="w-20 h-20 rounded-xl mr-4" />
+        <Image source={{ uri: booking.image }} className="mr-4 h-20 w-20 rounded-xl" />
         <View className="flex-1">
-          <View className="flex-row items-start justify-between mb-2">
-            <Text className={`text-base font-semibold ${textColor} flex-1`}>{booking.providerName}</Text>
-            <Text className={`text-sm font-semibold ${getStatusColor(booking.status)}`}>{getStatusText(booking.status)}</Text>
+          <View className="mb-2 flex-row items-start justify-between">
+            <Text className={`text-base font-semibold ${textColor} flex-1`}>
+              {booking.providerName}
+            </Text>
+            <Text className={`text-sm font-semibold ${getStatusColor(booking.status)}`}>
+              {getStatusText(booking.status)}
+            </Text>
           </View>
           <Text className={`text-sm ${subtextColor} mb-2`}>{booking.serviceType}</Text>
-          <View className="flex-row items-center mb-2">
-            <Ionicons name="calendar-outline" size={14} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+          <View className="mb-2 flex-row items-center">
+            <Ionicons
+              name="calendar-outline"
+              size={14}
+              color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+            />
             <Text className={`text-xs ${subtextColor} ml-1`}>{booking.date}</Text>
-            <Ionicons name="time-outline" size={14} color={isDarkMode ? '#9CA3AF' : '#6B7280'} style={{ marginLeft: 12 }} />
+            <Ionicons
+              name="time-outline"
+              size={14}
+              color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+              style={{ marginLeft: 12 }}
+            />
             <Text className={`text-xs ${subtextColor} ml-1`}>{booking.time}</Text>
           </View>
           <View className="flex-row items-center justify-between">
-            <Text className="text-brand-600 text-base font-bold">${booking.price}</Text>
+            <Text className="text-base font-bold text-brand-600">${booking.price}</Text>
             <View className="flex-row items-center" style={{ gap: 12 }}>
               {booking.rating ? (
                 <View className="flex-row items-center">
                   <Ionicons name="star" size={16} color="#FFC107" />
-                  <Text className={`text-sm font-semibold ${textColor} ml-1`}>{booking.rating}</Text>
+                  <Text className={`text-sm font-semibold ${textColor} ml-1`}>
+                    {booking.rating.toFixed(1)}
+                  </Text>
                 </View>
               ) : null}
+              {canReview ? (
+                <TouchableOpacity className="flex-row items-center" onPress={onLeaveReview}>
+                  <Ionicons name="star-outline" size={15} color="#F59E0B" />
+                  <Text className="ml-1 text-sm font-semibold" style={{ color: '#F59E0B' }}>
+                    Review
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
               <TouchableOpacity onPress={onViewDetails}>
-                <Text className="text-brand-600 font-semibold text-sm">View Details →</Text>
+                <Text className="text-sm font-semibold text-brand-600">View Details →</Text>
               </TouchableOpacity>
             </View>
           </View>

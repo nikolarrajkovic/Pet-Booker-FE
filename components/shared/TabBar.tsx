@@ -38,7 +38,9 @@ export default function TabBar() {
         <TouchableOpacity
           className="items-center py-2 px-4"
           activeOpacity={0.8}
-          onPress={() => (navigation as any).navigate('Search')}
+          onPress={() =>
+            (navigation as any).navigate('Search', { serviceType: undefined, category: undefined })
+          }
         >
           <Ionicons 
             name="search" 

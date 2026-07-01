@@ -5,7 +5,6 @@ import {
   View,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Modal,
   TextInput,
 } from 'react-native';
@@ -13,6 +12,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
+import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { RequestCard } from '../components';
 import type { ServiceRequest, RequestStatus } from '../components';
@@ -93,7 +94,7 @@ function bookingToRequest(b: BookingDto): ServiceRequest {
       : from.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }),
     serviceTime: isNaN(from.getTime())
       ? ''
-      : from.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }),
+      : from.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }),
     serviceLocation: '', // BACKEND-GAP: no location name on booking
     duration: `${hours} hour${hours === 1 ? '' : 's'}`,
     totalPrice: b.totalPrice,
@@ -124,9 +125,11 @@ export default function NewRequestsScreen() {
     inputText,
     placeholderColor,
   } = useThemeColors();
+  const { showError } = useToast();
   const [activeTab, setActiveTab] = useState<FilterTab>('new');
   const [bookings, setBookings] = useState<BookingDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   // Decline-reason modal: the request being declined + the partner's reason text.
   const [declineTargetId, setDeclineTargetId] = useState<number | null>(null);
@@ -138,11 +141,12 @@ export default function NewRequestsScreen() {
       return;
     }
     setIsLoading(true);
+    setLoadError(null);
     try {
       const providerId = currentUser.serviceProviderId || null;
       setBookings(providerId ? await getBookings({ serviceProviderId: providerId }) : []);
     } catch (e) {
-      console.warn('[NewRequests] load failed', e);
+      setLoadError(getErrorMessage(e, 'Could not load requests. Please try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -179,8 +183,8 @@ export default function NewRequestsScreen() {
     try {
       await confirmBooking(id);
       await load();
-    } catch (e: any) {
-      Alert.alert('Could not accept', e?.message ?? 'Please try again.');
+    } catch (e) {
+      showError(getErrorMessage(e, 'Could not accept the request. Please try again.'));
     } finally {
       setBusyId(null);
     }
@@ -199,18 +203,26 @@ export default function NewRequestsScreen() {
   const confirmDecline = async () => {
     if (declineTargetId === null) return;
     const id = declineTargetId;
-    const reason = declineReason.trim() || 'Declined by provider';
+    const trimmed = declineReason.trim();
+    // Server requires a reason of ≥10 chars when one is given; blank is allowed
+    // and uses a generic fallback. Guard the 1–9 char range.
+    if (trimmed.length > 0 && trimmed.length < 10) return;
+    const reason = trimmed || 'Declined by provider';
     setDeclineTargetId(null);
     setBusyId(id);
     try {
       await declineBooking(id, reason);
       await load();
-    } catch (e: any) {
-      Alert.alert('Could not decline', e?.message ?? 'Please try again.');
+    } catch (e) {
+      showError(getErrorMessage(e, 'Could not decline the request. Please try again.'));
     } finally {
       setBusyId(null);
     }
   };
+
+  // A typed reason must be ≥10 chars (server rule); blank is fine (uses fallback).
+  const declineReasonTooShort =
+    declineReason.trim().length > 0 && declineReason.trim().length < 10;
 
   return (
     <ScreenLayout
@@ -269,6 +281,15 @@ export default function NewRequestsScreen() {
           <View className="items-center justify-center py-16">
             <ActivityIndicator size="large" color="#00C870" />
           </View>
+        ) : loadError ? (
+          <View className="items-center justify-center py-16">
+            <Ionicons
+              name="alert-circle-outline"
+              size={64}
+              color={isDarkMode ? '#4B5563' : '#D1D5DB'}
+            />
+            <Text className={`${subtextColor} mt-4 text-center text-base`}>{loadError}</Text>
+          </View>
         ) : filtered.length === 0 ? (
           <View className="items-center justify-center py-16">
             <Ionicons
@@ -317,10 +338,15 @@ export default function NewRequestsScreen() {
               multiline
               numberOfLines={3}
               textAlignVertical="top"
-              className={`${inputBg} rounded-xl px-4 py-3 ${inputText} mb-4`}
+              className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${declineReasonTooShort ? 'mb-1' : 'mb-4'}`}
               style={{ minHeight: 80 }}
               selectionColor="#00C870"
             />
+            {declineReasonTooShort && (
+              <Text className="mb-4 text-xs text-red-500">
+                Please use at least 10 characters, or leave it blank.
+              </Text>
+            )}
             <View className="flex-row" style={{ gap: 12 }}>
               <TouchableOpacity
                 onPress={() => setDeclineTargetId(null)}
@@ -330,8 +356,9 @@ export default function NewRequestsScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={confirmDecline}
+                disabled={declineReasonTooShort}
                 activeOpacity={0.7}
-                className="flex-1 items-center rounded-xl bg-red-500 py-3">
+                className={`flex-1 items-center rounded-xl bg-red-500 py-3 ${declineReasonTooShort ? 'opacity-50' : ''}`}>
                 <Text className="font-semibold text-white">Decline</Text>
               </TouchableOpacity>
             </View>

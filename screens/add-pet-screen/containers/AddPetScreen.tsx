@@ -5,10 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useToast } from '../../../context/ToastContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PetPhotoUploader, PetTypeSelector, SexSelector } from '../components';
 import DatePicker from '../../../components/shared/DatePicker';
 import { createPet, updatePet } from '../../../services/pets';
+import { getErrorMessage } from '../../../services/http';
 import { useAuth } from '../../../context/AuthContext';
 
 type AddPetRouteParams = {
@@ -43,6 +45,7 @@ export default function AddPetScreen() {
   const route = useRoute<RouteProp<{ params: AddPetRouteParams }, 'params'>>();
   const existingPet = route.params?.pet;
   const { isDarkMode, cardBg, bgColor: contentBg, textColor, inputBg, inputText } = useThemeColors();
+  const { showError } = useToast();
   const { currentUser } = useAuth();
 
   const [isMetric, setIsMetric] = useState(true);
@@ -335,8 +338,8 @@ export default function AddPetScreen() {
                 await createPet(input);
               }
               (navigation as any).navigate('MyPets', { refreshKey: Date.now() });
-            } catch (error: any) {
-              Alert.alert('Error', error?.message ?? 'Something went wrong. Please try again.');
+            } catch (error) {
+              showError(getErrorMessage(error, 'Could not save your pet. Please try again.'));
             } finally {
               setIsSubmitting(false);
             }

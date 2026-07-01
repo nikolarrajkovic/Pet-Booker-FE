@@ -7,7 +7,7 @@ import { ServiceDto } from '../../../services/services';
 export interface ServiceSearchItem {
   id: number;
   name: string;
-  service: string; // category label (e.g. "Dog Walking")
+  service: string; // service-type displayName (e.g. "Walker")
   rating: number;
   reviews: number;
   distance: string;
@@ -25,6 +25,9 @@ interface ListViewProps {
   subtextColor: string;
   cardBg: string;
   borderColor: string;
+  // When the list is scoped to a Home category (Most Popular / Special Deals),
+  // every card carries the same banner the Home cards show.
+  badge?: 'popular' | 'deal';
 }
 
 export default function ListView({
@@ -34,6 +37,7 @@ export default function ListView({
   subtextColor,
   cardBg,
   borderColor,
+  badge,
 }: ListViewProps) {
   const navigation = useNavigation();
 
@@ -42,20 +46,34 @@ export default function ListView({
       <View className="px-6 pt-8">
         <Text className={`text-sm ${subtextColor} mb-4`}>{services.length} services found</Text>
 
-        {/* Service cards — tap to book the service directly */}
+        {/* Service cards — tap to read the full service detail before booking */}
         {services.map((item) => (
           <TouchableOpacity
             key={item.id}
-            onPress={() => (navigation as any).navigate('BookService', { service: item.dto })}
+            onPress={() => (navigation as any).navigate('ServiceDetail', { service: item.dto })}
             className={`${cardBg} rounded-2xl mb-3 p-3 flex-row shadow-sm border ${borderColor}`}
             activeOpacity={0.9}
           >
-            {/* Service image */}
-            <Image
-              source={{ uri: item.image }}
-              className="w-20 h-20 rounded-xl"
-              resizeMode="cover"
-            />
+            {/* Service image + category banner (Popular / Deal) */}
+            <View className="relative">
+              <Image
+                source={{ uri: item.image }}
+                className="w-20 h-20 rounded-xl"
+                resizeMode="cover"
+              />
+              {badge === 'popular' && (
+                <View className="absolute top-1 left-1 bg-amber-500 rounded-full px-1.5 py-0.5 flex-row items-center">
+                  <Ionicons name="flame" size={10} color="white" />
+                  <Text className="text-white text-[9px] font-bold ml-0.5">Popular</Text>
+                </View>
+              )}
+              {badge === 'deal' && (
+                <View className="absolute top-1 left-1 bg-red-500 rounded-full px-1.5 py-0.5 flex-row items-center">
+                  <Ionicons name="pricetag" size={10} color="white" />
+                  <Text className="text-white text-[9px] font-bold ml-0.5">Deal</Text>
+                </View>
+              )}
+            </View>
 
             {/* Service info */}
             <View className="flex-1 ml-3 justify-between">
@@ -71,7 +89,7 @@ export default function ListView({
                   <View className="flex-row items-center">
                     <Ionicons name="star" size={14} color="#F59E0B" />
                     <Text className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} ml-1 font-medium`}>
-                      {item.rating} <Text className={subtextColor}>({item.reviews})</Text>
+                      {item.rating.toFixed(1)} <Text className={subtextColor}>({item.reviews})</Text>
                     </Text>
                   </View>
                 )}

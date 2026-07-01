@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
 import TimePicker, { formatTime24 } from '../../../components/shared/TimePicker';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import {
@@ -24,6 +25,7 @@ import {
   deleteService,
   ServiceDto,
 } from '../../../services/services';
+import { getErrorMessage } from '../../../services/http';
 import { saveServiceSchedules } from '../../../services/service-schedules';
 import {
   serviceDtoToUi,
@@ -34,9 +36,9 @@ import {
   workingHoursToSchedules,
 } from '../serviceModel';
 
-// Must match PROVIDER_TYPE_LABELS (ServiceProviderType enum) so the selected
-// label maps back to a real numeric `type` on save.
-const SERVICE_TYPES = ['Pet Sitting', 'Dog Walking', 'Boarding', 'Pet Hotel', 'Grooming'];
+// serviceProviderType enum `displayName`s — the selected label maps back to a
+// real numeric `type` on save via providerTypeValue().
+const SERVICE_TYPES = ['Sitter', 'Walker', 'Boarder', 'Pet Hotel', 'Groomer', 'Transporter'];
 
 const DURATION_OPTIONS = [
   '30 minutes',
@@ -84,13 +86,13 @@ type AddEditServiceParams = {
 };
 
 const DEFAULT_WORKING_HOURS: WorkingHours = {
-  Monday: { enabled: false, startTime: '09:00 AM', endTime: '05:00 PM' },
-  Tuesday: { enabled: false, startTime: '09:00 AM', endTime: '05:00 PM' },
-  Wednesday: { enabled: false, startTime: '09:00 AM', endTime: '05:00 PM' },
-  Thursday: { enabled: false, startTime: '09:00 AM', endTime: '05:00 PM' },
-  Friday: { enabled: false, startTime: '09:00 AM', endTime: '05:00 PM' },
-  Saturday: { enabled: false, startTime: '09:00 AM', endTime: '05:00 PM' },
-  Sunday: { enabled: false, startTime: '09:00 AM', endTime: '05:00 PM' },
+  Monday: { enabled: false, startTime: '09:00', endTime: '17:00' },
+  Tuesday: { enabled: false, startTime: '09:00', endTime: '17:00' },
+  Wednesday: { enabled: false, startTime: '09:00', endTime: '17:00' },
+  Thursday: { enabled: false, startTime: '09:00', endTime: '17:00' },
+  Friday: { enabled: false, startTime: '09:00', endTime: '17:00' },
+  Saturday: { enabled: false, startTime: '09:00', endTime: '17:00' },
+  Sunday: { enabled: false, startTime: '09:00', endTime: '17:00' },
 };
 
 function getInitialAdditionalServices(existing?: ExistingService): AdditionalService[] {
@@ -132,6 +134,8 @@ export default function AddEditServiceScreen() {
     borderColor,
     placeholderColor,
   } = useThemeColors();
+
+  const { showError } = useToast();
 
   // Provider id comes from the nav param, falling back to /auth/me (0 → none).
   const serviceProviderId = params?.serviceProviderId ?? (currentUser?.serviceProviderId || null);
@@ -318,9 +322,10 @@ export default function AddEditServiceScreen() {
         serviceImages.map((img, i) => ({ ...img, isSelected: i === mainImageIndex })),
         params?.serviceDto?.photos
       );
-      // Only API-backed fields persist; pricing tiers beyond the first and extra
-      // add-ons are still UI-only (see BACKEND_GAPS.md: S1, S3). Working hours
-      // persist separately via /api/service-schedules below.
+      // Only API-backed fields persist; pricing tiers beyond the first are still
+      // UI-only (see BACKEND_GAPS.md: S1). Add-ons now persist via the catalog,
+      // but only their flat baseFee — per-km surcharge fields stay UI-only. Working
+      // hours persist separately via /api/service-schedules below.
       const dto = uiToServiceDto(
         {
           serviceProviderId,
@@ -354,17 +359,16 @@ export default function AddEditServiceScreen() {
             workingHoursToSchedules(workingHours, savedId),
             params?.serviceDto?.schedules ?? []
           );
-        } catch (schedErr: any) {
+        } catch (schedErr) {
           if (__DEV__) console.warn('[AddEditService] working-hours save failed', schedErr);
-          Alert.alert(
-            'Saved with a warning',
+          showError(
             'The service was saved, but its working hours could not be updated. Open the service to try again.'
           );
         }
       }
       navigation.goBack();
-    } catch (e: any) {
-      Alert.alert('Save failed', e?.message ?? 'Please try again.');
+    } catch (e) {
+      showError(getErrorMessage(e, 'Could not save the service. Please try again.'));
     } finally {
       setIsSaving(false);
     }
@@ -386,8 +390,8 @@ export default function AddEditServiceScreen() {
             try {
               await deleteService(serviceId);
               navigation.goBack();
-            } catch (e: any) {
-              Alert.alert('Delete failed', e?.message ?? 'Please try again.');
+            } catch (e) {
+              showError(getErrorMessage(e, 'Could not delete the service. Please try again.'));
             } finally {
               setIsSaving(false);
             }

@@ -1,6 +1,9 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { fetchEnums, EnumsData } from '../services/enums';
+import { getErrorMessage } from '../services/http';
+import { registerServiceProviderTypeLabels } from '../services/service-providers';
 import { useAuth } from './AuthContext';
+import { useToast } from './ToastContext';
 
 type EnumsContextType = {
   enums: EnumsData | null;
@@ -11,6 +14,7 @@ const EnumsContext = createContext<EnumsContextType | undefined>(undefined);
 
 export const EnumsProvider = ({ children }: { children: ReactNode }) => {
   const { isLoggedIn } = useAuth();
+  const { showError } = useToast();
   const [enums, setEnums] = useState<EnumsData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -18,6 +22,7 @@ export const EnumsProvider = ({ children }: { children: ReactNode }) => {
     if (!isLoggedIn) {
       // Clear cache on logout so a fresh fetch happens on next login
       setEnums(null);
+      registerServiceProviderTypeLabels(null);
       return;
     }
 
@@ -30,9 +35,16 @@ export const EnumsProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(true);
       try {
         const data = await fetchEnums();
-        if (!cancelled) setEnums(data);
+        if (!cancelled) {
+          setEnums(data);
+          // Feed the serviceProviderType displayNames into the service-type label
+          // resolver so labels everywhere come from /enums, not a static map.
+          registerServiceProviderTypeLabels(data.serviceProviderType);
+        }
       } catch (error) {
-        console.warn('[EnumsContext] Failed to fetch enums:', error);
+        if (!cancelled) {
+          showError(getErrorMessage(error, 'Some app data could not be loaded. Please try again.'));
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }

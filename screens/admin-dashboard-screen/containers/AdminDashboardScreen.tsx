@@ -1,59 +1,205 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useToast } from '../../../context/ToastContext';
 import TabBar from '../../../components/shared/TabBar';
+import {
+  getServiceProviders,
+  ServiceProviderDto,
+  ApprovalStatus,
+  providerTypeLabel,
+} from '../../../services/service-providers';
+import { getBookings, BookingDto, BookingState, parseBookingDate } from '../../../services/bookings';
+import { getErrorMessage } from '../../../services/http';
 
-// ─── Mock data ─────────────────────────────────────────────────────────────────
-const STATS_THIS_MONTH = {
-  totalRevenue: '$45,280',
-  revenueChange: '+16.3%',
-  servicesScheduled: '342',
-  servicesChange: '+14.8%',
-  newPartners: '12',
-  newPartnersChange: '+50.0%',
-  activePartners: '87',
+// ─── Formatting helpers ──────────────────────────────────────────────────────
+const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
+const fmtCount = (n: number) => n.toLocaleString('en-US');
+const fmtPct = (p: number | null): string | undefined =>
+  p == null ? undefined : `${p >= 0 ? '+' : ''}${p.toFixed(1)}%`;
+
+const pctChange = (cur: number, prev: number): number | null =>
+  prev <= 0 ? null : ((cur - prev) / prev) * 100;
+
+// Stable color per ServiceProviderType for the revenue breakdown bars.
+const TYPE_COLORS: Record<number, string> = {
+  0: '#EC4899', // Pet Sitting
+  1: '#3B82F6', // Dog Walking
+  2: '#F97316', // Boarding
+  3: '#10B981', // Pet Hotel
+  4: '#8B5CF6', // Grooming
 };
 
-const STATS_THIS_YEAR = {
-  totalRevenue: '$524,190',
-  revenueChange: '+22.1%',
-  servicesScheduled: '3,890',
-  servicesChange: '+18.4%',
-  newPartners: '64',
-  newPartnersChange: '+34.0%',
-  activePartners: '87',
+type AdminMetrics = {
+  totalRevenue: number;
+  revenueChangePct: number | null;
+  servicesScheduled: number;
+  servicesChangePct: number | null;
+  newPartners: number;
+  newPartnersChangePct: number | null;
+  activePartners: number;
+  pendingRequests: number;
+  revenueByType: { label: string; value: number; color: string }[];
 };
 
-const REVENUE_THIS_MONTH = [
-  { label: 'Dog Walking', value: 15848, display: '$15,848', color: '#3B82F6' },
-  { label: 'Grooming', value: 12678, display: '$12,678.4', color: '#8B5CF6' },
-  { label: 'Pet Sitting', value: 9961, display: '$9,961.6', color: '#EC4899' },
-  { label: 'Boarding', value: 6792, display: '$6,792', color: '#F97316' },
-];
+const EMPTY_METRICS: AdminMetrics = {
+  totalRevenue: 0,
+  revenueChangePct: null,
+  servicesScheduled: 0,
+  servicesChangePct: null,
+  newPartners: 0,
+  newPartnersChangePct: null,
+  activePartners: 0,
+  pendingRequests: 0,
+  revenueByType: [],
+};
 
-const REVENUE_THIS_YEAR = [
-  { label: 'Dog Walking', value: 182340, display: '$182,340', color: '#3B82F6' },
-  { label: 'Grooming', value: 147820, display: '$147,820', color: '#8B5CF6' },
-  { label: 'Pet Sitting', value: 115690, display: '$115,690', color: '#EC4899' },
-  { label: 'Boarding', value: 78340, display: '$78,340', color: '#F97316' },
-];
+/**
+ * Derives the dashboard numbers for the selected period from the raw provider +
+ * booking lists. Revenue/services are bucketed by `bookingFrom` (non-cancelled
+ * bookings only); new partners by provider `createdAt`; active/pending partners
+ * by `approvalStatus`. Period deltas compare against the previous month/year.
+ */
+function computeAdminMetrics(
+  raw: { providers: ServiceProviderDto[]; bookings: BookingDto[] } | null,
+  period: 'month' | 'year'
+): AdminMetrics {
+  if (!raw) return EMPTY_METRICS;
+  const { providers, bookings } = raw;
+  const now = new Date();
+
+  const curStart =
+    period === 'month'
+      ? new Date(now.getFullYear(), now.getMonth(), 1)
+      : new Date(now.getFullYear(), 0, 1);
+  const curEnd =
+    period === 'month'
+      ? new Date(now.getFullYear(), now.getMonth() + 1, 1)
+      : new Date(now.getFullYear() + 1, 0, 1);
+  const prevStart =
+    period === 'month'
+      ? new Date(now.getFullYear(), now.getMonth() - 1, 1)
+      : new Date(now.getFullYear() - 1, 0, 1);
+  const prevEnd = curStart;
+
+  const inWindow = (iso: string | null | undefined, start: Date, end: Date, naive: boolean) => {
+    if (!iso) return false;
+    const d = naive ? parseBookingDate(iso) : new Date(iso);
+    return !isNaN(d.getTime()) && d >= start && d < end;
+  };
+
+  const activeBookings = bookings.filter((b) => b.state !== BookingState.Cancelled);
+  const curBookings = activeBookings.filter((b) => inWindow(b.bookingFrom, curStart, curEnd, true));
+  const prevBookings = activeBookings.filter((b) =>
+    inWindow(b.bookingFrom, prevStart, prevEnd, true)
+  );
+
+  const sum = (arr: BookingDto[]) => arr.reduce((t, b) => t + (b.totalPrice || 0), 0);
+  const totalRevenue = sum(curBookings);
+  const prevRevenue = sum(prevBookings);
+
+  const newPartners = providers.filter((p) =>
+    inWindow(p.createdAt, curStart, curEnd, false)
+  ).length;
+  const prevNewPartners = providers.filter((p) =>
+    inWindow(p.createdAt, prevStart, prevEnd, false)
+  ).length;
+
+  const statusOf = (p: ServiceProviderDto) =>
+    p.approvalStatus ?? (p.isApproved ? ApprovalStatus.Approved : ApprovalStatus.Pending);
+  const activePartners = providers.filter((p) => statusOf(p) === ApprovalStatus.Approved).length;
+  const pendingRequests = providers.filter((p) => statusOf(p) === ApprovalStatus.Pending).length;
+
+  // Revenue by service type: map each booking's provider → its type.
+  const typeById = new Map<number, number>();
+  providers.forEach((p) => {
+    if (p.id != null) typeById.set(p.id, p.type);
+  });
+  const byType = new Map<number, number>();
+  curBookings.forEach((b) => {
+    const t = typeById.get(b.serviceProviderId);
+    if (t == null) return;
+    byType.set(t, (byType.get(t) || 0) + (b.totalPrice || 0));
+  });
+  const revenueByType = [...byType.entries()]
+    .map(([type, value]) => ({
+      label: providerTypeLabel(type),
+      value,
+      color: TYPE_COLORS[type] ?? '#9CA3AF',
+    }))
+    .filter((r) => r.value > 0)
+    .sort((a, b) => b.value - a.value);
+
+  return {
+    totalRevenue,
+    revenueChangePct: pctChange(totalRevenue, prevRevenue),
+    servicesScheduled: curBookings.length,
+    servicesChangePct: pctChange(curBookings.length, prevBookings.length),
+    newPartners,
+    newPartnersChangePct: pctChange(newPartners, prevNewPartners),
+    activePartners,
+    pendingRequests,
+    revenueByType,
+  };
+}
 
 export default function AdminDashboardScreen() {
   const navigation = useNavigation<any>();
   const { isDarkMode, hex } = useThemeColors();
+  const { showError } = useToast();
   const [period, setPeriod] = useState<'month' | 'year'>('month');
 
-  const stats = period === 'month' ? STATS_THIS_MONTH : STATS_THIS_YEAR;
-  const revenueData = period === 'month' ? REVENUE_THIS_MONTH : REVENUE_THIS_YEAR;
-  const maxRevenue = Math.max(...revenueData.map((r) => r.value));
+  const [raw, setRaw] = useState<{
+    providers: ServiceProviderDto[];
+    bookings: BookingDto[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        setLoading(true);
+        try {
+          let failure: unknown = null;
+          const [providers, bookings] = await Promise.all([
+            getServiceProviders({ perPage: 200 }).catch((e) => {
+              failure = e;
+              return [] as ServiceProviderDto[];
+            }),
+            getBookings({ perPage: 500 }).catch((e) => {
+              failure = e;
+              return [] as BookingDto[];
+            }),
+          ]);
+          if (!cancelled) {
+            setRaw({ providers, bookings });
+            if (failure) {
+              showError(getErrorMessage(failure, 'Could not load dashboard data. Please try again.'));
+            }
+          }
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
+
+  const metrics = useMemo(() => computeAdminMetrics(raw, period), [raw, period]);
+  const maxRevenue = Math.max(1, ...metrics.revenueByType.map((r) => r.value));
+  const val = (s: string) => (loading && !raw ? '—' : s);
 
   const bgColor = hex.bg;
   const cardBg = hex.card;
@@ -168,9 +314,9 @@ export default function AdminDashboardScreen() {
               iconName="cash-outline"
               iconBg="#E8F5EF"
               iconColor="#00C870"
-              change={stats.revenueChange}
+              change={fmtPct(metrics.revenueChangePct)}
               changeColor="#00C870"
-              value={stats.totalRevenue}
+              value={val(fmtMoney(metrics.totalRevenue))}
               label="Total Revenue"
               cardBg={cardBg}
               sectionTitle={sectionTitle}
@@ -182,9 +328,9 @@ export default function AdminDashboardScreen() {
               iconName="calendar-outline"
               iconBg="#EEF2FF"
               iconColor="#6366F1"
-              change={stats.servicesChange}
+              change={fmtPct(metrics.servicesChangePct)}
               changeColor="#6366F1"
-              value={stats.servicesScheduled}
+              value={val(fmtCount(metrics.servicesScheduled))}
               label="Services Scheduled"
               cardBg={cardBg}
               sectionTitle={sectionTitle}
@@ -196,9 +342,9 @@ export default function AdminDashboardScreen() {
               iconName="person-add-outline"
               iconBg="#F3E8FF"
               iconColor="#A855F7"
-              change={stats.newPartnersChange}
+              change={fmtPct(metrics.newPartnersChangePct)}
               changeColor="#A855F7"
-              value={stats.newPartners}
+              value={val(fmtCount(metrics.newPartners))}
               label="New Partners"
               cardBg={cardBg}
               sectionTitle={sectionTitle}
@@ -212,7 +358,7 @@ export default function AdminDashboardScreen() {
               iconColor="#F59E0B"
               change={undefined}
               changeColor="#F59E0B"
-              value={stats.activePartners}
+              value={val(fmtCount(metrics.activePartners))}
               label="Active Partners"
               cardBg={cardBg}
               sectionTitle={sectionTitle}
@@ -239,24 +385,44 @@ export default function AdminDashboardScreen() {
                 Revenue by Service Type
               </Text>
             </View>
-            {revenueData.map((item) => (
-              <View key={item.label} style={{ marginBottom: 14 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Text style={{ color: sectionTitle, fontSize: 13, fontWeight: '500' }}>{item.label}</Text>
-                  <Text style={{ color: sectionTitle, fontSize: 13, fontWeight: '600' }}>{item.display}</Text>
-                </View>
-                <View style={{ height: 8, backgroundColor: isDarkMode ? '#2d3748' : '#F3F4F6', borderRadius: 4 }}>
+            {loading && !raw ? (
+              <ActivityIndicator color="#00C870" style={{ paddingVertical: 12 }} />
+            ) : metrics.revenueByType.length === 0 ? (
+              <Text style={{ color: subText, fontSize: 13, paddingVertical: 8 }}>
+                No revenue in this period yet.
+              </Text>
+            ) : (
+              metrics.revenueByType.map((item) => (
+                <View key={item.label} style={{ marginBottom: 14 }}>
+                  <View
+                    style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}
+                  >
+                    <Text style={{ color: sectionTitle, fontSize: 13, fontWeight: '500' }}>
+                      {item.label}
+                    </Text>
+                    <Text style={{ color: sectionTitle, fontSize: 13, fontWeight: '600' }}>
+                      {fmtMoney(item.value)}
+                    </Text>
+                  </View>
                   <View
                     style={{
                       height: 8,
+                      backgroundColor: isDarkMode ? '#2d3748' : '#F3F4F6',
                       borderRadius: 4,
-                      backgroundColor: item.color,
-                      width: `${Math.round((item.value / maxRevenue) * 100)}%`,
                     }}
-                  />
+                  >
+                    <View
+                      style={{
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: item.color,
+                        width: `${Math.round((item.value / maxRevenue) * 100)}%`,
+                      }}
+                    />
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))
+            )}
           </View>
 
           {/* ── Quick Actions ── */}
@@ -292,22 +458,30 @@ export default function AdminDashboardScreen() {
                   >
                     <Ionicons name="document-text-outline" size={24} color="#F59E0B" />
                   </View>
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: -6,
-                      right: -6,
-                      backgroundColor: '#F97316',
-                      borderRadius: 10,
-                      paddingHorizontal: 6,
-                      paddingVertical: 2,
-                    }}
-                  >
-                    <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>4 new</Text>
-                  </View>
+                  {metrics.pendingRequests > 0 && (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: -6,
+                        right: -6,
+                        backgroundColor: '#F97316',
+                        borderRadius: 10,
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                      }}
+                    >
+                      <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
+                        {metrics.pendingRequests} new
+                      </Text>
+                    </View>
+                  )}
                 </View>
-                <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>New Requests</Text>
-                <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>Review applications</Text>
+                <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>
+                  New Requests
+                </Text>
+                <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>
+                  Review applications
+                </Text>
               </TouchableOpacity>
 
               {/* Partners */}
@@ -337,19 +511,23 @@ export default function AdminDashboardScreen() {
                   >
                     <Ionicons name="people-outline" size={24} color="#00C870" />
                   </View>
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: -6,
-                      right: -6,
-                      backgroundColor: '#00C870',
-                      borderRadius: 10,
-                      paddingHorizontal: 6,
-                      paddingVertical: 2,
-                    }}
-                  >
-                    <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>87 active</Text>
-                  </View>
+                  {metrics.activePartners > 0 && (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: -6,
+                        right: -6,
+                        backgroundColor: '#00C870',
+                        borderRadius: 10,
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                      }}
+                    >
+                      <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
+                        {metrics.activePartners} active
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>Partners</Text>
                 <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>Manage partners</Text>
@@ -384,7 +562,41 @@ export default function AdminDashboardScreen() {
                   </View>
                 </View>
                 <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>Add New</Text>
-                <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>Add partner manually</Text>
+                <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>
+                  Add partner manually
+                </Text>
+              </TouchableOpacity>
+
+              {/* Reviews */}
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('AdminReviews')}
+                style={{
+                  width: '47.5%',
+                  backgroundColor: cardBg,
+                  borderRadius: 16,
+                  padding: 16,
+                  borderWidth: 1,
+                  borderColor,
+                  alignItems: 'flex-start',
+                }}
+              >
+                <View style={{ marginBottom: 12 }}>
+                  <View
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 14,
+                      backgroundColor: '#FEF3C7',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Ionicons name="star-outline" size={24} color="#F59E0B" />
+                  </View>
+                </View>
+                <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>Reviews</Text>
+                <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>Moderate reviews</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -425,6 +637,8 @@ function StatCard({
   subText,
   borderColor,
 }: StatCardProps) {
+  const isNegative = !!change && change.startsWith('-');
+  const trendColor = isNegative ? '#EF4444' : changeColor;
   return (
     <View
       style={{
@@ -437,7 +651,14 @@ function StatCard({
         borderColor,
       }}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 10,
+        }}
+      >
         <View
           style={{
             width: 38,
@@ -455,14 +676,20 @@ function StatCard({
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: `${changeColor}18`,
+              backgroundColor: `${trendColor}18`,
               borderRadius: 8,
               paddingHorizontal: 6,
               paddingVertical: 2,
             }}
           >
-            <Ionicons name="trending-up" size={11} color={changeColor} />
-            <Text style={{ color: changeColor, fontSize: 11, fontWeight: '700', marginLeft: 2 }}>{change}</Text>
+            <Ionicons
+              name={isNegative ? 'trending-down' : 'trending-up'}
+              size={11}
+              color={trendColor}
+            />
+            <Text style={{ color: trendColor, fontSize: 11, fontWeight: '700', marginLeft: 2 }}>
+              {change}
+            </Text>
           </View>
         )}
       </View>

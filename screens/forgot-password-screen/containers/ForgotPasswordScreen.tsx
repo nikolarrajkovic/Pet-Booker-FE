@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useToast } from '../../../context/ToastContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { forgotPassword, resetPassword } from '../../../services/auth';
+import { getErrorMessage } from '../../../services/http';
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation<any>();
   const { bgColor, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor } = useThemeColors();
+  const { showError } = useToast();
 
   const [step, setStep] = useState<'request' | 'reset'>('request');
   const [email, setEmail] = useState('');
@@ -23,8 +26,8 @@ export default function ForgotPasswordScreen() {
       await forgotPassword(email.trim());
       Alert.alert('Check your email', 'If an account exists, a reset code has been sent.');
       setStep('reset');
-    } catch (e: any) {
-      Alert.alert('Could not send reset email', e?.message ?? 'Please try again.');
+    } catch (e) {
+      showError(getErrorMessage(e, 'Could not send reset email. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -46,8 +49,8 @@ export default function ForgotPasswordScreen() {
         // Terminal step — reset so back can't return to the reset form.
         { text: 'OK', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }) },
       ]);
-    } catch (e: any) {
-      Alert.alert('Could not reset password', e?.message ?? 'Please try again.');
+    } catch (e) {
+      showError(getErrorMessage(e, 'Could not reset password. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }

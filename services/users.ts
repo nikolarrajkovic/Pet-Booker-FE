@@ -9,9 +9,11 @@ export type UserDto = {
   email?: string | null;
   phone?: string | null;
   avatarUrl?: string | null;
-  // Sensitive fields the GET returns. There is NO PATCH endpoint (405) — only
-  // PUT, which replaces the whole record — so these must be round-tripped
-  // unchanged to avoid wiping the user's password.
+  // Password fields exist on the WRITE DTO only. The GET (UserReadDto) no longer
+  // returns them (removed in the API update), and the server now preserves the
+  // stored password when they're omitted on PUT — so the profile round-trip
+  // ({ ...original, ...edits }) is safe even though `original` carries no hash.
+  // Kept optional here for callers that explicitly set a password.
   passwordHash?: string | null;
   passwordSalt?: string | null;
   passwordHashAlgorithm?: string | null;

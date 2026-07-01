@@ -15,15 +15,14 @@ interface FormData {
   fullName: string;
   email: string;
   phone: string;
+  country: string;
   streetAddress: string;
   city: string;
-  state: string;
   zipCode: string;
   selectedServices: string[];
   yearsOfExperience: string;
   aboutYou: string;
-  certifications: string;
-  availability: string;
+  motivation: string;
 }
 
 interface ServiceInfoStepProps {
@@ -71,7 +70,7 @@ export default function ServiceInfoStep({
                   if (isSelected) {
                     setFormData({
                       ...formData,
-                      selectedServices: formData.selectedServices.filter(s => s !== service.id),
+                      selectedServices: formData.selectedServices.filter((s) => s !== service.id),
                     });
                   } else {
                     setFormData({
@@ -80,13 +79,11 @@ export default function ServiceInfoStep({
                     });
                   }
                 }}
-                className={`px-6 py-3 rounded-xl border-2 ${
-                  isSelected
-                    ? 'bg-brand-500 border-brand-500'
-                    : `${inputBg} ${borderColor}`
-                }`}
-              >
-                <Text className={`font-medium ${isSelected ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                className={`rounded-xl border-2 px-6 py-3 ${
+                  isSelected ? 'border-brand-500 bg-brand-500' : `${inputBg} ${borderColor}`
+                }`}>
+                <Text
+                  className={`font-medium ${isSelected ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                   {service.label}
                 </Text>
               </TouchableOpacity>
@@ -100,8 +97,14 @@ export default function ServiceInfoStep({
         <Text className={`text-sm font-semibold ${textColor} mb-2`}>
           Years of Experience <Text className="text-red-500">*</Text>
         </Text>
-        <View className={`flex-row items-center ${inputBg} rounded-xl px-4 py-3 border ${borderColor}`}>
-          <Ionicons name="briefcase-outline" size={20} color={placeholderColor} style={{ marginRight: 12 }} />
+        <View
+          className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
+          <Ionicons
+            name="briefcase-outline"
+            size={20}
+            color={placeholderColor}
+            style={{ marginRight: 12 }}
+          />
           <TextInput
             className={`flex-1 ${inputText}`}
             placeholder="5 years"
@@ -112,13 +115,15 @@ export default function ServiceInfoStep({
         </View>
       </View>
 
-      {/* About You */}
+      {/* About Me */}
       <View className="mb-6">
         <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-          About You <Text className="text-red-500">*</Text>
+          About Me <Text className="text-red-500">*</Text>
         </Text>
-        <Text className={`text-xs ${subtextColor} mb-3`}>Tell pet owners why they should choose you</Text>
-        <View className={`${inputBg} rounded-xl px-4 py-3 border ${borderColor}`}>
+        <Text className={`text-xs ${subtextColor} mb-3`}>
+          Tell pet owners about yourself and why they should choose you
+        </Text>
+        <View className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
           <TextInput
             className={inputText}
             placeholder="I'm a passionate pet lover with over 5 years of experience..."
@@ -132,38 +137,24 @@ export default function ServiceInfoStep({
         </View>
       </View>
 
-      {/* Certifications */}
-      <View className="mb-6">
-        <Text className={`text-sm font-semibold ${textColor} mb-2`}>Certifications</Text>
-        <Text className={`text-xs ${subtextColor} mb-3`}>List any relevant certifications or training</Text>
-        <View className={`${inputBg} rounded-xl px-4 py-3 border ${borderColor}`}>
-          <TextInput
-            className={inputText}
-            placeholder="Certified Professional Dog Trainer, Pet First Aid..."
-            placeholderTextColor={placeholderColor}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-            value={formData.certifications}
-            onChangeText={(text) => setFormData({ ...formData, certifications: text })}
-          />
-        </View>
-      </View>
-
-      {/* Availability */}
+      {/* Motivation for Work */}
       <View className="mb-4">
-        <Text className={`text-sm font-semibold ${textColor} mb-2`}>Availability</Text>
-        <Text className={`text-xs ${subtextColor} mb-3`}>When are you typically available?</Text>
-        <View className={`${inputBg} rounded-xl px-4 py-3 border ${borderColor}`}>
+        <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+          Motivation for Work <Text className="text-red-500">*</Text>
+        </Text>
+        <Text className={`text-xs ${subtextColor} mb-3`}>
+          What motivates you to care for pets?
+        </Text>
+        <View className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
           <TextInput
             className={inputText}
-            placeholder="Monday-Friday: 9am-6pm, Weekends: Flexible"
+            placeholder="I love building trust with animals and giving owners peace of mind..."
             placeholderTextColor={placeholderColor}
             multiline
-            numberOfLines={2}
+            numberOfLines={4}
             textAlignVertical="top"
-            value={formData.availability}
-            onChangeText={(text) => setFormData({ ...formData, availability: text })}
+            value={formData.motivation}
+            onChangeText={(text) => setFormData({ ...formData, motivation: text })}
           />
         </View>
       </View>

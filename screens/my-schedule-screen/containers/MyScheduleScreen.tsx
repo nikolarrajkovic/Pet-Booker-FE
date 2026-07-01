@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
+import { getErrorMessage } from '../../../services/http';
 import DayView from '../components/DayView';
 import WeekView from '../components/WeekView';
 import MonthView from '../components/MonthView';
@@ -23,6 +25,7 @@ export default function MyScheduleScreen() {
   const route = useRoute();
   const { currentUser } = useAuth();
   const { isDarkMode, bgColor: contentBg } = useThemeColors();
+  const { showError } = useToast();
   const [selectedView, setSelectedView] = useState<ViewType>('day');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [, setDataVersion] = useState(0); // bumped after live data loads to re-render the views
@@ -47,7 +50,7 @@ export default function MyScheduleScreen() {
           setLiveScheduleData(buildScheduleFromBookings(bookings, mode));
           setDataVersion((v) => v + 1);
         } catch (e) {
-          console.warn('[MySchedule] load failed', e);
+          if (!cancelled) showError(getErrorMessage(e, 'Could not load your schedule. Please try again.'));
         }
       })();
       return () => { cancelled = true; clearLiveScheduleData(); };

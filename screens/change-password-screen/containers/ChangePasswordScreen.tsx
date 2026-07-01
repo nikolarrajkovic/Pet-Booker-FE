@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useToast } from '../../../context/ToastContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { changePassword } from '../../../services/auth';
+import { getErrorMessage } from '../../../services/http';
 
 export default function ChangePasswordScreen() {
   const navigation = useNavigation();
   const { bgColor, textColor, inputBg, inputText, borderColor, placeholderColor } = useThemeColors();
+  const { showError } = useToast();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -29,8 +32,8 @@ export default function ChangePasswordScreen() {
       Alert.alert('Password changed', 'Your password has been updated.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch (e: any) {
-      Alert.alert('Could not change password', e?.message ?? 'Please try again.');
+    } catch (e) {
+      showError(getErrorMessage(e, 'Could not change password. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }

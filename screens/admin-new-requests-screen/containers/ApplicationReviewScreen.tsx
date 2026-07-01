@@ -15,6 +15,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useToast } from '../../../context/ToastContext';
+import { getErrorMessage } from '../../../services/http';
 import type { PartnerApplication, ApplicationStatus, ApplicationImage } from '../components';
 import {
   approveServiceProvider,
@@ -50,6 +52,7 @@ export default function ApplicationReviewScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { isDarkMode, hex } = useThemeColors();
+  const { showError } = useToast();
   const insets = useSafeAreaInsets();
 
   const application: PartnerApplication = route.params?.application;
@@ -87,8 +90,8 @@ export default function ApplicationReviewScreen() {
       await Promise.all((application.certificateIds ?? []).map((cid) => approveCertificate(cid)));
       setStatus('approved');
       navigation.goBack();
-    } catch (e: any) {
-      Alert.alert('Approval failed', e?.message ?? 'Please try again.');
+    } catch (e) {
+      showError(getErrorMessage(e, 'Could not approve the application. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -110,8 +113,8 @@ export default function ApplicationReviewScreen() {
               await declineServiceProvider(providerId, 'Application declined by admin');
               setStatus('rejected');
               navigation.goBack();
-            } catch (e: any) {
-              Alert.alert('Rejection failed', e?.message ?? 'Please try again.');
+            } catch (e) {
+              showError(getErrorMessage(e, 'Could not reject the application. Please try again.'));
             } finally {
               setIsSubmitting(false);
             }

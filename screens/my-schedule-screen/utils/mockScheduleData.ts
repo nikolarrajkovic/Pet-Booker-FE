@@ -153,7 +153,7 @@ function inferScheduleType(name?: string | null): ServiceItem['type'] {
  */
 export function buildScheduleFromBookings(bookings: BookingDto[], mode: ScheduleMode): { [key: string]: ServiceItem[] } {
   const map: { [key: string]: ServiceItem[] } = {};
-  const fmt = (d: Date) => d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const fmt = (d: Date) => d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
   for (const b of bookings) {
     if (b.state === BookingState.Cancelled) continue;
     if (mode === 'partner' && b.currentStatus === BookingStatusType.ServiceRequestedByUser) continue;

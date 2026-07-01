@@ -76,13 +76,16 @@ export default function AnimatedCheckmark({
   useEffect(() => {
     if (reduced) return; // already rendered in the final drawn state
     ring.value = withSpring(1, { damping: 11, stiffness: 140, mass: 0.7 });
-    stroke1.value = withDelay(180, withTiming(1, { duration: 150, easing: Easing.out(Easing.quad) }));
+    stroke1.value = withDelay(
+      180,
+      withTiming(1, { duration: 150, easing: Easing.out(Easing.quad) })
+    );
     stroke2.value = withDelay(
       330,
       withTiming(1, { duration: 230, easing: Easing.out(Easing.quad) }, (finished) => {
         'worklet';
         if (finished && onDone) runOnJS(onDone)();
-      }),
+      })
     );
     // Animate once on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,14 +103,24 @@ export default function AnimatedCheckmark({
     const w = p * s1.len;
     const cx = s1.sx + (p / 2) * (s1.ex - s1.sx);
     const cy = s1.sy + (p / 2) * (s1.ey - s1.sy);
-    return { width: w, left: cx - w / 2, top: cy - strokeWidth / 2, transform: [{ rotateZ: `${s1.angle}deg` }] };
+    return {
+      width: w,
+      left: cx - w / 2,
+      top: cy - strokeWidth / 2,
+      transform: [{ rotateZ: `${s1.angle}deg` }],
+    };
   });
   const stroke2Style = useAnimatedStyle(() => {
     const p = stroke2.value;
     const w = p * s2.len;
     const cx = s2.sx + (p / 2) * (s2.ex - s2.sx);
     const cy = s2.sy + (p / 2) * (s2.ey - s2.sy);
-    return { width: w, left: cx - w / 2, top: cy - strokeWidth / 2, transform: [{ rotateZ: `${s2.angle}deg` }] };
+    return {
+      width: w,
+      left: cx - w / 2,
+      top: cy - strokeWidth / 2,
+      transform: [{ rotateZ: `${s2.angle}deg` }],
+    };
   });
   // Round join at the vertex: a dot (Ø = strokeWidth) centred on P2 merges the two
   // separate bars into one continuous bend (= what stroke-linejoin:round does).
@@ -116,12 +129,18 @@ export default function AnimatedCheckmark({
 
   const fill = ringColor ?? (isDarkMode ? 'rgba(0,200,112,0.2)' : '#CFF5E3');
 
+  const capRadius = strokeWidth / 2;
   const barBase = {
     position: 'absolute' as const,
     height: strokeWidth,
-    borderRadius: strokeWidth / 2,
     backgroundColor: color,
   };
+  // Round ONLY the outer tip of each bar and keep the vertex (P2) ends butt, so
+  // the two strokes meet flush there. The join dot then rounds the outer corner
+  // — exactly what stroke-linejoin:round does. (Rounding the vertex ends too made
+  // the bend look doubled/bulbous — the strokes "didn't emerge from one spot".)
+  const stroke1Caps = { borderTopLeftRadius: capRadius, borderBottomLeftRadius: capRadius };
+  const stroke2Caps = { borderTopRightRadius: capRadius, borderBottomRightRadius: capRadius };
 
   return (
     <Animated.View
@@ -135,12 +154,11 @@ export default function AnimatedCheckmark({
           justifyContent: 'center',
         },
         ringStyle,
-      ]}
-    >
+      ]}>
       {/* Check strokes live in a square the size of the ring. */}
       <View style={{ width: size, height: size }}>
-        <Animated.View style={[barBase, stroke1Style]} />
-        <Animated.View style={[barBase, stroke2Style]} />
+        <Animated.View style={[barBase, stroke1Caps, stroke1Style]} />
+        <Animated.View style={[barBase, stroke2Caps, stroke2Style]} />
         {/* Round join dot centred on the vertex (P2 = s1 end). */}
         <Animated.View
           style={[

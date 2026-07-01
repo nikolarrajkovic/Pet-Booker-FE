@@ -58,6 +58,29 @@ export async function parseApiError(
 }
 
 /**
+ * Normalizes an unknown thrown value (from a `catch` block) into a
+ * human-readable string suitable for display in a toast / inline error.
+ *
+ * Service functions already throw `Error` instances carrying a message from
+ * `parseApiError`, so the common path is `error.message`. This also tolerates
+ * raw strings and falls back to a generic message for anything else.
+ *
+ * Usage:
+ * ```ts
+ * try { await createPet(input); }
+ * catch (e) { showError(getErrorMessage(e)); }
+ * ```
+ */
+export function getErrorMessage(
+  error: unknown,
+  fallback = 'Something went wrong. Please try again.',
+): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string' && error.trim()) return error;
+  return fallback;
+}
+
+/**
  * Extracts the items array from a paginated or plain API list response.
  * Handles: plain array, `{ items }`, `{ data }`, `{ results }`, `{ value }`
  */
