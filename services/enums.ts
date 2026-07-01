@@ -2,7 +2,11 @@ import { apiAuthFetch, getApiBaseUrl } from './http';
 
 export type EnumEntry = {
   value: number;
+  // PascalCase identifier-style name, e.g. "PetHotel", "BankTransfer".
   name: string;
+  // Human-readable, spaced label, e.g. "Pet Hotel", "Bank Transfer" (added by
+  // the API). Prefer this over `name` when rendering an enum value to the user.
+  displayName?: string;
 };
 
 export type EnumsData = {

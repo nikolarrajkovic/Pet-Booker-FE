@@ -78,7 +78,12 @@ export type BookingDto = {
     photos?: NestedPhoto[];
   } | null;
   review?: { rating?: number | null } | null;
-  // Read DTO returns these top-level; the write DTO nests them under `location`.
+  // The read DTO now returns the pickup/leave-over addresses nested under
+  // `location` (location.pickupAddress / location.leaveOverAddress) — the booking
+  // POST persists them since the 2026-06 update (BACKEND_GAPS B2 resolved). The
+  // top-level `pickupAddress`/`leaveOverAddress` are backfilled from `location`
+  // by withResolvedAddresses() in the read/create paths so existing consumers
+  // (BookingDetails, LiveSession) keep reading them top-level.
   pickupAddress?: AddressDto | null;
   leaveOverAddress?: AddressDto | null;
   location?: BookingLocationDto | null;
@@ -98,6 +103,48 @@ export type BookingLocationDto = {
   pickupAddress?: AddressDto | null;
   leaveOverAddress?: AddressDto | null;
 };
+
+/**
+ * The fields the booking POST actually accepts (matches the server write DTO).
+ * `state`/`currentStatus` are intentionally absent — they're read-only and
+ * advanced only via the dedicated lifecycle endpoints, not the create/PUT body.
+ */
+type WritableBookingCreate = {
+  id?: number | null;
+  userId: number;
+  serviceProviderId: number;
+  serviceId: number;
+  petId: number;
+  priceCurrency?: string | null;
+  bookingFrom: string;
+  bookingTo: string;
+  basePrice: number;
+  discountAmount: number;
+  totalPrice: number;
+  paymentType: number;
+  paymentMethodId: number;
+  includePickup?: boolean;
+  includePetReturn?: boolean;
+  includeSpecialNeeds?: boolean;
+  distanceKm?: number | null;
+  location?: BookingLocationDto | null;
+};
+
+/**
+ * The booking read DTO returns the pickup/leave-over addresses nested under
+ * `location` (BACKEND_GAPS B2 resolved — they now persist and round-trip). For
+ * compatibility with consumers that read `pickupAddress`/`leaveOverAddress`
+ * top-level, this backfills the top-level fields from `location` when present.
+ * Applied at the service boundary (getBooking/getBookings/createBooking).
+ */
+function withResolvedAddresses(dto: BookingDto): BookingDto {
+  if (!dto?.location) return dto;
+  return {
+    ...dto,
+    pickupAddress: dto.pickupAddress ?? dto.location.pickupAddress ?? null,
+    leaveOverAddress: dto.leaveOverAddress ?? dto.location.leaveOverAddress ?? null,
+  };
+}
 
 /** UI-friendly booking shape for MyBookingsScreen / schedule views. */
 export type BookingViewModel = {
@@ -160,7 +207,7 @@ function formatDate(iso: string): string {
 function formatTime(iso: string): string {
   const d = parseBookingDate(iso);
   if (isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 function stateToLabel(state: number): BookingViewModel['statusLabel'] {
@@ -228,7 +275,7 @@ export async function getBookings(params?: GetBookingsParams): Promise<BookingDt
   }
 
   const raw = await response.json();
-  return extractPageItems<BookingDto>(raw);
+  return extractPageItems<BookingDto>(raw).map(withResolvedAddresses);
 }
 
 export async function getBooking(id: number): Promise<BookingDto> {
@@ -239,7 +286,7 @@ export async function getBooking(id: number): Promise<BookingDto> {
     throw new Error(await parseApiError(response, 'Failed to load booking.', 'getBooking'));
   }
 
-  return response.json();
+  return withResolvedAddresses(await response.json());
 }
 
 export type CreateBookingInput = {
@@ -257,13 +304,16 @@ export type CreateBookingInput = {
   priceCurrency?: string; // defaults to 'USD'
   // Selecting Pickup / Drop-off. The presence of an address sets the matching
   // include flag (includePickup / includePetReturn) on the booking, which is
-  // what actually registers the add-on. The address is also posted inline under
-  // `location`, but the create path currently drops it server-side (the GET
-  // returns pickupAddress: null regardless — BACKEND_GAPS B2); kept for when the
-  // backend persists it.
+  // what actually registers the add-on. The address is posted inline under
+  // `location` and now persists + round-trips on GET (BACKEND_GAPS B2 resolved
+  // 2026-06-22): the read DTO returns it under `location.pickupAddress` /
+  // `location.leaveOverAddress` (backfilled top-level by withResolvedAddresses).
   pickupAddress?: AddressDto;
   leaveOverAddress?: AddressDto;
-  includeSpecialNeeds?: boolean; // no UI yet; defaults false
+  // Special Needs add-on — selected in BookService (no address, unlike pickup/
+  // drop-off), carried through the appointment. Defaults false. The server
+  // computes the specialNeedsPrice surcharge from the service pricing.
+  includeSpecialNeeds?: boolean;
 };
 
 /**
@@ -275,14 +325,16 @@ export type CreateBookingInput = {
  * with state = Upcoming and currentStatus = ServiceRequestedByUser.
  */
 export async function createBooking(input: CreateBookingInput): Promise<BookingDto> {
-  const body: BookingDto = {
+  // `state` / `currentStatus` are NOT part of the write DTO — the server sets the
+  // initial values (Upcoming / ServiceRequestedByUser) and advances them only via
+  // the dedicated lifecycle endpoints (confirm/decline/start/complete/cancel).
+  const body: WritableBookingCreate = {
     id: 0,
     userId: input.userId,
     serviceProviderId: input.serviceProviderId,
     serviceId: input.serviceId,
     petId: input.petId,
     priceCurrency: input.priceCurrency ?? 'USD',
-    state: BookingState.Upcoming,
     bookingFrom: input.bookingFrom,
     bookingTo: input.bookingTo,
     basePrice: input.basePrice,
@@ -290,7 +342,6 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
     totalPrice: input.totalPrice,
     paymentType: input.paymentType ?? PaymentType.Card,
     paymentMethodId: input.paymentMethodId,
-    currentStatus: BookingStatusType.ServiceRequestedByUser,
     // These flags register the add-ons; the server computes the surcharge (so it
     // overrides totalPrice). An address without its flag is ignored.
     includePickup: !!input.pickupAddress,
@@ -313,7 +364,7 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
     throw new Error(await parseApiError(response, 'Failed to create booking.', 'createBooking'));
   }
 
-  return response.json();
+  return withResolvedAddresses(await response.json());
 }
 
 /**
@@ -349,9 +400,10 @@ function toWritableBooking(b: BookingDto): BookingDto {
 }
 
 /**
- * Updates a booking's lifecycle status (e.g. a provider accepting a request:
- * currentStatus = ServiceConfirmedByProvider). The booking must be a complete
- * DTO (e.g. from getBookings); only the writable fields are sent.
+ * @deprecated The booking write DTO no longer carries `state`/`currentStatus`,
+ * so the generic PUT can NOT change a booking's lifecycle — use the dedicated
+ * endpoints instead (confirmBooking / declineBooking / startBookingService /
+ * endBookingService / cancelBooking). Kept only for non-lifecycle scalar edits.
  */
 export async function setBookingStatus(
   booking: BookingDto,
@@ -380,7 +432,9 @@ export async function startBookingService(booking: BookingDto): Promise<BookingD
   const response = await apiAuthFetch(url, { method: 'POST' });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to start service.', 'startBookingService'));
+    throw new Error(
+      await parseApiError(response, 'Failed to start service.', 'startBookingService')
+    );
   }
 
   return response.json();
@@ -398,7 +452,9 @@ export async function endBookingService(booking: BookingDto): Promise<BookingDto
   const response = await apiAuthFetch(url, { method: 'POST' });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to complete service.', 'endBookingService'));
+    throw new Error(
+      await parseApiError(response, 'Failed to complete service.', 'endBookingService')
+    );
   }
 
   return response.json();
@@ -431,10 +487,14 @@ export async function confirmBooking(id: number): Promise<BookingDto> {
  * cancel an already-accepted booking.
  */
 export async function declineBooking(id: number, reason?: string): Promise<BookingDto> {
+  // The decline body's `reason` is required and must be ≥10 chars server-side
+  // (null → 400, 1–9 chars → 422). Fall back to a valid generic reason.
+  const trimmed = (reason ?? '').trim();
+  const finalReason = trimmed.length >= 10 ? trimmed : 'Declined by the provider.';
   const url = `${getApiBaseUrl()}/bookings/${id}/decline`;
   const response = await apiAuthFetch(url, {
     method: 'POST',
-    body: JSON.stringify({ reason: reason ?? null }),
+    body: JSON.stringify({ reason: finalReason }),
   });
 
   if (!response.ok) {
@@ -444,16 +504,21 @@ export async function declineBooking(id: number, reason?: string): Promise<Booki
   return response.json();
 }
 
-/** Cancels a booking by setting state = Cancelled with an optional reason. */
+/**
+ * Cancels an already-accepted booking via the dedicated POST /bookings/{id}/cancel
+ * endpoint (sets state = Cancelled, currentStatus = CancelledByUser and stores the
+ * reason). This replaces the old PUT-with-state approach, which no longer works
+ * now that `state` was removed from the booking write DTO. The `reason` field is
+ * required (≥10 chars, like decline) — a blank/short one falls back to a generic.
+ */
 export async function cancelBooking(booking: BookingDto, reason?: string): Promise<BookingDto> {
-  const url = `${getApiBaseUrl()}/api/bookings/${booking.id}`;
-  const body: BookingDto = {
-    ...toWritableBooking(booking),
-    state: BookingState.Cancelled,
-    cancelReason: reason ?? booking.cancelReason ?? 'Cancelled by user',
-  };
-
-  const response = await apiAuthFetch(url, { method: 'PUT', body: JSON.stringify(body) });
+  const trimmed = (reason ?? booking.cancelReason ?? '').trim();
+  const finalReason = trimmed.length >= 10 ? trimmed : 'Cancelled by the user.';
+  const url = `${getApiBaseUrl()}/bookings/${booking.id}/cancel`;
+  const response = await apiAuthFetch(url, {
+    method: 'POST',
+    body: JSON.stringify({ reason: finalReason }),
+  });
 
   if (!response.ok) {
     throw new Error(await parseApiError(response, 'Failed to cancel booking.', 'cancelBooking'));

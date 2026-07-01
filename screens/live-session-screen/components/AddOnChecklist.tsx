@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { AddressDto } from '../../../services/service-providers';
 
 export type AddOnItem = {
   key: 'pickup' | 'dropoff' | 'specialNeeds';
@@ -14,12 +15,21 @@ export type AddOnItem = {
    * Drop-off are toggleable tasks; Special Needs is informational only.
    */
   toggleable?: boolean;
+  /** Destination for the "Directions" action (pickup/drop-off location). */
+  address?: AddressDto;
 };
 
 type Props = {
   items: AddOnItem[];
   /** Partner taps a row to toggle completion. Omitted/undefined ⇒ read-only (user). */
   onToggle?: (key: AddOnItem['key']) => void;
+  /**
+   * Partner taps "Directions" to navigate to the add-on's location. Shown only
+   * for rows that carry an `address`. Omitted ⇒ no directions affordance (user).
+   */
+  onDirections?: (key: AddOnItem['key']) => void;
+  /** The row whose directions are currently being resolved (shows a spinner). */
+  directionsLoadingKey?: AddOnItem['key'] | null;
   readOnly?: boolean;
   isDarkMode: boolean;
   cardBg: string;
@@ -38,6 +48,8 @@ type Props = {
 export default function AddOnChecklist({
   items,
   onToggle,
+  onDirections,
+  directionsLoadingKey,
   readOnly,
   isDarkMode,
   cardBg,
@@ -87,6 +99,24 @@ export default function AddOnChecklist({
                 <Text className={`text-xs ${subtextColor} mt-0.5`}>{item.detail}</Text>
               ) : null}
               <Text className={`text-xs ${subtextColor} mt-0.5`}>{statusText}</Text>
+              {onDirections && item.address ? (
+                <TouchableOpacity
+                  onPress={() => onDirections(item.key)}
+                  activeOpacity={0.7}
+                  className="mt-2 flex-row items-center self-start rounded-lg px-2.5 py-1.5"
+                  style={{ backgroundColor: isDarkMode ? '#243447' : '#E6FAF0' }}>
+                  {directionsLoadingKey === item.key ? (
+                    <ActivityIndicator size="small" color="#00C870" />
+                  ) : (
+                    <>
+                      <Ionicons name="navigate" size={14} color="#00A85A" />
+                      <Text className="ml-1 text-xs font-bold" style={{ color: '#00A85A' }}>
+                        Directions
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              ) : null}
             </View>
             {toggleable ? (
               <Ionicons
@@ -95,7 +125,11 @@ export default function AddOnChecklist({
                 color={done ? '#00C870' : isDarkMode ? '#4B5563' : '#D1D5DB'}
               />
             ) : (
-              <Ionicons name="information-circle-outline" size={24} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
+              <Ionicons
+                name="information-circle-outline"
+                size={24}
+                color={isDarkMode ? '#6B7280' : '#9CA3AF'}
+              />
             )}
           </TouchableOpacity>
         );

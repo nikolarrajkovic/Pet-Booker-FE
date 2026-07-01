@@ -13,14 +13,12 @@ import {
   UserNotificationSettingsDto,
 } from '../../../services/notifications';
 
-// "HH:MM:SS" → "10:00 PM"
+// "HH:MM:SS" → "22:00" (24-hour)
 function formatTime(t?: string): string {
   if (!t) return '';
   const [h, m] = t.split(':').map(Number);
   if (isNaN(h)) return '';
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 || 12;
-  return `${h12}:${String(m ?? 0).padStart(2, '0')} ${ampm}`;
+  return `${String(h).padStart(2, '0')}:${String(m ?? 0).padStart(2, '0')}`;
 }
 
 export default function NotificationSettingsScreen() {
@@ -78,7 +76,7 @@ export default function NotificationSettingsScreen() {
   const sectionHeaderColor = isDarkMode ? 'text-white' : 'text-[#1a365d]';
 
   const s = settings ?? defaultNotificationSettings(currentUser?.id ?? 0);
-  const dndRange = `${formatTime(s.dndStartTime) || '10:00 PM'} to ${formatTime(s.dndEndTime) || '8:00 AM'}`;
+  const dndRange = `${formatTime(s.dndStartTime) || '22:00'} to ${formatTime(s.dndEndTime) || '08:00'}`;
 
   return (
     <ScreenLayout

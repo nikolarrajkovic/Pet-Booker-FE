@@ -5,24 +5,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocation } from '../../../hooks/useLocation';
 import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
+import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import DatePicker from '../../../components/shared/DatePicker';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { PetSelector, BookingSummary, TimeSlotPicker, TimeSlot } from '../components';
-import { ServiceDto, getService } from '../../../services/services';
+import {
+  ServiceDto,
+  getService,
+  getServiceAvailability,
+  AvailabilityWindowDto,
+} from '../../../services/services';
 import { getPets, petTypeLabel } from '../../../services/pets';
 import {
   resolveImageUrl,
   providerTypeLabel,
   AddressDto,
 } from '../../../services/service-providers';
-import {
-  getBookings,
-  parseBookingDate,
-  formatBookingDate,
-  BookingDto,
-  BookingState,
-} from '../../../services/bookings';
+import { parseBookingDate, formatBookingDate } from '../../../services/bookings';
 import { getEnabledServiceAddons } from '../../../services/service-addons';
 import { addressLabel } from '../../../services/geocoding';
 
@@ -46,10 +47,12 @@ type Appointment = {
   // Required when the matching add-on is selected; sent inline on booking create.
   pickupAddress?: AddressDto;
   leaveOverAddress?: AddressDto;
+  // Special Needs add-on has no address — it's carried as a flag (→ includeSpecialNeeds).
+  includeSpecialNeeds?: boolean;
 };
 
-// Bookable slots are 1h each, derived from the service's per-day working hours
-// (service.schedules). A weekday with no schedule entry is not bookable.
+// Bookable slots are 1h each, derived from the day's availability windows
+// (GET /api/services/{id}/availability). A date with no windows is not bookable.
 const SLOT_DURATION_MS = 60 * 60 * 1000;
 
 // "HH:mm:ss" (or "HH:mm") → minutes since midnight, rounded to the nearest
@@ -58,8 +61,7 @@ const SLOT_DURATION_MS = 60 * 60 * 1000;
 const hmsToMinutes = (t?: string | null): number => {
   if (!t) return 0;
   const [h, m, s] = t.split(':');
-  const total =
-    (parseInt(h, 10) || 0) * 60 + (parseInt(m, 10) || 0) + (parseInt(s, 10) || 0) / 60;
+  const total = (parseInt(h, 10) || 0) * 60 + (parseInt(m, 10) || 0) + (parseInt(s, 10) || 0) / 60;
   return Math.round(total);
 };
 
@@ -72,6 +74,7 @@ export default function BookServiceScreen() {
   const route = useRoute<RouteProp<{ params: BookServiceRouteParams }, 'params'>>();
   const { service } = route.params;
   const { currentUser } = useAuth();
+  const { showError } = useToast();
   const {
     isDarkMode,
     cardBg,
@@ -88,7 +91,7 @@ export default function BookServiceScreen() {
   // re-fetch the full service by id on mount (below) so the time-slot picker is
   // built from the provider's real work times for this service.
   const [selectedService, setSelectedService] = useState<ServiceDto>(service);
-  const serviceProviderId = selectedService.serviceProviderId;
+  const serviceId = selectedService.id ?? service.id ?? null;
   const serviceImage = resolveImageUrl(
     selectedService.imageUrl ??
       (selectedService.photos?.find((p) => p.isSelected) ?? selectedService.photos?.[0])?.src
@@ -113,8 +116,9 @@ export default function BookServiceScreen() {
   const [selectedPet, setSelectedPet] = useState<number | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
-  // Provider's existing bookings for the selected date — drives slot availability
-  const [dayBookings, setDayBookings] = useState<BookingDto[]>([]);
+  // Bookable windows for the selected date, fetched from the service's
+  // availability endpoint (server-derived, with remaining capacity per window).
+  const [availWindows, setAvailWindows] = useState<AvailabilityWindowDto[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
   useEffect(() => {
@@ -141,7 +145,7 @@ export default function BookServiceScreen() {
           }))
         );
       } catch (e) {
-        console.warn('[BookServiceScreen] load failed', e);
+        if (!cancelled) showError(getErrorMessage(e, 'Could not load your pets. Please try again.'));
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -151,11 +155,13 @@ export default function BookServiceScreen() {
     };
   }, [currentUser?.id, service.id]);
 
-  // Fetch the provider's bookings for the chosen day (no availability endpoint
-  // exists — availability is computed client-side from real bookings).
+  // For the chosen day, fetch the service's bookable windows from the
+  // availability endpoint. This is the ONLY source of slot availability — the
+  // server already factors in the provider's bookings (per-window
+  // remainingCapacity), so we no longer query the bookings API here.
   useEffect(() => {
-    if (!selectedDate) {
-      setDayBookings([]);
+    if (!selectedDate || serviceId == null) {
+      setAvailWindows([]);
       return;
     }
     let cancelled = false;
@@ -164,19 +170,15 @@ export default function BookServiceScreen() {
       try {
         const dayStart = new Date(selectedDate);
         dayStart.setHours(0, 0, 0, 0);
-        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-        const booked = await getBookings({
-          serviceProviderId,
-          // Naive local-day bounds (booking times are naive wall-clock — see
-          // parseBookingDate), so the day filter matches what's stored.
-          bookingFrom: formatBookingDate(dayStart),
-          bookingTo: formatBookingDate(dayEnd),
-        });
-        if (!cancelled) setDayBookings(booked);
+        // Date-only key ("YYYY-MM-DD", local) — the availability endpoint rejects
+        // full ISO datetimes.
+        const dayKey = formatBookingDate(dayStart).slice(0, 10);
+        const availability = await getServiceAvailability(serviceId, dayKey, dayKey);
+        if (!cancelled) setAvailWindows(availability?.days?.[0]?.windows ?? []);
       } catch (e) {
         if (!cancelled) {
-          console.warn('[BookServiceScreen] availability load failed', e);
-          setDayBookings([]); // fail open: show slots rather than block booking
+          setAvailWindows([]); // no windows → no slots
+          showError(getErrorMessage(e, 'Could not load available times. Please try again.'));
         }
       } finally {
         if (!cancelled) setIsLoadingSlots(false);
@@ -185,26 +187,26 @@ export default function BookServiceScreen() {
     return () => {
       cancelled = true;
     };
-  }, [selectedDate, serviceProviderId]);
+  }, [selectedDate, serviceId]);
 
   // Weekdays the service has working hours for (from its schedules). JS getDay()
-  // (0=Sun…6=Sat) matches the schedule's .NET DayOfWeek numbering. Used to gate
-  // both the calendar and slot generation.
+  // (0=Sun…6=Sat) matches the schedule's .NET DayOfWeek numbering. Cheap weekly
+  // pattern used only to gray out the calendar; the actual per-date slots come
+  // from the availability endpoint once a day is picked.
   const scheduledDays = useMemo(
     () => new Set((selectedService?.schedules ?? []).map((s) => s.day)),
     [selectedService]
   );
 
-  // Build hourly slots for the selected date from the service's working-hours
-  // window(s) for that weekday. A weekday with no schedule yields no slots (not
-  // bookable). A slot is unavailable when the overlapping non-cancelled bookings
-  // (server) plus appointments added this session reach capacity, or it's past.
+  // Build hourly slots for the selected date from the availability endpoint's
+  // window(s) for that date. No windows → no slots (not bookable). A slot is
+  // unavailable when it's in the past, the window has no capacity left
+  // (remainingCapacity already accounts for the provider's bookings), or
+  // appointments added this session have filled that remaining capacity.
   const timeSlots: TimeSlot[] = useMemo(() => {
     if (!selectedDate) return [];
-    const dayOfWeek = selectedDate.getDay();
-    const windows = (selectedService?.schedules ?? []).filter((s) => s.day === dayOfWeek);
-    if (windows.length === 0) return []; // day not scheduled → unavailable
-    const maxConcurrent = selectedService?.details?.maxConcurrentBookings ?? 1;
+    const windows = availWindows;
+    if (windows.length === 0) return []; // no availability → unavailable
     const now = Date.now();
     const slotMinutes = SLOT_DURATION_MS / 60000;
     const byId = new Map<string, TimeSlot>();
@@ -220,25 +222,16 @@ export default function BookServiceScreen() {
         const start = new Date(selectedDate);
         start.setHours(hour, minute, 0, 0);
         const end = start.getTime() + SLOT_DURATION_MS;
-        const taken =
-          dayBookings.filter(
-            (b) =>
-              b.state !== BookingState.Cancelled &&
-              overlaps(
-                parseBookingDate(b.bookingFrom).getTime(),
-                parseBookingDate(b.bookingTo).getTime(),
-                start.getTime(),
-                end
-              )
-          ).length +
-          appointments.filter((a) =>
-            overlaps(
-              parseBookingDate(a.bookingFrom).getTime(),
-              parseBookingDate(a.bookingTo).getTime(),
-              start.getTime(),
-              end
-            )
-          ).length;
+        // Appointments added this session count against the window's remaining
+        // capacity (the server already subtracted real bookings).
+        const localTaken = appointments.filter((a) =>
+          overlaps(
+            parseBookingDate(a.bookingFrom).getTime(),
+            parseBookingDate(a.bookingTo).getTime(),
+            start.getTime(),
+            end
+          )
+        ).length;
         byId.set(id, {
           id,
           label: start.toLocaleTimeString(undefined, {
@@ -247,12 +240,12 @@ export default function BookServiceScreen() {
             hour12: false,
           }),
           start,
-          available: start.getTime() > now && taken < maxConcurrent,
+          available: start.getTime() > now && localTaken < w.remainingCapacity,
         });
       }
     }
     return Array.from(byId.values()).sort((a, b) => a.start.getTime() - b.start.getTime());
-  }, [selectedDate, dayBookings, appointments, selectedService]);
+  }, [selectedDate, availWindows, appointments]);
 
   const selectedSlotId = startDateTime
     ? `${String(startDateTime.getHours()).padStart(2, '0')}:${String(startDateTime.getMinutes()).padStart(2, '0')}`
@@ -302,6 +295,7 @@ export default function BookServiceScreen() {
       total: currentTotal(),
       pickupAddress: pickupSelected ? (pickupAddr ?? undefined) : undefined,
       leaveOverAddress: dropoffSelected ? (dropoffAddr ?? undefined) : undefined,
+      includeSpecialNeeds: selectedAddons.includes('specialNeeds'),
     };
   };
 

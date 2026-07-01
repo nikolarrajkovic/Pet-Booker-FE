@@ -5,6 +5,10 @@ export type ReviewDto = {
   bookingId: number;
   userId: number;
   serviceProviderId: number;
+  // The reviewed service. Optional on write (server defaults it); returned on
+  // read since the API update. Pass it when available so the review is tied to
+  // the specific service, not just the provider.
+  serviceId?: number;
   rating: number;
   // Per-category sub-ratings (non-nullable server-side — createReview defaults
   // any missing one to the overall rating so they never post as 0)
@@ -27,6 +31,25 @@ export type ReviewDto = {
     fileUploadId?: number | null;
     isSelected: boolean;
   }[];
+  // Read-only nested includes the GET embeds (used by the admin moderation UI):
+  // the booker, the reviewed provider, and the related booking window.
+  user?: {
+    id?: number;
+    userName?: string | null;
+    email?: string | null;
+    photos?: { src?: string | null; isSelected?: boolean }[];
+  } | null;
+  serviceProvider?: {
+    id?: number;
+    name?: string | null;
+    photos?: { src?: string | null; isSelected?: boolean }[];
+  } | null;
+  booking?: {
+    id?: number;
+    state?: number;
+    bookingFrom?: string;
+    bookingTo?: string;
+  } | null;
 };
 
 export type GetReviewsParams = {

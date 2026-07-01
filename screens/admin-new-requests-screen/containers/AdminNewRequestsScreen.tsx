@@ -11,6 +11,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useToast } from '../../../context/ToastContext';
+import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PartnerApplicationCard } from '../components';
 import type { PartnerApplication } from '../components';
@@ -47,7 +49,7 @@ export function providerToApplication(dto: ServiceProviderDto): PartnerApplicati
       ? created.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
       : '',
     submittedTime: created
-      ? created.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+      ? created.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })
       : '',
     services: [providerTypeLabel(dto.type)],
     status:
@@ -101,18 +103,21 @@ const TABS: { key: FilterTab; label: string; icon: any; activeColor: string; act
 export default function AdminNewRequestsScreen() {
   const navigation = useNavigation<any>();
   const { isDarkMode, hex } = useThemeColors();
+  const { showError } = useToast();
   const [activeTab, setActiveTab] = useState<FilterTab>('pending');
   const [applications, setApplications] = useState<PartnerApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const dtos = await getServiceProviders({ perPage: 200 });
       setApplications(dtos.map(providerToApplication));
     } catch (e) {
-      console.warn('[AdminNewRequests] load failed', e);
+      setLoadError(getErrorMessage(e, 'Could not load applications. Please try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -168,8 +173,8 @@ export default function AdminNewRequestsScreen() {
       // Approve any attached certificates alongside the application
       await Promise.all((app.certificateIds ?? []).map((cid) => approveCertificate(cid)));
       await load();
-    } catch (e: any) {
-      Alert.alert('Approval failed', e?.message ?? 'Please try again.');
+    } catch (e) {
+      showError(getErrorMessage(e, 'Could not approve the application. Please try again.'));
     } finally {
       setBusyId(null);
     }
@@ -191,8 +196,8 @@ export default function AdminNewRequestsScreen() {
             try {
               await declineServiceProvider(app.providerId!, 'Application declined by admin');
               await load();
-            } catch (e: any) {
-              Alert.alert('Rejection failed', e?.message ?? 'Please try again.');
+            } catch (e) {
+              showError(getErrorMessage(e, 'Could not reject the application. Please try again.'));
             } finally {
               setBusyId(null);
             }
@@ -283,6 +288,17 @@ export default function AdminNewRequestsScreen() {
         {isLoading ? (
           <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
             <ActivityIndicator size="large" color="#00C870" />
+          </View>
+        ) : loadError ? (
+          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
+            <Ionicons
+              name="alert-circle-outline"
+              size={64}
+              color={isDarkMode ? '#4B5563' : '#D1D5DB'}
+            />
+            <Text style={{ color: subTextColor, textAlign: 'center', marginTop: 16, fontSize: 15 }}>
+              {loadError}
+            </Text>
           </View>
         ) : filtered.length === 0 ? (
           <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>

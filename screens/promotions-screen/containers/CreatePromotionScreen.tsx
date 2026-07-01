@@ -1,110 +1,323 @@
-import React from 'react';
-import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ScrollView,
+  Text,
+  View,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import DatePicker from '../../../components/shared/DatePicker';
+import { getServices, ServiceDto } from '../../../services/services';
+import { getErrorMessage } from '../../../services/http';
+import { createServiceDiscount, DiscountType } from '../../../services/service-discounts';
 
-interface PromotionTypeOption {
-  key: string;
-  title: string;
-  description: string;
-  price: string;
-  priceColor: string;
-  iconBg: string;
-  icon: React.ReactNode;
-  bullets: string[];
-}
+const fmtDate = (d: Date | null) =>
+  d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 
-const PROMOTION_TYPES: PromotionTypeOption[] = [
-  {
-    key: 'boost',
-    title: 'Boost Listing',
-    description: 'Appear higher in search results',
-    price: 'Starting at $50/week',
-    priceColor: 'text-green-600',
-    iconBg: 'bg-blue-100',
-    icon: <Ionicons name="trending-up" size={24} color="#00C870" />,
-    bullets: ['2x visibility', 'Priority placement', 'Analytics dashboard'],
-  },
-  {
-    key: 'featured',
-    title: 'Featured Badge',
-    description: 'Stand out with a special badge',
-    price: '$99/month',
-    priceColor: 'text-purple-600',
-    iconBg: 'bg-purple-100',
-    icon: <Ionicons name="flash" size={24} color="#9333EA" />,
-    bullets: ["'Featured' badge", 'Top of category', 'Verified checkmark'],
-  },
-  {
-    key: 'offer',
-    title: 'Special Offer',
-    description: 'Create discounts for new clients',
-    price: 'Free to create',
-    priceColor: 'text-green-600',
-    iconBg: 'bg-green-100',
-    icon: <MaterialCommunityIcons name="gift-outline" size={24} color="#16A34A" />,
-    bullets: ['Set discount %', 'Target new users', 'Time-limited offers'],
-  },
-  {
-    key: 'ad',
-    title: 'Ad Campaign',
-    description: 'Run targeted advertising',
-    price: 'Custom budget',
-    priceColor: 'text-orange-500',
-    iconBg: 'bg-orange-100',
-    icon: <MaterialCommunityIcons name="bullseye" size={24} color="#EA580C" />,
-    bullets: ['Location targeting', 'Service-specific', 'Performance tracking'],
-  },
-];
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 export default function CreatePromotionScreen() {
   const navigation = useNavigation();
-  const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
+  const { currentUser } = useAuth();
+  const { isDarkMode, cardBg, textColor, subtextColor, borderColor, inputBg } = useThemeColors();
+  const { showError } = useToast();
+
+  const [services, setServices] = useState<ServiceDto[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState(true);
+
+  const [serviceId, setServiceId] = useState<number | null>(null);
+  const [discountType, setDiscountType] = useState<number>(DiscountType.Percent);
+  const [amount, setAmount] = useState('');
+  const [startDate, setStartDate] = useState<Date>(startOfDay(new Date()));
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const providerId = currentUser?.serviceProviderId || null;
+  const isPercent = discountType === DiscountType.Percent;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!providerId) {
+        setIsLoadingServices(false);
+        return;
+      }
+      try {
+        const list = await getServices({ serviceProviderId: providerId });
+        if (!cancelled) setServices(list);
+      } catch (e) {
+        if (!cancelled) showError(getErrorMessage(e, 'Could not load your services. Please try again.'));
+      } finally {
+        if (!cancelled) setIsLoadingServices(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [providerId]);
+
+  const amountNum = useMemo(() => parseFloat(amount), [amount]);
+  const canSubmit =
+    serviceId != null &&
+    !isNaN(amountNum) &&
+    amountNum > 0 &&
+    (!isPercent || amountNum <= 100) &&
+    (!endDate || endDate >= startDate);
+
+  const handleCreate = async () => {
+    if (serviceId == null) {
+      Alert.alert('Pick a service', 'Choose which service this offer applies to.');
+      return;
+    }
+    if (isNaN(amountNum) || amountNum <= 0) {
+      Alert.alert('Enter an amount', 'The discount amount must be greater than zero.');
+      return;
+    }
+    if (isPercent && amountNum > 100) {
+      Alert.alert('Invalid percentage', 'A percentage discount cannot exceed 100%.');
+      return;
+    }
+    if (endDate && endDate < startDate) {
+      Alert.alert('Invalid dates', 'The end date must be on or after the start date.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await createServiceDiscount({
+        serviceId,
+        type: discountType,
+        amount: amountNum,
+        percentAmount: isPercent ? amountNum : null,
+        applyFrom: startDate.toISOString(),
+        applyTo: endDate ? endDate.toISOString() : null,
+        isEnabled: true,
+      });
+      navigation.goBack();
+    } catch (e) {
+      showError(getErrorMessage(e, 'Could not create the offer. Please try again.'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]';
+  const labelColor = isDarkMode ? 'text-gray-300' : 'text-gray-700';
+  const dateField = `${inputBg} border ${borderColor} rounded-xl px-4 py-3.5 flex-row items-center justify-between`;
 
   return (
     <ScreenLayout
       headerVariant="standard"
       showBackButton
-      headerTitle="Create Promotion"
-      headerSubtitle="Choose a promotion type to get started"
-      contentBg={contentBg}
-    >
+      headerTitle="Create Offer"
+      headerSubtitle="Set a discount on one of your services"
+      contentBg={contentBg}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 32 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
-      >
-        {PROMOTION_TYPES.map((option) => (
+        keyboardShouldPersistTaps="handled">
+        {/* Intro banner */}
+        <View
+          className={`${cardBg} mb-5 rounded-2xl border p-4 ${borderColor} flex-row items-center`}>
+          <View className="mr-3 h-11 w-11 items-center justify-center rounded-xl bg-green-100">
+            <MaterialCommunityIcons name="gift-outline" size={22} color="#16A34A" />
+          </View>
+          <View className="flex-1">
+            <Text className={`text-base font-bold ${textColor}`}>Special Offer</Text>
+            <Text className={`text-xs ${subtextColor} mt-0.5`}>
+              Discount a service by a fixed amount or a percentage. Active immediately.
+            </Text>
+          </View>
+        </View>
+
+        {/* Service selector */}
+        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>Service</Text>
+        {isLoadingServices ? (
+          <View className={`${cardBg} mb-5 rounded-xl border p-6 ${borderColor} items-center`}>
+            <ActivityIndicator color="#00C870" />
+          </View>
+        ) : services.length === 0 ? (
+          <View className={`${cardBg} mb-5 rounded-xl border p-5 ${borderColor} items-center`}>
+            <Ionicons
+              name="briefcase-outline"
+              size={28}
+              color={isDarkMode ? '#4B5563' : '#9CA3AF'}
+            />
+            <Text className={`${subtextColor} mt-2 text-center text-sm`}>
+              You have no services yet. Add a service before creating an offer.
+            </Text>
+          </View>
+        ) : (
+          <View className="mb-5">
+            {services.map((s) => {
+              const selected = serviceId === s.id;
+              return (
+                <TouchableOpacity
+                  key={s.id}
+                  activeOpacity={0.75}
+                  onPress={() => setServiceId(s.id ?? null)}
+                  className={`mb-2 flex-row items-center rounded-xl border px-4 py-3.5 ${
+                    selected ? 'border-brand-500 bg-brand-50' : `${borderColor} ${cardBg}`
+                  }`}>
+                  <View
+                    className={`mr-3 h-5 w-5 items-center justify-center rounded-full border-2 ${
+                      selected ? 'border-brand-500 bg-brand-500' : 'border-gray-400'
+                    }`}>
+                    {selected && <Ionicons name="checkmark" size={12} color="white" />}
+                  </View>
+                  <View className="flex-1">
+                    <Text
+                      className={`text-sm font-semibold ${selected ? 'text-brand-700' : textColor}`}>
+                      {s.name ?? 'Service'}
+                    </Text>
+                    {s.pricing?.basePrice != null && (
+                      <Text className={`text-xs ${subtextColor} mt-0.5`}>
+                        Base price ${s.pricing.basePrice}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Discount type toggle */}
+        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>Discount Type</Text>
+        <View
+          className={`mb-5 flex-row rounded-xl p-1 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
+          {[
+            { type: DiscountType.Percent, label: 'Percentage', icon: 'percent' as const },
+            { type: DiscountType.Fixed, label: 'Fixed Amount', icon: 'currency-usd' as const },
+          ].map((opt) => {
+            const active = discountType === opt.type;
+            return (
+              <TouchableOpacity
+                key={opt.type}
+                activeOpacity={0.8}
+                onPress={() => setDiscountType(opt.type)}
+                className={`flex-1 flex-row items-center justify-center rounded-lg py-2.5 ${active ? 'bg-brand-500' : ''}`}>
+                <MaterialCommunityIcons
+                  name={opt.icon}
+                  size={16}
+                  color={active ? 'white' : '#9CA3AF'}
+                />
+                <Text
+                  className={`ml-1.5 text-sm font-semibold ${active ? 'text-white' : subtextColor}`}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Amount */}
+        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
+          {isPercent ? 'Discount Percentage' : 'Discount Amount'}
+        </Text>
+        <View
+          className={`${inputBg} border ${borderColor} mb-5 flex-row items-center rounded-xl px-4`}>
+          {!isPercent && <Text className={`text-sm font-semibold ${subtextColor} mr-1`}>$</Text>}
+          <TextInput
+            className={`flex-1 py-3.5 text-sm ${textColor}`}
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="numeric"
+            placeholder={isPercent ? 'e.g. 20' : 'e.g. 10'}
+            placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
+          />
+          {isPercent && <Text className={`text-sm font-semibold ${subtextColor}`}>%</Text>}
+        </View>
+
+        {/* Date range */}
+        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>Active Period</Text>
+        <View className="mb-2 flex-row gap-3">
+          <View className="flex-1">
+            <Text className={`text-xs ${subtextColor} mb-1.5`}>Start Date</Text>
+            <TouchableOpacity
+              className={dateField}
+              activeOpacity={0.75}
+              onPress={() => setShowStartPicker((v) => !v)}>
+              <Text className={`text-sm ${textColor}`}>{fmtDate(startDate)}</Text>
+              <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
+          <View className="flex-1">
+            <Text className={`text-xs ${subtextColor} mb-1.5`}>End Date</Text>
+            <TouchableOpacity
+              className={dateField}
+              activeOpacity={0.75}
+              onPress={() => setShowEndPicker((v) => !v)}>
+              <Text className={`text-sm ${endDate ? textColor : subtextColor}`}>
+                {endDate ? fmtDate(endDate) : 'No end date'}
+              </Text>
+              <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
+        </View>
+        {endDate && (
           <TouchableOpacity
-            key={option.key}
-            activeOpacity={0.75}
-            onPress={() => (navigation as any).goBack()}
-            className={`${cardBg} rounded-2xl p-5 mb-4 border ${borderColor}`}
-          >
-            <View className="flex-row items-start mb-3">
-              <View className={`w-12 h-12 rounded-2xl ${option.iconBg} items-center justify-center mr-4`}>
-                {option.icon}
-              </View>
-              <View className="flex-1">
-                <Text className={`text-base font-bold ${textColor}`}>{option.title}</Text>
-                <Text className={`text-sm ${subtextColor} mt-0.5`}>{option.description}</Text>
-                <Text className={`text-sm font-semibold mt-1 ${option.priceColor}`}>{option.price}</Text>
-              </View>
-            </View>
-            <View className="gap-1.5">
-              {option.bullets.map((bullet) => (
-                <View key={bullet} className="flex-row items-center">
-                  <View className="w-1.5 h-1.5 rounded-full bg-brand-500 mr-2.5" />
-                  <Text className={`text-sm ${subtextColor}`}>{bullet}</Text>
-                </View>
-              ))}
-            </View>
+            onPress={() => setEndDate(null)}
+            activeOpacity={0.7}
+            className="mb-2 self-start">
+            <Text className="text-xs font-semibold text-brand-600">
+              Clear end date (open-ended)
+            </Text>
           </TouchableOpacity>
-        ))}
+        )}
+
+        {showStartPicker && (
+          <DatePicker
+            value={startDate}
+            isDarkMode={isDarkMode}
+            onChange={(date) => {
+              if (date) {
+                const d = startOfDay(date);
+                setStartDate(d);
+                if (endDate && endDate < d) setEndDate(null);
+              }
+              setShowStartPicker(false);
+            }}
+            onClose={() => setShowStartPicker(false)}
+          />
+        )}
+        {showEndPicker && (
+          <DatePicker
+            value={endDate ?? startDate}
+            minDate={startDate}
+            isDarkMode={isDarkMode}
+            onChange={(date) => {
+              if (date) setEndDate(startOfDay(date));
+              setShowEndPicker(false);
+            }}
+            onClose={() => setShowEndPicker(false)}
+          />
+        )}
+
+        {/* Create */}
+        <TouchableOpacity
+          onPress={handleCreate}
+          disabled={isSubmitting || !canSubmit}
+          activeOpacity={0.8}
+          className="mt-4 items-center rounded-2xl bg-brand-500 py-4"
+          style={{ opacity: isSubmitting || !canSubmit ? 0.6 : 1 }}>
+          {isSubmitting ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text className="text-base font-bold text-white">Create Offer</Text>
+          )}
+        </TouchableOpacity>
       </ScrollView>
     </ScreenLayout>
   );

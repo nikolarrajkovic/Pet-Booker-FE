@@ -12,6 +12,12 @@ export type PhotoDto = {
   isSelected: boolean;
 };
 
+/** Geo coordinates carried by an address (added to AddressDto in the API update). */
+export type LocationOnLatLngDto = {
+  latitude: number;
+  longitude: number;
+};
+
 export type AddressDto = {
   id?: number | null;
   line1?: string | null;
@@ -20,6 +26,9 @@ export type AddressDto = {
   state?: string | null;
   postalCode?: string | null;
   country?: string | null;
+  // Lat/lng for map placement — the API now embeds this on every address
+  // (null until the address has been geocoded). Sent inline on write too.
+  location?: LocationOnLatLngDto | null;
 };
 
 export type GovernmentIdPhotoDto = {
@@ -76,6 +85,7 @@ export type ServiceProviderDto = {
   declineReason?: string | null;
   isApproved?: boolean; // legacy mirror of approvalStatus === Approved
   ratingAvg?: number | null; // server-computed average rating (null until reviews exist)
+  reviewCount?: number; // number of reviews backing ratingAvg (exposed at list level now)
   addressId?: number | null;
   isApplicationPartner?: boolean; // true when created via the partner-application flow
   createdAt?: string;
@@ -103,19 +113,45 @@ export type ProviderViewModel = {
   address?: AddressDto;
 };
 
-// ServiceProviderType enum (verified against /enums): 0=Sitter, 1=Walker,
-// 2=Boarder, 3=PetHotel, 4=Groomer. Mapped here to the friendly labels used by
-// the HomeScreen service-type pills.
+// Service-type labels sourced from /enums `displayName` at runtime. This is the
+// single source of truth for service-type labels everywhere in the app —
+// registerServiceProviderTypeLabels() fills it from the serviceProviderType enum
+// once enums load (see EnumsContext). PROVIDER_TYPE_LABELS below is only the
+// fallback used before enums have arrived.
+let runtimeTypeLabels: Record<number, string> = {};
+
+/**
+ * Populates the runtime service-type labels from the /enums serviceProviderType
+ * entries — uses each entry's `displayName` (falling back to `name`). Called by
+ * EnumsContext when enums load; pass null/undefined to clear (on logout).
+ */
+export function registerServiceProviderTypeLabels(
+  entries: { value: number; name?: string; displayName?: string }[] | null | undefined,
+): void {
+  const map: Record<number, string> = {};
+  for (const e of entries ?? []) {
+    const label = e.displayName ?? e.name;
+    if (label) map[e.value] = label;
+  }
+  runtimeTypeLabels = map;
+}
+
+// Static fallback labels (ServiceProviderType enum: 0=Sitter, 1=Walker,
+// 2=Boarder, 3=PetHotel, 4=Groomer, 5=Transporter) — kept in sync with the enum
+// `displayName`s so there's no flash of different text before /enums loads.
 export const PROVIDER_TYPE_LABELS: Record<number, string> = {
-  0: 'Pet Sitting',
-  1: 'Dog Walking',
-  2: 'Boarding',
+  0: 'Sitter',
+  1: 'Walker',
+  2: 'Boarder',
   3: 'Pet Hotel',
-  4: 'Grooming',
+  4: 'Groomer',
+  5: 'Transporter',
 };
 
-/** Reverse of PROVIDER_TYPE_LABELS — friendly label → ServiceProviderType value. */
+/** Reverse of the service-type labels — label → ServiceProviderType value. */
 export function providerTypeValue(label: string): number | undefined {
+  const runtime = Object.entries(runtimeTypeLabels).find(([, l]) => l === label);
+  if (runtime) return Number(runtime[0]);
   const entry = Object.entries(PROVIDER_TYPE_LABELS).find(([, l]) => l === label);
   return entry ? Number(entry[0]) : undefined;
 }
@@ -137,9 +173,9 @@ export function providerToViewModel(dto: ServiceProviderDto): ProviderViewModel 
   return {
     id: dto.id ?? 0,
     name: dto.name ?? 'Unknown Provider',
-    service: PROVIDER_TYPE_LABELS[dto.type] ?? 'Pet Care',
+    service: providerTypeLabel(dto.type),
     rating: dto.ratingAvg ?? 0,
-    reviews: 0,
+    reviews: dto.reviewCount ?? 0,
     distance: '',
     price: 0,
     image: resolveImageUrl(selectedPhoto?.src),
@@ -147,8 +183,10 @@ export function providerToViewModel(dto: ServiceProviderDto): ProviderViewModel 
       dto.approvalStatus != null
         ? dto.approvalStatus === ApprovalStatus.Approved
         : !!dto.isApproved,
-    latitude: 0,
-    longitude: 0,
+    // The address now carries geo coords (null until geocoded) — use them for
+    // map markers instead of the old 0/0 placeholder.
+    latitude: dto.address?.location?.latitude ?? 0,
+    longitude: dto.address?.location?.longitude ?? 0,
     address: dto.address,
   };
 }
@@ -294,9 +332,9 @@ export async function deleteServiceProvider(id: number): Promise<void> {
   }
 }
 
-/** Returns the friendly service-type label for a ServiceProviderType enum value. */
+/** Returns the service-type label (enum `displayName`) for a ServiceProviderType value. */
 export function providerTypeLabel(type: number): string {
-  return PROVIDER_TYPE_LABELS[type] ?? 'Pet Care';
+  return runtimeTypeLabels[type] ?? PROVIDER_TYPE_LABELS[type] ?? 'Pet Care';
 }
 
 export type CreateServiceProviderPayload = {
@@ -305,13 +343,17 @@ export type CreateServiceProviderPayload = {
   phone: string;
   streetAddress: string;
   city: string;
-  state: string;
+  // State is no longer collected in the partner application (Belgrade-first);
+  // the address `state` falls back to an empty string (accepted by the backend).
+  state?: string;
+  // ISO country code chosen in the phone-number country picker; used as the
+  // address country. Defaults to Serbia when unset.
+  country?: string;
   zipCode: string;
   selectedServices: string[];
   yearsOfExperience: string;
   aboutYou: string;
-  certifications: string;
-  availability: string;
+  motivation: string;
   // files
   profilePhoto: { uri: string; fileName?: string } | null;
   petPhotoFiles: { uri: string; fileName?: string }[];
@@ -411,9 +453,14 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
       line1: payload.streetAddress,
       line2: '',
       city: payload.city,
-      state: payload.state,
+      // State is no longer collected in the application (Belgrade-first). The
+      // backend accepts an empty string (verified live), and leaving it blank
+      // keeps the admin address line clean (no duplicated city).
+      state: payload.state ?? '',
       postalCode: payload.zipCode,
-      country: 'US',
+      // Country comes from the phone-number country picker (ISO code), defaulting
+      // to Serbia (the Belgrade-first audience) when not set.
+      country: payload.country || 'RS',
     },
     photos: [
       ...(profileUpload

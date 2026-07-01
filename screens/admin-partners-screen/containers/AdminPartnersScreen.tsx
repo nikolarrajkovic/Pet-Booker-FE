@@ -18,8 +18,10 @@ import {
   getServiceProviders,
   providerTypeLabel,
   resolveImageUrl,
+  ApprovalStatus,
   type ServiceProviderDto,
 } from '../../../services/service-providers';
+import { getErrorMessage } from '../../../services/http';
 
 // Maps a raw ServiceProviderDto into the Partner card/detail view shape.
 // The backend has no timeout/ban moderation concept, so every provider maps to
@@ -82,6 +84,7 @@ export default function AdminPartnersScreen() {
   const [search, setSearch] = useState('');
   const [providers, setProviders] = useState<Partner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   // In-session timeout/ban overrides (no backend concept) keyed by partner id.
   const [statusOverrides, setStatusOverrides] = useState<Record<string, PartnerStatus>>({});
 
@@ -91,12 +94,25 @@ export default function AdminPartnersScreen() {
       let cancelled = false;
       (async () => {
         setIsLoading(true);
+        setLoadError(null);
         try {
-          const dtos = await getServiceProviders({ perPage: 200 });
-          if (!cancelled) setProviders(dtos.map(providerToPartner));
+          // Only approved providers are managed here — pending/declined
+          // applications live in AdminNewRequests. (Filter server-side, then
+          // guard client-side so a declined provider can never show as "active".)
+          const dtos = await getServiceProviders({
+            approvalStatus: ApprovalStatus.Approved,
+            perPage: 200,
+          });
+          const approved = dtos.filter(
+            (d) => (d.approvalStatus ?? (d.isApproved ? ApprovalStatus.Approved : ApprovalStatus.Pending)) ===
+              ApprovalStatus.Approved
+          );
+          if (!cancelled) setProviders(approved.map(providerToPartner));
         } catch (e) {
-          console.warn('[AdminPartners] load failed', e);
-          if (!cancelled) setProviders([]);
+          if (!cancelled) {
+            setProviders([]);
+            setLoadError(getErrorMessage(e, 'Could not load partners. Please try again.'));
+          }
         } finally {
           if (!cancelled) setIsLoading(false);
         }
@@ -289,6 +305,18 @@ export default function AdminPartnersScreen() {
           {isLoading ? (
             <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
               <ActivityIndicator size="large" color="#00C870" />
+            </View>
+          ) : loadError ? (
+            <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={64}
+                color={isDarkMode ? '#4B5563' : '#D1D5DB'}
+              />
+              <Text
+                style={{ color: subTextColor, marginTop: 16, fontSize: 15, textAlign: 'center' }}>
+                {loadError}
+              </Text>
             </View>
           ) : filtered.length === 0 ? (
             <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>

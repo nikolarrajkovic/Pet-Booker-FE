@@ -11,20 +11,24 @@ import { useLocation } from '../../../hooks/useLocation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { resolveImageUrl, providerTypeLabel } from '../../../services/service-providers';
+import { getErrorMessage } from '../../../services/http';
 import { ServiceDto } from '../../../services/services';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
 import { getUnreadNotificationCount } from '../../../services/app-notifications';
+import { getServiceDiscounts, ServiceDiscountDto, DiscountType } from '../../../services/service-discounts';
+import { formatOfferAmount } from '../../../screens/promotions-screen/components';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600';
 
-// Service type pills — labels must match PROVIDER_TYPE_LABELS (serviceProviderType enum:
-// 0 Sitter, 1 Walker, 2 Boarder, 3 PetHotel, 4 Groomer) so SearchScreen's filter matches.
+// Service type pills — labels are the serviceProviderType enum `displayName`s
+// (Sitter/Walker/Boarder/Pet Hotel/Groomer) so SearchScreen's reverse lookup
+// (providerTypeValue) resolves the tapped pill back to its enum value.
 const SERVICE_TYPES = [
-  { id: 'pet-sitting', label: 'Pet Sitting', icon: 'bed' },
-  { id: 'dog-walking', label: 'Dog Walking', icon: 'walk' },
-  { id: 'boarding', label: 'Boarding', icon: 'home' },
+  { id: 'pet-sitting', label: 'Sitter', icon: 'bed' },
+  { id: 'dog-walking', label: 'Walker', icon: 'walk' },
+  { id: 'boarding', label: 'Boarder', icon: 'home' },
   { id: 'pet-hotel', label: 'Pet Hotel', icon: 'business' },
-  { id: 'grooming', label: 'Grooming', icon: 'cut' },
+  { id: 'grooming', label: 'Groomer', icon: 'cut' },
 ];
 
 /** A service flattened for ServiceCard. Booking targets the service itself. */
@@ -36,8 +40,28 @@ type ServiceItem = {
   reviews: number;
   price: number;
   image: string;
+  dealAmount?: string; // formatted discount (e.g. "3% OFF") for Special Deals cards
   dto: ServiceDto; // the real service record — carries serviceProviderId for booking
 };
+
+/** Picks the discount to display for a service: the enabled one whose apply
+ *  window covers now, else any enabled one. */
+function pickActiveDiscount(discounts: ServiceDiscountDto[]): ServiceDiscountDto | undefined {
+  const enabled = discounts.filter((d) => d.isEnabled);
+  const now = Date.now();
+  const active = enabled.find((d) => {
+    const from = d.applyFrom ? new Date(d.applyFrom).getTime() : -Infinity;
+    const to = d.applyTo ? new Date(d.applyTo).getTime() : Infinity;
+    return from <= now && now <= to;
+  });
+  return active ?? enabled[0];
+}
+
+/** "3% OFF" / "$5 OFF" for a discount (Percent uses percentAmount, Fixed uses amount). */
+function discountLabel(d: ServiceDiscountDto): string {
+  const value = d.type === DiscountType.Fixed ? d.amount : (d.percentAmount ?? d.amount);
+  return formatOfferAmount(d.type, value);
+}
 
 /** Flattens a ServiceDto from a home endpoint into a card item. */
 function toServiceItem(svc: ServiceDto): ServiceItem | null {
@@ -69,6 +93,7 @@ export default function HomeScreen() {
   const [recentlyBooked, setRecentlyBooked] = useState<ServiceItem[]>([]);
   const [specialDeals, setSpecialDeals] = useState<ServiceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
@@ -82,26 +107,43 @@ export default function HomeScreen() {
 
       const load = async () => {
         setIsLoading(true);
-        // Each Home row is its own backend endpoint. Wrap each so one failing
-        // section doesn't blank the whole page.
-        const safe = (p: Promise<ServiceDto[]>) => p.catch(() => [] as ServiceDto[]);
-        try {
-          const [popular, sale, recent, near] = await Promise.all([
-            safe(getMostPopular()),
-            safe(getOnSale()),
-            safe(getRecentlyBooked()),
-            safe(getNearMe({ lat: latitude, lng: longitude })),
-          ]);
-          if (cancelled) return;
-          setMostPopular(toItems(popular));
-          setSpecialDeals(toItems(sale));
-          setRecentlyBooked(toItems(recent));
-          setNearYou(toItems(near));
-        } catch (e) {
-          if (!cancelled) console.warn('[HomeScreen] Failed to load home sections', e);
-        } finally {
-          if (!cancelled) setIsLoading(false);
+        setLoadError(null);
+        // Each Home row is its own backend endpoint. Settle each independently so
+        // one failing section doesn't blank the whole page — but if EVERY content
+        // row fails, surface a single inline error instead of a misleading
+        // "No services found". Discounts are fetched once and matched to the
+        // Special Deals services to show each deal's amount.
+        const val = <T,>(r: PromiseSettledResult<T[]>): T[] =>
+          r.status === 'fulfilled' ? r.value : [];
+        const results = await Promise.allSettled([
+          getMostPopular(),
+          getOnSale(),
+          getRecentlyBooked(),
+          getNearMe({ lat: latitude, lng: longitude }),
+          getServiceDiscounts({ perPage: 100 }),
+        ]);
+        if (cancelled) return;
+        const [popularR, saleR, recentR, nearR, discountsR] = results;
+        const discounts = val(discountsR);
+        const deals = toItems(val(saleR)).map((item) => {
+          const d = pickActiveDiscount(discounts.filter((x) => x.serviceId === item.id));
+          return d ? { ...item, dealAmount: discountLabel(d) } : item;
+        });
+        setMostPopular(toItems(val(popularR)));
+        setSpecialDeals(deals);
+        setRecentlyBooked(toItems(val(recentR)));
+        setNearYou(toItems(val(nearR)));
+
+        // Only the four content endpoints determine a "page failed" state.
+        const contentResults = [popularR, saleR, recentR, nearR];
+        const allFailed = contentResults.every((r) => r.status === 'rejected');
+        if (allFailed) {
+          const firstError = contentResults.find(
+            (r): r is PromiseRejectedResult => r.status === 'rejected',
+          );
+          setLoadError(getErrorMessage(firstError?.reason, 'Could not load services. Please try again.'));
         }
+        setIsLoading(false);
       };
 
       load();
@@ -123,16 +165,17 @@ export default function HomeScreen() {
   );
 
   const handleServicePress = (item: ServiceItem) => {
-    // Service-centric: book the tapped service directly (no provider middle-step).
-    (navigation as any).navigate('BookService', { service: item.dto });
+    // Open the service detail screen first — the booker reads everything about
+    // the service there, then proceeds to BookService from its "Book Now" CTA.
+    (navigation as any).navigate('ServiceDetail', { service: item.dto });
   };
 
   const handleServiceTypePress = (serviceType: string) => {
-    (navigation as any).navigate('Search', { serviceType });
+    (navigation as any).navigate('Search', { serviceType, category: undefined });
   };
 
   const handleSeeAll = (category: string) => {
-    (navigation as any).navigate('Search', { category });
+    (navigation as any).navigate('Search', { category, serviceType: undefined });
   };
 
   const renderSection = (
@@ -175,6 +218,7 @@ export default function HomeScreen() {
                     reviews={item.reviews}
                     price={item.price}
                     badge={badge}
+                    dealAmount={item.dealAmount}
                     onPress={() => handleServicePress(item)}
                   />
                 ))}
@@ -249,13 +293,23 @@ export default function HomeScreen() {
         {renderSection('Special Deals', 'pricetag-outline', specialDeals, 'special-deals', 'deal')}
 
         {!isLoading && nearYou.length === 0 && mostPopular.length === 0 && recentlyBooked.length === 0 && specialDeals.length === 0 && (
-          <View className="flex-1 items-center justify-center py-20 px-6">
-            <Ionicons name="paw-outline" size={48} color="#9CA3AF" />
-            <Text className={`text-lg font-semibold ${sectionTitleColor} mt-4 text-center`}>No services found</Text>
-            <Text className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2 text-center`}>
-              Check back soon — new partners are joining every day.
-            </Text>
-          </View>
+          loadError ? (
+            <View className="flex-1 items-center justify-center py-20 px-6">
+              <Ionicons name="alert-circle-outline" size={48} color="#9CA3AF" />
+              <Text className={`text-lg font-semibold ${sectionTitleColor} mt-4 text-center`}>Couldn’t load services</Text>
+              <Text className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2 text-center`}>
+                {loadError}
+              </Text>
+            </View>
+          ) : (
+            <View className="flex-1 items-center justify-center py-20 px-6">
+              <Ionicons name="paw-outline" size={48} color="#9CA3AF" />
+              <Text className={`text-lg font-semibold ${sectionTitleColor} mt-4 text-center`}>No services found</Text>
+              <Text className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2 text-center`}>
+                Check back soon — new partners are joining every day.
+              </Text>
+            </View>
+          )
         )}
       </ScrollView>
     </ScreenLayout>

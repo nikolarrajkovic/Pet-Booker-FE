@@ -1,9 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DatePicker from '../../../components/shared/DatePicker';
 
 export type DocumentFile = { uri: string; fileName?: string };
 export type CertificateEntry = { uri: string; fileName?: string; issuer: string; issuedDate: string };
+
+const pad = (n: number) => String(n).padStart(2, '0');
+/** Date → "YYYY-MM-DD" (the stored issuedDate format). */
+const fmtISO = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/** "YYYY-MM-DD" → Date for the picker; falls back to today when empty/invalid. */
+const parseISO = (s: string): Date => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
+  if (m) {
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    if (!isNaN(d.getTime())) return d;
+  }
+  return new Date();
+};
 
 interface DocumentsStepProps {
   profilePhoto: string | null;
@@ -62,6 +76,9 @@ export default function DocumentsStep({
   borderColor,
   placeholderColor,
 }: DocumentsStepProps) {
+  const [openDateIndex, setOpenDateIndex] = useState<number | null>(null);
+  const today = new Date();
+
   const uploadBtn = (label: string, onPress: () => void) => (
     <TouchableOpacity
       onPress={onPress}
@@ -189,13 +206,28 @@ export default function DocumentsStep({
 
           {/* Issued date */}
           <Text className={`text-xs font-semibold ${subtextColor} mb-1`}>Issued date</Text>
-          <TextInput
-            value={cert.issuedDate}
-            onChangeText={(v) => onUpdateCertificate(index, 'issuedDate', v)}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={placeholderColor}
-            className={`${inputBg} rounded-xl px-3 py-2 ${inputText} text-sm`}
-          />
+          <TouchableOpacity
+            onPress={() => setOpenDateIndex((i) => (i === index ? null : index))}
+            activeOpacity={0.75}
+            className={`${inputBg} rounded-xl px-3 py-2 flex-row items-center justify-between`}
+          >
+            <Text className={`text-sm ${cert.issuedDate ? inputText : ''}`} style={cert.issuedDate ? undefined : { color: placeholderColor }}>
+              {cert.issuedDate || 'Select date'}
+            </Text>
+            <Ionicons name="calendar-outline" size={18} color={placeholderColor} />
+          </TouchableOpacity>
+          {openDateIndex === index && (
+            <DatePicker
+              value={parseISO(cert.issuedDate)}
+              maxDate={today}
+              isDarkMode={isDarkMode}
+              onChange={(date) => {
+                onUpdateCertificate(index, 'issuedDate', date ? fmtISO(date) : '');
+                setOpenDateIndex(null);
+              }}
+              onClose={() => setOpenDateIndex(null)}
+            />
+          )}
         </View>
       ))}
 

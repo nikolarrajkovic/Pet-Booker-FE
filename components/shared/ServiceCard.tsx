@@ -12,6 +12,8 @@ type ServiceCardProps = {
   distance?: string;
   price: number;
   badge?: 'popular' | 'deal';
+  /** Formatted discount (e.g. "3% OFF" / "$5 OFF") — shown on the deal badge. */
+  dealAmount?: string;
   onPress: () => void;
 };
 
@@ -24,6 +26,7 @@ export default function ServiceCard({
   distance,
   price,
   badge,
+  dealAmount,
   onPress,
 }: ServiceCardProps) {
   const { cardBg, textColor, subtextColor, borderColor } = useThemeColors();
@@ -64,11 +67,11 @@ export default function ServiceCard({
           </View>
         )}
         
-        {/* Deal Badge */}
+        {/* Deal Badge — shows the discount amount when known, else just "Deal" */}
         {badge === 'deal' && (
           <View className="absolute top-2 left-2 bg-red-500 rounded-full px-3 py-1 flex-row items-center">
             <Ionicons name="pricetag" size={12} color="white" />
-            <Text className="text-white text-xs font-semibold ml-1">Deal</Text>
+            <Text className="text-white text-xs font-semibold ml-1">{dealAmount ?? 'Deal'}</Text>
           </View>
         )}
       </View>
@@ -83,7 +86,7 @@ export default function ServiceCard({
           <View className="flex-row items-center">
             <Ionicons name="star" size={14} color="#FBBF24" />
             <Text className={`text-xs font-semibold ${textColor} ml-1`}>
-              {rating}
+              {rating.toFixed(1)}
             </Text>
             <Text className={`text-xs ${subtextColor} ml-1`}>({reviews})</Text>
           </View>

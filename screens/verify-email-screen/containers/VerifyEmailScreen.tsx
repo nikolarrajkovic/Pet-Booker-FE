@@ -13,7 +13,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import { useAuth } from '../../../context/AuthContext';
 import Button from '../../../components/shared/Button';
 import { confirmEmail, resendConfirmation } from '../../../services/auth';
 
@@ -29,7 +28,7 @@ type VerifyEmailRouteProp = RouteProp<RootStackParamList, 'VerifyEmail'>;
 const CODE_LENGTH = 6;
 
 export default function VerifyEmailScreen() {
-  const { isDarkMode, textColor, subtextColor, inputText } = useThemeColors();
+  const { isDarkMode, textColor, subtextColor } = useThemeColors();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<VerifyEmailRouteProp>();
   const email = route.params?.email ?? '';
@@ -43,7 +42,6 @@ export default function VerifyEmailScreen() {
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
-  const inputBg = isDarkMode ? 'bg-[#243447]' : 'bg-white';
   const borderColor = isDarkMode ? '#374151' : '#E5E7EB';
   const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-emerald-50';
   const cardBorder = isDarkMode ? 'border-gray-700' : 'border-emerald-100';
@@ -53,23 +51,67 @@ export default function VerifyEmailScreen() {
 
   const isFilled = code.every((d) => d.length === 1);
 
-  const handleChange = (text: string, index: number) => {
-    // Only allow single digit
-    const digit = text.replace(/[^0-9]/g, '').slice(-1);
-    const newCode = [...code];
-    newCode[index] = digit;
-    setCode(newCode);
-    setVerifyError('');
+  const focusBox = (i: number) =>
+    inputRefs.current[Math.max(0, Math.min(i, CODE_LENGTH - 1))]?.focus();
 
-    if (digit && index < CODE_LENGTH - 1) {
-      inputRefs.current[index + 1]?.focus();
+  const setBox = (index: number, char: string) =>
+    setCode((prev) => {
+      const next = [...prev];
+      next[index] = char;
+      return next;
+    });
+
+  // Spread a run of digits across the boxes starting at `startIndex` — used by
+  // both paste and multi-digit autofill so all six boxes fill from one action.
+  const distribute = (startIndex: number, digits: string) => {
+    setCode((prev) => {
+      const next = [...prev];
+      let i = startIndex;
+      for (const d of digits) {
+        if (i >= CODE_LENGTH) break;
+        next[i] = d;
+        i += 1;
+      }
+      return next;
+    });
+    setVerifyError('');
+    focusBox(startIndex + digits.length); // next empty box (capped to the last)
+  };
+
+  const handleChange = (text: string, index: number) => {
+    setVerifyError('');
+    const digits = text.replace(/[^0-9]/g, '');
+    const hadValue = (code[index] ?? '') !== '';
+
+    if (digits.length === 0) {
+      setBox(index, '');
+      return;
     }
+
+    // Treat several digits arriving at once as a paste/autofill and spread them.
+    // A 2-char value in an ALREADY-filled box is just the user retyping that box
+    // (cursor sat after the digit), so keep only the new digit — don't spill.
+    const isPaste = digits.length > 2 || (digits.length === 2 && !hadValue);
+    if (isPaste) {
+      distribute(index, digits);
+      return;
+    }
+
+    setBox(index, digits.slice(-1));
+    if (index < CODE_LENGTH - 1) focusBox(index + 1);
   };
 
   const handleKeyPress = (key: string, index: number) => {
-    if (key === 'Backspace' && !code[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
+    if (key === 'Backspace' && !code[index] && index > 0) focusBox(index - 1);
+  };
+
+  // Web: a code pasted into one box only fills that box by default — intercept
+  // the paste, read the clipboard, and distribute across all boxes instead.
+  const handleWebPaste = (e: any, index: number) => {
+    const digits: string = (e?.clipboardData?.getData('text') ?? '').replace(/[^0-9]/g, '');
+    if (!digits) return;
+    e.preventDefault();
+    distribute(index, digits);
   };
 
   const handleVerify = async () => {
@@ -116,7 +158,7 @@ export default function VerifyEmailScreen() {
             <MaterialCommunityIcons name="paw" size={40} color="#00A85A" />
           </View>
           <Text className="text-white text-2xl font-bold">Verify Your Email</Text>
-          <Text className="text-brand-100 mt-1">We've sent a 6-digit code to</Text>
+          <Text className="text-brand-100 mt-1">We&apos;ve sent a 6-digit code to</Text>
         </View>
 
         <ScrollView
@@ -138,18 +180,29 @@ export default function VerifyEmailScreen() {
           {/* Code label */}
           <Text className={`text-sm font-semibold ${textColor} mb-3`}>Enter verification code</Text>
 
-          {/* OTP boxes */}
+          {/* OTP boxes — each is individually editable (tap to change), and a
+              code pasted into any box fills all six (web: handleWebPaste; native:
+              the multi-digit paste comes through onChangeText → distribute). */}
           <View className="flex-row justify-between mb-8">
             {Array.from({ length: CODE_LENGTH }).map((_, index) => (
               <TextInput
                 key={index}
-                ref={(ref) => { inputRefs.current[index] = ref; }}
+                ref={(ref) => {
+                  inputRefs.current[index] = ref;
+                }}
                 value={code[index]}
                 onChangeText={(text) => handleChange(text, index)}
                 onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
                 keyboardType="number-pad"
-                maxLength={1}
+                // Wide enough that a pasted code reaches handleChange intact on
+                // native (maxLength 1 would truncate it to a single digit); the
+                // controlled value keeps each box showing one character.
+                maxLength={CODE_LENGTH}
                 selectTextOnFocus
+                textContentType="oneTimeCode"
+                {...(Platform.OS === 'web'
+                  ? ({ onPaste: (e: any) => handleWebPaste(e, index) } as object)
+                  : {})}
                 style={{
                   width: 44,
                   height: 52,
@@ -185,7 +238,7 @@ export default function VerifyEmailScreen() {
 
           {/* Resend link */}
           <View className="flex-row justify-center mb-6">
-            <Text className={`text-sm ${subtextColor}`}>Didn't receive the code? </Text>
+            <Text className={`text-sm ${subtextColor}`}>Didn&apos;t receive the code? </Text>
             <TouchableOpacity onPress={handleResend}>
               <Text className="text-brand-600 font-semibold text-sm">Resend Code</Text>
             </TouchableOpacity>
@@ -196,7 +249,7 @@ export default function VerifyEmailScreen() {
             <Text className="mr-2 text-sm">💡</Text>
             <Text className={`text-xs flex-1 leading-5 ${tipText}`}>
               <Text className="font-semibold">Tip: </Text>
-              Check your spam folder if you don't see the email. The code expires in 10 minutes.
+              Check your spam folder if you don&apos;t see the email. The code expires in 10 minutes.
             </Text>
           </View>
         </ScrollView>

@@ -2,29 +2,42 @@ import React, { useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useLocation } from '../../../hooks/useLocation';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import MapAddressPicker from '../../../components/shared/MapAddressPicker';
+import { AddressDto } from '../../../services/service-providers';
 import { PersonalInfoStep, ServiceInfoStep } from '../../partner-application-screen/components';
 
 export default function AdminAddPartnerScreen() {
   const navigation = useNavigation();
-  const { isDarkMode, bgColor, cardBg, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor } =
-    useThemeColors();
+  const location = useLocation();
+  const {
+    isDarkMode,
+    bgColor,
+    cardBg,
+    textColor,
+    subtextColor,
+    inputBg,
+    inputText,
+    borderColor,
+    placeholderColor,
+  } = useThemeColors();
 
   const [step, setStep] = useState(1);
+  const [addressPickerVisible, setAddressPickerVisible] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     phone: '',
+    country: '',
     streetAddress: '',
     city: '',
-    state: '',
     zipCode: '',
     selectedServices: [] as string[],
     yearsOfExperience: '',
     aboutYou: '',
-    certifications: '',
-    availability: '',
+    motivation: '',
   });
 
   const totalSteps = 2;
@@ -39,6 +52,16 @@ export default function AdminAddPartnerScreen() {
     borderColor,
     placeholderColor,
     cardBg,
+  };
+
+  // Fill the address fields from a pin dropped on the map (city/ZIP stay editable).
+  const onSelectAddressFromMap = (picked: AddressDto) => {
+    setFormData((prev) => ({
+      ...prev,
+      streetAddress: picked.line1 || prev.streetAddress,
+      city: picked.city || prev.city,
+      zipCode: picked.postalCode || prev.zipCode,
+    }));
   };
 
   const handleSubmit = () => {
@@ -59,24 +82,29 @@ export default function AdminAddPartnerScreen() {
       contentRounded={false}
       headerChildren={
         <>
-          <View className="mt-4 mb-2">
-            <View className="h-2 bg-white/30 rounded-full overflow-hidden">
+          <View className="mb-2 mt-4">
+            <View className="h-2 overflow-hidden rounded-full bg-white/30">
               <View
-                className="h-full bg-white rounded-full transition-all duration-300"
+                className="h-full rounded-full bg-white transition-all duration-300"
                 style={{ width: `${progressPercentage}%` }}
               />
             </View>
           </View>
-          <Text className="text-white text-sm">Step {step} of {totalSteps}</Text>
+          <Text className="text-sm text-white">
+            Step {step} of {totalSteps}
+          </Text>
         </>
-      }
-    >
+      }>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: 100, paddingHorizontal: 24 }}
-      >
+        contentContainerStyle={{ paddingTop: 24, paddingBottom: 100, paddingHorizontal: 24 }}>
         {step === 1 && (
-          <PersonalInfoStep formData={formData} setFormData={setFormData} {...themeProps} />
+          <PersonalInfoStep
+            formData={formData}
+            setFormData={setFormData}
+            onOpenAddressMap={() => setAddressPickerVisible(true)}
+            {...themeProps}
+          />
         )}
 
         {step === 2 && (
@@ -94,13 +122,24 @@ export default function AdminAddPartnerScreen() {
               handleSubmit();
             }
           }}
-          className="bg-brand-500 py-4 rounded-2xl items-center"
-        >
-          <Text className="text-white text-lg font-bold">
+          className="items-center rounded-2xl bg-brand-500 py-4">
+          <Text className="text-lg font-bold text-white">
             {step === totalSteps ? 'Add Partner' : 'Continue'}
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Map picker for the street address — opens on the current location */}
+      {addressPickerVisible && (
+        <MapAddressPicker
+          visible
+          title="Partner address"
+          initialRegion={{ latitude: location.latitude, longitude: location.longitude }}
+          isDarkMode={isDarkMode}
+          onClose={() => setAddressPickerVisible(false)}
+          onSelect={(picked) => onSelectAddressFromMap(picked)}
+        />
+      )}
     </ScreenLayout>
   );
 }

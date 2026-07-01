@@ -16,7 +16,11 @@ export function addressLabel(a: AddressDto): string {
  * geocode is not available on web).
  */
 export async function reverseGeocodeToAddress(point: GeoPoint): Promise<AddressDto> {
-  return Platform.OS === 'web' ? reverseGeocodeWeb(point) : reverseGeocodeNative(point);
+  const address =
+    Platform.OS === 'web' ? await reverseGeocodeWeb(point) : await reverseGeocodeNative(point);
+  // The address DTO now carries geo coords — attach the exact pin location the
+  // user picked so the saved address (booking pickup/drop-off, account) keeps it.
+  return { ...address, location: { latitude: point.latitude, longitude: point.longitude } };
 }
 
 async function reverseGeocodeNative(point: GeoPoint): Promise<AddressDto> {
@@ -42,7 +46,7 @@ export async function forwardGeocode(query: string): Promise<GeoPoint | null> {
   const q = query.trim();
   if (!q) return null;
   if (Platform.OS === 'web') {
-    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}`;
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=sr-Latn&q=${encodeURIComponent(q)}`;
     const res = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!res.ok) return null;
     const data = await res.json();
@@ -79,8 +83,11 @@ export async function getCurrentPosition(): Promise<GeoPoint | null> {
 async function reverseGeocodeWeb(point: GeoPoint): Promise<AddressDto> {
   // External geocoding service (not the app API), so a direct fetch is correct
   // here — apiFetch/apiAuthFetch build URLs from the app's base URL.
+  // accept-language=sr-Latn → Nominatim prefers the `name:sr-Latn` OSM tags, so
+  // Serbian place/road names come back in Latin script instead of Cyrillic
+  // (matches the map's Latin labels). Falls back to the default name elsewhere.
   const url =
-    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1` +
+    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&accept-language=sr-Latn` +
     `&lat=${point.latitude}&lon=${point.longitude}`;
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
   if (!res.ok) throw new Error('Could not look up that location. Please try again.');

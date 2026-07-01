@@ -5,9 +5,11 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useToast } from '../../../context/ToastContext';
 import { getServices, ServiceDto } from '../../../services/services';
 import { getReviews, ReviewDto } from '../../../services/reviews';
 import { ApprovalStatus } from '../../../services/service-providers';
+import { getErrorMessage } from '../../../services/http';
 import type { ProviderViewModel } from '../../../services/service-providers';
 
 type ProviderDetailRouteParams = {
@@ -21,6 +23,7 @@ export default function ProviderDetailScreen() {
   const route = useRoute<RouteProp<{ params: ProviderDetailRouteParams }, 'params'>>();
   const { provider } = route.params;
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
+  const { showError } = useToast();
 
   const [services, setServices] = useState<ServiceDto[]>([]);
   const [reviews, setReviews] = useState<ReviewDto[]>([]);
@@ -41,7 +44,7 @@ export default function ProviderDetailScreen() {
           setReviews(rev);
         }
       } catch (e) {
-        console.warn('[ProviderDetailScreen] Failed to load details', e);
+        if (!cancelled) showError(getErrorMessage(e, 'Could not load provider details. Please try again.'));
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -95,7 +98,7 @@ export default function ProviderDetailScreen() {
               <>
                 <View className="flex-row items-center bg-brand-50 px-2 py-1 rounded-lg">
                   <Ionicons name="star" size={16} color="#00C870" />
-                  <Text className="text-brand-700 font-semibold ml-1">{avgRating || '—'}</Text>
+                  <Text className="text-brand-700 font-semibold ml-1">{avgRating > 0 ? avgRating.toFixed(1) : '—'}</Text>
                 </View>
                 <Text className={subtextColor}>
                   {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
