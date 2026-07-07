@@ -27,6 +27,7 @@ import {
 } from '../../../services/services';
 import { getErrorMessage } from '../../../services/http';
 import { saveServiceSchedules } from '../../../services/service-schedules';
+import { saveServicePricingOptions } from '../../../services/service-pricing-options';
 import {
   serviceDtoToUi,
   uiToServiceDto,
@@ -34,27 +35,18 @@ import {
   ServiceImageInput,
   ALL_ADDITIONAL_SERVICE_NAMES,
   workingHoursToSchedules,
+  pricingTiersToOptions,
+  DURATION_OPTION_LABELS,
+  PricingTier,
 } from '../serviceModel';
 
 // serviceProviderType enum `displayName`s — the selected label maps back to a
 // real numeric `type` on save via providerTypeValue().
 const SERVICE_TYPES = ['Sitter', 'Walker', 'Boarder', 'Pet Hotel', 'Groomer', 'Transporter'];
 
-const DURATION_OPTIONS = [
-  '30 minutes',
-  '1 hour',
-  '1.5 hours',
-  '2 hours',
-  '3 hours',
-  '4 hours',
-  'Full day',
-  'Overnight',
-];
-
-interface PricingTier {
-  duration: string;
-  price: string;
-}
+// Duration labels come from the shared label<->minutes map in serviceModel so
+// every pick persists as a real ServicePricingOption duration.
+const DURATION_OPTIONS = DURATION_OPTION_LABELS;
 
 interface AdditionalService {
   name: string;
@@ -322,10 +314,12 @@ export default function AddEditServiceScreen() {
         serviceImages.map((img, i) => ({ ...img, isSelected: i === mainImageIndex })),
         params?.serviceDto?.photos
       );
-      // Only API-backed fields persist; pricing tiers beyond the first are still
-      // UI-only (see BACKEND_GAPS.md: S1). Add-ons now persist via the catalog,
-      // but only their flat baseFee — per-km surcharge fields stay UI-only. Working
-      // hours persist separately via /api/service-schedules below.
+      // Only API-backed fields persist. Duration tiers persist separately as
+      // pricing options via /api/service-pricing-options below (the DTO's
+      // basePrice carries the cheapest tier for the lean Home-rail display).
+      // Add-ons persist via the catalog, but only their flat baseFee — per-km
+      // surcharge fields stay UI-only. Working hours persist separately via
+      // /api/service-schedules below.
       const dto = uiToServiceDto(
         {
           serviceProviderId,
@@ -363,6 +357,21 @@ export default function AddEditServiceScreen() {
           if (__DEV__) console.warn('[AddEditService] working-hours save failed', schedErr);
           showError(
             'The service was saved, but its working hours could not be updated. Open the service to try again.'
+          );
+        }
+        // Persist the duration/price tiers as pricing options, reconciling
+        // against the options the service already has (edit mode). Same
+        // best-effort pattern as the working hours above.
+        try {
+          await saveServicePricingOptions(
+            savedId,
+            pricingTiersToOptions(pricingTiers, savedId),
+            params?.serviceDto?.pricingOptions ?? []
+          );
+        } catch (optErr) {
+          if (__DEV__) console.warn('[AddEditService] pricing-options save failed', optErr);
+          showError(
+            'The service was saved, but its pricing options could not be updated. Open the service to try again.'
           );
         }
       }
@@ -511,7 +520,11 @@ export default function AddEditServiceScreen() {
 
         {/* Pricing & Duration */}
         <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-2`}>Pricing & Duration *</Text>
+          <Text className={`text-sm font-semibold ${textColor} mb-1`}>Pricing & Duration *</Text>
+          <Text className={`${subtextColor} mb-3 text-sm`}>
+            Add a duration to each price to offer bookable options — customers must pick one when
+            booking. A single price without a duration keeps free-range booking.
+          </Text>
           {pricingTiers.map((tier, index) => (
             <View key={index} className="mb-3 flex-row items-center" style={{ gap: 8 }}>
               {/* Duration picker */}

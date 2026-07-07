@@ -16,6 +16,7 @@ import {
   getService,
   getServiceAvailability,
   AvailabilityWindowDto,
+  effectiveOptionPrice,
 } from '../../../services/services';
 import { getPets, petTypeLabel } from '../../../services/pets';
 import {
@@ -44,6 +45,13 @@ type Appointment = {
   bookingFrom: string;
   bookingTo: string;
   total: number;
+  // The chosen pricing option (duration/price variant) — required when the
+  // service defines options. Frozen at add time: changing the selector never
+  // mutates an already-added appointment. `pricingOptionBase` keeps the
+  // pre-discount option price for the Review breakdown's discount line.
+  pricingOptionId?: number;
+  pricingOptionName?: string;
+  pricingOptionBase?: number;
   // Required when the matching add-on is selected; sent inline on booking create.
   pickupAddress?: AddressDto;
   leaveOverAddress?: AddressDto;
@@ -51,8 +59,10 @@ type Appointment = {
   includeSpecialNeeds?: boolean;
 };
 
-// Bookable slots are 1h each, derived from the day's availability windows
-// (GET /api/services/{id}/availability). A date with no windows is not bookable.
+// Bookable slots are derived from the day's availability windows
+// (GET /api/services/{id}/availability). A date with no windows is not
+// bookable. Slot length: the chosen pricing option's duration when the service
+// defines options, else this 1h default (classic free-range services).
 const SLOT_DURATION_MS = 60 * 60 * 1000;
 
 // "HH:mm:ss" (or "HH:mm") → minutes since midnight, rounded to the nearest
@@ -104,6 +114,17 @@ export default function BookServiceScreen() {
     []
   );
   const [isLoading, setIsLoading] = useState(true);
+
+  // Pricing options (duration/price variants). A service that defines any
+  // REQUIRES the booker to pick one — the server derives bookingTo and the
+  // price from it. An option-less service keeps the classic 1h-slot booking.
+  const pricingOptions = selectedService.pricingOptions ?? [];
+  const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
+  const selectedOption = pricingOptions.find((o) => o.id === selectedOptionId) ?? null;
+  const optionChosen = pricingOptions.length === 0 || selectedOption != null;
+  // Slot length (and stride) for the time picker — the option's duration when
+  // one is chosen, else the classic 1h grid.
+  const slotMs = selectedOption ? selectedOption.durationMinutes * 60000 : SLOT_DURATION_MS;
 
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   // Pickup / Drop-off addresses are picked on a map (reverse-geocoded to AddressDto).
@@ -198,22 +219,24 @@ export default function BookServiceScreen() {
     [selectedService]
   );
 
-  // Build hourly slots for the selected date from the availability endpoint's
-  // window(s) for that date. No windows → no slots (not bookable). A slot is
-  // unavailable when it's in the past, the window has no capacity left
-  // (remainingCapacity already accounts for the provider's bookings), or
-  // appointments added this session have filled that remaining capacity.
+  // Build bookable slots for the selected date from the availability endpoint's
+  // window(s) for that date. Slot length AND stride follow the chosen pricing
+  // option's duration (a back-to-back grid inside each window); option-less
+  // services keep the classic hourly grid. No windows → no slots (not
+  // bookable). A slot is unavailable when it's in the past, the window has no
+  // capacity left (remainingCapacity already accounts for the provider's
+  // bookings), or appointments added this session have filled that capacity.
   const timeSlots: TimeSlot[] = useMemo(() => {
     if (!selectedDate) return [];
     const windows = availWindows;
     if (windows.length === 0) return []; // no availability → unavailable
     const now = Date.now();
-    const slotMinutes = SLOT_DURATION_MS / 60000;
+    const slotMinutes = slotMs / 60000;
     const byId = new Map<string, TimeSlot>();
     for (const w of windows) {
       const fromMin = hmsToMinutes(w.from);
       const toMin = hmsToMinutes(w.to);
-      // Only whole 1h slots that fit inside the window [from, to).
+      // Only whole slots that fit inside the window [from, to).
       for (let m = fromMin; m + slotMinutes <= toMin; m += slotMinutes) {
         const hour = Math.floor(m / 60);
         const minute = m % 60;
@@ -221,7 +244,7 @@ export default function BookServiceScreen() {
         if (byId.has(id)) continue; // overlapping windows → keep one slot per start
         const start = new Date(selectedDate);
         start.setHours(hour, minute, 0, 0);
-        const end = start.getTime() + SLOT_DURATION_MS;
+        const end = start.getTime() + slotMs;
         // Appointments added this session count against the window's remaining
         // capacity (the server already subtracted real bookings).
         const localTaken = appointments.filter((a) =>
@@ -245,7 +268,7 @@ export default function BookServiceScreen() {
       }
     }
     return Array.from(byId.values()).sort((a, b) => a.start.getTime() - b.start.getTime());
-  }, [selectedDate, availWindows, appointments]);
+  }, [selectedDate, availWindows, appointments, slotMs]);
 
   const selectedSlotId = startDateTime
     ? `${String(startDateTime.getHours()).padStart(2, '0')}:${String(startDateTime.getMinutes()).padStart(2, '0')}`
@@ -263,25 +286,33 @@ export default function BookServiceScreen() {
   const addressesProvided =
     (!pickupSelected || !!pickupAddr) && (!dropoffSelected || !!dropoffAddr);
 
+  // Per-selection service price: the chosen option's (discounted) price when
+  // the service defines options, else the classic effective service price.
+  const currentServicePrice = () =>
+    selectedOption
+      ? effectiveOptionPrice(selectedService, selectedOption)
+      : servicePrice(selectedService);
+
   const currentTotal = () => {
     const addons = selectedAddons.reduce((sum, id) => {
       const def = serviceAddons.find((a) => a.id === id);
       return sum + (def?.price ?? 0);
     }, 0);
-    return servicePrice(selectedService) + addons;
+    return currentServicePrice() + addons;
   };
 
-  const selectionComplete = !!startDateTime && selectedPet !== null && addressesProvided;
+  const selectionComplete =
+    optionChosen && !!startDateTime && selectedPet !== null && addressesProvided;
 
   const buildAppointment = (): Appointment | null => {
-    if (!startDateTime || selectedPet === null || !addressesProvided) return null;
+    if (!optionChosen || !startDateTime || selectedPet === null || !addressesProvided) return null;
     const pet = pets.find((p) => p.id === selectedPet);
     return {
       id: Date.now(),
       service: {
         id: selectedService.id ?? 0,
         name: selectedService.name ?? 'Service',
-        price: servicePrice(selectedService),
+        price: currentServicePrice(),
       },
       pet: { id: selectedPet, name: pet?.name ?? 'Pet', image: pet?.image ?? '' },
       addons: selectedAddons.flatMap((id) => {
@@ -290,9 +321,14 @@ export default function BookServiceScreen() {
       }),
       // Naive local wall-clock (no offset) so the booking round-trips to the same
       // time the user picked under parseBookingDate (see services/bookings.ts).
+      // End = start + the chosen option's duration (1h for option-less services);
+      // for option bookings the server re-derives it from the option anyway.
       bookingFrom: formatBookingDate(startDateTime),
-      bookingTo: formatBookingDate(new Date(startDateTime.getTime() + 60 * 60 * 1000)), // +1h default
+      bookingTo: formatBookingDate(new Date(startDateTime.getTime() + slotMs)),
       total: currentTotal(),
+      pricingOptionId: selectedOption?.id ?? undefined,
+      pricingOptionName: selectedOption?.name,
+      pricingOptionBase: selectedOption?.price,
       pickupAddress: pickupSelected ? (pickupAddr ?? undefined) : undefined,
       leaveOverAddress: dropoffSelected ? (dropoffAddr ?? undefined) : undefined,
       includeSpecialNeeds: selectedAddons.includes('specialNeeds'),
@@ -364,10 +400,12 @@ export default function BookServiceScreen() {
         </View>
       ) : (
         <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
-          {/* Step 1: Service (fixed — chosen before entering this screen) */}
+          {/* Step 1: Service (fixed — chosen before entering this screen). When
+              the service defines pricing options, picking one is part of this
+              step — the booking can't proceed without it. */}
           <View className="px-6 py-5">
             <View className="mb-4 flex-row items-center">
-              {stepDot(true, 1)}
+              {stepDot(optionChosen, 1)}
               <Text className={`text-base font-semibold ${textColor} ml-3`}>Service</Text>
             </View>
             <View
@@ -393,10 +431,64 @@ export default function BookServiceScreen() {
                   ) : null}
                 </View>
                 <Text className="text-xl font-bold text-brand-600">
-                  ${servicePrice(selectedService)}
+                  {pricingOptions.length > 0
+                    ? selectedOption
+                      ? `$${effectiveOptionPrice(selectedService, selectedOption)}`
+                      : `from $${Math.min(
+                          ...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o))
+                        )}`
+                    : `$${servicePrice(selectedService)}`}
                 </Text>
               </View>
             </View>
+
+            {/* Duration/price options — required pick when the service defines any */}
+            {pricingOptions.length > 0 && (
+              <View className="mt-4">
+                <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                  Choose Duration & Price *
+                </Text>
+                {pricingOptions.map((option) => {
+                  const effective = effectiveOptionPrice(selectedService, option);
+                  const isSelected = option.id != null && option.id === selectedOptionId;
+                  return (
+                    <TouchableOpacity
+                      key={option.id ?? option.name}
+                      onPress={() => {
+                        setSelectedOptionId(option.id ?? null);
+                        // Slot length follows the option — a picked start time may
+                        // no longer be valid, so re-pick.
+                        setStartDateTime(null);
+                      }}
+                      className={`mb-3 rounded-2xl border-2 p-4 ${
+                        isSelected
+                          ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                          : `${borderColor} ${cardBg}`
+                      }`}>
+                      <View className="flex-row items-center justify-between">
+                        <View className="flex-1">
+                          <Text className={`text-base font-semibold ${textColor}`}>
+                            {option.name}
+                          </Text>
+                          <Text className={`text-sm ${subtextColor} mt-1`}>
+                            {option.durationMinutes} min
+                            {option.description ? ` • ${option.description}` : ''}
+                          </Text>
+                        </View>
+                        <View className="ml-4 items-end">
+                          {effective < option.price && (
+                            <Text className={`text-xs ${subtextColor} line-through`}>
+                              ${option.price}
+                            </Text>
+                          )}
+                          <Text className="text-lg font-bold text-brand-600">${effective}</Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
           </View>
 
           {/* Step 2: Additional Services */}
@@ -649,6 +741,11 @@ export default function BookServiceScreen() {
                           hour12: false,
                         })}
                       </Text>
+                      {apt.pricingOptionName && (
+                        <Text className={`text-xs ${subtextColor} mt-1`}>
+                          Option: {apt.pricingOptionName}
+                        </Text>
+                      )}
                       {apt.addons.length > 0 && (
                         <Text className={`text-xs ${subtextColor} mt-1`}>
                           + {apt.addons.map((a) => a.name).join(', ')}

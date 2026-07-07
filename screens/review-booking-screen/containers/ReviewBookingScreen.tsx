@@ -35,6 +35,12 @@ type Appointment = {
   bookingFrom: string;
   bookingTo: string;
   total: number;
+  // The chosen pricing option (duration/price variant) — set when the booked
+  // service defines options. `pricingOptionBase` is the pre-discount option
+  // price (drives the base/discount breakdown lines below).
+  pricingOptionId?: number;
+  pricingOptionName?: string;
+  pricingOptionBase?: number;
   pickupAddress?: AddressDto;
   leaveOverAddress?: AddressDto;
   includeSpecialNeeds?: boolean;
@@ -106,13 +112,18 @@ export default function ReviewBookingScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // `a.service.price` is the effective (already-discounted) per-appointment
-  // price. We show the WHOLE (pre-discount) service total and the discount on its
-  // own line, so the breakdown reads base → minus discount → total. The whole
-  // price comes from the service's pricing.basePrice; the discount is the
-  // difference, which keeps base − discount == effective == the booked total.
+  // price. We show the WHOLE (pre-discount) service total and the discount on
+  // its own line, so the breakdown reads base → minus discount → total. Each
+  // appointment's whole price is its chosen pricing option's base price when
+  // one was picked (appointments may mix options), else the service's
+  // pricing.basePrice; the discount is the difference, which keeps
+  // base − discount == effective == the booked total.
   const effectiveServiceTotal = appointments.reduce((s, a) => s + a.service.price, 0);
   const baseUnit = service.pricing?.basePrice ?? 0;
-  const serviceTotal = baseUnit > 0 ? baseUnit * appointments.length : effectiveServiceTotal;
+  const serviceTotal = appointments.reduce(
+    (s, a) => s + (a.pricingOptionBase ?? (baseUnit > 0 ? baseUnit : a.service.price)),
+    0
+  );
   const discountTotal = Math.max(0, serviceTotal - effectiveServiceTotal);
   const discount =
     discountTotal > 0
@@ -151,10 +162,13 @@ export default function ReviewBookingScreen() {
           petId: apt.pet.id,
           paymentMethodId,
           bookingFrom: apt.bookingFrom,
+          // For option bookings the server derives bookingTo/basePrice from the
+          // option — the values below are sent but ignored in that case.
           bookingTo: apt.bookingTo,
           basePrice: apt.service.price,
           discountAmount: 0,
           totalPrice: apt.total,
+          pricingOptionId: apt.pricingOptionId,
           paymentType: isCash ? PaymentType.Cash : PaymentType.Card,
           pickupAddress: apt.pickupAddress,
           leaveOverAddress: apt.leaveOverAddress,
@@ -246,6 +260,19 @@ export default function ReviewBookingScreen() {
                     })}
                   </Text>
                 </View>
+                {apt.pricingOptionName && (
+                  <View className="mt-1 flex-row items-center">
+                    <Ionicons
+                      name="pricetag-outline"
+                      size={14}
+                      color="#00C870"
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text className={`text-sm ${subtextColor}`}>
+                      Option: {apt.pricingOptionName}
+                    </Text>
+                  </View>
+                )}
                 {apt.addons.length > 0 && (
                   <Text className={`text-xs ${subtextColor} mt-1`}>
                     + {apt.addons.map((a) => a.name).join(', ')}
