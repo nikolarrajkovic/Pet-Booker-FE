@@ -1,5 +1,6 @@
 import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
 import { resolveImageUrl, AddressDto } from './service-providers';
+import type { ServicePricingOptionDto } from './services';
 
 // BookingState enum (verified /enums 2026-06-19). The API advances `state` as the
 // provider acts on a booking: confirming moves it to Accepted(3), starting the
@@ -46,6 +47,15 @@ export type BookingDto = {
   basePrice: number;
   discountAmount: number;
   totalPrice: number;
+  // The chosen service pricing option (duration/price variant). REQUIRED when
+  // the booked service defines pricingOptions (else 422 "This service defines
+  // pricing options; PricingOptionId is required." — on PUT too, so
+  // toWritableBooking round-trips it); must be null for option-less services.
+  // With an option set the server derives bookingTo (= bookingFrom +
+  // durationMinutes) and basePrice (= option price, discount applied) itself.
+  pricingOptionId?: number | null;
+  // READ-only nested echo of the chosen option (GET only).
+  pricingOption?: ServicePricingOptionDto | null;
   paymentType: number;
   paymentMethodId: number; // REQUIRED — must reference an existing PaymentMethod
   currentStatus: number;
@@ -121,6 +131,7 @@ type WritableBookingCreate = {
   basePrice: number;
   discountAmount: number;
   totalPrice: number;
+  pricingOptionId?: number | null;
   paymentType: number;
   paymentMethodId: number;
   includePickup?: boolean;
@@ -300,6 +311,10 @@ export type CreateBookingInput = {
   basePrice: number;
   discountAmount?: number;
   totalPrice: number;
+  // The chosen pricing option — REQUIRED when the service defines
+  // pricingOptions. The server derives bookingTo/basePrice from the option
+  // (the values sent above are then ignored server-side).
+  pricingOptionId?: number;
   paymentType?: number; // defaults to Card
   priceCurrency?: string; // defaults to 'USD'
   // Selecting Pickup / Drop-off. The presence of an address sets the matching
@@ -340,6 +355,9 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
     basePrice: input.basePrice,
     discountAmount: input.discountAmount ?? 0,
     totalPrice: input.totalPrice,
+    // When set, the server derives bookingTo/basePrice from the option — the
+    // computed values above are still sent but ignored for option bookings.
+    pricingOptionId: input.pricingOptionId ?? null,
     paymentType: input.paymentType ?? PaymentType.Card,
     paymentMethodId: input.paymentMethodId,
     // These flags register the add-ons; the server computes the surcharge (so it
@@ -387,6 +405,9 @@ function toWritableBooking(b: BookingDto): BookingDto {
     basePrice: b.basePrice,
     discountAmount: b.discountAmount,
     totalPrice: b.totalPrice,
+    // Round-trip the pricing option — the coexist rule runs on PUT too, so a
+    // status/scalar PUT on an option booking 422s without it.
+    pricingOptionId: b.pricingOptionId ?? null,
     paymentType: b.paymentType,
     paymentMethodId: b.paymentMethodId,
     currentStatus: b.currentStatus,

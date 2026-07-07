@@ -14,7 +14,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
-import { getService, ServiceDto } from '../../../services/services';
+import { getService, ServiceDto, effectiveOptionPrice } from '../../../services/services';
 import { getReviews, ReviewDto } from '../../../services/reviews';
 import {
   getServiceProvider,
@@ -127,8 +127,19 @@ export default function ServiceDetailScreen() {
       : 0);
   const reviewCount = svc.totalRatingNumber ?? reviews.length;
 
-  const base = svc.pricing?.basePrice ?? 0;
-  const effective = servicePrice(svc);
+  // Pricing options (duration/price variants): the header shows "from" the
+  // cheapest option's effective price; the full list gets its own section and
+  // the booker picks one on the Book Service screen. Option-less services keep
+  // the classic single base/effective price.
+  const pricingOptions = svc.pricingOptions ?? [];
+  const hasOptions = pricingOptions.length > 0;
+  const cheapestOption = hasOptions
+    ? pricingOptions.reduce((min, o) =>
+        effectiveOptionPrice(svc, o) < effectiveOptionPrice(svc, min) ? o : min
+      )
+    : null;
+  const base = cheapestOption ? cheapestOption.price : (svc.pricing?.basePrice ?? 0);
+  const effective = cheapestOption ? effectiveOptionPrice(svc, cheapestOption) : servicePrice(svc);
   const hasDiscount = base > 0 && effective < base;
 
   const addons = getEnabledServiceAddons(svc);
@@ -303,6 +314,42 @@ export default function ServiceDetailScreen() {
                   ) : null}
                 </View>
               </View>
+            )}
+
+          {/* Pricing options (duration/price variants) — the booker picks one
+              on the Book Service screen */}
+          {hasOptions &&
+            section(
+              'Pricing Options',
+              pricingOptions.map((option, idx) => {
+                const optionEffective = effectiveOptionPrice(svc, option);
+                return (
+                  <View
+                    key={option.id ?? idx}
+                    className={`mb-2 flex-row items-center justify-between rounded-2xl p-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`}>
+                    <View className="mr-3 flex-1 flex-row items-center">
+                      <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-100">
+                        <Ionicons name="time-outline" size={20} color="#00C870" />
+                      </View>
+                      <View className="flex-1">
+                        <Text className={`font-medium ${textColor}`}>{option.name}</Text>
+                        <Text className={`text-xs ${subtextColor} mt-0.5`}>
+                          {option.durationMinutes} min
+                          {option.description ? ` • ${option.description}` : ''}
+                        </Text>
+                      </View>
+                    </View>
+                    <View className="items-end">
+                      {optionEffective < option.price && (
+                        <Text className={`text-xs ${subtextColor} line-through`}>
+                          ${option.price}
+                        </Text>
+                      )}
+                      <Text className="font-semibold text-brand-600">${optionEffective}</Text>
+                    </View>
+                  </View>
+                );
+              })
             )}
 
           {/* Additional services (add-ons) */}

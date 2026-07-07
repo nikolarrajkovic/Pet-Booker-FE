@@ -1,7 +1,7 @@
 // Maps between the rich MyServices/AddEditService UI shape and the minimal
 // ServiceDto the API supports. UI features with no backend support are mocked
 // here and documented in BACKEND_GAPS.md (search for BACKEND-GAP tags).
-import { ServiceDto, ServiceScheduleDto } from '../../services/services';
+import { ServiceDto, ServiceScheduleDto, ServicePricingOptionDto } from '../../services/services';
 import {
   resolveImageUrl,
   providerTypeLabel,
@@ -12,6 +12,9 @@ import { getApiBaseUrl } from '../../services/http';
 import { SERVICE_ADDON_DEFS } from '../../services/service-addons';
 
 export interface PricingTier {
+  // The persisted ServicePricingOption id (edit mode) — undefined for a tier
+  // the user just added; used by saveServicePricingOptions to diff POST/PUT/DELETE.
+  id?: number | null;
   duration: string;
   price: string;
 }
@@ -56,6 +59,65 @@ export const DEFAULT_WORKING_HOURS: WorkingHours = {
 // The add-on catalog (names + DTO read/write mapping) is the single source of
 // truth in services/service-addons.ts. Re-export the name list for convenience.
 export { ALL_ADDITIONAL_SERVICE_NAMES } from '../../services/service-addons';
+
+// --- Pricing tiers <-> service pricing options ----------------------------
+// The form keeps tiers as { duration label, price string }; the API stores them
+// as ServicePricingOption rows (name + durationMinutes + price) managed via
+// /api/service-pricing-options. A tier's duration label doubles as the option
+// name. Single source of truth for the duration dropdown (AddEditServiceScreen
+// imports DURATION_OPTION_LABELS from here).
+const DURATION_LABEL_MINUTES: Record<string, number> = {
+  '30 minutes': 30,
+  '1 hour': 60,
+  '1.5 hours': 90,
+  '2 hours': 120,
+  '3 hours': 180,
+  '4 hours': 240,
+  'Full day': 480,
+  Overnight: 720,
+};
+
+export const DURATION_OPTION_LABELS = Object.keys(DURATION_LABEL_MINUTES);
+
+/** 60 → "1 hour"; unmapped values (options created via the API) → "{n} min". */
+export function minutesToDurationLabel(minutes: number): string {
+  const match = Object.entries(DURATION_LABEL_MINUTES).find(([, m]) => m === minutes);
+  return match ? match[0] : `${minutes} min`;
+}
+
+/** "1 hour" → 60; also decodes the "{n} min" fallback; unknown labels → null. */
+export function durationLabelToMinutes(label: string): number | null {
+  const mapped = DURATION_LABEL_MINUTES[label];
+  if (mapped != null) return mapped;
+  const parsed = parseInt(label, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+/**
+ * The form's pricing tiers → ServicePricingOption rows to persist. Only tiers
+ * with a resolvable duration AND a parseable price become options — so a lone
+ * duration-less tier stays a classic basePrice-only service (no options, free-
+ * range booking). Persist the result with saveServicePricingOptions().
+ */
+export function pricingTiersToOptions(
+  tiers: PricingTier[],
+  serviceId: number
+): ServicePricingOptionDto[] {
+  const out: ServicePricingOptionDto[] = [];
+  for (const tier of tiers) {
+    const durationMinutes = tier.duration ? durationLabelToMinutes(tier.duration) : null;
+    const price = parseFloat(tier.price);
+    if (durationMinutes == null || !Number.isFinite(price)) continue;
+    out.push({
+      id: tier.id ?? undefined,
+      serviceId,
+      name: tier.duration,
+      durationMinutes,
+      price,
+    });
+  }
+  return out;
+}
 
 // --- Working hours <-> service schedules ---------------------------------
 // The form keeps hours per day name with 24h display times ("HH:mm"); the API
@@ -146,8 +208,15 @@ export function serviceDtoToUi(dto: ServiceDto): UiService {
       0,
       photoList.findIndex((p) => p.isSelected)
     ),
-    // BACKEND-GAP S1: API has a single basePrice, not duration tiers
-    pricingTiers: [{ duration: 'Standard', price }],
+    // Real duration/price tiers from the service's pricing options (S1 now
+    // wired); an option-less service keeps the single price-only tier.
+    pricingTiers: dto.pricingOptions?.length
+      ? dto.pricingOptions.map((o) => ({
+          id: o.id,
+          duration: minutesToDurationLabel(o.durationMinutes),
+          price: String(o.price),
+        }))
+      : [{ duration: 'Standard', price }],
     // Prefill every catalog add-on from the DTO; not-yet-persisted ones read back
     // as disabled/0 until the backend supports them (see services/service-addons.ts).
     additionalServices: SERVICE_ADDON_DEFS.map((def) => {
@@ -248,8 +317,14 @@ export type ServiceFormInput = {
  * non-nullable server-side and would reset to 0/None if omitted from a PUT.
  */
 export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): ServiceDto {
-  // BACKEND-GAP S1: only the first tier's price maps to basePrice
-  const basePrice = parseFloat(form.pricingTiers[0]?.price) || 0;
+  // basePrice = the cheapest tier. Duration tiers persist separately as pricing
+  // options (pricingTiersToOptions + saveServicePricingOptions); basePrice keeps
+  // the lean Home-rail DTO (which has no pricingOptions) showing a correct
+  // "from" price.
+  const tierPrices = form.pricingTiers
+    .map((t) => parseFloat(t.price))
+    .filter((p) => Number.isFinite(p));
+  const basePrice = tierPrices.length ? Math.min(...tierPrices) : 0;
 
   const details: NonNullable<ServiceDto['details']> = {
     ...original?.details,

@@ -1,6 +1,7 @@
 import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
 import type { AddressDto } from './service-providers';
 import type { ReviewDto } from './reviews';
+import { DiscountType } from './service-discounts';
 
 // One already-booked slot embedded on the service read DTO (ServiceReadDto.
 // upcomingBookings) — the provider's upcoming bookings for this service, enough
@@ -19,6 +20,21 @@ export type ServiceScheduleDto = {
   day: number;
   from: string;
   to: string;
+};
+
+// Duration/price variant of a service ("30 minutes / $20", "1 hour / $35").
+// Managed via /api/service-pricing-options (see services/service-pricing-options.ts);
+// embedded read-only on the service GET as `pricingOptions[]`. A service with a
+// non-empty list REQUIRES every booking to pick one (booking sends
+// pricingOptionId + bookingFrom; the server derives bookingTo and basePrice from
+// the option). An empty list keeps the classic free-range from/to booking.
+export type ServicePricingOptionDto = {
+  id?: number | null;
+  serviceId: number;
+  name: string;
+  description?: string | null;
+  durationMinutes: number;
+  price: number;
 };
 
 // Per-weight-bracket food pricing (PetWeightBracket: 0=Small, 1=Medium, 2=Large)
@@ -85,6 +101,9 @@ export type ServiceDto = {
   };
   // Per-day working hours (managed via /api/service-schedules; embedded on GET)
   schedules?: ServiceScheduleDto[] | null;
+  // Duration/price variants (managed via /api/service-pricing-options; embedded
+  // on GET). Non-empty → bookings must pick one; empty → classic booking.
+  pricingOptions?: ServicePricingOptionDto[] | null;
   // The service's address — now carries geo coords under `address.location`
   // (used for map placement). Read-only on the service read DTO.
   address?: AddressDto | null;
@@ -111,6 +130,23 @@ export type ServiceDto = {
   reviews?: ReviewDto[]; // embedded reviews (may include all statuses — public screens still filter by approvalStatus)
   upcomingBookings?: ServiceBookedSlotReadDto[]; // booked slots for availability
 };
+
+/**
+ * Display-side mirror of the server's discount math for a pricing option
+ * (Domain/ServicePricing.ApplyDiscount): the service GET exposes the active
+ * discount as appliedDiscountType/appliedDiscountAmount, and the server applies
+ * it to the chosen option's price when the booking is created. Percent →
+ * price * (1 - amount/100); Fixed → max(0, price - amount). No active discount
+ * (amount null) → the option price unchanged.
+ */
+export function effectiveOptionPrice(svc: ServiceDto, option: ServicePricingOptionDto): number {
+  const amount = svc.appliedDiscountAmount;
+  if (amount == null) return option.price;
+  if (svc.appliedDiscountType === DiscountType.Percent) {
+    return Math.max(0, option.price - (option.price * amount) / 100);
+  }
+  return Math.max(0, option.price - amount);
+}
 
 export type GetServicesParams = {
   serviceProviderId?: number;
