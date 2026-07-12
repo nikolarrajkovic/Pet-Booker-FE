@@ -14,7 +14,7 @@ import { resolveImageUrl, providerTypeLabel } from '../../../services/service-pr
 import { getErrorMessage } from '../../../services/http';
 import { ServiceDto } from '../../../services/services';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
-import { getUnreadNotificationCount } from '../../../services/app-notifications';
+import { useNotifications } from '../../../context/NotificationsContext';
 import { getServiceDiscounts, ServiceDiscountDto, DiscountType } from '../../../services/service-discounts';
 import { formatOfferAmount } from '../../../screens/promotions-screen/components';
 
@@ -94,7 +94,8 @@ export default function HomeScreen() {
   const [specialDeals, setSpecialDeals] = useState<ServiceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [unreadCount, setUnreadCount] = useState(0);
+  // Live badge count — kept current by the SignalR push in NotificationsProvider.
+  const { unreadCount, refreshUnreadCount } = useNotifications();
 
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
   const sectionTitleColor = textColor;
@@ -151,17 +152,12 @@ export default function HomeScreen() {
     }, [latitude, longitude])
   );
 
-  // Unread-notification badge on the bell — refreshed on every focus.
+  // Unread-notification badge on the bell — pushed live over SignalR; the focus
+  // refresh re-seeds from REST (covers rows read while this screen was blurred).
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-      const userId = currentUser?.id;
-      if (!userId) { setUnreadCount(0); return; }
-      getUnreadNotificationCount(userId)
-        .then((count) => { if (!cancelled) setUnreadCount(count); })
-        .catch(() => {});
-      return () => { cancelled = true; };
-    }, [currentUser?.id])
+      refreshUnreadCount();
+    }, [refreshUnreadCount])
   );
 
   const handleServicePress = (item: ServiceItem) => {

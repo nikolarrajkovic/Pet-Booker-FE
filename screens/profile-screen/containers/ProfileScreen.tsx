@@ -8,7 +8,7 @@ import { useAuth } from '../../../context/AuthContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
-import { getBookings, BookingStatusType } from '../../../services/bookings';
+import { getBookings, parseBookingDate, BookingStatusType } from '../../../services/bookings';
 import { MenuItem } from '../components';
 
 const USER_MENU_ITEMS = [
@@ -38,9 +38,10 @@ export default function ProfileScreen() {
 
   const [user, setUser] = useState<UserDto | null>(null);
   const [avatarError, setAvatarError] = useState(false);
-  // Surfaces the "Live Session" menu item only while one of the user's own
-  // bookings is in progress (currentStatus = ServiceStarted).
-  const [hasLiveSession, setHasLiveSession] = useState(false);
+  // Surfaces the "Live Session" menu item while one of the user's own bookings is
+  // in progress — or confirmed and still upcoming, so they can open the screen
+  // early and (on live-tracked services) watch the provider head out.
+  const [liveSession, setLiveSession] = useState<'none' | 'upcoming' | 'started'>('none');
 
   // Load the real profile (name + avatar) on focus — auth/me has no avatarUrl.
   useFocusEffect(
@@ -50,12 +51,21 @@ export default function ProfileScreen() {
         getUser(currentUser.id)
           .then((u) => { if (!cancelled) { setUser(u); setAvatarError(false); } })
           .catch(() => {});
-        getBookings({
-          userId: currentUser.id,
-          currentStatus: BookingStatusType.ServiceStarted,
-        })
-          .then((list) => { if (!cancelled) setHasLiveSession(list.length > 0); })
-          .catch(() => { if (!cancelled) setHasLiveSession(false); });
+        getBookings({ userId: currentUser.id })
+          .then((list) => {
+            if (cancelled) return;
+            const started = list.some(
+              (b) => b.currentStatus === BookingStatusType.ServiceStarted
+            );
+            const upcoming = list.some(
+              (b) =>
+                (b.currentStatus === BookingStatusType.ServiceConfirmedByProvider ||
+                  b.currentStatus === BookingStatusType.PrePayment) &&
+                parseBookingDate(b.bookingTo).getTime() >= Date.now()
+            );
+            setLiveSession(started ? 'started' : upcoming ? 'upcoming' : 'none');
+          })
+          .catch(() => { if (!cancelled) setLiveSession('none'); });
       }
       return () => { cancelled = true; };
     }, [currentUser?.id])
@@ -71,19 +81,23 @@ export default function ProfileScreen() {
   const initials = ((user?.firstName ?? currentUser?.firstName ?? email ?? '?').trim()[0] ?? '?').toUpperCase();
 
   const baseMenu = isPartner ? PARTNER_MENU_ITEMS : USER_MENU_ITEMS;
-  const menuItems = hasLiveSession
-    ? [
-        {
-          id: 'live-session',
-          icon: 'radio',
-          iconType: 'ionicons',
-          title: 'Live Session',
-          subtitle: 'Service in progress — tap to track',
-          color: '#EF4444',
-        },
-        ...baseMenu,
-      ]
-    : baseMenu;
+  const menuItems =
+    liveSession !== 'none'
+      ? [
+          {
+            id: 'live-session',
+            icon: 'radio',
+            iconType: 'ionicons',
+            title: 'Live Session',
+            subtitle:
+              liveSession === 'started'
+                ? 'Service in progress — tap to track'
+                : 'Upcoming service — open to watch it start',
+            color: liveSession === 'started' ? '#EF4444' : '#00A85A',
+          },
+          ...baseMenu,
+        ]
+      : baseMenu;
 
   const handleMenuPress = (id: string) => {
     if (id === 'live-session') (navigation as any).navigate('LiveSession', { mode: 'user' });

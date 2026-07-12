@@ -1,7 +1,7 @@
 import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
 
-// NotificationType (swagger enum, NOT exposed via /enums — names verified from
-// live seed data 2026-06-18). Drives the per-row icon in the inbox.
+// NotificationType (swagger enum, NOT exposed via /enums — synced with the
+// backend's Domain.NotificationType 2026-07). Drives the per-row icon in the inbox.
 export const NotificationType = {
   NewBookingRequest: 0,
   BookingConfirmed: 1,
@@ -10,8 +10,17 @@ export const NotificationType = {
   ProviderProfileDeclined: 4,
   CertificateApproved: 5,
   CertificateDeclined: 6,
+  ReviewDeclined: 7,
   BookingDeclined: 8,
+  // The provider started a live-tracked (Walker/Transporter) service — dataJson
+  // carries { bookingId, sessionId }; deep-link to LiveSession (user mode).
+  LiveTrackingStarted: 9,
   UpcomingBookingReminder: 10,
+  BookingCancelled: 11,
+  // Non-tracked services get this instead of LiveTrackingStarted.
+  ServiceStarted: 12,
+  BookingPriceAdjusted: 13,
+  PaymentReceived: 14,
 } as const;
 
 /** A single in-app notification (read shape from GET /api/app-notifications). */
@@ -23,6 +32,7 @@ export type AppNotificationDto = {
   title: string;
   message: string;
   dataJson?: string | null; // e.g. '{"bookingId":4030}'
+  paramsJson?: string | null; // dynamic text tokens, e.g. '{"ProviderName":"…"}'
   isRead: boolean;
   readAt?: string | null;
   createdAt: string; // ISO date-time

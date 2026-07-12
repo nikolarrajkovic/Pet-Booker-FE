@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   ScrollView,
   Text,
@@ -11,6 +11,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
+import { useNotifications } from '../../../context/NotificationsContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ReviewModal from '../../../components/shared/ReviewModal';
 import { useReviewModal } from '../../../hooks/useReviewModal';
@@ -28,6 +29,7 @@ import { getBooking } from '../../../services/bookings';
 export default function NotificationsScreen() {
   const navigation = useNavigation();
   const { currentUser } = useAuth();
+  const { subscribe, refreshUnreadCount } = useNotifications();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
 
   const [notifications, setNotifications] = useState<AppNotificationDto[]>([]);
@@ -49,12 +51,28 @@ export default function NotificationsScreen() {
   const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  // Mark a notification read once (optimistic UI + best-effort persist).
-  const markRead = useCallback((n: AppNotificationDto) => {
-    if (n.isRead) return;
-    setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
-    markNotificationRead(n.id).catch(() => {});
-  }, []);
+  // Mark a notification read once (optimistic UI + best-effort persist), then
+  // re-seed the live bell badge so it drops immediately.
+  const markRead = useCallback(
+    (n: AppNotificationDto) => {
+      if (n.isRead) return;
+      setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
+      markNotificationRead(n.id)
+        .catch(() => {})
+        .finally(refreshUnreadCount);
+    },
+    [refreshUnreadCount]
+  );
+
+  // Live inbox: prepend NotificationReceived pushes while this screen is mounted
+  // (no refetch needed — the push payload is the same shape as the REST feed).
+  useEffect(
+    () =>
+      subscribe((n) => {
+        setNotifications((prev) => (prev.some((x) => x.id === n.id) ? prev : [n, ...prev]));
+      }),
+    [subscribe]
+  );
 
   // Resolve the booking behind a "Service completed" notification and open the
   // review modal — UNLESS that booking has already been reviewed (then the review
@@ -151,6 +169,11 @@ export default function NotificationsScreen() {
       (navigation as any).navigate('PartnerWelcome');
       return;
     }
+    // "Live tracking started" → straight to the live map (user-mode LiveSession).
+    if (n.type === NotificationType.LiveTrackingStarted) {
+      (navigation as any).navigate('LiveSession', { mode: 'user' });
+      return;
+    }
     const bookingId = notificationBookingId(n);
     // "Service completed" → offer the review modal (unless already reviewed).
     if (n.type === NotificationType.ServiceCompleted && bookingId != null) {
@@ -167,7 +190,9 @@ export default function NotificationsScreen() {
     const unreadIds = notifications.filter((n) => !n.isRead).map((n) => n.id);
     if (unreadIds.length === 0) return;
     setNotifications((prev) => prev.map((x) => ({ ...x, isRead: true })));
-    markAllNotificationsRead(unreadIds).catch(() => {});
+    markAllNotificationsRead(unreadIds)
+      .catch(() => {})
+      .finally(refreshUnreadCount);
   };
 
   return (

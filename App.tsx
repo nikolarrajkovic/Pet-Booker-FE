@@ -53,6 +53,7 @@ import VerifyEmailScreen from './screens/verify-email-screen/containers/VerifyEm
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { NotificationsProvider } from './context/NotificationsContext';
 import { EnumsProvider } from './context/EnumsContext';
 import { hasSeenPartnerWelcome, markPartnerWelcomeSeen } from './services/onboarding';
 import { Ionicons } from '@expo/vector-icons';
@@ -222,9 +223,11 @@ export default function App() {
     <ThemeProvider>
       <ToastProvider>
         <AuthProvider>
-          <EnumsProvider>
-            <AppContent />
-          </EnumsProvider>
+          <NotificationsProvider>
+            <EnumsProvider>
+              <AppContent />
+            </EnumsProvider>
+          </NotificationsProvider>
         </AuthProvider>
       </ToastProvider>
     </ThemeProvider>

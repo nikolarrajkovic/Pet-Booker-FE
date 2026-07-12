@@ -24,6 +24,14 @@ function notificationVisual(type: number): Visual {
       return { icon: 'close-circle-outline', color: '#EF4444', bg: 'rgba(239,68,68,0.12)' };
     case NotificationType.UpcomingBookingReminder:
       return { icon: 'alarm-outline', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' };
+    case NotificationType.LiveTrackingStarted:
+    case NotificationType.ServiceStarted:
+      return { icon: 'navigate-outline', color: '#00C870', bg: 'rgba(0,200,112,0.12)' };
+    case NotificationType.BookingCancelled:
+      return { icon: 'close-circle-outline', color: '#EF4444', bg: 'rgba(239,68,68,0.12)' };
+    case NotificationType.BookingPriceAdjusted:
+    case NotificationType.PaymentReceived:
+      return { icon: 'card-outline', color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' };
     default:
       return { icon: 'notifications-outline', color: '#00C870', bg: 'rgba(0,200,112,0.12)' };
   }
