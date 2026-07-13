@@ -35,16 +35,26 @@ import { getPet, PetResponse } from '../../../services/pets';
 import { getService, ServiceDto } from '../../../services/services';
 import { getUser } from '../../../services/users';
 import { addressLabel, forwardGeocode, GeoPoint } from '../../../services/geocoding';
-import { CountdownTimer, AddOnChecklist, AddOnItem, PetDetailsCard } from '../components';
+import { useLiveLocationWatcher } from '../../../hooks/useLiveLocationWatcher';
+import { useLocationSharing } from '../../../hooks/useLocationSharing';
+import {
+  CountdownTimer,
+  AddOnChecklist,
+  AddOnItem,
+  PetDetailsCard,
+  LiveTrackingMap,
+} from '../components';
 
 type RouteParams = { mode?: 'partner' | 'user' };
 type Completion = { pickup: boolean; dropoff: boolean };
 
-// The backend allows starting a service at most 15 minutes before its scheduled
+// The backend allows starting a service at most 30 minutes before its scheduled
 // start time — POST /bookings/{id}/start-service 422s otherwise ("A service can
-// be started at most 15 minutes before its scheduled start time."). Gate the
-// Start button on the same window so it never fails mid-tap.
-const START_LEAD_MS = 15 * 60 * 1000;
+// be started at most 30 minutes before its scheduled start time."). Gate the
+// Start button on the same window so it never fails mid-tap. The window doubles
+// as the provider's head-out lead: on live-tracked services the booker can watch
+// them coming as soon as they start.
+const START_LEAD_MS = 30 * 60 * 1000;
 
 // ── Active-session selection ────────────────────────────────────────────────
 const byFrom = (a: BookingDto, b: BookingDto) =>
@@ -111,15 +121,29 @@ function pickPartnerSessions(bookings: BookingDto[]): BookingDto[] {
   return group;
 }
 
-/** Booker's current session: only an in-progress (started) booking is "live". */
+/**
+ * Booker's current session: an in-progress (started) booking is "live"; otherwise
+ * the soonest confirmed upcoming booking, so the booker can open the screen early
+ * and — on live-tracked services — watch the provider heading out the moment they
+ * start (the TrackingStarted hub event flips the screen without a reload).
+ */
 function pickUserSessions(bookings: BookingDto[]): BookingDto[] {
-  const started = bookings
+  const active = bookings.filter((b) => b.state !== BookingState.Cancelled);
+  const started = active
+    .filter((b) => b.currentStatus === BookingStatusType.ServiceStarted)
+    .sort(byFrom);
+  if (started.length) return [started[0]];
+
+  const now = Date.now();
+  const upcoming = active
     .filter(
       (b) =>
-        b.currentStatus === BookingStatusType.ServiceStarted && b.state !== BookingState.Cancelled
+        (b.currentStatus === BookingStatusType.ServiceConfirmedByProvider ||
+          b.currentStatus === BookingStatusType.PrePayment) &&
+        parseBookingDate(b.bookingTo).getTime() >= now
     )
     .sort(byFrom);
-  return started.length ? [started[0]] : [];
+  return upcoming.length ? [upcoming[0]] : [];
 }
 
 // ── Formatting ──────────────────────────────────────────────────────────────
@@ -170,7 +194,7 @@ export default function LiveSessionScreen() {
   const [dirTarget, setDirTarget] = useState<{ point: GeoPoint; label: string } | null>(null);
   const [dirLoadingKey, setDirLoadingKey] = useState<AddOnItem['key'] | null>(null);
   // Wall-clock tick, used to enable the Start button once we're within the
-  // backend's 15-min start window (below). Only runs while a not-yet-started
+  // backend's 30-min start window (below). Only runs while a not-yet-started
   // session is on screen.
   const [now, setNow] = useState(() => Date.now());
 
@@ -187,10 +211,9 @@ export default function LiveSessionScreen() {
         const list = providerId ? await getBookings({ serviceProviderId: providerId }) : [];
         group = pickPartnerSessions(list);
       } else {
-        const list = await getBookings({
-          userId: currentUser.id,
-          currentStatus: BookingStatusType.ServiceStarted,
-        });
+        // No currentStatus filter: an upcoming confirmed booking also counts —
+        // the booker can open the screen early and wait for the provider to start.
+        const list = await getBookings({ userId: currentUser.id });
         group = pickUserSessions(list);
       }
       setSessions(group);
@@ -260,7 +283,33 @@ export default function LiveSessionScreen() {
     dropoff: false,
   };
 
-  // Earliest moment the partner may start (15 min before the scheduled start).
+  // ── Live location (Walker/Transporter services that opted in) ──
+  const supportsLiveTracking = !!service?.details?.supportsLiveTracking;
+  // Booker side: subscribe to the booking's location group. Subscribing works
+  // before the session opens, so mounting early lands in 'waiting' until the
+  // provider starts and TrackingStarted arrives.
+  const tracking = useLiveLocationWatcher(
+    !isPartner && supportsLiveTracking && dto?.id ? dto.id : null
+  );
+  // Partner side: stream this device's GPS while the tracked service runs. The
+  // gate on `started` stops the watcher automatically when the service ends.
+  const sharing = useLocationSharing(
+    isPartner && started && supportsLiveTracking && dto?.id ? dto.id : null
+  );
+
+  // TrackingStarted means the provider started the service — flip the booking to
+  // in-progress locally so the badge/countdown update without a manual reload.
+  useEffect(() => {
+    if (isPartner || !dto || started || tracking.status !== 'live') return;
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === dto.id ? { ...s, currentStatus: BookingStatusType.ServiceStarted } : s
+      )
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tracking.status]);
+
+  // Earliest moment the partner may start (30 min before the scheduled start).
   // `canStart` re-evaluates as `now` ticks, so the button enables on its own when
   // the window opens — no refresh needed. `startWindowIso` reuses the booking
   // date helpers to label the window in the partner's local time.
@@ -486,7 +535,7 @@ export default function LiveSessionScreen() {
             <Text className={`text-sm ${subtextColor} mt-2 text-center`}>
               {isPartner
                 ? 'When you have a confirmed upcoming booking, you can start it here.'
-                : 'Your live session will appear here once your provider starts the service.'}
+                : 'Your session will appear here once your provider confirms an upcoming booking.'}
             </Text>
           </View>
         ) : (
@@ -556,9 +605,30 @@ export default function LiveSessionScreen() {
               <Text
                 className="text-xs font-bold"
                 style={{ color: started ? '#00A85A' : isDarkMode ? '#9CA3AF' : '#6B7280' }}>
-                {started ? 'IN PROGRESS' : 'READY TO START'}
+                {started ? 'IN PROGRESS' : isPartner ? 'READY TO START' : 'STARTING SOON'}
               </Text>
             </View>
+
+            {/* Partner live-location sharing indicator */}
+            {isPartner && sharing.isSharing ? (
+              <View className="-mt-2 mb-4 flex-row items-center self-start rounded-full bg-brand-50 px-3 py-1.5">
+                <View
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: '#00C870',
+                    marginRight: 6,
+                  }}
+                />
+                <Text className="text-xs font-bold" style={{ color: '#00A85A' }}>
+                  Sharing live location
+                </Text>
+              </View>
+            ) : null}
+            {isPartner && started && supportsLiveTracking && sharing.error ? (
+              <Text className="-mt-2 mb-3 text-xs text-orange-500">{sharing.error}</Text>
+            ) : null}
 
             {/* Service header — partner sees just the type; booker sees name + type */}
             <View className="mb-5 flex-row items-center">
@@ -598,6 +668,66 @@ export default function LiveSessionScreen() {
             {started && dto.bookingTo ? (
               <View className="mb-5">
                 <CountdownTimer endTime={dto.bookingTo} isDarkMode={isDarkMode} />
+              </View>
+            ) : null}
+
+            {/* Live provider location — booker side, tracked services only */}
+            {!isPartner && supportsLiveTracking ? (
+              <View className="mb-5">
+                <View className="mb-2 flex-row items-center">
+                  <Text className={`text-base font-bold ${textColor}`}>Live location</Text>
+                  {tracking.status === 'live' ? (
+                    <View className="ml-2 flex-row items-center rounded-full bg-brand-50 px-2 py-0.5">
+                      <View
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: 3,
+                          backgroundColor: '#00C870',
+                          marginRight: 4,
+                        }}
+                      />
+                      <Text className="text-[10px] font-bold" style={{ color: '#00A85A' }}>
+                        LIVE
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                {tracking.status === 'live' && tracking.latest ? (
+                  <View style={{ height: 280 }}>
+                    <LiveTrackingMap
+                      latest={tracking.latest}
+                      trail={tracking.trail}
+                      isDarkMode={isDarkMode}
+                    />
+                  </View>
+                ) : tracking.status === 'ended' ? (
+                  <View
+                    className={`${cardBg} rounded-2xl border ${borderColor} flex-row items-center p-4`}>
+                    <Ionicons name="flag-outline" size={20} color="#9CA3AF" />
+                    <Text className={`text-sm ${subtextColor} ml-2 flex-1`}>
+                      Live tracking has ended for this session.
+                    </Text>
+                  </View>
+                ) : tracking.status === 'error' ? (
+                  <View
+                    className={`${cardBg} rounded-2xl border ${borderColor} flex-row items-center p-4`}>
+                    <Ionicons name="cloud-offline-outline" size={20} color="#F97316" />
+                    <Text className={`text-sm ${subtextColor} ml-2 flex-1`}>
+                      Couldn’t connect to live tracking. Leave and reopen this screen to retry.
+                    </Text>
+                  </View>
+                ) : (
+                  <View
+                    className={`${cardBg} rounded-2xl border ${borderColor} flex-row items-center p-4`}>
+                    <ActivityIndicator size="small" color="#00C870" />
+                    <Text className={`text-sm ${subtextColor} ml-2 flex-1`}>
+                      {started
+                        ? 'Waiting for your provider’s location…'
+                        : 'Live location will appear here when your provider heads out.'}
+                    </Text>
+                  </View>
+                )}
               </View>
             ) : null}
 
@@ -692,7 +822,7 @@ export default function LiveSessionScreen() {
                 {!canStart ? (
                   <Text className="mb-2 text-center text-xs text-orange-500">
                     You can start this service from {formatDate(startWindowIso)} at{' '}
-                    {formatTime(startWindowIso)} (15 min before the scheduled time).
+                    {formatTime(startWindowIso)} (30 min before the scheduled time).
                   </Text>
                 ) : null}
                 <TouchableOpacity
