@@ -40,9 +40,11 @@ export function createHubConnection(hubPath: string): HubConnection {
   return new HubConnectionBuilder()
     .withUrl(`${getApiBaseUrl()}${hubPath}`, {
       accessTokenFactory: getHubAccessToken,
-      // The signalr client defaults to credentialed requests (cookies), which the
-      // browser rejects against the API's wildcard CORS (`Access-Control-Allow-
-      // Origin: *`). Auth is the bearer token, never a cookie — so opt out.
+      // The signalr client defaults to credentialed requests (cookies), but the
+      // API's CORS policy is an origin allowlist WITHOUT AllowCredentials
+      // ("Cors:AllowedOrigins" in the backend appsettings) — auth is the bearer
+      // token, never a cookie. Keep requests non-credentialed to match, or the
+      // browser rejects the negotiate call.
       withCredentials: false,
     })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
