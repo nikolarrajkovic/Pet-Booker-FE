@@ -7,7 +7,12 @@ import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ReviewModal from '../../../components/shared/ReviewModal';
 import { useReviewModal } from '../../../hooks/useReviewModal';
-import { getBooking, bookingToViewModel, BookingDto } from '../../../services/bookings';
+import {
+  getBooking,
+  bookingToViewModel,
+  formatMoney,
+  BookingDto,
+} from '../../../services/bookings';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
 
@@ -194,20 +199,26 @@ export default function BookingDetailsScreen() {
               <View
                 className={`flex-row items-center justify-between border-b py-3 ${borderColor}`}>
                 <Text className={`text-sm ${subtextColor}`}>{t('bookingDetails.subtotal')}</Text>
-                <Text className={`text-sm ${textColor}`}>${dto.basePrice}</Text>
+                <Text className={`text-sm ${textColor}`}>
+                  {formatMoney(dto.basePrice, dto.priceCurrency)}
+                </Text>
               </View>
               {dto.discountAmount > 0 && (
                 <View
                   className={`flex-row items-center justify-between border-b py-3 ${borderColor}`}>
                   <Text className={`text-sm ${subtextColor}`}>{t('bookingDetails.discount')}</Text>
-                  <Text className="text-sm text-brand-600">- ${dto.discountAmount}</Text>
+                  <Text className="text-sm text-brand-600">
+                    - {formatMoney(dto.discountAmount, dto.priceCurrency)}
+                  </Text>
                 </View>
               )}
               <View className="flex-row items-center justify-between py-3">
                 <Text className={`text-base font-bold ${textColor}`}>
                   {t('bookingDetails.total')}
                 </Text>
-                <Text className="text-xl font-bold text-brand-600">${dto.totalPrice}</Text>
+                <Text className="text-xl font-bold text-brand-600">
+                  {formatMoney(dto.totalPrice, dto.priceCurrency)}
+                </Text>
               </View>
             </View>
 

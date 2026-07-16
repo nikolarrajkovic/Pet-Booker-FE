@@ -170,6 +170,7 @@ export type BookingViewModel = {
   time: string; // formatted, e.g. "10:00 AM"
   bookingFrom: string; // raw ISO
   price: number;
+  currency: string | null; // server-stamped from the provider; format via formatMoney
   state: number; // BookingState
   status: number; // BookingStatusType
   statusLabel: 'upcoming' | 'completed' | 'cancelled';
@@ -201,6 +202,18 @@ export function parseBookingDate(iso?: string | null): Date {
 export function formatBookingDate(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+// Currencies with a well-known symbol render as "€52"; anything else falls back
+// to "52 RSD". The server stamps a booking's priceCurrency from its provider
+// (Currency, default EUR) — a client-sent value is ignored — so `null` (older
+// rows) formats as EUR, matching the backend payment fallback.
+const CURRENCY_SYMBOLS: Record<string, string> = { EUR: '€', USD: '$', GBP: '£', RUB: '₽' };
+
+export function formatMoney(amount: number, currency?: string | null): string {
+  const code = (currency ?? 'EUR').toUpperCase();
+  const symbol = CURRENCY_SYMBOLS[code];
+  return symbol ? `${symbol}${amount}` : `${amount} ${code}`;
 }
 
 function firstPhoto(entity?: NestedEntity | null): string {
@@ -240,6 +253,7 @@ export function bookingToViewModel(dto: BookingDto): BookingViewModel {
     time: formatTime(dto.bookingFrom),
     bookingFrom: dto.bookingFrom,
     price: dto.totalPrice,
+    currency: dto.priceCurrency ?? null,
     state: dto.state,
     status: dto.currentStatus,
     statusLabel: stateToLabel(dto.state),
@@ -316,7 +330,9 @@ export type CreateBookingInput = {
   // (the values sent above are then ignored server-side).
   pricingOptionId?: number;
   paymentType?: number; // defaults to Card
-  priceCurrency?: string; // defaults to 'USD'
+  // NOTE: there is deliberately no priceCurrency input — the server stamps it
+  // from the booked service's provider (Currency, default EUR) and ignores any
+  // client-sent value, like the other server-authoritative price fields.
   // Selecting Pickup / Drop-off. The presence of an address sets the matching
   // include flag (includePickup / includePetReturn) on the booking, which is
   // what actually registers the add-on. The address is posted inline under
@@ -349,7 +365,9 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
     serviceProviderId: input.serviceProviderId,
     serviceId: input.serviceId,
     petId: input.petId,
-    priceCurrency: input.priceCurrency ?? 'USD',
+    // Server-stamped from the provider's currency; sent null so it's obvious
+    // the client doesn't choose it.
+    priceCurrency: null,
     bookingFrom: input.bookingFrom,
     bookingTo: input.bookingTo,
     basePrice: input.basePrice,

@@ -108,6 +108,7 @@ export default function MyBookingsScreen() {
               date: booking.date,
               time: booking.time,
               price: booking.price,
+              currency: booking.currency,
               status: booking.statusLabel,
               image: booking.image,
               rating: booking.rating,

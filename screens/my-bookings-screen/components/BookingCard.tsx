@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
+import { formatMoney } from '../../../services/bookings';
 
 interface Booking {
   id: number;
@@ -10,6 +11,7 @@ interface Booking {
   date: string;
   time: string;
   price: number;
+  currency?: string | null;
   status: 'upcoming' | 'completed' | 'cancelled';
   rating?: number;
   image: string;
@@ -84,7 +86,9 @@ export default function BookingCard({
             <Text className={`text-xs ${subtextColor} ml-1`}>{booking.time}</Text>
           </View>
           <View className="flex-row items-center justify-between">
-            <Text className="text-base font-bold text-brand-600">${booking.price}</Text>
+            <Text className="text-base font-bold text-brand-600">
+              {formatMoney(booking.price, booking.currency)}
+            </Text>
             <View className="flex-row items-center" style={{ gap: 12 }}>
               {booking.rating ? (
                 <View className="flex-row items-center">
