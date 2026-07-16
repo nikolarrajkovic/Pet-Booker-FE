@@ -13,13 +13,13 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { getService, ServiceDto, effectiveOptionPrice } from '../../../services/services';
 import { getReviews, ReviewDto } from '../../../services/reviews';
 import {
   getServiceProvider,
   resolveImageUrl,
-  providerTypeLabel,
   ApprovalStatus,
   ServiceProviderDto,
 } from '../../../services/service-providers';
@@ -36,16 +36,16 @@ type ServiceDetailRouteParams = { service: ServiceDto };
 // Prefer the effective price (after any applied discount) the API returns.
 const servicePrice = (s: ServiceDto) => s.price ?? s.pricing?.basePrice ?? 0;
 
-// Map an acceptedSpecies FLAGS value into friendly labels (63 = All → []).
-const speciesLabels = (flags?: number): string[] => {
+// Map an acceptedSpecies FLAGS value into species.* translation keys (63 = All → []).
+const speciesKeys = (flags?: number): string[] => {
   if (flags == null || flags === PetSpecies.All) return [];
   const out: string[] = [];
-  if (flags & PetSpecies.Dog) out.push('Dogs');
-  if (flags & PetSpecies.Cat) out.push('Cats');
-  if (flags & PetSpecies.Parrot) out.push('Parrots');
-  if (flags & PetSpecies.Turtle) out.push('Turtles');
-  if (flags & PetSpecies.Fish) out.push('Fish');
-  if (flags & PetSpecies.Snake) out.push('Snakes');
+  if (flags & PetSpecies.Dog) out.push('species.dogs');
+  if (flags & PetSpecies.Cat) out.push('species.cats');
+  if (flags & PetSpecies.Parrot) out.push('species.parrots');
+  if (flags & PetSpecies.Turtle) out.push('species.turtles');
+  if (flags & PetSpecies.Fish) out.push('species.fish');
+  if (flags & PetSpecies.Snake) out.push('species.snakes');
   return out;
 };
 
@@ -62,6 +62,7 @@ export default function ServiceDetailScreen() {
     subtextColor,
     borderColor,
   } = useThemeColors();
+  const { t, tEnum } = useLocale();
 
   const [selectedService, setSelectedService] = useState<ServiceDto>(service);
   const [provider, setProvider] = useState<ServiceProviderDto | null>(null);
@@ -116,7 +117,7 @@ export default function ServiceDetailScreen() {
     return uris;
   })();
   const serviceTypeLabel =
-    svc.basicServiceName ?? (svc.type != null ? providerTypeLabel(svc.type) : '');
+    svc.basicServiceName ?? (svc.type != null ? tEnum('serviceProviderType', svc.type) : '');
 
   // Service-level rating (falls back to the provider average / fetched reviews).
   const rating =
@@ -145,7 +146,7 @@ export default function ServiceDetailScreen() {
   const addons = getEnabledServiceAddons(svc);
   const workingHours = schedulesToWorkingHours(svc.schedules);
   const openDays = Object.entries(workingHours).filter(([, h]) => h.enabled);
-  const species = speciesLabels(svc.details?.acceptedSpecies);
+  const species = speciesKeys(svc.details?.acceptedSpecies);
 
   const address = provider?.address
     ? [provider.address.line1, provider.address.city, provider.address.state]
@@ -161,7 +162,12 @@ export default function ServiceDetailScreen() {
     const max = d.maxDurationMinutes ?? 0;
     facts.push({
       icon: 'time-outline',
-      label: min && max ? `${min}–${max} min sessions` : `${min || max} min ${min ? 'min' : 'max'}`,
+      label:
+        min && max
+          ? t('serviceDetail.sessionsRange', { min, max })
+          : min
+            ? t('serviceDetail.sessionsMin', { min })
+            : t('serviceDetail.sessionsMax', { max }),
     });
   }
   if (d?.minWeightKg || d?.maxWeightKg) {
@@ -169,12 +175,21 @@ export default function ServiceDetailScreen() {
     const max = d.maxWeightKg ?? 0;
     facts.push({
       icon: 'barbell-outline',
-      label: min && max ? `${min}–${max} kg pets` : `${min ? `${min}+` : `up to ${max}`} kg pets`,
+      label:
+        min && max
+          ? t('serviceDetail.kgRange', { min, max })
+          : min
+            ? t('serviceDetail.kgMin', { min })
+            : t('serviceDetail.kgMax', { max }),
     });
   }
-  if (d?.supportsLiveTracking) facts.push({ icon: 'navigate-outline', label: 'Live tracking' });
+  if (d?.supportsLiveTracking)
+    facts.push({ icon: 'navigate-outline', label: t('serviceDetail.liveTracking') });
   if (d?.leadTimeHours)
-    facts.push({ icon: 'hourglass-outline', label: `Book ${d.leadTimeHours}h ahead` });
+    facts.push({
+      icon: 'hourglass-outline',
+      label: t('serviceDetail.bookAhead', { hours: d.leadTimeHours }),
+    });
 
   const onBook = () => {
     (navigation as any).navigate('BookService', { service: selectedService });
@@ -196,9 +211,9 @@ export default function ServiceDetailScreen() {
       contentRounded={false}
       headerChildren={
         <View className="flex-1">
-          <Text className="text-xl font-bold text-white">Service Details</Text>
+          <Text className="text-xl font-bold text-white">{t('serviceDetail.title')}</Text>
           <Text className={`${isDarkMode ? 'text-gray-300' : 'text-brand-100'} text-sm`}>
-            Review before booking
+            {t('serviceDetail.subtitle')}
           </Text>
         </View>
       }>
@@ -260,14 +275,19 @@ export default function ServiceDetailScreen() {
                     <Text className="ml-1 font-semibold text-brand-700">{rating.toFixed(1)}</Text>
                   </View>
                   <Text className={`${subtextColor} ml-2`}>
-                    {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
+                    {reviewCount}{' '}
+                    {reviewCount === 1
+                      ? t('serviceDetail.reviewSingular')
+                      : t('serviceDetail.reviewPlural')}
                   </Text>
                 </View>
               )}
               {provider?.isApproved && (
                 <View className="flex-row items-center">
                   <Ionicons name="checkmark-circle" size={16} color="#00C870" />
-                  <Text className="ml-1 text-sm text-brand-600">Verified provider</Text>
+                  <Text className="ml-1 text-sm text-brand-600">
+                    {t('serviceDetail.verifiedProvider')}
+                  </Text>
                 </View>
               )}
             </View>
@@ -277,21 +297,21 @@ export default function ServiceDetailScreen() {
               {hasDiscount ? (
                 <Text className={`${subtextColor} ml-2 line-through`}>${base}</Text>
               ) : null}
-              <Text className={`${subtextColor} ml-2`}>starting from</Text>
+              <Text className={`${subtextColor} ml-2`}>{t('serviceDetail.startingFrom')}</Text>
             </View>
           </View>
 
           {/* About */}
           {(svc.description || svc.about) &&
             section(
-              'About',
+              t('serviceDetail.about'),
               <Text className={`${subtextColor} leading-6`}>{svc.description ?? svc.about}</Text>
             )}
 
           {/* Provider */}
           {provider?.name &&
             section(
-              'Provider',
+              t('serviceDetail.provider'),
               <View className="flex-row items-center">
                 {provider.photos?.[0]?.src ? (
                   <Image
@@ -320,7 +340,7 @@ export default function ServiceDetailScreen() {
               on the Book Service screen */}
           {hasOptions &&
             section(
-              'Pricing Options',
+              t('serviceDetail.pricingOptions'),
               pricingOptions.map((option, idx) => {
                 const optionEffective = effectiveOptionPrice(svc, option);
                 return (
@@ -355,7 +375,7 @@ export default function ServiceDetailScreen() {
           {/* Additional services (add-ons) */}
           {addons.length > 0 &&
             section(
-              'Additional Services',
+              t('serviceDetail.additionalServices'),
               addons.map((addon) => (
                 <View
                   key={addon.id}
@@ -375,12 +395,16 @@ export default function ServiceDetailScreen() {
                       />
                     </View>
                     <View className="flex-1">
-                      <Text className={`font-medium ${textColor}`}>{addon.name}</Text>
-                      <Text className={`text-xs ${subtextColor} mt-0.5`}>{addon.description}</Text>
+                      <Text className={`font-medium ${textColor}`}>
+                        {t(`addons.${addon.id}` as any)}
+                      </Text>
+                      <Text className={`text-xs ${subtextColor} mt-0.5`}>
+                        {t(`addons.${addon.id}Desc` as any)}
+                      </Text>
                     </View>
                   </View>
                   <Text className="font-semibold text-brand-600">
-                    {addon.price > 0 ? `+$${addon.price}` : 'Included'}
+                    {addon.price > 0 ? `+$${addon.price}` : t('addons.included')}
                   </Text>
                 </View>
               ))
@@ -388,16 +412,16 @@ export default function ServiceDetailScreen() {
 
           {/* Accepted pets */}
           {section(
-            'Accepted Pets',
+            t('serviceDetail.acceptedPets'),
             species.length === 0 ? (
-              <Text className={subtextColor}>All pets welcome</Text>
+              <Text className={subtextColor}>{t('serviceDetail.allPetsWelcome')}</Text>
             ) : (
               <View className="flex-row flex-wrap gap-2">
                 {species.map((s) => (
                   <View
                     key={s}
                     className={`rounded-full px-3 py-1.5 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
-                    <Text className={`text-sm ${textColor}`}>{s}</Text>
+                    <Text className={`text-sm ${textColor}`}>{t(s as any)}</Text>
                   </View>
                 ))}
               </View>
@@ -407,7 +431,7 @@ export default function ServiceDetailScreen() {
           {/* Extra facts */}
           {facts.length > 0 &&
             section(
-              'Good to Know',
+              t('serviceDetail.goodToKnow'),
               <View className="flex-row flex-wrap gap-2">
                 {facts.map((f) => (
                   <View
@@ -423,10 +447,10 @@ export default function ServiceDetailScreen() {
           {/* Working hours */}
           {openDays.length > 0 &&
             section(
-              'Working Hours',
+              t('serviceDetail.workingHours'),
               openDays.map(([day, h]) => (
                 <View key={day} className="flex-row items-center justify-between py-1.5">
-                  <Text className={`${textColor}`}>{day}</Text>
+                  <Text className={`${textColor}`}>{t(`days.${day.toLowerCase()}` as any)}</Text>
                   <Text className={subtextColor}>
                     {h.startTime} – {h.endTime}
                   </Text>
@@ -437,7 +461,7 @@ export default function ServiceDetailScreen() {
           {/* Reviews */}
           {reviews.length > 0 &&
             section(
-              `Reviews (${reviewCount})`,
+              t('serviceDetail.reviewsCount', { count: reviewCount }),
               reviews.slice(0, 5).map((review, idx) => (
                 <View
                   key={review.id ?? idx}
@@ -482,7 +506,7 @@ export default function ServiceDetailScreen() {
                   elevation: 8,
                 }
           }>
-          <Text className="text-lg font-bold text-white">Book Now</Text>
+          <Text className="text-lg font-bold text-white">{t('serviceDetail.bookNow')}</Text>
         </TouchableOpacity>
       </View>
     </ScreenLayout>

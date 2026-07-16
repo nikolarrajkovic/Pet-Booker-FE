@@ -56,7 +56,7 @@ export type UploadedFile = {
 export async function uploadFile(
   uri: string,
   fileName?: string,
-  mimeType?: string,
+  mimeType?: string
 ): Promise<UploadedFile> {
   const url = `${getApiBaseUrl()}/files/upload`;
 
@@ -80,7 +80,9 @@ export async function uploadFile(
   });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, `File upload failed (${response.status}).`, 'uploadFile'));
+    throw new Error(
+      await parseApiError(response, `File upload failed (${response.status}).`, 'uploadFile')
+    );
   }
 
   return response.json() as Promise<UploadedFile>;
@@ -92,7 +94,7 @@ export async function uploadFile(
  * @param files - Array of { uri, fileName?, mimeType? } descriptors
  */
 export async function uploadFilesBulk(
-  files: { uri: string; fileName?: string; mimeType?: string }[],
+  files: { uri: string; fileName?: string; mimeType?: string }[]
 ): Promise<UploadedFile[]> {
   const url = `${getApiBaseUrl()}/files/upload/bulk`;
 
@@ -120,7 +122,13 @@ export async function uploadFilesBulk(
   });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, `Bulk file upload failed (${response.status}).`, 'uploadFilesBulk'));
+    throw new Error(
+      await parseApiError(
+        response,
+        `Bulk file upload failed (${response.status}).`,
+        'uploadFilesBulk'
+      )
+    );
   }
 
   return response.json() as Promise<UploadedFile[]>;

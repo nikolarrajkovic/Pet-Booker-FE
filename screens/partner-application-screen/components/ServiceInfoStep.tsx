@@ -1,14 +1,16 @@
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useLocale } from '../../../context/LocaleContext';
 
+// Ids are the submitted data keys; labels are translation keys resolved at render.
 const serviceTypes = [
-  { id: 'dog-walking', label: 'Dog Walking' },
-  { id: 'grooming', label: 'Grooming' },
-  { id: 'pet-sitting', label: 'Pet Sitting' },
-  { id: 'boarding', label: 'Boarding' },
-  { id: 'training', label: 'Training' },
-  { id: 'veterinary', label: 'Veterinary' },
+  { id: 'dog-walking', labelKey: 'partnerApplication.svcDogWalking' },
+  { id: 'grooming', labelKey: 'partnerApplication.svcGrooming' },
+  { id: 'pet-sitting', labelKey: 'partnerApplication.svcPetSitting' },
+  { id: 'boarding', labelKey: 'partnerApplication.svcBoarding' },
+  { id: 'training', labelKey: 'partnerApplication.svcTraining' },
+  { id: 'veterinary', labelKey: 'partnerApplication.svcVeterinary' },
 ];
 
 interface FormData {
@@ -48,17 +50,22 @@ export default function ServiceInfoStep({
   borderColor,
   placeholderColor,
 }: ServiceInfoStepProps) {
+  const { t } = useLocale();
   return (
     <View>
-      <Text className={`text-xl font-bold ${textColor} mb-2`}>Service Information</Text>
-      <Text className={`text-sm ${subtextColor} mb-6`}>What services do you offer?</Text>
+      <Text className={`text-xl font-bold ${textColor} mb-2`}>
+        {t('partnerApplication.serviceInfo')}
+      </Text>
+      <Text className={`text-sm ${subtextColor} mb-6`}>{t('partnerApplication.whatServices')}</Text>
 
       {/* Service Types */}
       <View className="mb-6">
         <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-          Service Types <Text className="text-red-500">*</Text>
+          {t('partnerApplication.serviceTypesLabel')} <Text className="text-red-500">*</Text>
         </Text>
-        <Text className={`text-xs ${subtextColor} mb-3`}>Select all that apply</Text>
+        <Text className={`text-xs ${subtextColor} mb-3`}>
+          {t('partnerApplication.selectAllThatApply')}
+        </Text>
 
         <View className="flex-row flex-wrap" style={{ gap: 12 }}>
           {serviceTypes.map((service) => {
@@ -84,7 +91,7 @@ export default function ServiceInfoStep({
                 }`}>
                 <Text
                   className={`font-medium ${isSelected ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {service.label}
+                  {t(service.labelKey as any)}
                 </Text>
               </TouchableOpacity>
             );
@@ -95,7 +102,7 @@ export default function ServiceInfoStep({
       {/* Years of Experience */}
       <View className="mb-6">
         <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-          Years of Experience <Text className="text-red-500">*</Text>
+          {t('partnerApplication.yearsOfExperience')} <Text className="text-red-500">*</Text>
         </Text>
         <View
           className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
@@ -107,7 +114,7 @@ export default function ServiceInfoStep({
           />
           <TextInput
             className={`flex-1 ${inputText}`}
-            placeholder="5 years"
+            placeholder={t('partnerApplication.yearsPlaceholder')}
             placeholderTextColor={placeholderColor}
             value={formData.yearsOfExperience}
             onChangeText={(text) => setFormData({ ...formData, yearsOfExperience: text })}
@@ -118,15 +125,15 @@ export default function ServiceInfoStep({
       {/* About Me */}
       <View className="mb-6">
         <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-          About Me <Text className="text-red-500">*</Text>
+          {t('partnerApplication.aboutMe')} <Text className="text-red-500">*</Text>
         </Text>
         <Text className={`text-xs ${subtextColor} mb-3`}>
-          Tell pet owners about yourself and why they should choose you
+          {t('partnerApplication.aboutMeHint')}
         </Text>
         <View className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
           <TextInput
             className={inputText}
-            placeholder="I'm a passionate pet lover with over 5 years of experience..."
+            placeholder={t('partnerApplication.aboutMePlaceholder')}
             placeholderTextColor={placeholderColor}
             multiline
             numberOfLines={4}
@@ -140,15 +147,15 @@ export default function ServiceInfoStep({
       {/* Motivation for Work */}
       <View className="mb-4">
         <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-          Motivation for Work <Text className="text-red-500">*</Text>
+          {t('partnerApplication.motivation')} <Text className="text-red-500">*</Text>
         </Text>
         <Text className={`text-xs ${subtextColor} mb-3`}>
-          What motivates you to care for pets?
+          {t('partnerApplication.motivationHint')}
         </Text>
         <View className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
           <TextInput
             className={inputText}
-            placeholder="I love building trust with animals and giving owners peace of mind..."
+            placeholder={t('partnerApplication.motivationPlaceholder')}
             placeholderTextColor={placeholderColor}
             multiline
             numberOfLines={4}

@@ -13,7 +13,7 @@ export type UserNotificationSettingsDto = {
   newServices: boolean;
   dndEnabled: boolean;
   dndStartTime: string; // "HH:MM:SS"
-  dndEndTime: string;   // "HH:MM:SS"
+  dndEndTime: string; // "HH:MM:SS"
   timezone?: string | null;
 };
 
@@ -37,12 +37,20 @@ export function defaultNotificationSettings(userId: number): UserNotificationSet
 }
 
 /** Returns the user's notification settings record, or null if none exists. */
-export async function getNotificationSettings(userId: number): Promise<UserNotificationSettingsDto | null> {
+export async function getNotificationSettings(
+  userId: number
+): Promise<UserNotificationSettingsDto | null> {
   const url = `${getApiBaseUrl()}/api/user-notification-settings?UserId=${userId}&Page=1&PerPage=1`;
   const response = await apiAuthFetch(url, { method: 'GET' });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to load notification settings.', 'getNotificationSettings'));
+    throw new Error(
+      await parseApiError(
+        response,
+        'Failed to load notification settings.',
+        'getNotificationSettings'
+      )
+    );
   }
 
   const raw = await response.json();
@@ -50,16 +58,29 @@ export async function getNotificationSettings(userId: number): Promise<UserNotif
 }
 
 /** Creates (no id) or updates (with id) the user's notification settings. */
-export async function saveNotificationSettings(settings: UserNotificationSettingsDto): Promise<UserNotificationSettingsDto> {
+export async function saveNotificationSettings(
+  settings: UserNotificationSettingsDto
+): Promise<UserNotificationSettingsDto> {
   const base = getApiBaseUrl();
   const isUpdate = settings.id != null && settings.id > 0;
-  const url = isUpdate ? `${base}/api/user-notification-settings/${settings.id}` : `${base}/api/user-notification-settings`;
+  const url = isUpdate
+    ? `${base}/api/user-notification-settings/${settings.id}`
+    : `${base}/api/user-notification-settings`;
   const body = isUpdate ? settings : { ...settings, id: 0 };
 
-  const response = await apiAuthFetch(url, { method: isUpdate ? 'PUT' : 'POST', body: JSON.stringify(body) });
+  const response = await apiAuthFetch(url, {
+    method: isUpdate ? 'PUT' : 'POST',
+    body: JSON.stringify(body),
+  });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to save notification settings.', 'saveNotificationSettings'));
+    throw new Error(
+      await parseApiError(
+        response,
+        'Failed to save notification settings.',
+        'saveNotificationSettings'
+      )
+    );
   }
 
   return response.json();

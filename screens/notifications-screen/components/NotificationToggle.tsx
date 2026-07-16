@@ -24,8 +24,8 @@ export default function NotificationToggle({
   subtextColor,
 }: NotificationToggleProps) {
   return (
-    <View className="px-4 py-4 flex-row items-center justify-between">
-      <View className="flex-row items-center flex-1">
+    <View className="flex-row items-center justify-between px-4 py-4">
+      <View className="flex-1 flex-row items-center">
         {icon && (
           <Ionicons name={icon as any} size={20} color={isDarkMode ? '#9ca3af' : '#6b7280'} />
         )}

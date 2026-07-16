@@ -6,6 +6,7 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
 import DayView from '../components/DayView';
 import WeekView from '../components/WeekView';
@@ -26,6 +27,7 @@ export default function MyScheduleScreen() {
   const { currentUser } = useAuth();
   const { isDarkMode, bgColor: contentBg } = useThemeColors();
   const { showError } = useToast();
+  const { t } = useLocale();
   const [selectedView, setSelectedView] = useState<ViewType>('day');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [, setDataVersion] = useState(0); // bumped after live data loads to re-render the views
@@ -50,10 +52,13 @@ export default function MyScheduleScreen() {
           setLiveScheduleData(buildScheduleFromBookings(bookings, mode));
           setDataVersion((v) => v + 1);
         } catch (e) {
-          if (!cancelled) showError(getErrorMessage(e, 'Could not load your schedule. Please try again.'));
+          if (!cancelled) showError(getErrorMessage(e, t('schedule.loadFailed')));
         }
       })();
-      return () => { cancelled = true; clearLiveScheduleData(); };
+      return () => {
+        cancelled = true;
+        clearLiveScheduleData();
+      };
     }, [mode, currentUser?.id, currentUser?.serviceProviderId])
   );
 
@@ -68,47 +73,46 @@ export default function MyScheduleScreen() {
     setSelectedDate(date);
   };
 
-  const title = mode === 'user' ? 'My Schedule' : 'My Schedule';
+  const title = t('schedule.title');
 
   return (
     <ScreenLayout
       headerVariant="large"
       contentBg={contentBg}
       headerChildren={
-        <View className="flex-row items-center mb-4">
+        <View className="mb-4 flex-row items-center">
           <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
-          <Text className="text-white text-2xl font-bold flex-1">{title}</Text>
+          <Text className="flex-1 text-2xl font-bold text-white">{title}</Text>
         </View>
-      }
-    >
+      }>
       <View className="flex-1">
         {/* Tab Selector */}
         <View className={`${bgColor} px-6 py-4`}>
-          <View className="flex-row bg-white/20 rounded-xl p-1">
+          <View className="flex-row rounded-xl bg-white/20 p-1">
             <TouchableOpacity
-              className={`flex-1 py-2 rounded-lg ${selectedView === 'day' ? 'bg-white' : ''}`}
-              onPress={() => setSelectedView('day')}
-            >
-              <Text className={`text-center font-semibold ${selectedView === 'day' ? 'text-brand-600' : 'text-white'}`}>
-                Day
+              className={`flex-1 rounded-lg py-2 ${selectedView === 'day' ? 'bg-white' : ''}`}
+              onPress={() => setSelectedView('day')}>
+              <Text
+                className={`text-center font-semibold ${selectedView === 'day' ? 'text-brand-600' : 'text-white'}`}>
+                {t('schedule.day')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              className={`flex-1 py-2 rounded-lg ${selectedView === 'week' ? 'bg-white' : ''}`}
-              onPress={() => setSelectedView('week')}
-            >
-              <Text className={`text-center font-semibold ${selectedView === 'week' ? 'text-brand-600' : 'text-white'}`}>
-                Week
+              className={`flex-1 rounded-lg py-2 ${selectedView === 'week' ? 'bg-white' : ''}`}
+              onPress={() => setSelectedView('week')}>
+              <Text
+                className={`text-center font-semibold ${selectedView === 'week' ? 'text-brand-600' : 'text-white'}`}>
+                {t('schedule.week')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              className={`flex-1 py-2 rounded-lg ${selectedView === 'month' ? 'bg-white' : ''}`}
-              onPress={() => setSelectedView('month')}
-            >
-              <Text className={`text-center font-semibold ${selectedView === 'month' ? 'text-brand-600' : 'text-white'}`}>
-                Month
+              className={`flex-1 rounded-lg py-2 ${selectedView === 'month' ? 'bg-white' : ''}`}
+              onPress={() => setSelectedView('month')}>
+              <Text
+                className={`text-center font-semibold ${selectedView === 'month' ? 'text-brand-600' : 'text-white'}`}>
+                {t('schedule.month')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -116,9 +120,32 @@ export default function MyScheduleScreen() {
 
         {/* View Content */}
         <ScrollView className="flex-1">
-          {selectedView === 'day' && <DayView selectedDate={selectedDate} isDarkMode={isDarkMode} onDateChange={handleDateChange} mode={mode} />}
-          {selectedView === 'week' && <WeekView selectedDate={selectedDate} isDarkMode={isDarkMode} onDateSelect={handleDateSelect} onDateChange={handleDateChange} mode={mode} />}
-          {selectedView === 'month' && <MonthView selectedDate={selectedDate} isDarkMode={isDarkMode} onDateSelect={handleDateSelect} onDateChange={handleDateChange} mode={mode} />}
+          {selectedView === 'day' && (
+            <DayView
+              selectedDate={selectedDate}
+              isDarkMode={isDarkMode}
+              onDateChange={handleDateChange}
+              mode={mode}
+            />
+          )}
+          {selectedView === 'week' && (
+            <WeekView
+              selectedDate={selectedDate}
+              isDarkMode={isDarkMode}
+              onDateSelect={handleDateSelect}
+              onDateChange={handleDateChange}
+              mode={mode}
+            />
+          )}
+          {selectedView === 'month' && (
+            <MonthView
+              selectedDate={selectedDate}
+              isDarkMode={isDarkMode}
+              onDateSelect={handleDateSelect}
+              onDateChange={handleDateChange}
+              mode={mode}
+            />
+          )}
         </ScrollView>
       </View>
     </ScreenLayout>

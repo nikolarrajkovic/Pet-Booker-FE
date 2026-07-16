@@ -95,7 +95,7 @@ export function useLiveLocationWatcher(bookingId: number | null): LiveWatchState
         status: 'live',
         latest: ping,
         trail: [...prev.trail, { latitude: ping.latitude, longitude: ping.longitude }].slice(
-          -MAX_TRAIL_POINTS,
+          -MAX_TRAIL_POINTS
         ),
         sessionId: ping.sessionId,
       }));

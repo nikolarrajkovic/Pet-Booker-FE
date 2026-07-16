@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useLocale } from '../../../context/LocaleContext';
 
 export type TimeSlot = {
   id: string; // e.g. "09:00"
@@ -33,13 +34,18 @@ export default function TimeSlotPicker({
   textColor,
   subtextColor,
 }: TimeSlotPickerProps) {
+  const { t } = useLocale();
   return (
     <View className="mt-4">
-      <Text className={`text-base font-semibold ${textColor} mb-3`}>Available Times</Text>
+      <Text className={`text-base font-semibold ${textColor} mb-3`}>
+        {t('bookService.availableTimes')}
+      </Text>
       {isLoading ? (
         <View className="items-center py-6">
           <ActivityIndicator color="#00C870" />
-          <Text className={`text-xs ${subtextColor} mt-2`}>Checking availability…</Text>
+          <Text className={`text-xs ${subtextColor} mt-2`}>
+            {t('bookService.checkingAvailability')}
+          </Text>
         </View>
       ) : (
         <View className="flex-row flex-wrap gap-2">
@@ -78,14 +84,10 @@ export default function TimeSlotPicker({
         </View>
       )}
       {!isLoading && slots.length === 0 && (
-        <Text className={`text-sm ${subtextColor} mt-1`}>
-          The provider isn&apos;t available on this day — please pick another day.
-        </Text>
+        <Text className={`text-sm ${subtextColor} mt-1`}>{t('bookService.noWindowsForDay')}</Text>
       )}
       {!isLoading && slots.length > 0 && slots.every((s) => !s.available) && (
-        <Text className={`text-sm ${subtextColor} mt-3`}>
-          No free slots on this date — please pick another day.
-        </Text>
+        <Text className={`text-sm ${subtextColor} mt-3`}>{t('bookService.noFreeSlots')}</Text>
       )}
     </View>
   );

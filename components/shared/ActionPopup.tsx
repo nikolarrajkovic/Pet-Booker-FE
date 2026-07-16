@@ -59,31 +59,28 @@ export default function ActionPopup({
       transparent
       animationType="fade"
       onRequestClose={onCancel}
-      statusBarTranslucent
-    >
+      statusBarTranslucent>
       <TouchableWithoutFeedback onPress={onCancel}>
         <View className={`flex-1 items-center justify-center ${overlayBg}`}>
           <TouchableWithoutFeedback>
-            <View className={`${cardBg} rounded-2xl mx-8 p-6 w-80`}>
-              <Text className={`text-base ${textColor} text-center leading-6 mb-6`}>
+            <View className={`${cardBg} mx-8 w-80 rounded-2xl p-6`}>
+              <Text className={`text-base ${textColor} mb-6 text-center leading-6`}>
                 {frozenText}
               </Text>
 
               <View className="flex-row gap-3">
                 <TouchableOpacity
                   onPress={onCancel}
-                  className={`flex-1 py-3 rounded-xl items-center justify-center ${cancelBg}`}
-                  activeOpacity={0.7}
-                >
-                  <Text className={`font-semibold text-sm ${cancelText}`}>Cancel</Text>
+                  className={`flex-1 items-center justify-center rounded-xl py-3 ${cancelBg}`}
+                  activeOpacity={0.7}>
+                  <Text className={`text-sm font-semibold ${cancelText}`}>Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={onConfirm}
-                  className={`flex-1 py-3 rounded-xl items-center justify-center ${actionButtonColor[frozenMode]}`}
-                  activeOpacity={0.7}
-                >
-                  <Text className={`font-semibold text-sm ${actionTextColor[frozenMode]}`}>
+                  className={`flex-1 items-center justify-center rounded-xl py-3 ${actionButtonColor[frozenMode]}`}
+                  activeOpacity={0.7}>
+                  <Text className={`text-sm font-semibold ${actionTextColor[frozenMode]}`}>
                     {frozenButtonText}
                   </Text>
                 </TouchableOpacity>

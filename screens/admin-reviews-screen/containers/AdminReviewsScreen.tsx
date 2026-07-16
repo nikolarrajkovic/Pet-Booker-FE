@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { ReviewModerationCard } from '../components';
 import type { ReviewModerationItem, ReviewStatus } from '../components';
@@ -22,7 +23,11 @@ import { ApprovalStatus, resolveImageUrl } from '../../../services/service-provi
 import { getErrorMessage } from '../../../services/http';
 
 // ReviewDto (with nested user/serviceProvider includes) → the card's view shape.
-function reviewToItem(dto: ReviewDto): ReviewModerationItem {
+// Takes the translate fn so name fallbacks follow the active language.
+function reviewToItem(
+  t: (key: any, params?: Record<string, string | number>) => string,
+  dto: ReviewDto
+): ReviewModerationItem {
   const created = dto.createdAt ? new Date(dto.createdAt) : null;
   const providerPhoto =
     dto.serviceProvider?.photos?.find((p) => p.isSelected)?.src ??
@@ -37,9 +42,9 @@ function reviewToItem(dto: ReviewDto): ReviewModerationItem {
 
   return {
     id: dto.id ?? 0,
-    providerName: dto.serviceProvider?.name ?? 'Service Provider',
+    providerName: dto.serviceProvider?.name ?? t('admin.serviceProvider'),
     providerAvatar: resolveImageUrl(providerPhoto) || null,
-    reviewerName: dto.user?.userName ?? 'User',
+    reviewerName: dto.user?.userName ?? t('admin.user'),
     reviewerEmail: dto.user?.email ?? '',
     rating: dto.rating ?? 0,
     title: dto.title ?? '',
@@ -54,18 +59,31 @@ function reviewToItem(dto: ReviewDto): ReviewModerationItem {
 
 type FilterTab = ReviewStatus;
 
-const TABS: { key: FilterTab; label: string; icon: any; activeColor: string; activeBg: string }[] = [
-  { key: 'pending', label: 'Pending', icon: 'time-outline', activeColor: '#A16207', activeBg: '#FEF9C3' },
+// Labels are translation keys, resolved with t() at render.
+const TABS: {
+  key: FilterTab;
+  labelKey: string;
+  icon: any;
+  activeColor: string;
+  activeBg: string;
+}[] = [
+  {
+    key: 'pending',
+    labelKey: 'admin.statusPending',
+    icon: 'time-outline',
+    activeColor: '#A16207',
+    activeBg: '#FEF9C3',
+  },
   {
     key: 'approved',
-    label: 'Approved',
+    labelKey: 'admin.statusApproved',
     icon: 'checkmark-circle-outline',
     activeColor: '#15803D',
     activeBg: '#DCFCE7',
   },
   {
     key: 'rejected',
-    label: 'Declined',
+    labelKey: 'admin.statusDeclined',
     icon: 'close-circle-outline',
     activeColor: '#B91C1C',
     activeBg: '#FEE2E2',
@@ -85,6 +103,7 @@ export default function AdminReviewsScreen() {
     placeholderColor,
   } = useThemeColors();
   const { showError } = useToast();
+  const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<FilterTab>('pending');
   const [reviews, setReviews] = useState<ReviewDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,11 +120,11 @@ export default function AdminReviewsScreen() {
       // No approvalStatus filter — fetch all so every tab has its data in one call.
       setReviews(await getReviews({ perPage: 200 }));
     } catch (e) {
-      setLoadError(getErrorMessage(e, 'Could not load reviews. Please try again.'));
+      setLoadError(getErrorMessage(e, t('admin.reviewsLoadFailed')));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // Android hardware back → AdminDashboard
   useFocusEffect(
@@ -137,7 +156,7 @@ export default function AdminReviewsScreen() {
   const subTextColor = hex.subtext;
   const borderColor = hex.border;
 
-  const items = useMemo(() => reviews.map(reviewToItem), [reviews]);
+  const items = useMemo(() => reviews.map((r) => reviewToItem(t, r)), [reviews, t]);
 
   const counts = {
     pending: items.filter((r) => r.status === 'pending').length,
@@ -154,7 +173,7 @@ export default function AdminReviewsScreen() {
       await approveReview(id);
       await load();
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not approve the review. Please try again.'));
+      showError(getErrorMessage(e, t('admin.approveReviewFailed')));
     } finally {
       setBusyId(null);
     }
@@ -174,33 +193,39 @@ export default function AdminReviewsScreen() {
     // Server requires a reason of ≥10 chars when one is given; blank is allowed
     // and uses a generic fallback. Guard the 1–9 char range.
     if (trimmed.length > 0 && trimmed.length < 10) return;
-    const reason = trimmed || 'Declined by admin';
+    const reason = trimmed || t('admin.declinedByAdminReason');
     setDeclineTargetId(null);
     setBusyId(id);
     try {
       await declineReview(id, reason);
       await load();
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not decline the review. Please try again.'));
+      showError(getErrorMessage(e, t('admin.declineReviewFailed')));
     } finally {
       setBusyId(null);
     }
   };
 
   // A typed reason must be ≥10 chars (server rule); blank is fine (uses fallback).
-  const declineReasonTooShort =
-    declineReason.trim().length > 0 && declineReason.trim().length < 10;
+  const declineReasonTooShort = declineReason.trim().length > 0 && declineReason.trim().length < 10;
 
   return (
     <ScreenLayout
       headerVariant="standard"
       showBackButton
       onBackPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })}
-      headerTitle="Reviews"
-      headerSubtitle="Moderate user-submitted reviews"
+      headerTitle={t('admin.reviewsTitle')}
+      headerSubtitle={t('admin.reviewsSubtitle')}
       contentBg={contentBg}>
       {/* ── Filter tabs ── */}
-      <View style={{ flexDirection: 'row', marginHorizontal: 16, marginTop: 20, marginBottom: 12, gap: 8 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          marginHorizontal: 16,
+          marginTop: 20,
+          marginBottom: 12,
+          gap: 8,
+        }}>
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key;
           return (
@@ -218,7 +243,11 @@ export default function AdminReviewsScreen() {
                 borderWidth: 1.5,
                 borderColor: isActive ? tab.activeColor + '55' : borderColor,
               }}>
-              <Ionicons name={tab.icon} size={14} color={isActive ? tab.activeColor : subTextColor} />
+              <Ionicons
+                name={tab.icon}
+                size={14}
+                color={isActive ? tab.activeColor : subTextColor}
+              />
               <Text
                 style={{
                   color: isActive ? tab.activeColor : subTextColor,
@@ -226,7 +255,7 @@ export default function AdminReviewsScreen() {
                   fontWeight: '600',
                   marginLeft: 5,
                 }}>
-                {tab.label}
+                {t(tab.labelKey as any)}
               </Text>
               <View
                 style={{
@@ -239,7 +268,12 @@ export default function AdminReviewsScreen() {
                   justifyContent: 'center',
                   paddingHorizontal: 4,
                 }}>
-                <Text style={{ color: isActive ? 'white' : subTextColor, fontSize: 10, fontWeight: '700' }}>
+                <Text
+                  style={{
+                    color: isActive ? 'white' : subTextColor,
+                    fontSize: 10,
+                    fontWeight: '700',
+                  }}>
                   {counts[tab.key]}
                 </Text>
               </View>
@@ -259,7 +293,11 @@ export default function AdminReviewsScreen() {
           </View>
         ) : loadError ? (
           <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
-            <Ionicons name="alert-circle-outline" size={64} color={isDarkMode ? '#4B5563' : '#D1D5DB'} />
+            <Ionicons
+              name="alert-circle-outline"
+              size={64}
+              color={isDarkMode ? '#4B5563' : '#D1D5DB'}
+            />
             <Text style={{ color: subTextColor, textAlign: 'center', marginTop: 16, fontSize: 15 }}>
               {loadError}
             </Text>
@@ -268,7 +306,11 @@ export default function AdminReviewsScreen() {
           <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
             <Ionicons name="star-outline" size={64} color={isDarkMode ? '#4B5563' : '#D1D5DB'} />
             <Text style={{ color: subTextColor, textAlign: 'center', marginTop: 16, fontSize: 15 }}>
-              No {activeTab === 'rejected' ? 'declined' : activeTab} reviews
+              {activeTab === 'pending'
+                ? t('admin.noPendingReviews')
+                : activeTab === 'approved'
+                  ? t('admin.noApprovedReviews')
+                  : t('admin.noDeclinedReviews')}
             </Text>
           </View>
         ) : (
@@ -298,21 +340,27 @@ export default function AdminReviewsScreen() {
         <View className="flex-1 justify-center bg-black/50 px-6">
           <View style={{ backgroundColor: cardBg, borderRadius: 16, padding: 20 }}>
             <Text style={{ color: tColor, fontSize: 18, fontWeight: '700', marginBottom: 4 }}>
-              Decline review?
+              {t('admin.declineReviewTitle')}
             </Text>
             <Text style={{ color: subtextColor, fontSize: 13, marginBottom: 16 }}>
-              This review stays hidden from users. Add a reason (optional).
+              {t('admin.declineReviewMsg')}
             </Text>
             <TextInput
               value={declineReason}
               onChangeText={setDeclineReason}
-              placeholder="e.g. Violates community guidelines"
+              placeholder={t('admin.declineReasonPlaceholder')}
               placeholderTextColor={placeholderColor}
               multiline
               numberOfLines={3}
               textAlignVertical="top"
               className={`${inputBg} ${inputText}`}
-              style={{ borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, minHeight: 80, marginBottom: declineReasonTooShort ? 4 : 16 }}
+              style={{
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                minHeight: 80,
+                marginBottom: declineReasonTooShort ? 4 : 16,
+              }}
               selectionColor="#00C870"
             />
             {declineReasonTooShort && (
@@ -332,7 +380,7 @@ export default function AdminReviewsScreen() {
                   borderColor: bColor,
                   paddingVertical: 12,
                 }}>
-                <Text style={{ color: tColor, fontWeight: '600' }}>Cancel</Text>
+                <Text style={{ color: tColor, fontWeight: '600' }}>{t('admin.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={confirmDecline}
@@ -346,7 +394,7 @@ export default function AdminReviewsScreen() {
                   paddingVertical: 12,
                   opacity: declineReasonTooShort ? 0.5 : 1,
                 }}>
-                <Text style={{ color: 'white', fontWeight: '600' }}>Decline</Text>
+                <Text style={{ color: 'white', fontWeight: '600' }}>{t('admin.decline')}</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -64,11 +64,13 @@ export type GetReviewsParams = {
 
 export async function getReviews(params?: GetReviewsParams): Promise<ReviewDto[]> {
   const query = new URLSearchParams();
-  if (params?.serviceProviderId !== undefined) query.set('ServiceProviderId', String(params.serviceProviderId));
+  if (params?.serviceProviderId !== undefined)
+    query.set('ServiceProviderId', String(params.serviceProviderId));
   if (params?.userId !== undefined) query.set('UserId', String(params.userId));
   if (params?.bookingId !== undefined) query.set('BookingId', String(params.bookingId));
   if (params?.rating !== undefined) query.set('Rating', String(params.rating));
-  if (params?.approvalStatus !== undefined) query.set('ApprovalStatus', String(params.approvalStatus));
+  if (params?.approvalStatus !== undefined)
+    query.set('ApprovalStatus', String(params.approvalStatus));
   query.set('Page', String(params?.page ?? 1));
   query.set('PerPage', String(params?.perPage ?? 20));
 

@@ -3,6 +3,7 @@ import { SafeAreaView, View, Text, TouchableOpacity } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAppNavigation } from '../../../hooks/useAppNavigation';
+import { useLocale } from '../../../context/LocaleContext';
 import AnimatedCheckmark from '../../../components/shared/AnimatedCheckmark';
 
 type BookingConfirmedRouteParams = {
@@ -15,6 +16,7 @@ export default function BookingConfirmedScreen() {
   const route = useRoute<RouteProp<{ params: BookingConfirmedRouteParams }, 'params'>>();
   const { serviceName } = route.params;
   const { isDarkMode, bgColor, textColor, subtextColor, borderColor } = useThemeColors();
+  const { t } = useLocale();
 
   return (
     <SafeAreaView className={`flex-1 ${bgColor}`}>
@@ -23,23 +25,23 @@ export default function BookingConfirmedScreen() {
           <AnimatedCheckmark size={128} isDarkMode={isDarkMode} />
         </View>
         <Text className={`self-stretch text-center text-2xl font-bold ${textColor} mb-4`}>
-          Booking Confirmed!
+          {t('bookingConfirmed.title')}
         </Text>
-        <Text className={`self-stretch text-center text-base ${subtextColor} leading-6 mb-8`}>
-          Your booking for {serviceName} has been confirmed. You&apos;ll receive a confirmation email shortly.
+        <Text className={`self-stretch text-center text-base ${subtextColor} mb-8 leading-6`}>
+          {t('bookingConfirmed.message', { service: serviceName })}
         </Text>
         <View className="w-full">
           <TouchableOpacity
             onPress={() => resetToTab('Home')}
-            className="bg-brand-500 py-4 rounded-2xl items-center mb-3"
-          >
-            <Text className="text-white text-lg font-bold">Back to Home</Text>
+            className="mb-3 items-center rounded-2xl bg-brand-500 py-4">
+            <Text className="text-lg font-bold text-white">{t('bookingConfirmed.backToHome')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => resetToScreen('MyBookings')}
-            className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} border ${borderColor} py-4 rounded-2xl items-center`}
-          >
-            <Text className={`${textColor} text-lg font-semibold`}>View My Bookings</Text>
+            className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} border ${borderColor} items-center rounded-2xl py-4`}>
+            <Text className={`${textColor} text-lg font-semibold`}>
+              {t('bookingConfirmed.viewBookings')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

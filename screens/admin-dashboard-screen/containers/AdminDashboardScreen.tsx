@@ -11,6 +11,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import TabBar from '../../../components/shared/TabBar';
 import {
   getServiceProviders,
@@ -18,7 +19,12 @@ import {
   ApprovalStatus,
   providerTypeLabel,
 } from '../../../services/service-providers';
-import { getBookings, BookingDto, BookingState, parseBookingDate } from '../../../services/bookings';
+import {
+  getBookings,
+  BookingDto,
+  BookingState,
+  parseBookingDate,
+} from '../../../services/bookings';
 import { getErrorMessage } from '../../../services/http';
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
@@ -48,7 +54,7 @@ type AdminMetrics = {
   newPartnersChangePct: number | null;
   activePartners: number;
   pendingRequests: number;
-  revenueByType: { label: string; value: number; color: string }[];
+  revenueByType: { type: number; label: string; value: number; color: string }[];
 };
 
 const EMPTY_METRICS: AdminMetrics = {
@@ -132,6 +138,8 @@ function computeAdminMetrics(
   });
   const revenueByType = [...byType.entries()]
     .map(([type, value]) => ({
+      type,
+      // English fallback — display localizes via tEnum('serviceProviderType', type).
       label: providerTypeLabel(type),
       value,
       color: TYPE_COLORS[type] ?? '#9CA3AF',
@@ -156,6 +164,7 @@ export default function AdminDashboardScreen() {
   const navigation = useNavigation<any>();
   const { isDarkMode, hex } = useThemeColors();
   const { showError } = useToast();
+  const { t, tEnum } = useLocale();
   const [period, setPeriod] = useState<'month' | 'year'>('month');
 
   const [raw, setRaw] = useState<{
@@ -184,7 +193,7 @@ export default function AdminDashboardScreen() {
           if (!cancelled) {
             setRaw({ providers, bookings });
             if (failure) {
-              showError(getErrorMessage(failure, 'Could not load dashboard data. Please try again.'));
+              showError(getErrorMessage(failure, t('admin.dashboardLoadFailed')));
             }
           }
         } finally {
@@ -216,13 +225,12 @@ export default function AdminDashboardScreen() {
           paddingHorizontal: 20,
           paddingTop: 48,
           paddingBottom: 36,
-        }}
-      >
+        }}>
         <Text style={{ color: 'white', fontSize: 26, fontWeight: '700', letterSpacing: -0.5 }}>
-          Admin Dashboard
+          {t('admin.dashboardTitle')}
         </Text>
         <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, marginTop: 2 }}>
-          Platform overview and statistics
+          {t('admin.dashboardSubtitle')}
         </Text>
       </View>
 
@@ -235,12 +243,10 @@ export default function AdminDashboardScreen() {
           borderTopRightRadius: 24,
           marginTop: -20,
           overflow: 'hidden',
-        }}
-      >
+        }}>
         <ScrollView
           contentContainerStyle={{ paddingBottom: 100 }}
-          showsVerticalScrollIndicator={false}
-        >
+          showsVerticalScrollIndicator={false}>
           {/* ── Period toggle ── */}
           <View
             style={{
@@ -253,8 +259,7 @@ export default function AdminDashboardScreen() {
               padding: 4,
               borderWidth: 1,
               borderColor,
-            }}
-          >
+            }}>
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => setPeriod('month')}
@@ -264,16 +269,14 @@ export default function AdminDashboardScreen() {
                 borderRadius: 10,
                 alignItems: 'center',
                 backgroundColor: period === 'month' ? '#00C870' : 'transparent',
-              }}
-            >
+              }}>
               <Text
                 style={{
                   color: period === 'month' ? 'white' : subText,
                   fontWeight: '600',
                   fontSize: 14,
-                }}
-              >
-                This Month
+                }}>
+                {t('admin.thisMonth')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -285,16 +288,14 @@ export default function AdminDashboardScreen() {
                 borderRadius: 10,
                 alignItems: 'center',
                 backgroundColor: period === 'year' ? '#00C870' : 'transparent',
-              }}
-            >
+              }}>
               <Text
                 style={{
                   color: period === 'year' ? 'white' : subText,
                   fontWeight: '600',
                   fontSize: 14,
-                }}
-              >
-                This Year
+                }}>
+                {t('admin.thisYear')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -307,8 +308,7 @@ export default function AdminDashboardScreen() {
               marginHorizontal: 16,
               gap: 12,
               marginBottom: 24,
-            }}
-          >
+            }}>
             {/* Total Revenue */}
             <StatCard
               iconName="cash-outline"
@@ -317,7 +317,7 @@ export default function AdminDashboardScreen() {
               change={fmtPct(metrics.revenueChangePct)}
               changeColor="#00C870"
               value={val(fmtMoney(metrics.totalRevenue))}
-              label="Total Revenue"
+              label={t('admin.totalRevenue')}
               cardBg={cardBg}
               sectionTitle={sectionTitle}
               subText={subText}
@@ -331,7 +331,7 @@ export default function AdminDashboardScreen() {
               change={fmtPct(metrics.servicesChangePct)}
               changeColor="#6366F1"
               value={val(fmtCount(metrics.servicesScheduled))}
-              label="Services Scheduled"
+              label={t('admin.servicesScheduled')}
               cardBg={cardBg}
               sectionTitle={sectionTitle}
               subText={subText}
@@ -345,7 +345,7 @@ export default function AdminDashboardScreen() {
               change={fmtPct(metrics.newPartnersChangePct)}
               changeColor="#A855F7"
               value={val(fmtCount(metrics.newPartners))}
-              label="New Partners"
+              label={t('admin.newPartners')}
               cardBg={cardBg}
               sectionTitle={sectionTitle}
               subText={subText}
@@ -359,7 +359,7 @@ export default function AdminDashboardScreen() {
               change={undefined}
               changeColor="#F59E0B"
               value={val(fmtCount(metrics.activePartners))}
-              label="Active Partners"
+              label={t('admin.activePartners')}
               cardBg={cardBg}
               sectionTitle={sectionTitle}
               subText={subText}
@@ -377,28 +377,30 @@ export default function AdminDashboardScreen() {
               borderWidth: 1,
               borderColor,
               marginBottom: 24,
-            }}
-          >
+            }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
               <Ionicons name="bar-chart-outline" size={20} color="#00C870" />
               <Text style={{ color: sectionTitle, fontSize: 16, fontWeight: '700', marginLeft: 8 }}>
-                Revenue by Service Type
+                {t('admin.revenueByType')}
               </Text>
             </View>
             {loading && !raw ? (
               <ActivityIndicator color="#00C870" style={{ paddingVertical: 12 }} />
             ) : metrics.revenueByType.length === 0 ? (
               <Text style={{ color: subText, fontSize: 13, paddingVertical: 8 }}>
-                No revenue in this period yet.
+                {t('admin.noRevenue')}
               </Text>
             ) : (
               metrics.revenueByType.map((item) => (
                 <View key={item.label} style={{ marginBottom: 14 }}>
                   <View
-                    style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}
-                  >
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      marginBottom: 6,
+                    }}>
                     <Text style={{ color: sectionTitle, fontSize: 13, fontWeight: '500' }}>
-                      {item.label}
+                      {tEnum('serviceProviderType', item.type, item.label)}
                     </Text>
                     <Text style={{ color: sectionTitle, fontSize: 13, fontWeight: '600' }}>
                       {fmtMoney(item.value)}
@@ -409,8 +411,7 @@ export default function AdminDashboardScreen() {
                       height: 8,
                       backgroundColor: isDarkMode ? '#2d3748' : '#F3F4F6',
                       borderRadius: 4,
-                    }}
-                  >
+                    }}>
                     <View
                       style={{
                         height: 8,
@@ -427,8 +428,9 @@ export default function AdminDashboardScreen() {
 
           {/* ── Quick Actions ── */}
           <View style={{ marginHorizontal: 20 }}>
-            <Text style={{ color: sectionTitle, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>
-              Quick Actions
+            <Text
+              style={{ color: sectionTitle, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>
+              {t('admin.quickActions')}
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
               {/* New Requests */}
@@ -443,8 +445,7 @@ export default function AdminDashboardScreen() {
                   borderWidth: 1,
                   borderColor,
                   alignItems: 'flex-start',
-                }}
-              >
+                }}>
                 <View style={{ position: 'relative', marginBottom: 12 }}>
                   <View
                     style={{
@@ -454,8 +455,7 @@ export default function AdminDashboardScreen() {
                       backgroundColor: '#FEF3C7',
                       alignItems: 'center',
                       justifyContent: 'center',
-                    }}
-                  >
+                    }}>
                     <Ionicons name="document-text-outline" size={24} color="#F59E0B" />
                   </View>
                   {metrics.pendingRequests > 0 && (
@@ -468,19 +468,18 @@ export default function AdminDashboardScreen() {
                         borderRadius: 10,
                         paddingHorizontal: 6,
                         paddingVertical: 2,
-                      }}
-                    >
+                      }}>
                       <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
-                        {metrics.pendingRequests} new
+                        {t('admin.nNew', { n: metrics.pendingRequests })}
                       </Text>
                     </View>
                   )}
                 </View>
                 <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>
-                  New Requests
+                  {t('admin.newRequests')}
                 </Text>
                 <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>
-                  Review applications
+                  {t('admin.reviewApplications')}
                 </Text>
               </TouchableOpacity>
 
@@ -496,8 +495,7 @@ export default function AdminDashboardScreen() {
                   borderWidth: 1,
                   borderColor,
                   alignItems: 'flex-start',
-                }}
-              >
+                }}>
                 <View style={{ position: 'relative', marginBottom: 12 }}>
                   <View
                     style={{
@@ -507,8 +505,7 @@ export default function AdminDashboardScreen() {
                       backgroundColor: '#E8F5EF',
                       alignItems: 'center',
                       justifyContent: 'center',
-                    }}
-                  >
+                    }}>
                     <Ionicons name="people-outline" size={24} color="#00C870" />
                   </View>
                   {metrics.activePartners > 0 && (
@@ -521,16 +518,19 @@ export default function AdminDashboardScreen() {
                         borderRadius: 10,
                         paddingHorizontal: 6,
                         paddingVertical: 2,
-                      }}
-                    >
+                      }}>
                       <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
-                        {metrics.activePartners} active
+                        {t('admin.nActive', { n: metrics.activePartners })}
                       </Text>
                     </View>
                   )}
                 </View>
-                <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>Partners</Text>
-                <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>Manage partners</Text>
+                <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>
+                  {t('admin.partners')}
+                </Text>
+                <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>
+                  {t('admin.managePartners')}
+                </Text>
               </TouchableOpacity>
 
               {/* Add New */}
@@ -545,8 +545,7 @@ export default function AdminDashboardScreen() {
                   borderWidth: 1,
                   borderColor,
                   alignItems: 'flex-start',
-                }}
-              >
+                }}>
                 <View style={{ marginBottom: 12 }}>
                   <View
                     style={{
@@ -556,14 +555,15 @@ export default function AdminDashboardScreen() {
                       backgroundColor: '#EEF2FF',
                       alignItems: 'center',
                       justifyContent: 'center',
-                    }}
-                  >
+                    }}>
                     <Ionicons name="person-add-outline" size={24} color="#6366F1" />
                   </View>
                 </View>
-                <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>Add New</Text>
+                <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>
+                  {t('admin.addNew')}
+                </Text>
                 <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>
-                  Add partner manually
+                  {t('admin.addPartnerManually')}
                 </Text>
               </TouchableOpacity>
 
@@ -579,8 +579,7 @@ export default function AdminDashboardScreen() {
                   borderWidth: 1,
                   borderColor,
                   alignItems: 'flex-start',
-                }}
-              >
+                }}>
                 <View style={{ marginBottom: 12 }}>
                   <View
                     style={{
@@ -590,13 +589,16 @@ export default function AdminDashboardScreen() {
                       backgroundColor: '#FEF3C7',
                       alignItems: 'center',
                       justifyContent: 'center',
-                    }}
-                  >
+                    }}>
                     <Ionicons name="star-outline" size={24} color="#F59E0B" />
                   </View>
                 </View>
-                <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>Reviews</Text>
-                <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>Moderate reviews</Text>
+                <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>
+                  {t('admin.reviews')}
+                </Text>
+                <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>
+                  {t('admin.moderateReviews')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -649,16 +651,14 @@ function StatCard({
         padding: 16,
         borderWidth: 1,
         borderColor,
-      }}
-    >
+      }}>
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
           marginBottom: 10,
-        }}
-      >
+        }}>
         <View
           style={{
             width: 38,
@@ -667,8 +667,7 @@ function StatCard({
             backgroundColor: iconBg,
             alignItems: 'center',
             justifyContent: 'center',
-          }}
-        >
+          }}>
           <Ionicons name={iconName} size={20} color={iconColor} />
         </View>
         {change && (
@@ -680,8 +679,7 @@ function StatCard({
               borderRadius: 8,
               paddingHorizontal: 6,
               paddingVertical: 2,
-            }}
-          >
+            }}>
             <Ionicons
               name={isNegative ? 'trending-down' : 'trending-up'}
               size={11}

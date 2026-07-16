@@ -12,6 +12,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useLocale } from '../../../context/LocaleContext';
 import { PartnerCard } from '../components';
 import type { Partner, PartnerStatus } from '../components';
 import {
@@ -68,17 +69,19 @@ function providerToPartner(dto: ServiceProviderDto): Partner {
 
 type FilterTab = 'all' | PartnerStatus;
 
-const TABS: { key: FilterTab; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'active', label: 'Active' },
-  { key: 'timeout', label: 'Timeout' },
-  { key: 'banned', label: 'Banned' },
+// Labels are translation keys, resolved with t() at render.
+const TABS: { key: FilterTab; labelKey: string }[] = [
+  { key: 'all', labelKey: 'requests.tabAll' },
+  { key: 'active', labelKey: 'admin.statusActive' },
+  { key: 'timeout', labelKey: 'admin.statusTimeout' },
+  { key: 'banned', labelKey: 'admin.statusBanned' },
 ];
 
 export default function AdminPartnersScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { isDarkMode, hex } = useThemeColors();
+  const { t } = useLocale();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
@@ -104,14 +107,16 @@ export default function AdminPartnersScreen() {
             perPage: 200,
           });
           const approved = dtos.filter(
-            (d) => (d.approvalStatus ?? (d.isApproved ? ApprovalStatus.Approved : ApprovalStatus.Pending)) ===
+            (d) =>
+              (d.approvalStatus ??
+                (d.isApproved ? ApprovalStatus.Approved : ApprovalStatus.Pending)) ===
               ApprovalStatus.Approved
           );
           if (!cancelled) setProviders(approved.map(providerToPartner));
         } catch (e) {
           if (!cancelled) {
             setProviders([]);
-            setLoadError(getErrorMessage(e, 'Could not load partners. Please try again.'));
+            setLoadError(getErrorMessage(e, t('admin.partnersLoadFailed')));
           }
         } finally {
           if (!cancelled) setIsLoading(false);
@@ -188,7 +193,9 @@ export default function AdminPartnersScreen() {
             }}>
             <Ionicons name="arrow-back" size={20} color="white" />
           </TouchableOpacity>
-          <Text style={{ color: 'white', fontSize: 20, fontWeight: '700' }}>Partners</Text>
+          <Text style={{ color: 'white', fontSize: 20, fontWeight: '700' }}>
+            {t('admin.partners')}
+          </Text>
         </View>
 
         {/* Search bar */}
@@ -209,7 +216,7 @@ export default function AdminPartnersScreen() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search partners..."
+            placeholder={t('admin.searchPartners')}
             placeholderTextColor={isDarkMode ? 'rgba(255,255,255,0.5)' : '#9CA3AF'}
             style={{
               flex: 1,
@@ -268,7 +275,7 @@ export default function AdminPartnersScreen() {
                       fontSize: 13,
                       fontWeight: '600',
                     }}>
-                    {tab.label}
+                    {t(tab.labelKey as any)}
                   </Text>
                   <View
                     style={{
@@ -327,7 +334,7 @@ export default function AdminPartnersScreen() {
               />
               <Text
                 style={{ color: subTextColor, marginTop: 16, fontSize: 15, textAlign: 'center' }}>
-                No partners found
+                {t('admin.noPartnersFound')}
               </Text>
             </View>
           ) : (

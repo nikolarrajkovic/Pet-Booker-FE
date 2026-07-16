@@ -20,7 +20,7 @@ export type ServiceWriteDraft = { details: ServiceDetails; pricing: ServicePrici
 // existing per-km/distance config from the original surcharge on edit.
 const flatToLocationPrice = (
   fee: number,
-  existing?: LocationBasedPriceDto | null,
+  existing?: LocationBasedPriceDto | null
 ): LocationBasedPriceDto => ({
   perKmFee: 0,
   freeDistanceKm: null,

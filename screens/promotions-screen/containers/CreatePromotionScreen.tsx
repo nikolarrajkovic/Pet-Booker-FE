@@ -13,6 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import DatePicker from '../../../components/shared/DatePicker';
 import { getServices, ServiceDto } from '../../../services/services';
@@ -29,6 +30,7 @@ export default function CreatePromotionScreen() {
   const { currentUser } = useAuth();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor, inputBg } = useThemeColors();
   const { showError } = useToast();
+  const { t } = useLocale();
 
   const [services, setServices] = useState<ServiceDto[]>([]);
   const [isLoadingServices, setIsLoadingServices] = useState(true);
@@ -56,7 +58,7 @@ export default function CreatePromotionScreen() {
         const list = await getServices({ serviceProviderId: providerId });
         if (!cancelled) setServices(list);
       } catch (e) {
-        if (!cancelled) showError(getErrorMessage(e, 'Could not load your services. Please try again.'));
+        if (!cancelled) showError(getErrorMessage(e, t('promotions.servicesLoadFailed')));
       } finally {
         if (!cancelled) setIsLoadingServices(false);
       }
@@ -76,19 +78,19 @@ export default function CreatePromotionScreen() {
 
   const handleCreate = async () => {
     if (serviceId == null) {
-      Alert.alert('Pick a service', 'Choose which service this offer applies to.');
+      Alert.alert(t('promotions.pickServiceTitle'), t('promotions.pickServiceMsg'));
       return;
     }
     if (isNaN(amountNum) || amountNum <= 0) {
-      Alert.alert('Enter an amount', 'The discount amount must be greater than zero.');
+      Alert.alert(t('promotions.enterAmountTitle'), t('promotions.enterAmountMsg'));
       return;
     }
     if (isPercent && amountNum > 100) {
-      Alert.alert('Invalid percentage', 'A percentage discount cannot exceed 100%.');
+      Alert.alert(t('promotions.invalidPctTitle'), t('promotions.invalidPctMsg'));
       return;
     }
     if (endDate && endDate < startDate) {
-      Alert.alert('Invalid dates', 'The end date must be on or after the start date.');
+      Alert.alert(t('promotions.invalidDatesTitle'), t('promotions.invalidDatesMsg'));
       return;
     }
 
@@ -105,7 +107,7 @@ export default function CreatePromotionScreen() {
       });
       navigation.goBack();
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not create the offer. Please try again.'));
+      showError(getErrorMessage(e, t('promotions.createFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -119,8 +121,8 @@ export default function CreatePromotionScreen() {
     <ScreenLayout
       headerVariant="standard"
       showBackButton
-      headerTitle="Create Offer"
-      headerSubtitle="Set a discount on one of your services"
+      headerTitle={t('promotions.createTitle')}
+      headerSubtitle={t('promotions.createSubtitle')}
       contentBg={contentBg}>
       <ScrollView
         className="flex-1"
@@ -134,15 +136,19 @@ export default function CreatePromotionScreen() {
             <MaterialCommunityIcons name="gift-outline" size={22} color="#16A34A" />
           </View>
           <View className="flex-1">
-            <Text className={`text-base font-bold ${textColor}`}>Special Offer</Text>
+            <Text className={`text-base font-bold ${textColor}`}>
+              {t('promotions.specialOffer')}
+            </Text>
             <Text className={`text-xs ${subtextColor} mt-0.5`}>
-              Discount a service by a fixed amount or a percentage. Active immediately.
+              {t('promotions.specialOfferText')}
             </Text>
           </View>
         </View>
 
         {/* Service selector */}
-        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>Service</Text>
+        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
+          {t('promotions.service')}
+        </Text>
         {isLoadingServices ? (
           <View className={`${cardBg} mb-5 rounded-xl border p-6 ${borderColor} items-center`}>
             <ActivityIndicator color="#00C870" />
@@ -155,7 +161,7 @@ export default function CreatePromotionScreen() {
               color={isDarkMode ? '#4B5563' : '#9CA3AF'}
             />
             <Text className={`${subtextColor} mt-2 text-center text-sm`}>
-              You have no services yet. Add a service before creating an offer.
+              {t('promotions.noServicesYet')}
             </Text>
           </View>
         ) : (
@@ -179,11 +185,11 @@ export default function CreatePromotionScreen() {
                   <View className="flex-1">
                     <Text
                       className={`text-sm font-semibold ${selected ? 'text-brand-700' : textColor}`}>
-                      {s.name ?? 'Service'}
+                      {s.name ?? t('promotions.service')}
                     </Text>
                     {s.pricing?.basePrice != null && (
                       <Text className={`text-xs ${subtextColor} mt-0.5`}>
-                        Base price ${s.pricing.basePrice}
+                        {t('promotions.basePrice', { price: s.pricing.basePrice })}
                       </Text>
                     )}
                   </View>
@@ -194,12 +200,22 @@ export default function CreatePromotionScreen() {
         )}
 
         {/* Discount type toggle */}
-        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>Discount Type</Text>
+        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
+          {t('promotions.discountTypeLabel')}
+        </Text>
         <View
           className={`mb-5 flex-row rounded-xl p-1 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
           {[
-            { type: DiscountType.Percent, label: 'Percentage', icon: 'percent' as const },
-            { type: DiscountType.Fixed, label: 'Fixed Amount', icon: 'currency-usd' as const },
+            {
+              type: DiscountType.Percent,
+              label: t('promotions.percentage'),
+              icon: 'percent' as const,
+            },
+            {
+              type: DiscountType.Fixed,
+              label: t('promotions.fixedAmount'),
+              icon: 'currency-usd' as const,
+            },
           ].map((opt) => {
             const active = discountType === opt.type;
             return (
@@ -224,7 +240,7 @@ export default function CreatePromotionScreen() {
 
         {/* Amount */}
         <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
-          {isPercent ? 'Discount Percentage' : 'Discount Amount'}
+          {isPercent ? t('promotions.discountPercentage') : t('promotions.discountAmount')}
         </Text>
         <View
           className={`${inputBg} border ${borderColor} mb-5 flex-row items-center rounded-xl px-4`}>
@@ -241,10 +257,12 @@ export default function CreatePromotionScreen() {
         </View>
 
         {/* Date range */}
-        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>Active Period</Text>
+        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
+          {t('promotions.activePeriod')}
+        </Text>
         <View className="mb-2 flex-row gap-3">
           <View className="flex-1">
-            <Text className={`text-xs ${subtextColor} mb-1.5`}>Start Date</Text>
+            <Text className={`text-xs ${subtextColor} mb-1.5`}>{t('promotions.startDate')}</Text>
             <TouchableOpacity
               className={dateField}
               activeOpacity={0.75}
@@ -254,13 +272,13 @@ export default function CreatePromotionScreen() {
             </TouchableOpacity>
           </View>
           <View className="flex-1">
-            <Text className={`text-xs ${subtextColor} mb-1.5`}>End Date</Text>
+            <Text className={`text-xs ${subtextColor} mb-1.5`}>{t('promotions.endDate')}</Text>
             <TouchableOpacity
               className={dateField}
               activeOpacity={0.75}
               onPress={() => setShowEndPicker((v) => !v)}>
               <Text className={`text-sm ${endDate ? textColor : subtextColor}`}>
-                {endDate ? fmtDate(endDate) : 'No end date'}
+                {endDate ? fmtDate(endDate) : t('promotions.noEndDate')}
               </Text>
               <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
             </TouchableOpacity>
@@ -272,7 +290,7 @@ export default function CreatePromotionScreen() {
             activeOpacity={0.7}
             className="mb-2 self-start">
             <Text className="text-xs font-semibold text-brand-600">
-              Clear end date (open-ended)
+              {t('promotions.clearEndDate')}
             </Text>
           </TouchableOpacity>
         )}
@@ -315,7 +333,7 @@ export default function CreatePromotionScreen() {
           {isSubmitting ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-base font-bold text-white">Create Offer</Text>
+            <Text className="text-base font-bold text-white">{t('promotions.createOffer')}</Text>
           )}
         </TouchableOpacity>
       </ScrollView>

@@ -14,14 +14,14 @@ type ScreenLayoutProps = {
   showNotificationButton?: boolean;
   onNotificationPress?: () => void;
   rightAction?: ReactNode;
-  
+
   // Content area props
   children: ReactNode;
   contentRounded?: boolean; // default true
-  
+
   // Footer (e.g., TabBar)
   footer?: ReactNode;
-  
+
   // Background colors (can be overridden)
   safeAreaBg?: string;
   contentBg?: string;
@@ -58,20 +58,19 @@ export default function ScreenLayout({
         subtitle={headerSubtitle}
         showNotificationButton={showNotificationButton}
         onNotificationPress={onNotificationPress}
-        rightAction={rightAction}
-      >
+        rightAction={rightAction}>
         {headerChildren}
       </AppHeader>
 
       {/* Content area with rounded top */}
       {contentRounded ? (
-        <View className={`-mt-8 ${finalContentBg} rounded-t-3xl flex-1`} style={{ overflow: 'hidden' }}>
+        <View
+          className={`-mt-8 ${finalContentBg} flex-1 rounded-t-3xl`}
+          style={{ overflow: 'hidden' }}>
           {children}
         </View>
       ) : (
-        <View className="flex-1">
-          {children}
-        </View>
+        <View className="flex-1">{children}</View>
       )}
 
       {/* Footer (e.g., TabBar) */}

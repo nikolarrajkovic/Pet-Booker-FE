@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AddressDto } from '../../../services/service-providers';
+import { useLocale } from '../../../context/LocaleContext';
 
 export type AddOnItem = {
   key: 'pickup' | 'dropoff' | 'specialNeeds';
@@ -57,6 +58,7 @@ export default function AddOnChecklist({
   subtextColor,
   borderColor,
 }: Props) {
+  const { t } = useLocale();
   if (items.length === 0) return null;
 
   return (
@@ -67,11 +69,11 @@ export default function AddOnChecklist({
         const rowReadOnly = readOnly || !toggleable;
         const statusText = toggleable
           ? done
-            ? 'Completed'
+            ? t('liveSession.completed')
             : readOnly
-              ? 'In progress'
-              : 'Tap to mark complete'
-          : 'Requested';
+              ? t('liveSession.inProgressStatus')
+              : t('liveSession.tapToComplete')
+          : t('liveSession.requested');
         return (
           <TouchableOpacity
             key={item.key}
@@ -111,7 +113,7 @@ export default function AddOnChecklist({
                     <>
                       <Ionicons name="navigate" size={14} color="#00A85A" />
                       <Text className="ml-1 text-xs font-bold" style={{ color: '#00A85A' }}>
-                        Directions
+                        {t('liveSession.directions')}
                       </Text>
                     </>
                   )}

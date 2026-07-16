@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PriceBreakdown, PaymentMethodSelector } from '../components';
@@ -53,18 +54,20 @@ type ReviewBookingRouteParams = {
 
 // Builds the discount breakdown label, stating the discount type. For a percent
 // discount we derive the rate from the amounts so the line reads "Discount
-// (20% off)"; a fixed discount reads "Discount (Fixed amount)".
+// (20% off)"; a fixed discount reads "Discount (Fixed amount)". Takes the
+// translate function so the label follows the active language.
 function discountLabel(
+  t: (key: any, params?: Record<string, string | number>) => string,
   type: number | null | undefined,
   baseTotal: number,
   discountTotal: number
 ): string {
   if (type === DiscountType.Percent && baseTotal > 0) {
     const pct = Math.round((discountTotal / baseTotal) * 100);
-    return `Discount (${pct}% off)`;
+    return t('reviewBooking.discountPercent', { pct });
   }
-  if (type === DiscountType.Fixed) return 'Discount (Fixed amount)';
-  return 'Discount';
+  if (type === DiscountType.Fixed) return t('reviewBooking.discountFixed');
+  return t('reviewBooking.discount');
 }
 
 /**
@@ -97,6 +100,7 @@ export default function ReviewBookingScreen() {
   const { service, appointments } = route.params;
   const { currentUser } = useAuth();
   const { showError } = useToast();
+  const { t } = useLocale();
   const serviceImage = resolveImageUrl(
     service.imageUrl ?? (service.photos?.find((p) => p.isSelected) ?? service.photos?.[0])?.src
   );
@@ -128,7 +132,7 @@ export default function ReviewBookingScreen() {
   const discount =
     discountTotal > 0
       ? {
-          label: discountLabel(service.appliedDiscountType, serviceTotal, discountTotal),
+          label: discountLabel(t, service.appliedDiscountType, serviceTotal, discountTotal),
           amount: discountTotal,
         }
       : null;
@@ -145,7 +149,7 @@ export default function ReviewBookingScreen() {
 
   const handleConfirm = async () => {
     if (!currentUser?.id) {
-      Alert.alert('Not signed in', 'Please sign in again to complete your booking.');
+      Alert.alert(t('reviewBooking.notSignedInTitle'), t('reviewBooking.notSignedInMsg'));
       return;
     }
     setIsSubmitting(true);
@@ -177,10 +181,10 @@ export default function ReviewBookingScreen() {
       }
 
       (navigation as any).navigate('BookingConfirmed', {
-        serviceName: service.name ?? 'your service',
+        serviceName: service.name ?? t('reviewBooking.yourService'),
       });
     } catch (error) {
-      showError(getErrorMessage(error, 'Booking failed. Please try again.'));
+      showError(getErrorMessage(error, t('reviewBooking.bookingFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -190,7 +194,7 @@ export default function ReviewBookingScreen() {
     <ScreenLayout
       headerVariant="standard"
       showBackButton
-      headerTitle="Review Booking"
+      headerTitle={t('reviewBooking.title')}
       contentBg={contentBg}
       contentRounded={false}>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
@@ -219,7 +223,8 @@ export default function ReviewBookingScreen() {
         {/* Booking Details — one block per appointment */}
         <View className={`border-t px-6 py-5 ${borderColor}`}>
           <Text className={`text-base font-semibold ${textColor} mb-4`}>
-            Booking Details{appointments.length > 1 ? ` (${appointments.length})` : ''}
+            {t('reviewBooking.bookingDetails')}
+            {appointments.length > 1 ? ` (${appointments.length})` : ''}
           </Text>
           {appointments.map((apt, i) => {
             const start = parseBookingDate(apt.bookingFrom);
@@ -227,7 +232,9 @@ export default function ReviewBookingScreen() {
               <View key={apt.id} className={i > 0 ? `mt-4 border-t pt-4 ${borderColor}` : ''}>
                 <Text className={`text-base font-semibold ${textColor}`}>
                   {apt.service.name}{' '}
-                  <Text className={`${subtextColor} font-normal`}>for {apt.pet.name}</Text>
+                  <Text className={`${subtextColor} font-normal`}>
+                    {t('bookService.forPet', { name: apt.pet.name })}
+                  </Text>
                 </Text>
                 <View className="mt-1.5 flex-row items-center">
                   <Ionicons
@@ -269,7 +276,7 @@ export default function ReviewBookingScreen() {
                       style={{ marginRight: 6 }}
                     />
                     <Text className={`text-sm ${subtextColor}`}>
-                      Option: {apt.pricingOptionName}
+                      {t('bookService.option', { name: apt.pricingOptionName })}
                     </Text>
                   </View>
                 )}
@@ -287,7 +294,7 @@ export default function ReviewBookingScreen() {
                       style={{ marginRight: 6, marginTop: 1 }}
                     />
                     <Text className={`text-xs ${subtextColor} flex-1`}>
-                      Pickup: {addressLabel(apt.pickupAddress)}
+                      {t('reviewBooking.pickupLine', { address: addressLabel(apt.pickupAddress) })}
                     </Text>
                   </View>
                 ) : null}
@@ -300,7 +307,9 @@ export default function ReviewBookingScreen() {
                       style={{ marginRight: 6, marginTop: 1 }}
                     />
                     <Text className={`text-xs ${subtextColor} flex-1`}>
-                      Drop-off: {addressLabel(apt.leaveOverAddress)}
+                      {t('reviewBooking.dropoffLine', {
+                        address: addressLabel(apt.leaveOverAddress),
+                      })}
                     </Text>
                   </View>
                 ) : null}
@@ -331,10 +340,11 @@ export default function ReviewBookingScreen() {
 
         {/* Cancellation Policy */}
         <View className={`border-t px-6 py-5 ${borderColor}`}>
-          <Text className={`text-base font-semibold ${textColor} mb-3`}>Cancellation Policy</Text>
+          <Text className={`text-base font-semibold ${textColor} mb-3`}>
+            {t('reviewBooking.cancellationPolicy')}
+          </Text>
           <Text className={`text-sm ${subtextColor} leading-6`}>
-            Free cancellation up to 24 hours before the appointment. Cancellations within 24 hours
-            may incur a 50% charge.
+            {t('reviewBooking.cancellationPolicyText')}
           </Text>
         </View>
       </ScrollView>
@@ -349,7 +359,9 @@ export default function ReviewBookingScreen() {
           {isSubmitting ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-lg font-bold text-white">Confirm Booking</Text>
+            <Text className="text-lg font-bold text-white">
+              {t('reviewBooking.confirmBooking')}
+            </Text>
           )}
         </TouchableOpacity>
       </View>

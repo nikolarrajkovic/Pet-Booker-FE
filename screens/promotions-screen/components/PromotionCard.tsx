@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useLocale } from '../../../context/LocaleContext';
 
 export type PromotionStatus = 'active' | 'paused' | 'scheduled' | 'ended';
 export type PromotionType = 'boost' | 'featured' | 'offer' | 'ad';
@@ -53,11 +54,12 @@ interface PromotionCardProps {
   onStart: (id: number) => void;
 }
 
-const STATUS_STYLES: Record<PromotionStatus, { bg: string; text: string; label: string }> = {
-  active: { bg: 'bg-green-100', text: 'text-green-700', label: 'Active' },
-  paused: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Paused' },
-  scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Scheduled' },
-  ended: { bg: 'bg-red-100', text: 'text-red-600', label: 'Ended' },
+// Status labels are translation keys, resolved with t() at render.
+const STATUS_STYLES: Record<PromotionStatus, { bg: string; text: string; labelKey: string }> = {
+  active: { bg: 'bg-green-100', text: 'text-green-700', labelKey: 'promotions.statusActive' },
+  paused: { bg: 'bg-gray-100', text: 'text-gray-600', labelKey: 'promotions.statusPaused' },
+  scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', labelKey: 'promotions.statusScheduled' },
+  ended: { bg: 'bg-red-100', text: 'text-red-600', labelKey: 'promotions.statusEnded' },
 };
 
 const TYPE_ICON: Record<PromotionType, { bg: string; icon: React.ReactNode }> = {
@@ -84,6 +86,7 @@ export default function PromotionCard({
   onStart,
 }: PromotionCardProps) {
   const navigation = useNavigation();
+  const { t } = useLocale();
   const status = STATUS_STYLES[promotion.status];
   const typeIcon = TYPE_ICON[promotion.type];
   const isActive = promotion.status === 'active';
@@ -116,7 +119,9 @@ export default function PromotionCard({
           </View>
         </View>
         <View className={`rounded-full px-2.5 py-1 ${status.bg} ml-2`}>
-          <Text className={`text-xs font-semibold ${status.text}`}>{status.label}</Text>
+          <Text className={`text-xs font-semibold ${status.text}`}>
+            {t(status.labelKey as any)}
+          </Text>
         </View>
       </View>
 
@@ -124,7 +129,7 @@ export default function PromotionCard({
       {promotion.type === 'boost' && promotion.budgetTotal !== undefined && (
         <View className="px-4 pb-3">
           <View className="mb-1 flex-row justify-between">
-            <Text className={`text-xs font-medium ${subtextColor}`}>Budget</Text>
+            <Text className={`text-xs font-medium ${subtextColor}`}>{t('promotions.budget')}</Text>
             <Text className={`text-xs font-semibold ${textColor}`}>
               ${promotion.budgetSpent?.toFixed(2)} / ${promotion.budgetTotal}
             </Text>
@@ -141,10 +146,18 @@ export default function PromotionCard({
               {
                 icon: 'eye-outline',
                 value: promotion.views?.toLocaleString() ?? '0',
-                label: 'Views',
+                label: t('promotions.views'),
               },
-              { icon: 'hand-left-outline', value: String(promotion.clicks ?? 0), label: 'Clicks' },
-              { icon: 'heart-outline', value: String(promotion.bookings ?? 0), label: 'Bookings' },
+              {
+                icon: 'hand-left-outline',
+                value: String(promotion.clicks ?? 0),
+                label: t('promotions.clicks'),
+              },
+              {
+                icon: 'heart-outline',
+                value: String(promotion.bookings ?? 0),
+                label: t('promotions.bookings'),
+              },
             ].map((stat) => (
               <View key={stat.label} className="flex-1 items-center">
                 <Ionicons name={stat.icon as any} size={16} color="#9CA3AF" />
@@ -168,12 +181,12 @@ export default function PromotionCard({
               )}
             </Text>
             <Text className={`text-xs ${subtextColor} mt-0.5`}>
-              {promotion.offerNote ?? 'For new clients only'}
+              {promotion.offerNote ?? t('promotions.forNewClients')}
             </Text>
           </View>
           <View className="items-end">
             <Text className={`text-base font-bold ${textColor}`}>
-              {promotion.usageCount ?? 0} uses
+              {t('promotions.uses', { n: promotion.usageCount ?? 0 })}
             </Text>
           </View>
         </View>
@@ -184,7 +197,9 @@ export default function PromotionCard({
         <View
           className={`mx-4 mb-3 ${isDarkMode ? 'bg-purple-900/20' : 'bg-purple-50'} items-center rounded-xl p-4`}>
           <Ionicons name="flash" size={28} color="#9333EA" />
-          <Text className="mt-1.5 font-semibold text-purple-600">Featured Badge Active</Text>
+          <Text className="mt-1.5 font-semibold text-purple-600">
+            {t('promotions.featuredBadgeActive')}
+          </Text>
         </View>
       )}
 
@@ -196,7 +211,7 @@ export default function PromotionCard({
             activeOpacity={0.7}
             className="flex-1 flex-row items-center justify-center rounded-xl bg-brand-500 py-2.5">
             <Ionicons name="play" size={14} color="white" style={{ marginRight: 6 }} />
-            <Text className="text-sm font-semibold text-white">Start Now</Text>
+            <Text className="text-sm font-semibold text-white">{t('promotions.startNow')}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -210,7 +225,7 @@ export default function PromotionCard({
               style={{ marginRight: 6 }}
             />
             <Text className={`text-sm font-semibold ${subtextColor}`}>
-              {isActive ? 'Pause' : 'Resume'}
+              {isActive ? t('promotions.pause') : t('promotions.resume')}
             </Text>
           </TouchableOpacity>
         )}
@@ -230,7 +245,9 @@ export default function PromotionCard({
             color={isDarkMode ? '#9CA3AF' : '#6B7280'}
             style={{ marginRight: 6 }}
           />
-          <Text className={`text-sm font-semibold ${subtextColor}`}>Analytics</Text>
+          <Text className={`text-sm font-semibold ${subtextColor}`}>
+            {t('promotions.analytics')}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.7}

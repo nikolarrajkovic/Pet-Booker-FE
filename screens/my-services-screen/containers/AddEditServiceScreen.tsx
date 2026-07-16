@@ -17,6 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import TimePicker, { formatTime24 } from '../../../components/shared/TimePicker';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import {
@@ -26,6 +27,8 @@ import {
   ServiceDto,
 } from '../../../services/services';
 import { getErrorMessage } from '../../../services/http';
+import { providerTypeValue } from '../../../services/service-providers';
+import { findServiceAddon } from '../../../services/service-addons';
 import { saveServiceSchedules } from '../../../services/service-schedules';
 import { saveServicePricingOptions } from '../../../services/service-pricing-options';
 import {
@@ -128,6 +131,18 @@ export default function AddEditServiceScreen() {
   } = useThemeColors();
 
   const { showError } = useToast();
+  const { t, tEnum } = useLocale();
+
+  // English data-key labels → localized display strings (the state keeps the
+  // English key so it round-trips to the numeric enum / catalog on save).
+  const typeLabel = (label: string) => {
+    const v = providerTypeValue(label);
+    return v != null ? tEnum('serviceProviderType', v, label) : label;
+  };
+  const addonLabel = (name: string) => {
+    const def = findServiceAddon(name);
+    return def ? t(`addons.${def.id}` as any) : name;
+  };
 
   // Provider id comes from the nav param, falling back to /auth/me (0 → none).
   const serviceProviderId = params?.serviceProviderId ?? (currentUser?.serviceProviderId || null);
@@ -245,10 +260,7 @@ export default function AddEditServiceScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== 'granted') {
-      Alert.alert(
-        'Permission needed',
-        'Please allow access to your photos to upload service photos.'
-      );
+      Alert.alert(t('account.permissionNeededTitle'), t('addEditService.permissionPhotoMsg'));
       return;
     }
 
@@ -293,17 +305,11 @@ export default function AddEditServiceScreen() {
 
   const handleSave = async () => {
     if (!serviceType || !serviceName || !description) {
-      Alert.alert(
-        'Missing Information',
-        'Please fill in Service Type, Service Name, and Description.'
-      );
+      Alert.alert(t('addEditService.missingInfoTitle'), t('addEditService.missingInfoMsg'));
       return;
     }
     if (serviceProviderId == null) {
-      Alert.alert(
-        'No provider profile',
-        'Could not determine your provider profile. Please try again.'
-      );
+      Alert.alert(t('addEditService.noProviderTitle'), t('addEditService.noProviderMsg'));
       return;
     }
     setIsSaving(true);
@@ -355,9 +361,7 @@ export default function AddEditServiceScreen() {
           );
         } catch (schedErr) {
           if (__DEV__) console.warn('[AddEditService] working-hours save failed', schedErr);
-          showError(
-            'The service was saved, but its working hours could not be updated. Open the service to try again.'
-          );
+          showError(t('addEditService.hoursSaveFailed'));
         }
         // Persist the duration/price tiers as pricing options, reconciling
         // against the options the service already has (edit mode). Same
@@ -370,14 +374,12 @@ export default function AddEditServiceScreen() {
           );
         } catch (optErr) {
           if (__DEV__) console.warn('[AddEditService] pricing-options save failed', optErr);
-          showError(
-            'The service was saved, but its pricing options could not be updated. Open the service to try again.'
-          );
+          showError(t('addEditService.optionsSaveFailed'));
         }
       }
       navigation.goBack();
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not save the service. Please try again.'));
+      showError(getErrorMessage(e, t('addEditService.saveFailed')));
     } finally {
       setIsSaving(false);
     }
@@ -386,54 +388,52 @@ export default function AddEditServiceScreen() {
   const handleDelete = () => {
     const serviceId = params?.serviceDto?.id;
     if (serviceId == null) return;
-    Alert.alert(
-      'Delete Service',
-      'Are you sure you want to delete this service? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setIsSaving(true);
-            try {
-              await deleteService(serviceId);
-              navigation.goBack();
-            } catch (e) {
-              showError(getErrorMessage(e, 'Could not delete the service. Please try again.'));
-            } finally {
-              setIsSaving(false);
-            }
-          },
+    Alert.alert(t('myServices.deleteTitle'), t('myServices.deleteMsg'), [
+      { text: t('myServices.cancel'), style: 'cancel' },
+      {
+        text: t('myServices.delete'),
+        style: 'destructive',
+        onPress: async () => {
+          setIsSaving(true);
+          try {
+            await deleteService(serviceId);
+            navigation.goBack();
+          } catch (e) {
+            showError(getErrorMessage(e, t('myServices.deleteFailed')));
+          } finally {
+            setIsSaving(false);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const anyDayEnabled = Object.values(workingHours).some((day) => day.enabled);
 
   const previewButton = (
     <TouchableOpacity onPress={handlePreview}>
-      <Text className="font-semibold text-white">Preview</Text>
+      <Text className="font-semibold text-white">{t('addEditService.preview')}</Text>
     </TouchableOpacity>
   );
 
   return (
     <ScreenLayout
       showBackButton
-      headerTitle={isEdit ? 'Edit Service' : 'Add New Service'}
-      headerSubtitle={isEdit ? 'Update your service details' : 'Create a new service listing'}
+      headerTitle={isEdit ? t('addEditService.titleEdit') : t('addEditService.titleAdd')}
+      headerSubtitle={isEdit ? t('addEditService.subtitleEdit') : t('addEditService.subtitleAdd')}
       rightAction={previewButton}
       contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-white'}>
       <ScrollView className="flex-1 px-6 py-6" showsVerticalScrollIndicator={false}>
         {/* Service Type */}
         <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-2`}>Service Type *</Text>
+          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+            {t('addEditService.serviceType')}
+          </Text>
           <TouchableOpacity
             onPress={() => setShowServiceTypeModal(true)}
             className={`${inputBg} flex-row items-center justify-between rounded-xl px-4 py-3`}>
             <Text className={serviceType ? textColor : `${subtextColor}`}>
-              {serviceType || 'Select a service type'}
+              {serviceType ? typeLabel(serviceType) : t('addEditService.selectServiceType')}
             </Text>
             <Ionicons name="chevron-down" size={20} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
           </TouchableOpacity>
@@ -441,9 +441,11 @@ export default function AddEditServiceScreen() {
 
         {/* Service Name */}
         <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-2`}>Service Name *</Text>
+          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+            {t('addEditService.serviceName')}
+          </Text>
           <TextInput
-            placeholder="e.g., Premium Dog Walking in Central Park"
+            placeholder={t('addEditService.serviceNamePlaceholder')}
             placeholderTextColor={placeholderColor}
             className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
             value={serviceName}
@@ -453,9 +455,11 @@ export default function AddEditServiceScreen() {
 
         {/* Description */}
         <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-2`}>Description *</Text>
+          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+            {t('addEditService.descriptionLabel')}
+          </Text>
           <TextInput
-            placeholder="Describe your service, experience, and what makes you special..."
+            placeholder={t('addEditService.descriptionPlaceholder')}
             placeholderTextColor={placeholderColor}
             className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
             value={description}
@@ -468,10 +472,11 @@ export default function AddEditServiceScreen() {
 
         {/* Service Images */}
         <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-2`}>Service Images</Text>
+          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+            {t('addEditService.serviceImages')}
+          </Text>
           <Text className={`${subtextColor} mb-3 text-sm`}>
-            Add photos of your workspace, previous clients&apos; pets, or yourself. Tap a photo to
-            set it as the profile photo.
+            {t('addEditService.serviceImagesHint')}
           </Text>
           <View className="flex-row flex-wrap gap-2">
             {serviceImages.map((img, index) => (
@@ -497,7 +502,9 @@ export default function AddEditServiceScreen() {
                       borderBottomLeftRadius: 12,
                       borderBottomRightRadius: 12,
                     }}>
-                    <Text style={{ color: 'white', fontSize: 9, fontWeight: '700' }}>Profile</Text>
+                    <Text style={{ color: 'white', fontSize: 9, fontWeight: '700' }}>
+                      {t('addPet.profileBadge')}
+                    </Text>
                   </View>
                 )}
                 <TouchableOpacity
@@ -513,17 +520,18 @@ export default function AddEditServiceScreen() {
               className={`${inputBg} border ${borderColor} items-center justify-center rounded-xl border-dashed`}
               style={{ width: 80, height: 80 }}>
               <Ionicons name="camera-outline" size={24} color="#6B7280" />
-              <Text className={`${subtextColor} mt-1 text-xs`}>Add Photo</Text>
+              <Text className={`${subtextColor} mt-1 text-xs`}>{t('addEditService.addPhoto')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Pricing & Duration */}
         <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-1`}>Pricing & Duration *</Text>
+          <Text className={`text-sm font-semibold ${textColor} mb-1`}>
+            {t('addEditService.pricingDuration')}
+          </Text>
           <Text className={`${subtextColor} mb-3 text-sm`}>
-            Add a duration to each price to offer bookable options — customers must pick one when
-            booking. A single price without a duration keeps free-range booking.
+            {t('addEditService.pricingDurationHint')}
           </Text>
           {pricingTiers.map((tier, index) => (
             <View key={index} className="mb-3 flex-row items-center" style={{ gap: 8 }}>
@@ -537,7 +545,7 @@ export default function AddEditServiceScreen() {
                 <Text
                   className={`${tier.duration ? inputText : subtextColor} text-sm`}
                   numberOfLines={1}>
-                  {tier.duration || 'Duration'}
+                  {tier.duration || t('addEditService.duration')}
                 </Text>
                 <Ionicons
                   name="chevron-down"
@@ -568,7 +576,9 @@ export default function AddEditServiceScreen() {
                 <TouchableOpacity
                   onPress={() => removePricingTier(index)}
                   style={{ width: 56, alignItems: 'flex-end' }}>
-                  <Text className="text-sm font-medium text-red-500">Remove</Text>
+                  <Text className="text-sm font-medium text-red-500">
+                    {t('addEditService.remove')}
+                  </Text>
                 </TouchableOpacity>
               ) : (
                 <View style={{ width: 56 }} />
@@ -585,16 +595,20 @@ export default function AddEditServiceScreen() {
             }}>
             <View className="flex-row items-center">
               <Ionicons name="add-circle-outline" size={20} color="#00C870" />
-              <Text className="ml-2 font-semibold text-brand-500">Add Another Price Tier</Text>
+              <Text className="ml-2 font-semibold text-brand-500">
+                {t('addEditService.addPriceTier')}
+              </Text>
             </View>
           </TouchableOpacity>
         </View>
 
         {/* Maximum Pet Capacity */}
         <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-2`}>Maximum Pet Capacity *</Text>
+          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+            {t('addEditService.maxCapacity')}
+          </Text>
           <Text className={`${subtextColor} mb-2 text-sm`}>
-            How many pets can you care for at the same time?
+            {t('addEditService.maxCapacityHint')}
           </Text>
           <View className={`${inputBg} flex-row items-center rounded-xl px-4 py-3`}>
             <Ionicons name="paw-outline" size={18} color="#00C870" />
@@ -616,10 +630,10 @@ export default function AddEditServiceScreen() {
         {/* Additional Services */}
         <View className="mb-4">
           <Text className={`text-sm font-semibold ${textColor} mb-1`}>
-            Additional Services Offered
+            {t('addEditService.additionalServicesOffered')}
           </Text>
           <Text className={`${subtextColor} mb-3 text-sm`}>
-            Select services and set pricing (enter 0 for free)
+            {t('addEditService.additionalServicesHint')}
           </Text>
 
           {additionalServices.map((service, index) => (
@@ -628,17 +642,19 @@ export default function AddEditServiceScreen() {
                 <TouchableOpacity
                   onPress={() => toggleAdditionalService(index)}
                   className={`${cardBg} border ${borderColor} mb-2 rounded-xl px-4 py-3`}>
-                  <Text className={textColor}>{service.name}</Text>
+                  <Text className={textColor}>{addonLabel(service.name)}</Text>
                 </TouchableOpacity>
               ) : (
                 <View className={`${inputBg} mb-3 rounded-xl border-2 border-brand-300 p-4`}>
                   <View className="mb-3 flex-row items-center justify-between">
-                    <Text className={`${textColor} font-medium`}>{service.name}</Text>
+                    <Text className={`${textColor} font-medium`}>{addonLabel(service.name)}</Text>
                     <TouchableOpacity onPress={() => toggleAdditionalService(index)}>
                       <Ionicons name="close" size={20} color={isDarkMode ? '#fff' : '#000'} />
                     </TouchableOpacity>
                   </View>
-                  <Text className={`${subtextColor} mb-2 text-sm`}>Price (enter 0 for free)</Text>
+                  <Text className={`${subtextColor} mb-2 text-sm`}>
+                    {t('addEditService.priceFreeHint')}
+                  </Text>
                   <View
                     className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
                     <Text className={subtextColor}>$</Text>
@@ -659,15 +675,23 @@ export default function AddEditServiceScreen() {
 
         {/* Working Hours */}
         <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-1`}>Working Hours *</Text>
-          <Text className={`${subtextColor} mb-3 text-sm`}>Set your availability for each day</Text>
+          <Text className={`text-sm font-semibold ${textColor} mb-1`}>
+            {t('addEditService.workingHours')}
+          </Text>
+          <Text className={`${subtextColor} mb-3 text-sm`}>
+            {t('addEditService.workingHoursHint')}
+          </Text>
 
           {!anyDayEnabled && (
             <View className={`${inputBg} mb-3 flex-row items-center rounded-xl p-4`}>
               <View className="mr-3 h-2 w-2 rounded-full bg-gray-400" />
               <View className="flex-1">
-                <Text className={`${subtextColor} font-medium`}>Currently Unavailable</Text>
-                <Text className={`${subtextColor} mt-1 text-xs`}>Based on your schedule below</Text>
+                <Text className={`${subtextColor} font-medium`}>
+                  {t('addEditService.currentlyUnavailable')}
+                </Text>
+                <Text className={`${subtextColor} mt-1 text-xs`}>
+                  {t('addEditService.basedOnSchedule')}
+                </Text>
               </View>
             </View>
           )}
@@ -677,7 +701,7 @@ export default function AddEditServiceScreen() {
               <TouchableOpacity
                 onPress={() => toggleWorkingDay(day)}
                 className={`${cardBg} border ${borderColor} mb-2 flex-row items-center justify-between rounded-xl px-4 py-3`}>
-                <Text className={textColor}>{day}</Text>
+                <Text className={textColor}>{t(`days.${day.toLowerCase()}` as any)}</Text>
                 {/* Display-only — the row's onPress is the single toggle source
                     (a Switch onValueChange here would fire toggle a second time). */}
                 <View pointerEvents="none">
@@ -693,7 +717,9 @@ export default function AddEditServiceScreen() {
                 <View className={`${inputBg} -mt-1 mb-3 rounded-xl border-2 border-brand-300 p-4`}>
                   <View className="flex-row gap-3">
                     <View className="flex-1">
-                      <Text className={`${subtextColor} mb-2 text-sm`}>Start Time</Text>
+                      <Text className={`${subtextColor} mb-2 text-sm`}>
+                        {t('addEditService.startTime')}
+                      </Text>
                       <TouchableOpacity
                         onPress={() => openTimePicker(day, 'start')}
                         className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
@@ -702,7 +728,9 @@ export default function AddEditServiceScreen() {
                       </TouchableOpacity>
                     </View>
                     <View className="flex-1">
-                      <Text className={`${subtextColor} mb-2 text-sm`}>End Time</Text>
+                      <Text className={`${subtextColor} mb-2 text-sm`}>
+                        {t('addEditService.endTime')}
+                      </Text>
                       <TouchableOpacity
                         onPress={() => openTimePicker(day, 'end')}
                         className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
@@ -727,7 +755,7 @@ export default function AddEditServiceScreen() {
             <ActivityIndicator color="white" />
           ) : (
             <Text className="text-lg font-bold text-white">
-              {isEdit ? 'Update Service' : 'Save Service'}
+              {isEdit ? t('addEditService.updateService') : t('addEditService.saveService')}
             </Text>
           )}
         </TouchableOpacity>
@@ -740,7 +768,9 @@ export default function AddEditServiceScreen() {
             className="mb-6 flex-row items-center justify-center rounded-2xl border-2 border-red-500 py-4"
             style={{ opacity: isSaving ? 0.7 : 1 }}>
             <Ionicons name="trash-outline" size={18} color="#EF4444" />
-            <Text className="ml-2 text-lg font-bold text-red-500">Delete Service</Text>
+            <Text className="ml-2 text-lg font-bold text-red-500">
+              {t('addEditService.deleteService')}
+            </Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -758,7 +788,9 @@ export default function AddEditServiceScreen() {
           <TouchableOpacity activeOpacity={1} className={`${cardBg} rounded-t-3xl`}>
             <View className="p-6">
               <View className="mb-4 flex-row items-center justify-between">
-                <Text className={`text-xl font-bold ${textColor}`}>Select Service Type</Text>
+                <Text className={`text-xl font-bold ${textColor}`}>
+                  {t('addEditService.selectServiceTypeModal')}
+                </Text>
                 <TouchableOpacity onPress={() => setShowServiceTypeModal(false)}>
                   <Ionicons name="close" size={24} color={isDarkMode ? '#fff' : '#000'} />
                 </TouchableOpacity>
@@ -773,7 +805,7 @@ export default function AddEditServiceScreen() {
                   }}
                   className={`border-b py-4 ${borderColor}`}>
                   <View className="flex-row items-center justify-between">
-                    <Text className={`text-base ${textColor}`}>{type}</Text>
+                    <Text className={`text-base ${textColor}`}>{typeLabel(type)}</Text>
                     {serviceType === type && (
                       <Ionicons name="checkmark" size={24} color="#00C870" />
                     )}
@@ -798,7 +830,9 @@ export default function AddEditServiceScreen() {
           <TouchableOpacity activeOpacity={1} className={`${cardBg} rounded-t-3xl`}>
             <View className="p-6">
               <View className="mb-4 flex-row items-center justify-between">
-                <Text className={`text-xl font-bold ${textColor}`}>Select Duration</Text>
+                <Text className={`text-xl font-bold ${textColor}`}>
+                  {t('addEditService.selectDuration')}
+                </Text>
                 <TouchableOpacity onPress={() => setShowDurationModal(false)}>
                   <Ionicons name="close" size={24} color={isDarkMode ? '#fff' : '#000'} />
                 </TouchableOpacity>

@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useLocale } from '../context/LocaleContext';
 import { createReview } from '../services/reviews';
 import { getErrorMessage } from '../services/http';
 
@@ -19,6 +20,7 @@ export type ReviewTarget = { bookingId: number; serviceProviderId: number; servi
 export function useReviewModal(onSubmitted?: (bookingId: number) => void) {
   const { currentUser } = useAuth();
   const { showError, showSuccess } = useToast();
+  const { t } = useLocale();
   const [target, setTarget] = useState<ReviewTarget | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -48,15 +50,15 @@ export function useReviewModal(onSubmitted?: (bookingId: number) => void) {
           comment: comment.trim() || null,
         });
         setTarget(null);
-        showSuccess('Your review has been submitted. Thank you!');
+        showSuccess(t('reviewModal.submitted'));
         onSubmittedRef.current?.(target.bookingId);
       } catch (e) {
-        showError(getErrorMessage(e, 'Could not submit your review. Please try again.'));
+        showError(getErrorMessage(e, t('reviewModal.submitFailed')));
       } finally {
         setSubmitting(false);
       }
     },
-    [target, currentUser?.id, showError, showSuccess]
+    [target, currentUser?.id, showError, showSuccess, t]
   );
 
   return { target, submitting, open, close, submit };

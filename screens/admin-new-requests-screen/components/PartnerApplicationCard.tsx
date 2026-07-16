@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useLocale } from '../../../context/LocaleContext';
+import { providerTypeValue } from '../../../services/service-providers';
 
 export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
 
@@ -56,13 +58,29 @@ type Props = {
   onReject?: (id: string) => void;
 };
 
+// Labels are translation keys, resolved with t() at render.
 const STATUS_CONFIG: Record<
   ApplicationStatus,
-  { label: string; bg: string; text: string; borderColor: string }
+  { labelKey: string; bg: string; text: string; borderColor: string }
 > = {
-  pending: { label: 'Pending', bg: '#FEF9C3', text: '#A16207', borderColor: '#FDE047' },
-  approved: { label: 'Approved', bg: '#DCFCE7', text: '#15803D', borderColor: '#86EFAC' },
-  rejected: { label: 'Rejected', bg: '#FEE2E2', text: '#B91C1C', borderColor: '#FCA5A5' },
+  pending: {
+    labelKey: 'admin.statusPending',
+    bg: '#FEF9C3',
+    text: '#A16207',
+    borderColor: '#FDE047',
+  },
+  approved: {
+    labelKey: 'admin.statusApproved',
+    bg: '#DCFCE7',
+    text: '#15803D',
+    borderColor: '#86EFAC',
+  },
+  rejected: {
+    labelKey: 'admin.statusRejected',
+    bg: '#FEE2E2',
+    text: '#B91C1C',
+    borderColor: '#FCA5A5',
+  },
 };
 
 export function PartnerApplicationCard({
@@ -76,8 +94,14 @@ export function PartnerApplicationCard({
   onReject,
 }: Props) {
   const navigation = useNavigation<any>();
+  const { t, tEnum } = useLocale();
   const [expanded, setExpanded] = useState(false);
   const cfg = STATUS_CONFIG[application.status];
+  // Service tags are English enum labels — localize display via the enum value.
+  const svcLabel = (label: string) => {
+    const v = providerTypeValue(label);
+    return v != null ? tEnum('serviceProviderType', v, label) : label;
+  };
 
   const infoBorderColor = isDarkMode ? '#2d3748' : '#F3F4F6';
 
@@ -113,7 +137,9 @@ export function PartnerApplicationCard({
                 borderWidth: 1,
                 borderColor: cfg.borderColor,
               }}>
-              <Text style={{ color: cfg.text, fontSize: 11, fontWeight: '600' }}>{cfg.label}</Text>
+              <Text style={{ color: cfg.text, fontSize: 11, fontWeight: '600' }}>
+                {t(cfg.labelKey as any)}
+              </Text>
             </View>
           </View>
           <Ionicons
@@ -125,7 +151,11 @@ export function PartnerApplicationCard({
 
         {/* ID + submitted */}
         <Text style={{ color: subTextColor, fontSize: 12, marginTop: 4 }}>
-          ID: {application.id} • Submitted {application.submittedDate}, {application.submittedTime}
+          {t('admin.idSubmitted', {
+            id: application.id,
+            date: application.submittedDate,
+            time: application.submittedTime,
+          })}
         </Text>
 
         {/* Service tags */}
@@ -139,7 +169,9 @@ export function PartnerApplicationCard({
                 paddingHorizontal: 10,
                 paddingVertical: 3,
               }}>
-              <Text style={{ color: '#00A85A', fontSize: 11, fontWeight: '500' }}>{svc}</Text>
+              <Text style={{ color: '#00A85A', fontSize: 11, fontWeight: '500' }}>
+                {svcLabel(svc)}
+              </Text>
             </View>
           ))}
         </View>
@@ -157,7 +189,9 @@ export function PartnerApplicationCard({
               borderColor: isDarkMode ? '#4B5563' : '#D1D5DB',
               alignItems: 'center',
             }}>
-            <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>View Details</Text>
+            <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>
+              {t('admin.viewDetails')}
+            </Text>
           </TouchableOpacity>
           {application.status === 'pending' && (
             <TouchableOpacity
@@ -178,7 +212,9 @@ export function PartnerApplicationCard({
                 color="white"
                 style={{ marginRight: 4 }}
               />
-              <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>Approve</Text>
+              <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>
+                {t('admin.approve')}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -191,7 +227,7 @@ export function PartnerApplicationCard({
 
           {/* Personal Information */}
           <Text style={{ color: textColor, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>
-            Personal Information
+            {t('admin.personalInformation')}
           </Text>
           <InfoRow
             icon="mail-outline"
@@ -216,28 +252,28 @@ export function PartnerApplicationCard({
 
           {/* Service Information */}
           <Text style={{ color: textColor, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>
-            Service Information
+            {t('admin.serviceInformation')}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
             <Ionicons name="briefcase-outline" size={14} color={subTextColor} />
             <Text style={{ color: subTextColor, fontSize: 12, marginLeft: 6 }}>
-              Experience: {application.experience}
+              {t('admin.experienceLine', { text: application.experience })}
             </Text>
           </View>
           <Text style={{ color: subTextColor, fontSize: 12, marginBottom: 6, fontWeight: '600' }}>
-            Bio:
+            {t('admin.bio')}
           </Text>
           <Text style={{ color: textColor, fontSize: 12, marginBottom: 10 }}>
             {application.bio}
           </Text>
           <Text style={{ color: subTextColor, fontSize: 12, marginBottom: 2, fontWeight: '500' }}>
-            Certifications:
+            {t('admin.certificationsColon')}
           </Text>
           <Text style={{ color: subTextColor, fontSize: 12, marginBottom: 6 }}>
             {application.certifications}
           </Text>
           <Text style={{ color: subTextColor, fontSize: 12, marginBottom: 2, fontWeight: '500' }}>
-            Availability:
+            {t('admin.availabilityColon')}
           </Text>
           <Text style={{ color: textColor, fontSize: 12, marginBottom: 10 }}>
             {application.availability}
@@ -247,34 +283,34 @@ export function PartnerApplicationCard({
 
           {/* Documents */}
           <Text style={{ color: textColor, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>
-            Documents
+            {t('admin.documents')}
           </Text>
           <DocStatus
-            label="Profile Photo"
+            label={t('admin.profilePhoto')}
             uploaded={!!application.documents.profilePhoto}
             subTextColor={subTextColor}
             textColor={textColor}
           />
           <DocStatus
-            label={`Pet Photos (${application.documents.petPhotos.length})`}
+            label={t('admin.petPhotosCount', { n: application.documents.petPhotos.length })}
             uploaded={application.documents.petPhotos.length > 0}
             subTextColor={subTextColor}
             textColor={textColor}
           />
           <DocStatus
-            label="Government ID — Front"
+            label={t('admin.govIdFront')}
             uploaded={!!application.documents.governmentIdFront}
             subTextColor={subTextColor}
             textColor={textColor}
           />
           <DocStatus
-            label="Government ID — Back"
+            label={t('admin.govIdBack')}
             uploaded={!!application.documents.governmentIdBack}
             subTextColor={subTextColor}
             textColor={textColor}
           />
           <DocStatus
-            label={`Certificates (${application.documents.certificates.length})`}
+            label={t('admin.certificatesCount', { n: application.documents.certificates.length })}
             uploaded={application.documents.certificates.length > 0}
             subTextColor={subTextColor}
             textColor={textColor}

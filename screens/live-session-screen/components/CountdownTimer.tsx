@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { parseBookingDate } from '../../../services/bookings';
+import { useLocale } from '../../../context/LocaleContext';
 
 type Props = {
   /** Scheduled end of the booking (ISO date-time, e.g. booking.bookingTo). */
@@ -25,6 +26,7 @@ function format(totalSeconds: number): string {
  * driven (see BACKEND_GAPS B7).
  */
 export default function CountdownTimer({ endTime, isDarkMode }: Props) {
+  const { t } = useLocale();
   // Booking times are naive wall-clock (see parseBookingDate) — count down to the
   // local wall-clock end, not a UTC-shifted one.
   const end = parseBookingDate(endTime).getTime();
@@ -57,15 +59,16 @@ export default function CountdownTimer({ endTime, isDarkMode }: Props) {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
         <Ionicons name={overtime ? 'alert-circle' : 'time'} size={16} color={accent} />
         <Text style={{ color: accent, fontSize: 13, fontWeight: '700', letterSpacing: 0.3 }}>
-          {overtime ? 'OVERTIME' : 'TIME REMAINING'}
+          {overtime ? t('liveSession.overtime') : t('liveSession.timeRemaining')}
         </Text>
       </View>
-      <Text style={{ color: accent, fontSize: 48, fontWeight: '800', fontVariant: ['tabular-nums'] }}>
+      <Text
+        style={{ color: accent, fontSize: 48, fontWeight: '800', fontVariant: ['tabular-nums'] }}>
         {overtime ? '+' : ''}
         {format(seconds)}
       </Text>
       <Text style={{ color: isDarkMode ? '#9CA3AF' : '#6B7280', fontSize: 12, marginTop: 6 }}>
-        {overtime ? 'Past the scheduled end time' : 'until the scheduled end'}
+        {overtime ? t('liveSession.pastEnd') : t('liveSession.untilEnd')}
       </Text>
     </View>
   );

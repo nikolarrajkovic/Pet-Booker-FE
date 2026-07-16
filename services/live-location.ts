@@ -62,7 +62,7 @@ export async function getLiveLocation(bookingId: number): Promise<LiveLocationDt
   const response = await apiAuthFetch(`${getApiBaseUrl()}/api/bookings/${bookingId}/live-location`);
   if (!response.ok) {
     throw new Error(
-      await parseApiError(response, 'Could not load the live location.', 'getLiveLocation'),
+      await parseApiError(response, 'Could not load the live location.', 'getLiveLocation')
     );
   }
   return (await response.json()) as LiveLocationDto;

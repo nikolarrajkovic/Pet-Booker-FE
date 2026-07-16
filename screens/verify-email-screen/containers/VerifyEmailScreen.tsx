@@ -13,6 +13,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useLocale } from '../../../context/LocaleContext';
 import Button from '../../../components/shared/Button';
 import { confirmEmail, resendConfirmation } from '../../../services/auth';
 
@@ -29,6 +30,7 @@ const CODE_LENGTH = 6;
 
 export default function VerifyEmailScreen() {
   const { isDarkMode, textColor, subtextColor } = useThemeColors();
+  const { t } = useLocale();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<VerifyEmailRouteProp>();
   const email = route.params?.email ?? '';
@@ -125,7 +127,7 @@ export default function VerifyEmailScreen() {
       // Terminal step — reset so back can't return to the verify screen.
       navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Verification failed. Please try again.';
+      const message = error instanceof Error ? error.message : t('verifyEmail.verificationFailed');
       setVerifyError(message);
     } finally {
       setIsSubmitting(false);
@@ -139,9 +141,9 @@ export default function VerifyEmailScreen() {
     inputRefs.current[0]?.focus();
     try {
       await resendConfirmation(email);
-      setResendMessage('A new code has been sent to your email.');
+      setResendMessage(t('verifyEmail.resendSuccess'));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to resend code. Please try again.';
+      const message = error instanceof Error ? error.message : t('verifyEmail.resendFailed');
       setVerifyError(message);
     }
   };
@@ -150,40 +152,41 @@ export default function VerifyEmailScreen() {
     <SafeAreaView className={`flex-1 ${contentBg}`}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
-      >
+        className="flex-1">
         {/* Green Header */}
-        <View className={`${bgColor} px-6 pt-16 pb-12 items-center rounded-b-3xl`}>
-          <View className="w-20 h-20 bg-white rounded-2xl items-center justify-center mb-4 shadow-lg">
+        <View className={`${bgColor} items-center rounded-b-3xl px-6 pb-12 pt-16`}>
+          <View className="mb-4 h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg">
             <MaterialCommunityIcons name="paw" size={40} color="#00A85A" />
           </View>
-          <Text className="text-white text-2xl font-bold">Verify Your Email</Text>
-          <Text className="text-brand-100 mt-1">We&apos;ve sent a 6-digit code to</Text>
+          <Text className="text-2xl font-bold text-white">{t('verifyEmail.title')}</Text>
+          <Text className="mt-1 text-brand-100">{t('verifyEmail.subtitle')}</Text>
         </View>
 
         <ScrollView
           className="flex-1"
           contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 40 }}
-          keyboardShouldPersistTaps="handled"
-        >
+          keyboardShouldPersistTaps="handled">
           {/* Email card */}
-          <View className={`flex-row items-center ${cardBg} border ${cardBorder} rounded-2xl px-4 py-4 mb-8`}>
-            <View className="w-9 h-9 rounded-full bg-emerald-100 items-center justify-center mr-3">
+          <View
+            className={`flex-row items-center ${cardBg} border ${cardBorder} mb-8 rounded-2xl px-4 py-4`}>
+            <View className="mr-3 h-9 w-9 items-center justify-center rounded-full bg-emerald-100">
               <MaterialCommunityIcons name="email-outline" size={20} color="#00A85A" />
             </View>
             <View>
-              <Text className={`text-xs ${subtextColor}`}>Code sent to</Text>
+              <Text className={`text-xs ${subtextColor}`}>{t('verifyEmail.codeSentTo')}</Text>
               <Text className={`text-sm font-semibold ${textColor}`}>{email}</Text>
             </View>
           </View>
 
           {/* Code label */}
-          <Text className={`text-sm font-semibold ${textColor} mb-3`}>Enter verification code</Text>
+          <Text className={`text-sm font-semibold ${textColor} mb-3`}>
+            {t('verifyEmail.enterCode')}
+          </Text>
 
           {/* OTP boxes — each is individually editable (tap to change), and a
               code pasted into any box fills all six (web: handleWebPaste; native:
               the multi-digit paste comes through onChangeText → distribute). */}
-          <View className="flex-row justify-between mb-8">
+          <View className="mb-8 flex-row justify-between">
             {Array.from({ length: CODE_LENGTH }).map((_, index) => (
               <TextInput
                 key={index}
@@ -221,35 +224,38 @@ export default function VerifyEmailScreen() {
 
           {/* Verify button */}
           <Button
-            text={isSubmitting ? 'Verifying...' : 'Verify Email'}
+            text={isSubmitting ? t('verifyEmail.verifying') : t('verifyEmail.verify')}
             onPress={handleVerify}
             variant="primary"
-            className="py-4 rounded-2xl mb-4"
+            className="mb-4 rounded-2xl py-4"
             disabled={isSubmitting || !isFilled}
           />
 
           {verifyError ? (
-            <Text className="text-red-500 text-sm mb-4 text-center">{verifyError}</Text>
+            <Text className="mb-4 text-center text-sm text-red-500">{verifyError}</Text>
           ) : null}
 
           {resendMessage ? (
-            <Text className="text-brand-600 text-sm mb-4 text-center">{resendMessage}</Text>
+            <Text className="mb-4 text-center text-sm text-brand-600">{resendMessage}</Text>
           ) : null}
 
           {/* Resend link */}
-          <View className="flex-row justify-center mb-6">
-            <Text className={`text-sm ${subtextColor}`}>Didn&apos;t receive the code? </Text>
+          <View className="mb-6 flex-row justify-center">
+            <Text className={`text-sm ${subtextColor}`}>{t('verifyEmail.didntReceive')}</Text>
             <TouchableOpacity onPress={handleResend}>
-              <Text className="text-brand-600 font-semibold text-sm">Resend Code</Text>
+              <Text className="text-sm font-semibold text-brand-600">
+                {t('verifyEmail.resend')}
+              </Text>
             </TouchableOpacity>
           </View>
 
           {/* Tip banner */}
-          <View className={`flex-row items-start ${tipBg} border ${tipBorder} rounded-2xl px-4 py-3`}>
+          <View
+            className={`flex-row items-start ${tipBg} border ${tipBorder} rounded-2xl px-4 py-3`}>
             <Text className="mr-2 text-sm">💡</Text>
-            <Text className={`text-xs flex-1 leading-5 ${tipText}`}>
-              <Text className="font-semibold">Tip: </Text>
-              Check your spam folder if you don&apos;t see the email. The code expires in 10 minutes.
+            <Text className={`flex-1 text-xs leading-5 ${tipText}`}>
+              <Text className="font-semibold">{t('verifyEmail.tipLabel')}</Text>
+              {t('verifyEmail.tipBody')}
             </Text>
           </View>
         </ScrollView>

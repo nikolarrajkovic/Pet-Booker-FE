@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
+import { useLocale } from '../../../context/LocaleContext';
 
 interface AddonLine {
   name: string;
@@ -40,11 +41,14 @@ export default function PriceBreakdown({
   addons,
   total,
 }: PriceBreakdownProps) {
+  const { t } = useLocale();
   return (
     <View className={`border-t px-6 py-5 ${borderColor}`}>
-      <Text className={`text-base font-semibold ${textColor} mb-4`}>Price Breakdown</Text>
+      <Text className={`text-base font-semibold ${textColor} mb-4`}>
+        {t('reviewBooking.priceBreakdown')}
+      </Text>
       <View className="mb-3 flex-row justify-between">
-        <Text className={`text-sm ${subtextColor}`}>Service</Text>
+        <Text className={`text-sm ${subtextColor}`}>{t('reviewBooking.serviceLine')}</Text>
         <Text className={`text-sm ${textColor}`}>${money(serviceTotal)}</Text>
       </View>
       {discount && discount.amount > 0 && (
@@ -60,7 +64,7 @@ export default function PriceBreakdown({
         </View>
       ))}
       <View className={`border-t ${borderColor} mt-3 flex-row justify-between pt-3`}>
-        <Text className={`text-base font-bold ${textColor}`}>Total</Text>
+        <Text className={`text-base font-bold ${textColor}`}>{t('reviewBooking.total')}</Text>
         <Text className="text-2xl font-bold text-brand-600">${money(total)}</Text>
       </View>
     </View>

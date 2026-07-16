@@ -63,7 +63,7 @@ export default function LiveTrackingMap({ latest, trail }: LiveTrackingMapProps)
   </script>
 </body>
 </html>`,
-    [],
+    []
   );
 
   // Handshake: the iframe announces readiness so early pings aren't lost.
@@ -79,7 +79,7 @@ export default function LiveTrackingMap({ latest, trail }: LiveTrackingMapProps)
     if (!mapReady || !latest) return;
     iframeRef.current?.contentWindow?.postMessage(
       { type: 'live-tracking-update', latest, trail },
-      '*',
+      '*'
     );
   }, [mapReady, latest, trail]);
 

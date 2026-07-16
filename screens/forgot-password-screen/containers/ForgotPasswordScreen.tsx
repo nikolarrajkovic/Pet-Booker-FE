@@ -1,16 +1,26 @@
 import React, { useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import {
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { forgotPassword, resetPassword } from '../../../services/auth';
 import { getErrorMessage } from '../../../services/http';
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation<any>();
-  const { bgColor, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor } = useThemeColors();
+  const { bgColor, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor } =
+    useThemeColors();
   const { showError } = useToast();
+  const { t } = useLocale();
 
   const [step, setStep] = useState<'request' | 'reset'>('request');
   const [email, setEmail] = useState('');
@@ -20,14 +30,17 @@ export default function ForgotPasswordScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const sendEmail = async () => {
-    if (!email.trim()) { Alert.alert('Email required', 'Please enter your email address.'); return; }
+    if (!email.trim()) {
+      Alert.alert(t('forgotPassword.emailRequiredTitle'), t('forgotPassword.emailRequiredBody'));
+      return;
+    }
     setIsSubmitting(true);
     try {
       await forgotPassword(email.trim());
-      Alert.alert('Check your email', 'If an account exists, a reset code has been sent.');
+      Alert.alert(t('forgotPassword.checkEmailTitle'), t('forgotPassword.checkEmailBody'));
       setStep('reset');
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not send reset email. Please try again.'));
+      showError(getErrorMessage(e, t('forgotPassword.sendFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -35,22 +48,25 @@ export default function ForgotPasswordScreen() {
 
   const submitReset = async () => {
     if (!resetToken || !newPassword || !confirmPassword) {
-      Alert.alert('Missing fields', 'Please fill in all fields.');
+      Alert.alert(t('forgotPassword.missingFieldsTitle'), t('forgotPassword.missingFieldsBody'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Passwords don’t match', 'New password and confirmation must match.');
+      Alert.alert(t('forgotPassword.mismatchTitle'), t('forgotPassword.mismatchBody'));
       return;
     }
     setIsSubmitting(true);
     try {
       await resetPassword({ resetToken: resetToken.trim(), newPassword, confirmPassword });
-      Alert.alert('Password reset', 'You can now sign in with your new password.', [
+      Alert.alert(t('forgotPassword.resetDoneTitle'), t('forgotPassword.resetDoneBody'), [
         // Terminal step — reset so back can't return to the reset form.
-        { text: 'OK', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }) },
+        {
+          text: t('common.ok'),
+          onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }),
+        },
       ]);
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not reset password. Please try again.'));
+      showError(getErrorMessage(e, t('forgotPassword.resetFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -67,45 +83,80 @@ export default function ForgotPasswordScreen() {
   );
 
   return (
-    <ScreenLayout headerVariant="standard" showBackButton headerTitle="Reset Password" contentBg={bgColor}>
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }} keyboardShouldPersistTaps="handled">
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle={t('forgotPassword.title')}
+      contentBg={bgColor}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ padding: 24 }}
+        keyboardShouldPersistTaps="handled">
         {step === 'request' ? (
           <>
             <Text className={`text-sm ${subtextColor} mb-5`}>
-              Enter the email associated with your account and we’ll send you a reset code.
+              {t('forgotPassword.requestSubtitle')}
             </Text>
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>Email</Text>
-            {input(email, setEmail, { placeholder: 'you@example.com', keyboardType: 'email-address', autoCapitalize: 'none' })}
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('forgotPassword.email')}
+            </Text>
+            {input(email, setEmail, {
+              placeholder: t('forgotPassword.emailPlaceholderExample'),
+              keyboardType: 'email-address',
+              autoCapitalize: 'none',
+            })}
             <TouchableOpacity
               onPress={sendEmail}
               disabled={isSubmitting}
-              className="bg-brand-500 py-4 rounded-2xl items-center mt-2"
-              style={{ opacity: isSubmitting ? 0.7 : 1 }}
-            >
-              {isSubmitting ? <ActivityIndicator color="white" /> : <Text className="text-white text-lg font-bold">Send Reset Code</Text>}
+              className="mt-2 items-center rounded-2xl bg-brand-500 py-4"
+              style={{ opacity: isSubmitting ? 0.7 : 1 }}>
+              {isSubmitting ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-lg font-bold text-white">{t('forgotPassword.sendCode')}</Text>
+              )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setStep('reset')} className="items-center mt-4">
-              <Text className="text-brand-600 font-semibold text-sm">I already have a reset code</Text>
+            <TouchableOpacity onPress={() => setStep('reset')} className="mt-4 items-center">
+              <Text className="text-sm font-semibold text-brand-600">
+                {t('forgotPassword.haveCode')}
+              </Text>
             </TouchableOpacity>
           </>
         ) : (
           <>
             <Text className={`text-sm ${subtextColor} mb-5`}>
-              Enter the reset code from your email along with your new password.
+              {t('forgotPassword.resetSubtitle')}
             </Text>
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>Reset Code</Text>
-            {input(resetToken, setResetToken, { placeholder: 'Paste your reset code', autoCapitalize: 'none' })}
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>New Password</Text>
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('forgotPassword.resetCode')}
+            </Text>
+            {input(resetToken, setResetToken, {
+              placeholder: t('forgotPassword.resetCodePlaceholderPaste'),
+              autoCapitalize: 'none',
+            })}
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('forgotPassword.newPassword')}
+            </Text>
             {input(newPassword, setNewPassword, { secureTextEntry: true, autoCapitalize: 'none' })}
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>Confirm New Password</Text>
-            {input(confirmPassword, setConfirmPassword, { secureTextEntry: true, autoCapitalize: 'none' })}
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('forgotPassword.confirmPassword')}
+            </Text>
+            {input(confirmPassword, setConfirmPassword, {
+              secureTextEntry: true,
+              autoCapitalize: 'none',
+            })}
             <TouchableOpacity
               onPress={submitReset}
               disabled={isSubmitting}
-              className="bg-brand-500 py-4 rounded-2xl items-center mt-2"
-              style={{ opacity: isSubmitting ? 0.7 : 1 }}
-            >
-              {isSubmitting ? <ActivityIndicator color="white" /> : <Text className="text-white text-lg font-bold">Reset Password</Text>}
+              className="mt-2 items-center rounded-2xl bg-brand-500 py-4"
+              style={{ opacity: isSubmitting ? 0.7 : 1 }}>
+              {isSubmitting ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-lg font-bold text-white">
+                  {t('forgotPassword.resetPassword')}
+                </Text>
+              )}
             </TouchableOpacity>
           </>
         )}

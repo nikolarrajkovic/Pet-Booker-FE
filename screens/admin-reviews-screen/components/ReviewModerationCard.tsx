@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useLocale } from '../../../context/LocaleContext';
 
 export type ReviewStatus = 'pending' | 'approved' | 'rejected';
 
@@ -30,10 +31,11 @@ type Props = {
   onDecline?: (id: number) => void;
 };
 
-const STATUS_STYLE: Record<ReviewStatus, { label: string; color: string; bg: string }> = {
-  pending: { label: 'Pending', color: '#A16207', bg: '#FEF9C3' },
-  approved: { label: 'Approved', color: '#15803D', bg: '#DCFCE7' },
-  rejected: { label: 'Declined', color: '#B91C1C', bg: '#FEE2E2' },
+// Labels are translation keys, resolved with t() at render.
+const STATUS_STYLE: Record<ReviewStatus, { labelKey: string; color: string; bg: string }> = {
+  pending: { labelKey: 'admin.statusPending', color: '#A16207', bg: '#FEF9C3' },
+  approved: { labelKey: 'admin.statusApproved', color: '#15803D', bg: '#DCFCE7' },
+  rejected: { labelKey: 'admin.statusDeclined', color: '#B91C1C', bg: '#FEE2E2' },
 };
 
 export function ReviewModerationCard({
@@ -47,6 +49,7 @@ export function ReviewModerationCard({
   onApprove,
   onDecline,
 }: Props) {
+  const { t } = useLocale();
   const status = STATUS_STYLE[review.status];
   const initials = review.providerName
     .split(' ')
@@ -103,7 +106,9 @@ export function ReviewModerationCard({
             paddingHorizontal: 8,
             paddingVertical: 3,
           }}>
-          <Text style={{ color: status.color, fontSize: 11, fontWeight: '700' }}>{status.label}</Text>
+          <Text style={{ color: status.color, fontSize: 11, fontWeight: '700' }}>
+            {t(status.labelKey as any)}
+          </Text>
         </View>
       </View>
 
@@ -130,7 +135,13 @@ export function ReviewModerationCard({
         </Text>
       ) : null}
       {review.comment ? (
-        <Text style={{ color: subTextColor, fontSize: 13, lineHeight: 19, marginTop: review.title ? 4 : 10 }}>
+        <Text
+          style={{
+            color: subTextColor,
+            fontSize: 13,
+            lineHeight: 19,
+            marginTop: review.title ? 4 : 10,
+          }}>
           {review.comment}
         </Text>
       ) : null}
@@ -153,7 +164,9 @@ export function ReviewModerationCard({
             borderRadius: 10,
             padding: 10,
           }}>
-          <Text style={{ color: '#B91C1C', fontSize: 12, fontWeight: '600' }}>Decline reason</Text>
+          <Text style={{ color: '#B91C1C', fontSize: 12, fontWeight: '600' }}>
+            {t('admin.declineReason')}
+          </Text>
           <Text style={{ color: isDarkMode ? '#FCA5A5' : '#7F1D1D', fontSize: 12, marginTop: 2 }}>
             {review.declineReason}
           </Text>
@@ -180,7 +193,7 @@ export function ReviewModerationCard({
             }}>
             <Ionicons name="close-circle-outline" size={18} color="#DC2626" />
             <Text style={{ color: '#DC2626', fontWeight: '700', fontSize: 14, marginLeft: 6 }}>
-              Decline
+              {t('admin.decline')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -203,7 +216,7 @@ export function ReviewModerationCard({
               <>
                 <Ionicons name="checkmark-circle-outline" size={18} color="white" />
                 <Text style={{ color: 'white', fontWeight: '700', fontSize: 14, marginLeft: 6 }}>
-                  Approve
+                  {t('admin.approve')}
                 </Text>
               </>
             )}

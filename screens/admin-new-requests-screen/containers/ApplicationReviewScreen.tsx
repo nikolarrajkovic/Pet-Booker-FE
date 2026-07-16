@@ -16,7 +16,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
+import { providerTypeValue } from '../../../services/service-providers';
 import type { PartnerApplication, ApplicationStatus, ApplicationImage } from '../components';
 import {
   approveServiceProvider,
@@ -31,21 +33,40 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-async function openDownload(url: string) {
+async function openDownload(
+  url: string,
+  t: (key: any, params?: Record<string, string | number>) => string
+) {
   try {
     await Linking.openURL(url);
   } catch {
-    Alert.alert('Unable to open file', 'The file could not be opened.');
+    Alert.alert(t('admin.fileOpenErrorTitle'), t('admin.fileOpenErrorMsg'));
   }
 }
 
+// Labels are translation keys, resolved with t() at render.
 const STATUS_CONFIG: Record<
   ApplicationStatus,
-  { label: string; bg: string; text: string; borderColor: string }
+  { labelKey: string; bg: string; text: string; borderColor: string }
 > = {
-  pending: { label: 'Pending', bg: '#FEF9C3', text: '#A16207', borderColor: '#FDE047' },
-  approved: { label: 'Approved', bg: '#DCFCE7', text: '#15803D', borderColor: '#86EFAC' },
-  rejected: { label: 'Rejected', bg: '#FEE2E2', text: '#B91C1C', borderColor: '#FCA5A5' },
+  pending: {
+    labelKey: 'admin.statusPending',
+    bg: '#FEF9C3',
+    text: '#A16207',
+    borderColor: '#FDE047',
+  },
+  approved: {
+    labelKey: 'admin.statusApproved',
+    bg: '#DCFCE7',
+    text: '#15803D',
+    borderColor: '#86EFAC',
+  },
+  rejected: {
+    labelKey: 'admin.statusRejected',
+    bg: '#FEE2E2',
+    text: '#B91C1C',
+    borderColor: '#FCA5A5',
+  },
 };
 
 export default function ApplicationReviewScreen() {
@@ -53,6 +74,7 @@ export default function ApplicationReviewScreen() {
   const route = useRoute<any>();
   const { isDarkMode, hex } = useThemeColors();
   const { showError } = useToast();
+  const { t, tEnum } = useLocale();
   const insets = useSafeAreaInsets();
 
   const application: PartnerApplication = route.params?.application;
@@ -65,7 +87,7 @@ export default function ApplicationReviewScreen() {
   if (!application) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Text>Application not found.</Text>
+        <Text>{t('admin.applicationNotFound')}</Text>
       </View>
     );
   }
@@ -91,7 +113,7 @@ export default function ApplicationReviewScreen() {
       setStatus('approved');
       navigation.goBack();
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not approve the application. Please try again.'));
+      showError(getErrorMessage(e, t('admin.approveFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -99,29 +121,25 @@ export default function ApplicationReviewScreen() {
 
   const handleReject = () => {
     if (!providerId) return;
-    Alert.alert(
-      'Reject application?',
-      `${application.applicantName}'s application will be marked as declined.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reject',
-          style: 'destructive',
-          onPress: async () => {
-            setIsSubmitting(true);
-            try {
-              await declineServiceProvider(providerId, 'Application declined by admin');
-              setStatus('rejected');
-              navigation.goBack();
-            } catch (e) {
-              showError(getErrorMessage(e, 'Could not reject the application. Please try again.'));
-            } finally {
-              setIsSubmitting(false);
-            }
-          },
+    Alert.alert(t('admin.rejectTitle'), t('admin.rejectMsg', { name: application.applicantName }), [
+      { text: t('admin.cancel'), style: 'cancel' },
+      {
+        text: t('admin.reject'),
+        style: 'destructive',
+        onPress: async () => {
+          setIsSubmitting(true);
+          try {
+            await declineServiceProvider(providerId, t('admin.declinedByAdmin'));
+            setStatus('rejected');
+            navigation.goBack();
+          } catch (e) {
+            showError(getErrorMessage(e, t('admin.rejectFailed')));
+          } finally {
+            setIsSubmitting(false);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
@@ -150,10 +168,10 @@ export default function ApplicationReviewScreen() {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={{ color: 'white', fontSize: 20, fontWeight: '700' }}>
-              Application Review
+              {t('admin.applicationReview')}
             </Text>
             <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>
-              ID: {application.id}
+              {t('admin.applicationId', { id: application.id })}
             </Text>
           </View>
         </View>
@@ -226,7 +244,10 @@ export default function ApplicationReviewScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
                     <Ionicons name="calendar-outline" size={13} color={subTextColor} />
                     <Text style={{ color: subTextColor, fontSize: 12, marginLeft: 4 }}>
-                      Submitted {application.submittedDate} at {application.submittedTime}
+                      {t('admin.submittedAt', {
+                        date: application.submittedDate,
+                        time: application.submittedTime,
+                      })}
                     </Text>
                   </View>
                 </View>
@@ -242,7 +263,7 @@ export default function ApplicationReviewScreen() {
                   marginLeft: 8,
                 }}>
                 <Text style={{ color: cfg.text, fontSize: 12, fontWeight: '700' }}>
-                  {cfg.label}
+                  {t(cfg.labelKey as any)}
                 </Text>
               </View>
             </View>
@@ -256,7 +277,12 @@ export default function ApplicationReviewScreen() {
                     paddingHorizontal: 10,
                     paddingVertical: 3,
                   }}>
-                  <Text style={{ color: '#00A85A', fontSize: 11, fontWeight: '500' }}>{svc}</Text>
+                  <Text style={{ color: '#00A85A', fontSize: 11, fontWeight: '500' }}>
+                    {(() => {
+                      const v = providerTypeValue(svc);
+                      return v != null ? tEnum('serviceProviderType', v, svc) : svc;
+                    })()}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -265,27 +291,27 @@ export default function ApplicationReviewScreen() {
           {/* ── Personal Information ── */}
           <SectionCard
             icon="person-outline"
-            title="Personal Information"
+            title={t('admin.personalInformation')}
             sectionBg={sectionBg}
             borderColor={borderColor}
             textColor={textColor}>
             <LabelValueRow
               icon="mail-outline"
-              label="Email"
+              label={t('admin.email')}
               value={application.email}
               textColor={textColor}
               subTextColor={subTextColor}
             />
             <LabelValueRow
               icon="call-outline"
-              label="Phone"
+              label={t('admin.phone')}
               value={application.phone}
               textColor={textColor}
               subTextColor={subTextColor}
             />
             <LabelValueRow
               icon="location-outline"
-              label="Address"
+              label={t('admin.address')}
               value={application.address}
               textColor={textColor}
               subTextColor={subTextColor}
@@ -295,14 +321,14 @@ export default function ApplicationReviewScreen() {
           {/* ── Service Information ── */}
           <SectionCard
             icon="briefcase-outline"
-            title="Service Information"
+            title={t('admin.serviceInformation')}
             sectionBg={sectionBg}
             borderColor={borderColor}
             textColor={textColor}>
             <View style={{ marginBottom: 10 }}>
               <Text
                 style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 2 }}>
-                Experience
+                {t('admin.experience')}
               </Text>
               <Text style={{ color: textColor, fontSize: 13 }}>{application.experience}</Text>
             </View>
@@ -310,7 +336,7 @@ export default function ApplicationReviewScreen() {
             <View style={{ marginBottom: 10 }}>
               <Text
                 style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 4 }}>
-                About
+                {t('admin.about')}
               </Text>
               <Text style={{ color: textColor, fontSize: 13, lineHeight: 19 }}>
                 {application.bio}
@@ -327,7 +353,7 @@ export default function ApplicationReviewScreen() {
                       fontWeight: '600',
                       marginBottom: 2,
                     }}>
-                    Certifications
+                    {t('admin.certifications')}
                   </Text>
                   <Text style={{ color: textColor, fontSize: 13 }}>
                     {application.certifications}
@@ -339,7 +365,7 @@ export default function ApplicationReviewScreen() {
             <View>
               <Text
                 style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 2 }}>
-                Availability
+                {t('admin.availability')}
               </Text>
               <Text style={{ color: textColor, fontSize: 13 }}>{application.availability}</Text>
             </View>
@@ -348,13 +374,13 @@ export default function ApplicationReviewScreen() {
           {/* ── Documents & Photos ── */}
           <SectionCard
             icon="document-text-outline"
-            title="Documents & Photos"
+            title={t('admin.documentsPhotos')}
             sectionBg={sectionBg}
             borderColor={borderColor}
             textColor={textColor}>
             {/* Profile Photo */}
             <DocBlock
-              title="Profile Photo"
+              title={t('admin.profilePhoto')}
               icon="person-circle-outline"
               iconBg="#E8F5EF"
               iconColor="#00C870"
@@ -368,13 +394,17 @@ export default function ApplicationReviewScreen() {
                   onPress={() => setViewerUri(docs.profilePhoto!.src)}
                 />
               ) : (
-                <EmptyDoc text="No profile photo uploaded" subTextColor={subTextColor} />
+                <EmptyDoc text={t('admin.noProfilePhoto')} subTextColor={subTextColor} />
               )}
             </DocBlock>
 
             {/* Pet Photos */}
             <DocBlock
-              title={`Pet Photos${docs.petPhotos.length ? ` (${docs.petPhotos.length})` : ''}`}
+              title={
+                docs.petPhotos.length
+                  ? t('admin.petPhotosCount', { n: docs.petPhotos.length })
+                  : t('admin.petPhotos')
+              }
               icon="paw-outline"
               iconBg="#FEF3C7"
               iconColor="#D97706"
@@ -403,13 +433,13 @@ export default function ApplicationReviewScreen() {
                   ))}
                 </View>
               ) : (
-                <EmptyDoc text="No pet photos uploaded" subTextColor={subTextColor} />
+                <EmptyDoc text={t('admin.noPetPhotos')} subTextColor={subTextColor} />
               )}
             </DocBlock>
 
             {/* Government ID — front & back */}
             <DocBlock
-              title="Government ID"
+              title={t('admin.governmentId')}
               icon="shield-checkmark-outline"
               iconBg="#EEF2FF"
               iconColor="#6366F1"
@@ -419,7 +449,7 @@ export default function ApplicationReviewScreen() {
               {docs.governmentIdFront || docs.governmentIdBack ? (
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <IdSide
-                    label="Front"
+                    label={t('admin.front')}
                     img={docs.governmentIdFront}
                     revealed={idFrontRevealed}
                     onReveal={() => setIdFrontRevealed(true)}
@@ -429,7 +459,7 @@ export default function ApplicationReviewScreen() {
                     subTextColor={subTextColor}
                   />
                   <IdSide
-                    label="Back"
+                    label={t('admin.back')}
                     img={docs.governmentIdBack}
                     revealed={idBackRevealed}
                     onReveal={() => setIdBackRevealed(true)}
@@ -440,13 +470,17 @@ export default function ApplicationReviewScreen() {
                   />
                 </View>
               ) : (
-                <EmptyDoc text="No government ID uploaded" subTextColor={subTextColor} />
+                <EmptyDoc text={t('admin.noGovernmentId')} subTextColor={subTextColor} />
               )}
             </DocBlock>
 
             {/* Certificates */}
             <DocBlock
-              title={`Certificates${docs.certificates.length ? ` (${docs.certificates.length})` : ''}`}
+              title={
+                docs.certificates.length
+                  ? t('admin.certificatesCount', { n: docs.certificates.length })
+                  : t('admin.certificates')
+              }
               icon="ribbon-outline"
               iconBg="#E8F5EF"
               iconColor="#00C870"
@@ -497,7 +531,7 @@ export default function ApplicationReviewScreen() {
                         </View>
                         <TouchableOpacity
                           activeOpacity={0.8}
-                          onPress={() => openDownload(c.fileSrc)}
+                          onPress={() => openDownload(c.fileSrc, t)}
                           style={{ padding: 8 }}>
                           <Ionicons name="open-outline" size={20} color="#00C870" />
                         </TouchableOpacity>
@@ -506,7 +540,7 @@ export default function ApplicationReviewScreen() {
                   </View>
                 ))
               ) : (
-                <EmptyDoc text="No certificates uploaded" subTextColor={subTextColor} />
+                <EmptyDoc text={t('admin.noCertificates')} subTextColor={subTextColor} />
               )}
             </DocBlock>
           </SectionCard>
@@ -580,7 +614,9 @@ export default function ApplicationReviewScreen() {
                 color="#EF4444"
                 style={{ marginRight: 6 }}
               />
-              <Text style={{ color: '#EF4444', fontSize: 15, fontWeight: '700' }}>Reject</Text>
+              <Text style={{ color: '#EF4444', fontSize: 15, fontWeight: '700' }}>
+                {t('admin.reject')}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.8}
@@ -607,7 +643,7 @@ export default function ApplicationReviewScreen() {
                     style={{ marginRight: 6 }}
                   />
                   <Text style={{ color: 'white', fontSize: 15, fontWeight: '700' }}>
-                    Approve Application
+                    {t('admin.approveApplication')}
                   </Text>
                 </>
               )}
@@ -632,7 +668,7 @@ export default function ApplicationReviewScreen() {
               alignItems: 'center',
             }}>
             <Text style={{ color: STATUS_CONFIG[status].text, fontSize: 15, fontWeight: '700' }}>
-              Application {STATUS_CONFIG[status].label}
+              {t('admin.applicationStatus', { status: t(STATUS_CONFIG[status].labelKey as any) })}
             </Text>
           </View>
         )}
@@ -824,6 +860,7 @@ function ViewableImage({
   height: number;
   onPress: () => void;
 }) {
+  const { t } = useLocale();
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{ position: 'relative' }}>
       <Image
@@ -844,7 +881,7 @@ function ViewableImage({
           alignItems: 'center',
         }}>
         <Ionicons name="expand-outline" size={13} color="white" />
-        <Text style={{ color: 'white', fontSize: 11, marginLeft: 4 }}>Tap to view</Text>
+        <Text style={{ color: 'white', fontSize: 11, marginLeft: 4 }}>{t('admin.tapToView')}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -870,6 +907,7 @@ function IdSide({
   textColor: string;
   subTextColor: string;
 }) {
+  const { t } = useLocale();
   return (
     <View style={{ flex: 1 }}>
       <Text style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 6 }}>
@@ -900,7 +938,7 @@ function IdSide({
             }}>
             <Ionicons name={revealed ? 'expand-outline' : 'eye-outline'} size={12} color="white" />
             <Text style={{ color: 'white', fontSize: 10, marginLeft: 3 }}>
-              {revealed ? 'View' : 'Reveal'}
+              {revealed ? t('admin.view') : t('admin.reveal')}
             </Text>
           </View>
         </TouchableOpacity>
@@ -916,7 +954,9 @@ function IdSide({
             justifyContent: 'center',
           }}>
           <Ionicons name="image-outline" size={20} color={subTextColor} />
-          <Text style={{ color: subTextColor, fontSize: 11, marginTop: 4 }}>Not provided</Text>
+          <Text style={{ color: subTextColor, fontSize: 11, marginTop: 4 }}>
+            {t('admin.notProvided')}
+          </Text>
         </View>
       )}
     </View>
