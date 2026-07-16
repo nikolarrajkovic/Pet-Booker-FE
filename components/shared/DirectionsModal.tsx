@@ -11,6 +11,7 @@ import {
 import MapView, { PROVIDER_GOOGLE, Marker, Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { themeColors } from '../../hooks/useThemeColors';
+import { useLocale } from '../../context/LocaleContext';
 import { getCurrentPosition, GeoPoint } from '../../services/geocoding';
 
 export type DirectionsModalProps = {
@@ -78,6 +79,7 @@ export default function DirectionsModal({
   isDarkMode,
   onClose,
 }: DirectionsModalProps) {
+  const { t } = useLocale();
   const { hex } = themeColors(isDarkMode);
   const mapRef = useRef<MapView>(null);
   const [origin, setOrigin] = useState<GeoPoint | null>(null);
@@ -170,11 +172,11 @@ export default function DirectionsModal({
               showsUserLocation>
               <Marker
                 coordinate={destination}
-                title={destinationLabel || 'Destination'}
+                title={destinationLabel || t('shared.destination')}
                 pinColor="#00C870"
               />
               {origin ? (
-                <Marker coordinate={origin} title="You are here" pinColor="#2563EB" />
+                <Marker coordinate={origin} title={t('shared.youAreHere')} pinColor="#2563EB" />
               ) : null}
               {route && route.length > 1 ? (
                 <Polyline coordinates={route} strokeColor="#00C870" strokeWidth={4} />
@@ -183,7 +185,9 @@ export default function DirectionsModal({
           ) : (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="navigate-outline" size={48} color={hex.subtext} />
-              <Text style={{ color: hex.subtext, marginTop: 12 }}>No location to navigate to.</Text>
+              <Text style={{ color: hex.subtext, marginTop: 12 }}>
+                {t('shared.noNavigationTarget')}
+              </Text>
             </View>
           )}
           {loading ? (

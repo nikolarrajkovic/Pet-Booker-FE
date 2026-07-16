@@ -13,7 +13,7 @@ interface LocationData {
 export function useLocation() {
   const [location, setLocation] = useState<LocationData>({
     latitude: 44.8176, // Default to Belgrade
-    longitude: 20.4570,
+    longitude: 20.457,
     address: 'Belgrade, Serbia',
     loading: true,
     error: null,
@@ -55,7 +55,7 @@ export function useLocation() {
         }
 
         const currentLocation = await Location.getCurrentPositionAsync({});
-        
+
         // Reverse geocode to get address
         const address = await Location.reverseGeocodeAsync({
           latitude: currentLocation.coords.latitude,
@@ -65,13 +65,9 @@ export function useLocation() {
         if (address[0]) {
           // Build address in format: streetNumber, street, city
           const streetNumber = address[0].streetNumber || address[0].name?.match(/^\d+/)?.[0];
-          const parts = [
-            streetNumber,
-            address[0].street,
-            address[0].city,
-          ].filter(Boolean);
+          const parts = [streetNumber, address[0].street, address[0].city].filter(Boolean);
           const fullAddress = parts.join(', ');
-          
+
           setLocation({
             latitude: currentLocation.coords.latitude,
             longitude: currentLocation.coords.longitude,

@@ -4,17 +4,11 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PetCard } from '../components';
 import { getPets, deletePet, PetResponse } from '../../../services/pets';
 import ActionPopup from '../../../components/shared/ActionPopup';
-
-function mapSexLabel(sex: number): string {
-  if (sex === 1) return 'Male';
-  if (sex === 2) return 'Female';
-  return 'Unspecified';
-}
-
 
 function resolveUrl(path: string | null | undefined): string | null {
   if (!path) return null;
@@ -23,24 +17,31 @@ function resolveUrl(path: string | null | undefined): string | null {
   return `${base}${path.startsWith('/') ? '' : '/'}${path}`;
 }
 
-function toPetCardShape(p: PetResponse) {
-  return {
-    id: p.id,
-    name: p.name,
-    breed: p.breed,
-    sex: mapSexLabel(p.sex),
-    age: p.ageYears ? `${p.ageYears} year${p.ageYears !== 1 ? 's' : ''}` : 'Unknown',
-    weight: p.weightKg ? `${p.weightKg} kg` : '-',
-    height: p.heightCm ? `${p.heightCm} cm` : '-',
-    image: resolveUrl(p.photoUrl),
-  };
-}
-
 export default function MyPetsScreen() {
   const navigation = useNavigation();
   const route = useRoute<any>();
-  const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor, borderColor } = useThemeColors();
+  const {
+    isDarkMode,
+    cardBg,
+    bgColor: contentBg,
+    textColor,
+    subtextColor,
+    borderColor,
+  } = useThemeColors();
   const { currentUser } = useAuth();
+  const { t, tEnum } = useLocale();
+
+  // Localized display shape for a pet (sex via tEnum, age via the yrs unit).
+  const toPetCardShape = (p: PetResponse) => ({
+    id: p.id,
+    name: p.name,
+    breed: p.breed,
+    sex: p.sex === 1 || p.sex === 2 ? tEnum('sex', p.sex) : t('pets.unspecified'),
+    age: p.ageYears ? `${p.ageYears} ${t('pets.yearsShort')}` : t('pets.unknown'),
+    weight: p.weightKg ? `${p.weightKg} kg` : '-',
+    height: p.heightCm ? `${p.heightCm} cm` : '-',
+    image: resolveUrl(p.photoUrl),
+  });
 
   const [pets, setPets] = useState<PetResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,15 +76,17 @@ export default function MyPetsScreen() {
             prevRefreshKeyRef.current = refreshKey;
           }
         } catch (err: any) {
-          if (!cancelled) setError(err?.message ?? 'Failed to load pets.');
+          if (!cancelled) setError(err?.message ?? t('pets.loadError'));
         } finally {
           if (!cancelled) setIsLoading(false);
         }
       };
 
       load();
-      return () => { cancelled = true; };
-    }, [currentUser, route.params]),
+      return () => {
+        cancelled = true;
+      };
+    }, [currentUser, route.params])
   );
 
   const handleDelete = (pet: PetResponse) => {
@@ -99,7 +102,7 @@ export default function MyPetsScreen() {
       await deletePet(pet.id);
       setPets((prev) => prev.filter((p) => p.id !== pet.id));
     } catch (err: any) {
-      setDeleteError(err?.message ?? 'Failed to delete pet. Please try again.');
+      setDeleteError(err?.message ?? t('pets.deleteError'));
     } finally {
       setDeletingId(null);
     }
@@ -109,21 +112,24 @@ export default function MyPetsScreen() {
     <ScreenLayout
       headerVariant="standard"
       showBackButton
-      headerTitle="My Pets"
+      headerTitle={t('pets.title')}
       contentBg={contentBg}
       rightAction={
-        <TouchableOpacity onPress={() => (navigation as any).navigate('AddPet')} className="w-10 h-10 bg-white rounded-full items-center justify-center">
+        <TouchableOpacity
+          onPress={() => (navigation as any).navigate('AddPet')}
+          className="h-10 w-10 items-center justify-center rounded-full bg-white">
           <Ionicons name="add" size={24} color="#00C870" />
         </TouchableOpacity>
-      }
-    >
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingTop: 24, paddingBottom: 20, paddingHorizontal: 24 }}>
+      }>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingTop: 24, paddingBottom: 20, paddingHorizontal: 24 }}>
         {isLoading ? (
           <ActivityIndicator size="large" color="#00C870" style={{ marginTop: 40 }} />
         ) : error ? (
-          <Text className={`text-center mt-10 ${subtextColor}`}>{error}</Text>
+          <Text className={`mt-10 text-center ${subtextColor}`}>{error}</Text>
         ) : pets.length === 0 ? (
-          <Text className={`text-center mt-10 ${subtextColor}`}>No pets yet. Tap + to add one!</Text>
+          <Text className={`mt-10 text-center ${subtextColor}`}>{t('pets.noPets')}</Text>
         ) : (
           pets.map((pet) => (
             <PetCard
@@ -134,20 +140,22 @@ export default function MyPetsScreen() {
               textColor={textColor}
               subtextColor={subtextColor}
               borderColor={borderColor}
-              onEdit={() => (navigation as any).navigate('AddPet', {
-                pet: {
-                  ...toPetCardShape(pet),
-                  petTypeNum: pet.type,
-                  sexNum: pet.sex,
-                  weight: pet.weightKg ? String(pet.weightKg) : '',
-                  height: pet.heightCm ? String(pet.heightCm) : '',
-                  dateOfBirth: pet.dateOfBirth ?? undefined,
-                  dietaryNotes: pet.dietaryNotes ?? '',
-                  favoriteFood: pet.favoriteFood ?? '',
-                  additionalNotes: pet.additionalNotes ?? '',
-                  photos: pet.photos,
-                },
-              })}
+              onEdit={() =>
+                (navigation as any).navigate('AddPet', {
+                  pet: {
+                    ...toPetCardShape(pet),
+                    petTypeNum: pet.type,
+                    sexNum: pet.sex,
+                    weight: pet.weightKg ? String(pet.weightKg) : '',
+                    height: pet.heightCm ? String(pet.heightCm) : '',
+                    dateOfBirth: pet.dateOfBirth ?? undefined,
+                    dietaryNotes: pet.dietaryNotes ?? '',
+                    favoriteFood: pet.favoriteFood ?? '',
+                    additionalNotes: pet.additionalNotes ?? '',
+                    photos: pet.photos,
+                  },
+                })
+              }
               onDelete={() => handleDelete(pet)}
               isDeleting={deletingId === pet.id}
             />
@@ -158,8 +166,8 @@ export default function MyPetsScreen() {
       <ActionPopup
         visible={!!pendingDeletePet}
         mode="error"
-        text={`Are you sure you want to delete ${pendingDeletePet?.name ?? 'this pet'}? This action cannot be undone.`}
-        buttonText="Delete"
+        text={t('pets.deleteConfirm', { name: pendingDeletePet?.name ?? t('pets.thisPet') })}
+        buttonText={t('common.delete')}
         onConfirm={confirmDelete}
         onCancel={() => setPendingDeletePet(null)}
       />
@@ -168,11 +176,10 @@ export default function MyPetsScreen() {
         visible={!!deleteError}
         mode="error"
         text={deleteError ?? ''}
-        buttonText="OK"
+        buttonText={t('common.ok')}
         onConfirm={() => setDeleteError(null)}
         onCancel={() => setDeleteError(null)}
       />
     </ScreenLayout>
   );
 }
-

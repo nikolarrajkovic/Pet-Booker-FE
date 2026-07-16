@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PartnerApplicationCard } from '../components';
@@ -75,35 +76,42 @@ export function providerToApplication(dto: ServiceProviderDto): PartnerApplicati
 
 type FilterTab = 'pending' | 'approved' | 'rejected';
 
-const TABS: { key: FilterTab; label: string; icon: any; activeColor: string; activeBg: string }[] =
-  [
-    {
-      key: 'pending',
-      label: 'Pending',
-      icon: 'time-outline',
-      activeColor: '#A16207',
-      activeBg: '#FEF9C3',
-    },
-    {
-      key: 'approved',
-      label: 'Approved',
-      icon: 'checkmark-circle-outline',
-      activeColor: '#15803D',
-      activeBg: '#DCFCE7',
-    },
-    {
-      key: 'rejected',
-      label: 'Rejected',
-      icon: 'close-circle-outline',
-      activeColor: '#B91C1C',
-      activeBg: '#FEE2E2',
-    },
-  ];
+// Labels are translation keys, resolved with t() at render.
+const TABS: {
+  key: FilterTab;
+  labelKey: string;
+  icon: any;
+  activeColor: string;
+  activeBg: string;
+}[] = [
+  {
+    key: 'pending',
+    labelKey: 'admin.statusPending',
+    icon: 'time-outline',
+    activeColor: '#A16207',
+    activeBg: '#FEF9C3',
+  },
+  {
+    key: 'approved',
+    labelKey: 'admin.statusApproved',
+    icon: 'checkmark-circle-outline',
+    activeColor: '#15803D',
+    activeBg: '#DCFCE7',
+  },
+  {
+    key: 'rejected',
+    labelKey: 'admin.statusRejected',
+    icon: 'close-circle-outline',
+    activeColor: '#B91C1C',
+    activeBg: '#FEE2E2',
+  },
+];
 
 export default function AdminNewRequestsScreen() {
   const navigation = useNavigation<any>();
   const { isDarkMode, hex } = useThemeColors();
   const { showError } = useToast();
+  const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<FilterTab>('pending');
   const [applications, setApplications] = useState<PartnerApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -117,11 +125,11 @@ export default function AdminNewRequestsScreen() {
       const dtos = await getServiceProviders({ perPage: 200 });
       setApplications(dtos.map(providerToApplication));
     } catch (e) {
-      setLoadError(getErrorMessage(e, 'Could not load applications. Please try again.'));
+      setLoadError(getErrorMessage(e, t('admin.applicationsLoadFailed')));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // Always navigate to AdminDashboard on Android hardware back
   useFocusEffect(
@@ -174,7 +182,7 @@ export default function AdminNewRequestsScreen() {
       await Promise.all((app.certificateIds ?? []).map((cid) => approveCertificate(cid)));
       await load();
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not approve the application. Please try again.'));
+      showError(getErrorMessage(e, t('admin.approveFailed')));
     } finally {
       setBusyId(null);
     }
@@ -183,28 +191,24 @@ export default function AdminNewRequestsScreen() {
   const handleReject = (id: string) => {
     const app = applications.find((a) => a.id === id);
     if (!app?.providerId) return;
-    Alert.alert(
-      'Reject application?',
-      `${app.applicantName}'s application will be marked as declined.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reject',
-          style: 'destructive',
-          onPress: async () => {
-            setBusyId(id);
-            try {
-              await declineServiceProvider(app.providerId!, 'Application declined by admin');
-              await load();
-            } catch (e) {
-              showError(getErrorMessage(e, 'Could not reject the application. Please try again.'));
-            } finally {
-              setBusyId(null);
-            }
-          },
+    Alert.alert(t('admin.rejectTitle'), t('admin.rejectMsg', { name: app.applicantName }), [
+      { text: t('admin.cancel'), style: 'cancel' },
+      {
+        text: t('admin.reject'),
+        style: 'destructive',
+        onPress: async () => {
+          setBusyId(id);
+          try {
+            await declineServiceProvider(app.providerId!, t('admin.declinedByAdmin'));
+            await load();
+          } catch (e) {
+            showError(getErrorMessage(e, t('admin.rejectFailed')));
+          } finally {
+            setBusyId(null);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
@@ -212,8 +216,8 @@ export default function AdminNewRequestsScreen() {
       headerVariant="standard"
       showBackButton
       onBackPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })}
-      headerTitle="New Requests"
-      headerSubtitle="Review and manage partner applications"
+      headerTitle={t('admin.requestsTitle')}
+      headerSubtitle={t('admin.requestsSubtitle')}
       contentBg={contentBg}>
       {/* ── Filter tabs ── */}
       <View
@@ -253,7 +257,7 @@ export default function AdminNewRequestsScreen() {
                   fontWeight: '600',
                   marginLeft: 5,
                 }}>
-                {tab.label}
+                {t(tab.labelKey as any)}
               </Text>
               <View
                 style={{
@@ -308,7 +312,11 @@ export default function AdminNewRequestsScreen() {
               color={isDarkMode ? '#4B5563' : '#D1D5DB'}
             />
             <Text style={{ color: subTextColor, textAlign: 'center', marginTop: 16, fontSize: 15 }}>
-              No {activeTab} applications
+              {activeTab === 'pending'
+                ? t('admin.noPendingApplications')
+                : activeTab === 'approved'
+                  ? t('admin.noApprovedApplications')
+                  : t('admin.noRejectedApplications')}
             </Text>
           </View>
         ) : (

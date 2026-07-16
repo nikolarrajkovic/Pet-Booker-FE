@@ -1,17 +1,12 @@
 import React, { useCallback, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  SafeAreaView,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
 import {
   getBookings,
@@ -30,18 +25,21 @@ const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
 const fmtPct = (p: number | null): string | undefined =>
   p == null ? undefined : `${p >= 0 ? '+' : ''}${Math.round(p)}%`;
 
-function relativeTime(iso?: string | null): string {
+// Translate function shape shared by the helpers below.
+type TFn = (key: any, params?: Record<string, string | number>) => string;
+
+function relativeTime(t: TFn, iso?: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
   const mins = Math.floor((Date.now() - d.getTime()) / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t('notifications.justNow');
+  if (mins < 60) return t('notifications.minutesAgo', { m: mins });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return t('notifications.hoursAgo', { h: hrs });
   const days = Math.floor(hrs / 24);
-  if (days === 1) return 'Yesterday';
-  if (days < 7) return `${days}d ago`;
+  if (days === 1) return t('partnerHub.yesterday');
+  if (days < 7) return t('notifications.daysAgo', { d: days });
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
@@ -82,15 +80,15 @@ const EMPTY_HUB: HubData = {
   recent: [],
 };
 
-function toActivity(b: BookingDto): ActivityItem {
-  const client = b.user?.userName?.trim() || 'a client';
+function toActivity(t: TFn, b: BookingDto): ActivityItem {
+  const client = b.user?.userName?.trim() || t('partnerHub.aClient');
   const id = b.id ?? 0;
   if (b.review?.rating) {
     return {
       id,
       bookingId: id,
-      title: `${b.review.rating}-star review from ${client}`,
-      time: relativeTime(b.updatedAt ?? b.createdAt),
+      title: t('partnerHub.starReviewFrom', { rating: b.review.rating, name: client }),
+      time: relativeTime(t, b.updatedAt ?? b.createdAt),
       icon: 'star-outline',
       iconBg: '#FEF3C7',
       iconColor: '#F59E0B',
@@ -100,8 +98,8 @@ function toActivity(b: BookingDto): ActivityItem {
     return {
       id,
       bookingId: id,
-      title: `Service completed for ${client}`,
-      time: relativeTime(b.updatedAt ?? b.createdAt),
+      title: t('partnerHub.serviceCompletedFor', { name: client }),
+      time: relativeTime(t, b.updatedAt ?? b.createdAt),
       icon: 'checkmark-done-outline',
       iconBg: '#EEF2FF',
       iconColor: '#6366F1',
@@ -112,9 +110,9 @@ function toActivity(b: BookingDto): ActivityItem {
     bookingId: id,
     title:
       b.currentStatus === BookingStatusType.ServiceRequestedByUser
-        ? `New booking request from ${client}`
-        : `Booking from ${client}`,
-    time: relativeTime(b.createdAt),
+        ? t('partnerHub.newBookingRequestFrom', { name: client })
+        : t('partnerHub.bookingFrom', { name: client }),
+    time: relativeTime(t, b.createdAt),
     icon: 'calendar-outline',
     iconBg: '#E8F5EF',
     iconColor: '#00C870',
@@ -136,7 +134,12 @@ async function countActivePromos(providerId: number): Promise<number> {
   }
 }
 
-function computeHub(bookings: BookingDto[], rating: number | null, activePromos: number): HubData {
+function computeHub(
+  t: TFn,
+  bookings: BookingDto[],
+  rating: number | null,
+  activePromos: number
+): HubData {
   const now = new Date();
   const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -172,9 +175,7 @@ function computeHub(bookings: BookingDto[], rating: number | null, activePromos:
   const newRequests = bookings.filter(
     (b) => b.currentStatus === BookingStatusType.ServiceRequestedByUser
   ).length;
-  const hasLiveSession = bookings.some(
-    (b) => b.currentStatus === BookingStatusType.ServiceStarted
-  );
+  const hasLiveSession = bookings.some((b) => b.currentStatus === BookingStatusType.ServiceStarted);
 
   const recent = [...bookings]
     .sort((a, b) => {
@@ -183,7 +184,7 @@ function computeHub(bookings: BookingDto[], rating: number | null, activePromos:
       return tb - ta;
     })
     .slice(0, 4)
-    .map(toActivity);
+    .map((b) => toActivity(t, b));
 
   return {
     revenueThisMonth,
@@ -202,12 +203,13 @@ function computeHub(bookings: BookingDto[], rating: number | null, activePromos:
   };
 }
 
-// ─── Quick Actions (static config; badges are computed) ──────────────────────
+// ─── Quick Actions (static config; titles/subtitles are translation keys,
+// resolved with t() at render; badges are computed) ─────────────────────────
 const QUICK_ACTIONS = [
   {
     id: 'live-session',
-    title: 'Live Session',
-    subtitle: 'Start & run a service',
+    titleKey: 'partnerHub.liveSession',
+    subtitleKey: 'partnerHub.liveSessionSub',
     icon: 'radio-outline' as const,
     iconBg: '#FEE2E2',
     iconColor: '#EF4444',
@@ -215,8 +217,8 @@ const QUICK_ACTIONS = [
   },
   {
     id: 'schedule',
-    title: 'My Schedule',
-    subtitle: 'Manage appointments',
+    titleKey: 'partnerHub.mySchedule',
+    subtitleKey: 'partnerHub.myScheduleSub',
     icon: 'calendar-outline' as const,
     iconBg: '#EEF2FF',
     iconColor: '#6366F1',
@@ -224,8 +226,8 @@ const QUICK_ACTIONS = [
   },
   {
     id: 'requests',
-    title: 'Requests',
-    subtitle: 'Review booking requests',
+    titleKey: 'partnerHub.requests',
+    subtitleKey: 'partnerHub.requestsSub',
     icon: 'notifications-outline' as const,
     iconBg: '#FEE2E2',
     iconColor: '#EF4444',
@@ -233,8 +235,8 @@ const QUICK_ACTIONS = [
   },
   {
     id: 'services',
-    title: 'My Services',
-    subtitle: 'Edit services & pricing',
+    titleKey: 'partnerHub.myServices',
+    subtitleKey: 'partnerHub.myServicesSub',
     icon: 'bar-chart-outline' as const,
     iconBg: '#F3E8FF',
     iconColor: '#A855F7',
@@ -242,8 +244,8 @@ const QUICK_ACTIONS = [
   },
   {
     id: 'promotions',
-    title: 'Promotions',
-    subtitle: 'Boost your visibility',
+    titleKey: 'partnerHub.promotions',
+    subtitleKey: 'partnerHub.promotionsSub',
     icon: 'flash-outline' as const,
     iconBg: '#FEF3C7',
     iconColor: '#F59E0B',
@@ -256,6 +258,7 @@ export default function PartnerHubScreen() {
   const { isDarkMode, hex } = useThemeColors();
   const { currentUser } = useAuth();
   const { showError } = useToast();
+  const { t } = useLocale();
   const insets = useSafeAreaInsets();
 
   const bgColor = hex.bg;
@@ -289,12 +292,12 @@ export default function PartnerHubScreen() {
             countActivePromos(providerId),
           ]);
           if (!cancelled) {
-            setHub(computeHub(bookings, provider?.ratingAvg ?? null, activePromos));
+            setHub(computeHub(t, bookings, provider?.ratingAvg ?? null, activePromos));
             setLoaded(true);
             // The dashboard otherwise degrades silently to zeros — surface the
             // failure of its primary data source so it doesn't read as "no activity".
             if (bookingsError) {
-              showError(getErrorMessage(bookingsError, 'Could not load your dashboard data. Please try again.'));
+              showError(getErrorMessage(bookingsError, t('partnerHub.dashboardLoadFailed')));
             }
           }
         } catch {
@@ -307,7 +310,7 @@ export default function PartnerHubScreen() {
       return () => {
         cancelled = true;
       };
-    }, [currentUser?.serviceProviderId])
+    }, [currentUser?.serviceProviderId, t])
   );
 
   const hasLiveSession = hub.hasLiveSession;
@@ -318,37 +321,44 @@ export default function PartnerHubScreen() {
       id: 'revenue',
       icon: 'cash-outline' as const,
       value: dash(fmtMoney(hub.revenueThisMonth)),
-      label: 'This Month',
+      label: t('partnerHub.thisMonth'),
       change: loaded ? fmtPct(hub.revenueChangePct) : undefined,
     },
     {
       id: 'clients',
       icon: 'people-outline' as const,
       value: dash(String(hub.totalClients)),
-      label: 'Total Clients',
+      label: t('partnerHub.totalClients'),
       change: undefined,
     },
     {
       id: 'appointments',
       icon: 'calendar-outline' as const,
       value: dash(String(hub.appointments)),
-      label: 'Appointments',
+      label: t('partnerHub.appointments'),
       change: undefined,
     },
     {
       id: 'rating',
       icon: 'star-outline' as const,
-      value: loaded ? (hub.rating && hub.rating > 0 ? hub.rating.toFixed(1) : 'New') : '—',
-      label: 'Rating',
+      value: loaded
+        ? hub.rating && hub.rating > 0
+          ? hub.rating.toFixed(1)
+          : t('partnerHub.ratingNew')
+        : '—',
+      label: t('partnerHub.rating'),
       change: undefined,
     },
   ];
 
   const badgeFor = (id: string): string | null => {
-    if (id === 'live-session') return hasLiveSession ? 'LIVE' : null;
-    if (id === 'schedule') return hub.todayCount > 0 ? `${hub.todayCount} today` : null;
-    if (id === 'requests') return hub.newRequests > 0 ? `${hub.newRequests} new` : null;
-    if (id === 'promotions') return hub.activePromos > 0 ? `${hub.activePromos} active` : null;
+    if (id === 'live-session') return hasLiveSession ? t('partnerHub.live') : null;
+    if (id === 'schedule')
+      return hub.todayCount > 0 ? t('partnerHub.nToday', { n: hub.todayCount }) : null;
+    if (id === 'requests')
+      return hub.newRequests > 0 ? t('partnerHub.nNew', { n: hub.newRequests }) : null;
+    if (id === 'promotions')
+      return hub.activePromos > 0 ? t('partnerHub.nActive', { n: hub.activePromos }) : null;
     return null;
   };
 
@@ -361,15 +371,21 @@ export default function PartnerHubScreen() {
           paddingHorizontal: 20,
           paddingTop: insets.top > 0 ? 8 : 16,
           paddingBottom: 24,
-        }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+          }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: 'white', fontSize: 26, fontWeight: '700', letterSpacing: -0.5 }}>
-              Partner Hub
+              {t('partnerHub.title')}
             </Text>
             <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, marginTop: 2 }}>
-              Welcome back, {currentUser?.firstName?.trim() || 'Partner'}!
+              {t('partnerHub.welcomeBack', {
+                name: currentUser?.firstName?.trim() || t('partnerHub.partner'),
+              })}
             </Text>
           </View>
           <TouchableOpacity
@@ -381,8 +397,7 @@ export default function PartnerHubScreen() {
               backgroundColor: 'rgba(255,255,255,0.25)',
               alignItems: 'center',
               justifyContent: 'center',
-            }}
-          >
+            }}>
             <Ionicons name="settings-outline" size={20} color="white" />
           </TouchableOpacity>
         </View>
@@ -392,8 +407,7 @@ export default function PartnerHubScreen() {
           horizontal
           showsHorizontalScrollIndicator={false}
           style={{ marginTop: 16 }}
-          contentContainerStyle={{ gap: 10, paddingRight: 4 }}
-        >
+          contentContainerStyle={{ gap: 10, paddingRight: 4 }}>
           {pills.map((stat) => (
             <View
               key={stat.id}
@@ -406,8 +420,7 @@ export default function PartnerHubScreen() {
                 alignItems: 'center',
                 gap: 10,
                 minWidth: 150,
-              }}
-            >
+              }}>
               <View
                 style={{
                   width: 36,
@@ -416,8 +429,7 @@ export default function PartnerHubScreen() {
                   backgroundColor: 'rgba(255,255,255,0.3)',
                   alignItems: 'center',
                   justifyContent: 'center',
-                }}
-              >
+                }}>
                 <Ionicons name={stat.icon} size={18} color="white" />
               </View>
               <View style={{ flex: 1 }}>
@@ -432,8 +444,7 @@ export default function PartnerHubScreen() {
                         borderRadius: 6,
                         paddingHorizontal: 5,
                         paddingVertical: 1,
-                      }}
-                    >
+                      }}>
                       <Text style={{ color: 'white', fontSize: 10, fontWeight: '600' }}>
                         {stat.change}
                       </Text>
@@ -458,12 +469,10 @@ export default function PartnerHubScreen() {
           borderTopRightRadius: 24,
           marginTop: -16,
           overflow: 'hidden',
-        }}
-      >
+        }}>
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 100 }}
-        >
+          contentContainerStyle={{ paddingBottom: 100 }}>
           {/* ── Active Live Session banner ── */}
           {hasLiveSession && (
             <TouchableOpacity
@@ -478,8 +487,7 @@ export default function PartnerHubScreen() {
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 12,
-              }}
-            >
+              }}>
               <View
                 style={{
                   width: 44,
@@ -488,16 +496,15 @@ export default function PartnerHubScreen() {
                   backgroundColor: 'rgba(255,255,255,0.25)',
                   alignItems: 'center',
                   justifyContent: 'center',
-                }}
-              >
+                }}>
                 <Ionicons name="radio" size={22} color="white" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: 'white', fontSize: 15, fontWeight: '700' }}>
-                  Service in progress
+                  {t('partnerHub.serviceInProgress')}
                 </Text>
                 <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12, marginTop: 2 }}>
-                  Tap to open your live session
+                  {t('partnerHub.tapToOpenLive')}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="white" />
@@ -506,8 +513,14 @@ export default function PartnerHubScreen() {
 
           {/* ── Quick Actions ── */}
           <View style={{ paddingHorizontal: 20, paddingTop: 24 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: isDarkMode ? '#ffffff' : '#111827', marginBottom: 14 }}>
-              Quick Actions
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: isDarkMode ? '#ffffff' : '#111827',
+                marginBottom: 14,
+              }}>
+              {t('partnerHub.quickActions')}
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
               {QUICK_ACTIONS.map((action) => {
@@ -515,65 +528,78 @@ export default function PartnerHubScreen() {
                 const badgeText = badgeFor(action.id);
                 const badgeColor = isLive ? '#EF4444' : '#F97316';
                 return (
-                <TouchableOpacity
-                  key={action.id}
-                  activeOpacity={0.85}
-                  onPress={() => (navigation as any).navigate(action.route, action.id === 'schedule' || isLive ? { mode: 'partner' } : undefined)}
-                  style={{
-                    width: '47%',
-                    backgroundColor: cardBg,
-                    borderRadius: 16,
-                    padding: 16,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 1 },
-                    shadowOpacity: isDarkMode ? 0 : 0.05,
-                    shadowRadius: 3,
-                    elevation: 2,
-                    borderWidth: 1,
-                    borderColor: isLive && hasLiveSession ? '#EF4444' : borderColor,
-                  }}
-                >
-                  {/* Badge */}
-                  {badgeText && (
+                  <TouchableOpacity
+                    key={action.id}
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      (navigation as any).navigate(
+                        action.route,
+                        action.id === 'schedule' || isLive ? { mode: 'partner' } : undefined
+                      )
+                    }
+                    style={{
+                      width: '47%',
+                      backgroundColor: cardBg,
+                      borderRadius: 16,
+                      padding: 16,
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: isDarkMode ? 0 : 0.05,
+                      shadowRadius: 3,
+                      elevation: 2,
+                      borderWidth: 1,
+                      borderColor: isLive && hasLiveSession ? '#EF4444' : borderColor,
+                    }}>
+                    {/* Badge */}
+                    {badgeText && (
+                      <View
+                        style={{
+                          position: 'absolute',
+                          top: 10,
+                          right: 10,
+                          backgroundColor: badgeColor,
+                          borderRadius: 8,
+                          paddingHorizontal: 7,
+                          paddingVertical: 2,
+                        }}>
+                        <Text style={{ color: 'white', fontSize: 10, fontWeight: '600' }}>
+                          {badgeText}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Icon */}
                     <View
                       style={{
-                        position: 'absolute',
-                        top: 10,
-                        right: 10,
-                        backgroundColor: badgeColor,
-                        borderRadius: 8,
-                        paddingHorizontal: 7,
-                        paddingVertical: 2,
-                      }}
-                    >
-                      <Text style={{ color: 'white', fontSize: 10, fontWeight: '600' }}>
-                        {badgeText}
-                      </Text>
+                        width: 44,
+                        height: 44,
+                        borderRadius: 12,
+                        backgroundColor: action.iconBg,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: 10,
+                      }}>
+                      <Ionicons name={action.icon} size={22} color={action.iconColor} />
                     </View>
-                  )}
 
-                  {/* Icon */}
-                  <View
-                    style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 12,
-                      backgroundColor: action.iconBg,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginBottom: 10,
-                    }}
-                  >
-                    <Ionicons name={action.icon} size={22} color={action.iconColor} />
-                  </View>
-
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: isDarkMode ? '#ffffff' : '#111827', marginBottom: 3 }}>
-                    {action.title}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: isDarkMode ? '#6B7280' : '#6B7280', lineHeight: 15 }}>
-                    {action.subtitle}
-                  </Text>
-                </TouchableOpacity>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: isDarkMode ? '#ffffff' : '#111827',
+                        marginBottom: 3,
+                      }}>
+                      {t(action.titleKey as any)}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        color: isDarkMode ? '#6B7280' : '#6B7280',
+                        lineHeight: 15,
+                      }}>
+                      {t(action.subtitleKey as any)}
+                    </Text>
+                  </TouchableOpacity>
                 );
               })}
             </View>
@@ -581,8 +607,14 @@ export default function PartnerHubScreen() {
 
           {/* ── Recent Activity ── */}
           <View style={{ paddingHorizontal: 20, paddingTop: 28 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: isDarkMode ? '#ffffff' : '#111827', marginBottom: 14 }}>
-              Recent Activity
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: isDarkMode ? '#ffffff' : '#111827',
+                marginBottom: 14,
+              }}>
+              {t('partnerHub.recentActivity')}
             </Text>
             <View
               style={{
@@ -596,12 +628,11 @@ export default function PartnerHubScreen() {
                 elevation: 2,
                 borderWidth: 1,
                 borderColor: borderColor,
-              }}
-            >
+              }}>
               {hub.recent.length === 0 ? (
                 <View style={{ paddingHorizontal: 16, paddingVertical: 24, alignItems: 'center' }}>
                   <Text style={{ fontSize: 13, color: '#9CA3AF' }}>
-                    {loaded ? 'No recent activity yet' : 'Loading…'}
+                    {loaded ? t('partnerHub.noRecentActivity') : t('partnerHub.loading')}
                   </Text>
                 </View>
               ) : (
@@ -611,7 +642,9 @@ export default function PartnerHubScreen() {
                     activeOpacity={0.8}
                     onPress={() =>
                       item.bookingId
-                        ? (navigation as any).navigate('BookingDetails', { bookingId: item.bookingId })
+                        ? (navigation as any).navigate('BookingDetails', {
+                            bookingId: item.bookingId,
+                          })
                         : undefined
                     }
                     style={{
@@ -621,8 +654,7 @@ export default function PartnerHubScreen() {
                       paddingVertical: 14,
                       borderBottomWidth: index < hub.recent.length - 1 ? 1 : 0,
                       borderBottomColor: activityBorder,
-                    }}
-                  >
+                    }}>
                     <View
                       style={{
                         width: 40,
@@ -632,12 +664,16 @@ export default function PartnerHubScreen() {
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginRight: 12,
-                      }}
-                    >
+                      }}>
                       <Ionicons name={item.icon} size={20} color={item.iconColor} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '500', color: isDarkMode ? '#ffffff' : '#111827' }}>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: '500',
+                          color: isDarkMode ? '#ffffff' : '#111827',
+                        }}>
                         {item.title}
                       </Text>
                       <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>
@@ -661,8 +697,7 @@ export default function PartnerHubScreen() {
                 flexDirection: 'row',
                 alignItems: 'flex-start',
                 gap: 12,
-              }}
-            >
+              }}>
               <View
                 style={{
                   width: 44,
@@ -672,20 +707,31 @@ export default function PartnerHubScreen() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexShrink: 0,
-                }}
-              >
+                }}>
                 <MaterialCommunityIcons name="bullseye-arrow" size={22} color="#6366F1" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: isDarkMode ? '#a5b4fc' : '#4338CA', marginBottom: 4 }}>
-                  Growth Tip
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '700',
+                    color: isDarkMode ? '#a5b4fc' : '#4338CA',
+                    marginBottom: 4,
+                  }}>
+                  {t('partnerHub.growthTip')}
                 </Text>
-                <Text style={{ fontSize: 13, color: isDarkMode ? '#818CF8' : '#6366F1', lineHeight: 18, marginBottom: 8 }}>
-                  Complete your profile with photos and detailed service descriptions to get 40% more bookings.
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: isDarkMode ? '#818CF8' : '#6366F1',
+                    lineHeight: 18,
+                    marginBottom: 8,
+                  }}>
+                  {t('partnerHub.growthTipText')}
                 </Text>
                 <TouchableOpacity onPress={() => (navigation as any).navigate('Profile')}>
                   <Text style={{ fontSize: 13, fontWeight: '600', color: '#00C870' }}>
-                    Complete Profile {'>'}
+                    {t('partnerHub.completeProfile')}
                   </Text>
                 </TouchableOpacity>
               </View>

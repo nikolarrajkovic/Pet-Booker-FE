@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useLocale } from '../../../context/LocaleContext';
 
 interface Booking {
   id: number;
@@ -38,7 +39,8 @@ const getStatusColor = (status: string) => {
   }
 };
 
-const getStatusText = (status: string) => status.charAt(0).toUpperCase() + status.slice(1);
+// statusLabel string → BookingState enum value (for the localized tEnum lookup).
+const STATUS_TO_STATE: Record<string, number> = { upcoming: 0, completed: 1, cancelled: 2 };
 
 export default function BookingCard({
   booking,
@@ -50,6 +52,7 @@ export default function BookingCard({
   onViewDetails,
   onLeaveReview,
 }: BookingCardProps) {
+  const { t, tEnum } = useLocale();
   const canReview = booking.status === 'completed' && !booking.rating && !!onLeaveReview;
   return (
     <View className={`${cardBg} mb-3 rounded-2xl border p-4 ${borderColor}`}>
@@ -61,7 +64,7 @@ export default function BookingCard({
               {booking.providerName}
             </Text>
             <Text className={`text-sm font-semibold ${getStatusColor(booking.status)}`}>
-              {getStatusText(booking.status)}
+              {tEnum('bookingState', STATUS_TO_STATE[booking.status] ?? 0, booking.status)}
             </Text>
           </View>
           <Text className={`text-sm ${subtextColor} mb-2`}>{booking.serviceType}</Text>
@@ -95,12 +98,14 @@ export default function BookingCard({
                 <TouchableOpacity className="flex-row items-center" onPress={onLeaveReview}>
                   <Ionicons name="star-outline" size={15} color="#F59E0B" />
                   <Text className="ml-1 text-sm font-semibold" style={{ color: '#F59E0B' }}>
-                    Review
+                    {t('myBookings.review')}
                   </Text>
                 </TouchableOpacity>
               ) : null}
               <TouchableOpacity onPress={onViewDetails}>
-                <Text className="text-sm font-semibold text-brand-600">View Details →</Text>
+                <Text className="text-sm font-semibold text-brand-600">
+                  {t('myBookings.viewDetails')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

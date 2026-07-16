@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-  SafeAreaView, ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  View,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -44,13 +50,16 @@ export default function ProviderDetailScreen() {
           setReviews(rev);
         }
       } catch (e) {
-        if (!cancelled) showError(getErrorMessage(e, 'Could not load provider details. Please try again.'));
+        if (!cancelled)
+          showError(getErrorMessage(e, 'Could not load provider details. Please try again.'));
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [provider.id]);
 
   // Derive real rating + starting price from fetched data when available
@@ -60,9 +69,7 @@ export default function ProviderDetailScreen() {
   const reviewCount = reviews.length || provider.reviews;
   // Prefer the effective price (after any applied discount) the API returns
   const servicePrice = (s: ServiceDto) => s.price ?? s.pricing?.basePrice ?? 0;
-  const startingPrice = services.length
-    ? Math.min(...services.map(servicePrice))
-    : provider.price;
+  const startingPrice = services.length ? Math.min(...services.map(servicePrice)) : provider.price;
   const address = provider.address
     ? [provider.address.line1, provider.address.city, provider.address.state]
         .filter(Boolean)
@@ -75,14 +82,19 @@ export default function ProviderDetailScreen() {
       <View className="relative">
         <Image
           source={{ uri: provider.image || FALLBACK_IMAGE }}
-          className="w-full h-64"
+          className="h-64 w-full"
           resizeMode="cover"
         />
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          className="absolute top-12 left-4 w-10 h-10 bg-white rounded-full items-center justify-center"
-          style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 }}
-        >
+          className="absolute left-4 top-12 h-10 w-10 items-center justify-center rounded-full bg-white"
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
+          }}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
       </View>
@@ -91,14 +103,16 @@ export default function ProviderDetailScreen() {
         {/* Header info */}
         <View className="px-6 py-5">
           <Text className={`text-2xl font-bold ${textColor}`}>{provider.name}</Text>
-          <Text className="text-brand-600 text-base mt-1">{provider.service}</Text>
+          <Text className="mt-1 text-base text-brand-600">{provider.service}</Text>
 
-          <View className="flex-row items-center mt-3 gap-4">
+          <View className="mt-3 flex-row items-center gap-4">
             {(avgRating > 0 || reviewCount > 0) && (
               <>
-                <View className="flex-row items-center bg-brand-50 px-2 py-1 rounded-lg">
+                <View className="flex-row items-center rounded-lg bg-brand-50 px-2 py-1">
                   <Ionicons name="star" size={16} color="#00C870" />
-                  <Text className="text-brand-700 font-semibold ml-1">{avgRating > 0 ? avgRating.toFixed(1) : '—'}</Text>
+                  <Text className="ml-1 font-semibold text-brand-700">
+                    {avgRating > 0 ? avgRating.toFixed(1) : '—'}
+                  </Text>
                 </View>
                 <Text className={subtextColor}>
                   {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
@@ -108,13 +122,13 @@ export default function ProviderDetailScreen() {
             {provider.verified && (
               <View className="flex-row items-center">
                 <Ionicons name="checkmark-circle" size={16} color="#00C870" />
-                <Text className="text-brand-600 text-sm ml-1">Verified</Text>
+                <Text className="ml-1 text-sm text-brand-600">Verified</Text>
               </View>
             )}
           </View>
 
           {address ? (
-            <View className="flex-row items-center mt-3">
+            <View className="mt-3 flex-row items-center">
               <Ionicons name="location-outline" size={18} color="#6B7280" />
               <Text className={`${subtextColor} ml-1 flex-1`}>{address}</Text>
             </View>
@@ -122,7 +136,8 @@ export default function ProviderDetailScreen() {
         </View>
 
         {/* Pricing summary */}
-        <View className={`mx-6 mb-4 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'} rounded-2xl p-4`}>
+        <View
+          className={`mx-6 mb-4 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'} rounded-2xl p-4`}>
           <Text className={`text-lg font-semibold ${textColor} mb-1`}>Pricing</Text>
           {startingPrice > 0 ? (
             <View className="flex-row items-baseline">
@@ -135,7 +150,7 @@ export default function ProviderDetailScreen() {
         </View>
 
         {/* About — BACKEND-GAP P3: provider DTO has no about/bio field, so this copy is mocked */}
-        <View className="px-6 mb-4">
+        <View className="mb-4 px-6">
           <Text className={`text-lg font-semibold ${textColor} mb-2`}>About</Text>
           <Text className={`${subtextColor} leading-6`}>
             {provider.name} is a trusted {provider.service.toLowerCase()} provider on PawCare,
@@ -144,13 +159,15 @@ export default function ProviderDetailScreen() {
         </View>
 
         {/* Location — uses the real provider address when available */}
-        <View className="px-6 mb-4">
+        <View className="mb-4 px-6">
           <Text className={`text-lg font-semibold ${textColor} mb-3`}>Location</Text>
-          <View className={`${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'} rounded-2xl p-4 items-center`}>
-            <View className="w-12 h-12 bg-brand-100 rounded-full items-center justify-center mb-2">
+          <View
+            className={`${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'} items-center rounded-2xl p-4`}>
+            <View className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-brand-100">
               <Ionicons name="location" size={24} color="#00C870" />
             </View>
-            <Text className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'} font-medium text-center`}>
+            <Text
+              className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'} text-center font-medium`}>
               {address || 'Location available after booking'}
             </Text>
           </View>
@@ -158,7 +175,7 @@ export default function ProviderDetailScreen() {
 
         {/* Services or loading */}
         {isLoading ? (
-          <View className="py-8 items-center">
+          <View className="items-center py-8">
             <ActivityIndicator color="#00C870" />
             <Text className={`text-sm ${subtextColor} mt-2`}>Loading services...</Text>
           </View>
@@ -166,35 +183,40 @@ export default function ProviderDetailScreen() {
           <>
             {/* Services list — tap a service to book that specific service */}
             {services.length > 0 && (
-              <View className="px-6 mb-6">
+              <View className="mb-6 px-6">
                 <Text className={`text-lg font-semibold ${textColor} mb-1`}>Services</Text>
                 <Text className={`text-sm ${subtextColor} mb-3`}>Tap a service to book it</Text>
                 {services.map((svc, idx) => (
                   <TouchableOpacity
                     key={svc.id ?? idx}
-                    onPress={() =>
-                      (navigation as any).navigate('BookService', { service: svc })
-                    }
-                    className={`${cardBg} border ${borderColor} rounded-2xl p-4 mb-3`}
-                  >
-                    <View className="flex-row justify-between items-start">
-                      <View className="flex-1 mr-3">
-                        <Text className={`font-semibold ${textColor}`}>{svc.name ?? 'Service'}</Text>
+                    onPress={() => (navigation as any).navigate('BookService', { service: svc })}
+                    className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>
+                    <View className="flex-row items-start justify-between">
+                      <View className="mr-3 flex-1">
+                        <Text className={`font-semibold ${textColor}`}>
+                          {svc.name ?? 'Service'}
+                        </Text>
                         {svc.description || svc.about ? (
-                          <Text className={`text-sm ${subtextColor} mt-1`}>{svc.description ?? svc.about}</Text>
+                          <Text className={`text-sm ${subtextColor} mt-1`}>
+                            {svc.description ?? svc.about}
+                          </Text>
                         ) : null}
                         {svc.details?.isPickupProvided && (
-                          <Text className="text-xs text-brand-600 mt-1">Pickup available</Text>
+                          <Text className="mt-1 text-xs text-brand-600">Pickup available</Text>
                         )}
                         {svc.details?.isPetReturnProvided && (
-                          <Text className="text-xs text-brand-600 mt-0.5">Leave-over available</Text>
+                          <Text className="mt-0.5 text-xs text-brand-600">
+                            Leave-over available
+                          </Text>
                         )}
                       </View>
                       <View className="items-end">
-                        <Text className="text-brand-600 font-bold text-base">${servicePrice(svc)}</Text>
-                        <View className="flex-row items-center mt-2 bg-brand-500 px-4 py-1.5 rounded-full">
+                        <Text className="text-base font-bold text-brand-600">
+                          ${servicePrice(svc)}
+                        </Text>
+                        <View className="mt-2 flex-row items-center rounded-full bg-brand-500 px-4 py-1.5">
                           <Ionicons name="calendar-outline" size={13} color="white" />
-                          <Text className="text-white text-xs font-bold ml-1">Book</Text>
+                          <Text className="ml-1 text-xs font-bold text-white">Book</Text>
                         </View>
                       </View>
                     </View>
@@ -205,16 +227,15 @@ export default function ProviderDetailScreen() {
 
             {/* Reviews list */}
             {reviews.length > 0 && (
-              <View className="px-6 mb-6">
+              <View className="mb-6 px-6">
                 <Text className={`text-lg font-semibold ${textColor} mb-3`}>
                   Reviews ({reviewCount})
                 </Text>
                 {reviews.slice(0, 5).map((review, idx) => (
                   <View
                     key={review.id ?? idx}
-                    className={`${cardBg} border ${borderColor} rounded-2xl p-4 mb-3`}
-                  >
-                    <View className="flex-row items-center mb-2">
+                    className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>
+                    <View className="mb-2 flex-row items-center">
                       {Array.from({ length: 5 }).map((_, i) => (
                         <Ionicons
                           key={i}

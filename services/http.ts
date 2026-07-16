@@ -6,6 +6,21 @@ export function registerSessionExpiredHandler(handler: () => void): void {
   _onSessionExpired = handler;
 }
 
+// Active UI language, sent as the Accept-Language header on EVERY request so the
+// backend localizes what it produces (validation messages, notifications, emails).
+// Registered by LocaleContext on load/change — same pattern as the session handler,
+// so http.ts never imports from context directly. English is the safety default.
+let _apiLanguage = 'en';
+
+export function registerApiLanguage(lang: string): void {
+  _apiLanguage = lang;
+}
+
+/** Accept-Language value: active language first, English as explicit fallback. */
+function acceptLanguageHeader(): string {
+  return _apiLanguage === 'en' ? 'en' : `${_apiLanguage},en;q=0.8`;
+}
+
 /**
  * Returns the API base URL from the environment, with any trailing slash removed.
  * Single source of truth — every service builds its URLs from this.
@@ -33,7 +48,7 @@ export function getApiBaseUrl(): string {
 export async function parseApiError(
   response: Response,
   fallback: string,
-  context?: string,
+  context?: string
 ): Promise<string> {
   const text = await response.text();
 
@@ -73,7 +88,7 @@ export async function parseApiError(
  */
 export function getErrorMessage(
   error: unknown,
-  fallback = 'Something went wrong. Please try again.',
+  fallback = 'Something went wrong. Please try again.'
 ): string {
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === 'string' && error.trim()) return error;
@@ -98,7 +113,14 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
     console.log('[API Request]', init?.method ?? 'GET', url, init?.body ?? '');
   }
 
-  const response = await fetch(url, init);
+  // Attach the active UI language so backend-produced text (validation messages,
+  // notifications, emails) comes back localized. Callers can still override.
+  const headers: Record<string, string> = {
+    'Accept-Language': acceptLanguageHeader(),
+    ...(init?.headers as Record<string, string>),
+  };
+
+  const response = await fetch(url, { ...init, headers });
   const clone = response.clone();
 
   if (__DEV__) {

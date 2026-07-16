@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { themeColors } from '../../hooks/useThemeColors';
+import { useLocale } from '../../context/LocaleContext';
+import { DAY_SHORT_KEYS, MONTH_KEYS } from '../../i18n';
 
 interface DatePickerProps {
   value: Date;
@@ -14,22 +16,6 @@ interface DatePickerProps {
   // e.g. weekdays a service isn't scheduled for. Receives the day's start.
   isDateEnabled?: (date: Date) => boolean;
 }
-
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
 
 function isSameDay(a: Date, b: Date) {
   return (
@@ -52,6 +38,10 @@ export default function DatePicker({
   maxDate,
   isDateEnabled,
 }: DatePickerProps) {
+  const { t } = useLocale();
+  // Localized month/day names, indexed by getMonth()/getDay().
+  const MONTHS = MONTH_KEYS.map((k) => t(k));
+  const DAYS = DAY_SHORT_KEYS.map((k) => t(k));
   const today = new Date();
   const [viewMonth, setViewMonth] = useState(value.getMonth());
   const [viewYear, setViewYear] = useState(value.getFullYear());
@@ -320,7 +310,9 @@ export default function DatePicker({
             borderWidth: 1,
             borderColor,
           }}>
-          <Text style={{ color: subtextColor, fontWeight: '600', fontSize: 14 }}>Clear</Text>
+          <Text style={{ color: subtextColor, fontWeight: '600', fontSize: 14 }}>
+            {t('shared.clear')}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={handleDone}
@@ -331,7 +323,9 @@ export default function DatePicker({
             alignItems: 'center',
             backgroundColor: '#00C870',
           }}>
-          <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>Done</Text>
+          <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>
+            {t('shared.done')}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>

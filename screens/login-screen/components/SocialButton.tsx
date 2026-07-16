@@ -16,8 +16,7 @@ export default function SocialButton({ text, icon, onPress, isDarkMode }: Props)
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.7}
-      className={`flex-row items-center justify-center py-4 rounded-xl border ${borderColor} ${bgColor}`}
-    >
+      className={`flex-row items-center justify-center rounded-xl border py-4 ${borderColor} ${bgColor}`}>
       <View className="mr-3">{icon}</View>
       <Text className={`font-semibold ${textColor}`}>{text}</Text>
     </TouchableOpacity>

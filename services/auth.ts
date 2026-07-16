@@ -46,7 +46,9 @@ function parseResponseBody(raw: string): LoginApiResponse {
 }
 
 function extractAccessToken(response: LoginApiResponse) {
-  return response.accessToken ?? response.token ?? response.data?.accessToken ?? response.data?.token;
+  return (
+    response.accessToken ?? response.token ?? response.data?.accessToken ?? response.data?.token
+  );
 }
 
 function extractRefreshToken(response: LoginApiResponse) {
@@ -108,7 +110,9 @@ export async function getMe(): Promise<CurrentUser> {
   return response.json() as Promise<CurrentUser>;
 }
 
-export async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken?: string }> {
+export async function refreshAccessToken(
+  refreshToken: string
+): Promise<{ accessToken: string; refreshToken?: string }> {
   const url = `${getApiBaseUrl()}/auth/refresh`;
 
   const response = await apiFetch(url, {
@@ -149,7 +153,11 @@ export async function registerUser(payload: RegisterPayload): Promise<void> {
 
   const raw = await response.text();
   let body: RegisterApiResponse = {};
-  try { body = JSON.parse(raw); } catch { /* ignore */ }
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    /* ignore */
+  }
 
   if (!response.ok) {
     throw new Error(body.message || body.detail || 'Registration failed. Please try again.');
@@ -170,7 +178,11 @@ export async function confirmEmail(email: string, code: string): Promise<void> {
 
   const raw = await response.text();
   let body: { message?: string; detail?: string } = {};
-  try { body = JSON.parse(raw); } catch { /* ignore */ }
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    /* ignore */
+  }
 
   if (!response.ok) {
     throw new Error(body.message || body.detail || 'Email verification failed. Please try again.');
@@ -261,9 +273,15 @@ export async function resendConfirmation(email: string): Promise<void> {
 
   const raw = await response.text();
   let body: { message?: string; detail?: string } = {};
-  try { body = JSON.parse(raw); } catch { /* ignore */ }
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    /* ignore */
+  }
 
   if (!response.ok) {
-    throw new Error(body.message || body.detail || 'Failed to resend confirmation code. Please try again.');
+    throw new Error(
+      body.message || body.detail || 'Failed to resend confirmation code. Please try again.'
+    );
   }
 }

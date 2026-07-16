@@ -5,6 +5,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PromotionCard } from '../components';
 import type { Promotion } from '../components';
@@ -27,20 +28,27 @@ const fmtDate = (iso?: string | null) =>
     : '';
 
 // ServiceDiscountDto → Promotion ('offer'). usageCount has no backing (BACKEND-GAP).
-function discountToPromotion(d: ServiceDiscountDto, serviceName: string): Promotion {
+// Takes the translate fn so the built title/note follow the active language.
+function discountToPromotion(
+  t: (key: any, params?: Record<string, string | number>) => string,
+  d: ServiceDiscountDto,
+  serviceName: string
+): Promotion {
   const isPercent = d.type === DiscountType.Percent;
   // Percent reads from percentAmount (fallback amount); fixed reads the flat amount.
   const value = isPercent ? (d.percentAmount ?? d.amount) : d.amount;
   return {
     id: d.id ?? 0,
     type: 'offer',
-    title: isPercent ? `${value}% Off — ${serviceName}` : `$${value} Off — ${serviceName}`,
+    title: isPercent
+      ? t('promotions.percentOffTitle', { value, name: serviceName })
+      : t('promotions.fixedOffTitle', { value, name: serviceName }),
     description: serviceName,
     dateRange: [fmtDate(d.applyFrom), fmtDate(d.applyTo)].filter(Boolean).join(' - '),
     status: d.isEnabled ? 'active' : 'paused',
     discountValue: value,
     discountPercent: isPercent ? value : undefined,
-    offerNote: isPercent ? 'Percent discount' : 'Fixed amount off',
+    offerNote: isPercent ? t('promotions.percentNote') : t('promotions.fixedNote'),
     usageCount: 0, // BACKEND-GAP: not tracked
     discountId: d.id ?? undefined,
     serviceId: d.serviceId,
@@ -50,6 +58,7 @@ function discountToPromotion(d: ServiceDiscountDto, serviceName: string): Promot
   };
 }
 
+// Labels are translation keys, resolved with t() at render.
 const PERFORMANCE_STATS = [
   {
     icon: 'trending-up',
@@ -57,7 +66,7 @@ const PERFORMANCE_STATS = [
     bg: 'bg-green-100',
     color: '#16A34A',
     value: '2',
-    label: 'Active Promotions',
+    labelKey: 'promotions.statActive',
   },
   {
     icon: 'people-outline',
@@ -65,7 +74,7 @@ const PERFORMANCE_STATS = [
     bg: 'bg-blue-100',
     color: '#2563EB',
     value: '20',
-    label: 'Bookings from Promos',
+    labelKey: 'promotions.statBookings',
   },
   {
     icon: 'cash-outline',
@@ -73,7 +82,7 @@ const PERFORMANCE_STATS = [
     bg: 'bg-purple-100',
     color: '#9333EA',
     value: '$88',
-    label: 'Total Spent',
+    labelKey: 'promotions.totalSpent',
   },
   {
     icon: 'bullseye',
@@ -81,7 +90,7 @@ const PERFORMANCE_STATS = [
     bg: 'bg-orange-100',
     color: '#EA580C',
     value: '$4.38',
-    label: 'Cost per Booking',
+    labelKey: 'promotions.costPerBooking',
   },
 ];
 
@@ -94,6 +103,7 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
   const { currentUser } = useAuth();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { showError } = useToast();
+  const { t } = useLocale();
   const viewAll = route?.params?.viewAll ?? false;
 
   const [offers, setOffers] = useState<Promotion[]>([]);
@@ -112,7 +122,7 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
         return;
       }
       const services = await getServices({ serviceProviderId: providerId });
-      const nameById = new Map(services.map((s) => [s.id, s.name ?? 'Service']));
+      const nameById = new Map(services.map((s) => [s.id, s.name ?? t('promotions.service')]));
       const lists = await Promise.all(
         services.map((s) =>
           s.id != null ? getServiceDiscounts({ serviceId: s.id }) : Promise.resolve([])
@@ -120,14 +130,16 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
       );
       const mapped = lists
         .flat()
-        .map((d) => discountToPromotion(d, nameById.get(d.serviceId) ?? 'Service'));
+        .map((d) =>
+          discountToPromotion(t, d, nameById.get(d.serviceId) ?? t('promotions.service'))
+        );
       setOffers(mapped);
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not load your promotions. Please try again.'));
+      showError(getErrorMessage(e, t('promotions.loadFailed')));
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser?.id, currentUser?.serviceProviderId]);
+  }, [currentUser?.id, currentUser?.serviceProviderId, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -162,7 +174,7 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
       });
       await load();
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not update the promotion. Please try again.'));
+      showError(getErrorMessage(e, t('promotions.updateFailed')));
     }
   };
 
@@ -176,8 +188,8 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
     <ScreenLayout
       headerVariant="standard"
       showBackButton
-      headerTitle="Promotions"
-      headerSubtitle="Boost your visibility and attract more clients"
+      headerTitle={t('promotions.title')}
+      headerSubtitle={t('promotions.subtitle')}
       contentBg={contentBg}
       rightAction={
         <TouchableOpacity
@@ -185,7 +197,9 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
           activeOpacity={0.8}
           className="flex-row items-center rounded-full bg-white px-4 py-2">
           <Ionicons name="add" size={16} color="#00C870" />
-          <Text className="ml-1 text-sm font-semibold text-brand-600">New</Text>
+          <Text className="ml-1 text-sm font-semibold text-brand-600">
+            {t('promotions.newButton')}
+          </Text>
         </TouchableOpacity>
       }>
       <ScrollView
@@ -195,11 +209,13 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
         {/* Performance Overview — hidden when viewAll */}
         {!viewAll && (
           <View className="mb-6">
-            <Text className={`text-base font-bold ${textColor} mb-3`}>Performance Overview</Text>
+            <Text className={`text-base font-bold ${textColor} mb-3`}>
+              {t('promotions.performanceOverview')}
+            </Text>
             <View className="flex-row flex-wrap gap-3">
               {PERFORMANCE_STATS.map((stat) => (
                 <View
-                  key={stat.label}
+                  key={stat.labelKey}
                   className={`${cardBg} rounded-2xl border p-4 ${borderColor} flex-1`}
                   style={{ minWidth: '45%' }}>
                   <View
@@ -215,7 +231,9 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
                     )}
                   </View>
                   <Text className={`text-xl font-bold ${textColor}`}>{stat.value}</Text>
-                  <Text className={`text-xs ${subtextColor} mt-0.5`}>{stat.label}</Text>
+                  <Text className={`text-xs ${subtextColor} mt-0.5`}>
+                    {t(stat.labelKey as any)}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -224,12 +242,16 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
 
         {/* Your Promotions header */}
         <View className="mb-3 flex-row items-center justify-between">
-          <Text className={`text-base font-bold ${textColor}`}>Your Promotions</Text>
+          <Text className={`text-base font-bold ${textColor}`}>
+            {t('promotions.yourPromotions')}
+          </Text>
           {!viewAll && (
             <TouchableOpacity
               onPress={() => (navigation as any).navigate('Promotions', { viewAll: true })}
               activeOpacity={0.7}>
-              <Text className="text-sm font-semibold text-brand-600">View All</Text>
+              <Text className="text-sm font-semibold text-brand-600">
+                {t('promotions.viewAll')}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -245,7 +267,9 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
               size={64}
               color={isDarkMode ? '#4B5563' : '#D1D5DB'}
             />
-            <Text className={`${subtextColor} mt-4 text-center text-base`}>No promotions yet</Text>
+            <Text className={`${subtextColor} mt-4 text-center text-base`}>
+              {t('promotions.noPromotions')}
+            </Text>
           </View>
         ) : (
           offers.map((promo) => (
@@ -271,15 +295,19 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
               <Ionicons name="trending-up" size={20} color="#00C870" />
             </View>
             <View className="flex-1">
-              <Text className={`text-sm font-bold ${textColor} mb-0.5`}>Boost Your Earnings</Text>
+              <Text className={`text-sm font-bold ${textColor} mb-0.5`}>
+                {t('promotions.boostEarnings')}
+              </Text>
               <Text className={`text-xs ${subtextColor} leading-4`}>
-                Partners who run promotions see 3x more bookings on average
+                {t('promotions.boostEarningsText')}
               </Text>
               <TouchableOpacity
                 onPress={() => (navigation as any).navigate('CreatePromotion')}
                 activeOpacity={0.8}
                 className="mt-3 self-start rounded-xl bg-brand-500 px-4 py-2.5">
-                <Text className="text-sm font-semibold text-white">Start Promoting</Text>
+                <Text className="text-sm font-semibold text-white">
+                  {t('promotions.startPromoting')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

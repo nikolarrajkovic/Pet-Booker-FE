@@ -34,22 +34,32 @@ export const PetSpecies = {
 // Friendly label for a PetSpeciesType flag value
 export function petTypeLabel(type: number): string {
   switch (type) {
-    case PetSpecies.Dog: return 'Dog';
-    case PetSpecies.Cat: return 'Cat';
-    case PetSpecies.Parrot: return 'Parrot';
-    case PetSpecies.Turtle: return 'Turtle';
-    case PetSpecies.Fish: return 'Fish';
-    case PetSpecies.Snake: return 'Snake';
-    default: return '';
+    case PetSpecies.Dog:
+      return 'Dog';
+    case PetSpecies.Cat:
+      return 'Cat';
+    case PetSpecies.Parrot:
+      return 'Parrot';
+    case PetSpecies.Turtle:
+      return 'Turtle';
+    case PetSpecies.Fish:
+      return 'Fish';
+    case PetSpecies.Snake:
+      return 'Snake';
+    default:
+      return '';
   }
 }
 
 // Friendly label for a pet's `sex` value (createPet maps male→1, female→2).
 export function petSexLabel(sex: number): string {
   switch (sex) {
-    case 1: return 'Male';
-    case 2: return 'Female';
-    default: return '';
+    case 1:
+      return 'Male';
+    case 2:
+      return 'Female';
+    default:
+      return '';
   }
 }
 
@@ -92,7 +102,9 @@ export async function getPets(ownerUserId: number): Promise<PetResponse[]> {
   const response = await apiAuthFetch(url, { method: 'GET' });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, `Failed to load pets (${response.status}).`, 'getPets'));
+    throw new Error(
+      await parseApiError(response, `Failed to load pets (${response.status}).`, 'getPets')
+    );
   }
 
   const raw = await response.json();
@@ -190,7 +202,9 @@ export async function createPet(input: CreatePetInput): Promise<void> {
   });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, `Failed to save pet (${response.status}).`, 'createPet'));
+    throw new Error(
+      await parseApiError(response, `Failed to save pet (${response.status}).`, 'createPet')
+    );
   }
 }
 
@@ -204,12 +218,11 @@ export async function updatePet(input: UpdatePetInput): Promise<void> {
   const url = `${base}/api/pets/${input.petId}`;
 
   // Strip the app base URL from a resolved URI to get the relative path the backend stores
-  const toRelative = (uri: string) =>
-    uri.startsWith(base) ? uri.slice(base.length) : uri;
+  const toRelative = (uri: string) => (uri.startsWith(base) ? uri.slice(base.length) : uri);
 
   // Separate already-uploaded photos (HTTP URLs) from new local photos
-  const existingPhotos = input.petPhotos.filter(({ uri }) =>
-    uri.startsWith('http://') || uri.startsWith('https://')
+  const existingPhotos = input.petPhotos.filter(
+    ({ uri }) => uri.startsWith('http://') || uri.startsWith('https://')
   );
   const newPhotos = input.petPhotos.filter(
     ({ uri }) => !uri.startsWith('http://') && !uri.startsWith('https://')

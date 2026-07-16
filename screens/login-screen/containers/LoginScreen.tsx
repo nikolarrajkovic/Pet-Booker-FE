@@ -1,10 +1,20 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  SafeAreaView,
+  ScrollView,
+  Text,
+  View,
+  TouchableOpacity,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
+import { useLocale } from '../../../context/LocaleContext';
 import Button from '../../../components/shared/Button';
 import { SocialButton } from '../components';
 
@@ -17,18 +27,19 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 // ─── Validators ───────────────────────────────────────────────────────────────
 function validateIdentifier(v: string) {
-  if (!v.trim()) return 'Email or username is required';
+  if (!v.trim()) return 'login.identifierRequired';
   return '';
 }
 
 function validatePassword(v: string) {
-  if (!v) return 'Password is required';
+  if (!v) return 'login.passwordRequired';
   return '';
 }
 
 export default function LoginScreen() {
   const { isDarkMode, textColor, subtextColor } = useThemeColors();
   const { signInWithCredentials, signInWithGoogle } = useAuth();
+  const { t } = useLocale();
   const navigation = useNavigation<NavigationProp>();
 
   const [identifier, setIdentifier] = useState('');
@@ -69,7 +80,7 @@ export default function LoginScreen() {
       setLoginError('');
       await signInWithCredentials(identifier.trim(), password);
     } catch {
-      setLoginError('Invalid credentials. Please check your email/username and password.');
+      setLoginError('login.invalidCredentials');
     } finally {
       setIsSubmitting(false);
     }
@@ -77,29 +88,36 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView className={`flex-1 ${contentBg}`}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1">
         {/* Green Header */}
-        <View className={`${bgColor} px-6 pt-16 pb-12 items-center rounded-b-3xl`}>
-          <View className="w-20 h-20 bg-white rounded-2xl items-center justify-center mb-4 shadow-lg">
+        <View className={`${bgColor} items-center rounded-b-3xl px-6 pb-12 pt-16`}>
+          <View className="mb-4 h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg">
             <MaterialCommunityIcons name="paw" size={40} color="#00A85A" />
           </View>
-          <Text className="text-white text-2xl font-bold">Pet Booker</Text>
-          <Text className="text-brand-100 mt-1">Welcome back!</Text>
+          <Text className="text-2xl font-bold text-white">{t('login.appName')}</Text>
+          <Text className="mt-1 text-brand-100">{t('login.welcomeBack')}</Text>
         </View>
 
         <ScrollView
           className="flex-1"
           contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 40 }}
-          keyboardShouldPersistTaps="handled"
-        >
+          keyboardShouldPersistTaps="handled">
           {/* Email or Username */}
           <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>Email or Username</Text>
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('login.emailOrUsername')}
+            </Text>
             <TextInput
               value={identifier}
-              onChangeText={(t) => { setIdentifier(t); touch('identifier'); setLoginError(''); }}
+              onChangeText={(v) => {
+                setIdentifier(v);
+                touch('identifier');
+                setLoginError('');
+              }}
               onBlur={() => touch('identifier')}
-              placeholder="Enter your email or username"
+              placeholder={t('login.emailOrUsernamePlaceholder')}
               autoCapitalize="none"
               style={{
                 backgroundColor: inputBg,
@@ -114,19 +132,23 @@ export default function LoginScreen() {
               placeholderTextColor={placeholderColor}
             />
             {touched.identifier && errors.identifier ? (
-              <Text className="text-red-500 text-xs mt-1">{errors.identifier}</Text>
+              <Text className="mt-1 text-xs text-red-500">{t(errors.identifier as any)}</Text>
             ) : null}
           </View>
 
           {/* Password */}
           <View className="mb-2">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>Password</Text>
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>{t('login.password')}</Text>
             <View>
               <TextInput
                 value={password}
-                onChangeText={(t) => { setPassword(t); touch('password'); setLoginError(''); }}
+                onChangeText={(v) => {
+                  setPassword(v);
+                  touch('password');
+                  setLoginError('');
+                }}
                 onBlur={() => touch('password')}
-                placeholder="Enter your password"
+                placeholder={t('login.passwordPlaceholder')}
                 secureTextEntry={!showPassword}
                 style={{
                   backgroundColor: inputBg,
@@ -143,8 +165,7 @@ export default function LoginScreen() {
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
-                style={{ position: 'absolute', right: 16, top: 13 }}
-              >
+                style={{ position: 'absolute', right: 16, top: 13 }}>
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={22}
@@ -153,46 +174,50 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
             {touched.password && errors.password ? (
-              <Text className="text-red-500 text-xs mt-1">{errors.password}</Text>
+              <Text className="mt-1 text-xs text-red-500">{t(errors.password as any)}</Text>
             ) : null}
           </View>
 
           {/* Forgot Password */}
-          <TouchableOpacity onPress={() => (navigation as any).navigate('ForgotPassword')} className="self-end mb-5 mt-1">
-            <Text className="text-brand-600 font-semibold text-sm">Forgot Password?</Text>
+          <TouchableOpacity
+            onPress={() => (navigation as any).navigate('ForgotPassword')}
+            className="mb-5 mt-1 self-end">
+            <Text className="text-sm font-semibold text-brand-600">
+              {t('login.forgotPassword')}
+            </Text>
           </TouchableOpacity>
 
           {/* Global login error */}
           {loginError ? (
-            <Text className="text-red-500 text-sm mb-4 text-center">{loginError}</Text>
+            <Text className="mb-4 text-center text-sm text-red-500">{t(loginError as any)}</Text>
           ) : null}
 
           {/* Sign In Button */}
           <Button
-            text={isSubmitting ? 'Signing In...' : 'Sign In'}
+            text={isSubmitting ? t('login.signingIn') : t('login.signIn')}
             onPress={handleSignIn}
             variant="primary"
-            className="py-4 rounded-2xl mb-6"
+            className="mb-6 rounded-2xl py-4"
             disabled={isSubmitting}
           />
 
           {/* Divider */}
-          <View className="flex-row items-center mb-6">
-            <View className={`flex-1 h-px ${dividerColor}`} />
-            <Text className={`mx-4 ${subtextColor} text-sm`}>OR</Text>
-            <View className={`flex-1 h-px ${dividerColor}`} />
+          <View className="mb-6 flex-row items-center">
+            <View className={`h-px flex-1 ${dividerColor}`} />
+            <Text className={`mx-4 ${subtextColor} text-sm`}>{t('common.or')}</Text>
+            <View className={`h-px flex-1 ${dividerColor}`} />
           </View>
 
           {/* Social Buttons */}
           <View className="gap-3">
             <SocialButton
-              text="Continue with Google"
+              text={t('login.continueWithGoogle')}
               icon={<MaterialCommunityIcons name="google" size={22} color="#DB4437" />}
               onPress={signInWithGoogle}
               isDarkMode={isDarkMode}
             />
             <SocialButton
-              text="Continue with Facebook"
+              text={t('login.continueWithFacebook')}
               icon={<MaterialCommunityIcons name="facebook" size={22} color="#1877F2" />}
               onPress={() => {}}
               isDarkMode={isDarkMode}
@@ -200,10 +225,10 @@ export default function LoginScreen() {
           </View>
 
           {/* Sign Up Link */}
-          <View className="flex-row justify-center mt-6">
-            <Text className={`text-sm ${subtextColor}`}>Don't have an account? </Text>
+          <View className="mt-6 flex-row justify-center">
+            <Text className={`text-sm ${subtextColor}`}>{t('login.noAccount')}</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text className="text-brand-600 font-semibold text-sm">Sign Up</Text>
+              <Text className="text-sm font-semibold text-brand-600">{t('login.signUp')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

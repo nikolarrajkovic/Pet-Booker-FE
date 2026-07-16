@@ -15,6 +15,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocation } from '../../../hooks/useLocation';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { PersonalInfoStep, ServiceInfoStep, DocumentsStep } from '../components';
@@ -48,6 +49,7 @@ export default function PartnerApplicationScreen() {
   } = useThemeColors();
   const { currentUser } = useAuth();
   const { showError } = useToast();
+  const { t } = useLocale();
   const location = useLocation();
 
   const [step, setStep] = useState(1);
@@ -141,7 +143,7 @@ export default function PartnerApplicationScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow access to your photos to upload documents.');
+      Alert.alert(t('account.permissionNeededTitle'), t('partnerApplication.permissionDocsMsg'));
       return;
     }
 
@@ -192,7 +194,7 @@ export default function PartnerApplicationScreen() {
     // Government ID photos are always images — use ImagePicker with base64
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow access to your photos to upload documents.');
+      Alert.alert(t('account.permissionNeededTitle'), t('partnerApplication.permissionDocsMsg'));
       return;
     }
 
@@ -223,7 +225,7 @@ export default function PartnerApplicationScreen() {
   const pickPetPhoto = async (slotIndex: number) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow access to your photos.');
+      Alert.alert(t('account.permissionNeededTitle'), t('partnerApplication.permissionPhotosMsg'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -271,7 +273,7 @@ export default function PartnerApplicationScreen() {
     <ScreenLayout
       headerVariant="standard"
       showBackButton
-      headerTitle="Partner Application"
+      headerTitle={t('partnerApplication.title')}
       contentBg={bgColor}
       contentRounded={false}
       headerChildren={
@@ -286,7 +288,7 @@ export default function PartnerApplicationScreen() {
             </View>
           </View>
           <Text className="text-sm text-white">
-            Step {step} of {totalSteps}
+            {t('partnerWelcome.stepOf', { current: step, total: totalSteps })}
           </Text>
         </>
       }>
@@ -353,7 +355,7 @@ export default function PartnerApplicationScreen() {
               }[] = certificates.map((c) => ({
                 uri: c.uri,
                 fileName: c.fileName,
-                certName: c.fileName ?? 'Certificate',
+                certName: c.fileName ?? t('partnerApplication.certificate'),
                 issuer: c.issuer,
                 issuedDate: c.issuedDate,
               }));
@@ -372,7 +374,7 @@ export default function PartnerApplicationScreen() {
               });
               (navigation as any).navigate('ApplicationSubmitted');
             } catch (error) {
-              showError(getErrorMessage(error, 'Could not submit your application. Please try again.'));
+              showError(getErrorMessage(error, t('partnerApplication.submitFailed')));
             } finally {
               setIsSubmitting(false);
             }
@@ -383,7 +385,9 @@ export default function PartnerApplicationScreen() {
             <ActivityIndicator color="white" />
           ) : (
             <Text className="text-lg font-bold text-white">
-              {step === totalSteps ? 'Submit Application' : 'Continue'}
+              {step === totalSteps
+                ? t('partnerApplication.submitApplication')
+                : t('partnerApplication.continue')}
             </Text>
           )}
         </TouchableOpacity>
@@ -393,7 +397,7 @@ export default function PartnerApplicationScreen() {
       {addressPickerVisible && (
         <MapAddressPicker
           visible
-          title="Your address"
+          title={t('account.yourAddress')}
           initialRegion={{ latitude: location.latitude, longitude: location.longitude }}
           isDarkMode={isDarkMode}
           onClose={() => setAddressPickerVisible(false)}

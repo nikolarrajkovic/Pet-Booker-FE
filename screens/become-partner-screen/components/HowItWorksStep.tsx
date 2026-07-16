@@ -19,14 +19,12 @@ export default function HowItWorksStep({
   subtextColor,
 }: HowItWorksStepProps) {
   return (
-    <View className="flex-row mb-4">
+    <View className="mb-4 flex-row">
       <View className="mr-4 items-center">
-        <View className="w-10 h-10 bg-brand-500 rounded-full items-center justify-center">
-          <Text className="text-white font-bold text-base">{step}</Text>
+        <View className="h-10 w-10 items-center justify-center rounded-full bg-brand-500">
+          <Text className="text-base font-bold text-white">{step}</Text>
         </View>
-        {!isLast && (
-          <View className="flex-1 w-0.5 bg-brand-200 mt-2" style={{ height: 40 }} />
-        )}
+        {!isLast && <View className="mt-2 w-0.5 flex-1 bg-brand-200" style={{ height: 40 }} />}
       </View>
       <View className="flex-1">
         <Text className={`text-base font-semibold ${textColor} mb-1`}>{title}</Text>

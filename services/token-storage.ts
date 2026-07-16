@@ -2,9 +2,13 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 const webStore = {
-  setItemAsync: async (key: string, value: string) => { localStorage.setItem(key, value); },
+  setItemAsync: async (key: string, value: string) => {
+    localStorage.setItem(key, value);
+  },
   getItemAsync: async (key: string) => localStorage.getItem(key),
-  deleteItemAsync: async (key: string) => { localStorage.removeItem(key); },
+  deleteItemAsync: async (key: string) => {
+    localStorage.removeItem(key);
+  },
 };
 
 const store = Platform.OS === 'web' ? webStore : SecureStore;
@@ -16,7 +20,7 @@ const KEYS = {
   refreshTokenExpiry: 'auth_refresh_token_expiry',
 };
 
-const ACCESS_TOKEN_TTL_MS = 30 * 60 * 1000;       // 30 minutes
+const ACCESS_TOKEN_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export async function saveTokens(accessToken: string, refreshToken?: string) {

@@ -38,11 +38,7 @@ export async function createServicePricingOption(
 
   if (!response.ok) {
     throw new Error(
-      await parseApiError(
-        response,
-        'Failed to save pricing option.',
-        'createServicePricingOption'
-      )
+      await parseApiError(response, 'Failed to save pricing option.', 'createServicePricingOption')
     );
   }
 

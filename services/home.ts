@@ -9,7 +9,7 @@ const DEFAULT_TAKE = 8;
 
 async function getHomeSection(
   path: string,
-  params: Record<string, string | number | undefined>,
+  params: Record<string, string | number | undefined>
 ): Promise<ServiceDto[]> {
   const query = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {

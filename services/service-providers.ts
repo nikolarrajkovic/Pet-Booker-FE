@@ -126,7 +126,7 @@ let runtimeTypeLabels: Record<number, string> = {};
  * EnumsContext when enums load; pass null/undefined to clear (on logout).
  */
 export function registerServiceProviderTypeLabels(
-  entries: { value: number; name?: string; displayName?: string }[] | null | undefined,
+  entries: { value: number; name?: string; displayName?: string }[] | null | undefined
 ): void {
   const map: Record<number, string> = {};
   for (const e of entries ?? []) {

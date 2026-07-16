@@ -65,6 +65,7 @@ CLAUDE.md       # This file — primary AI context. (.github/copilot-instruction
 - **`extractPageItems<T>(raw)`** — Extracts the items array from any paginated or plain list response. Handles plain array, `{ items }`, `{ data }`, `{ results }`, `{ value }`. **Always use this** instead of inline `Array.isArray` branching in service list functions.
 - **`getErrorMessage(error, fallback?)`** — Normalizes an unknown thrown value (from a `catch`) into a display string. Services throw `Error` (via `parseApiError`), so this is `error.message` in the common path, with a generic fallback otherwise. **Use this to feed any user-facing error display** (toast / inline) — `catch (e) { showError(getErrorMessage(e, 'Could not …')); }`.
 - **`registerSessionExpiredHandler(handler)`** — Registers a callback invoked when a token refresh fails. Called by AuthContext on mount. Do not call this elsewhere.
+- **`registerApiLanguage(lang)`** — Registers the active UI language; every `apiFetch`/`apiAuthFetch` request then carries an **`Accept-Language`** header (`sr,en;q=0.8` style) so the backend returns localized validation messages / notifications / emails. Called by LocaleContext on restore + language change. Do not call this elsewhere.
 - **Rule**: Never call `fetch()` directly. Always use `apiFetch` or `apiAuthFetch`.
 - FormData bodies: do NOT set `Content-Type` — the runtime must set it with the multipart boundary.
 - In dev mode, all requests/responses are logged to console.
@@ -286,6 +287,31 @@ App-wide transient-message host. `ToastProvider` is mounted in `App.tsx` directl
 | `showInfo(message)` | fn | Blue toast |
 | `showToast(message, variant?)` | fn | Generic (defaults to 'error') |
 **Convention:** action/mutation failures (save/submit/delete/approve/etc.) → `showError(getErrorMessage(e, '…'))`; fetch-on-mount failures → an inline error view in the screen body (don't also toast). See Error handling below.
+
+### `useLocale()` — `context/LocaleContext.tsx`
+App-wide i18n. `LocaleProvider` is mounted in `App.tsx` just inside `ThemeProvider` (above `ToastProvider`/`AuthProvider`) so every screen **and** those contexts can translate. Supports **English, Serbian (Latin — Srpski), Russian**.
+| Value | Type | Notes |
+|---|---|---|
+| `t(key, params?)` | `(TranslationKey, {…}) => string` | Dot-path lookup, e.g. `t('login.signIn')`; interpolates `{name}` tokens from `params`. Falls back to English, then the key. |
+| `tEnum(enumName, value, fallback?)` | fn | Localizes an enum/lookup term by numeric value, e.g. `tEnum('serviceProviderType', svc.type)`. Falls back to the backend `name` you pass. |
+| `language` | `'en' \| 'sr' \| 'ru'` | Active language. |
+| `setLanguage(lang)` | fn | Persists (`services/locale-storage.ts`) + re-renders. |
+| `hasChosen` | boolean | False until the user picks a language → drives the first-run chooser. |
+| `isLoading` | boolean | True while the persisted language restores on app start. |
+
+**Dictionaries live in `i18n/`**: `en.ts` (canonical shape — `TranslationDict = typeof en`), `sr.ts`, `ru.ts` (typed as `TranslationDict`, so a missing key is a **compile error** → translations stay in parity). Sections are flat string records (2-level keys `section.key`); the one exception is `enums` (3-level, keyed by enum name → numeric value → label), resolved via `tEnum`. `i18n/index.ts` exports `translate`, `tEnumLabel`, `LANGUAGES`, and the key/enum types.
+
+**Rules:**
+- **Every NEW screen, component, or feature must ship fully translatable.** Any user-facing label, placeholder, button, alert, toast, empty state, or a11y label you add goes into **all three** dictionaries (`en.ts` + `sr.ts` + `ru.ts`) and is rendered via `t()`/`tEnum()` from day one — never land hardcoded English "to translate later". The `TranslationDict` typing makes a key missing from `sr.ts`/`ru.ts` a compile error, so `npx tsc --noEmit` is the check.
+- **Never hardcode a user-facing string.** Add a key to `en.ts`/`sr.ts`/`ru.ts` and render it via `t()`. Enum/lookup labels use `tEnum()` (not the pure `providerTypeLabel`/`petTypeLabel` helpers, which stay English fallbacks for non-React code).
+- Validators/data arrays hold **translation keys**, resolved with `t(key)` at render (cast dynamic keys `as any`).
+- Backend free-text (service names/descriptions, user notes, API error messages from `getErrorMessage`) is **not** translated — it displays as stored/returned. `Alert`/toast copy that is a literal FE string **is** translated. The backend localizes *its* strings from the **`Accept-Language`** header, which `services/http.ts` attaches automatically (see `registerApiLanguage`).
+- The language chooser (`components/shared/LanguagePicker.tsx`) is shown on first run (no `onClose` → non-dismissable) and from Settings (dismissable). It uses `CountryFlag`.
+- When editing an `onChangeText={(t) => …}` handler, rename the param (e.g. `(v) =>`) so it doesn't shadow the translation `t`.
+- **Calendar names**: `i18n/index.ts` exports `DAY_KEYS`/`DAY_SHORT_KEYS`/`MONTH_KEYS`/`MONTH_SHORT_KEYS` — translation-key arrays indexed by JS `getDay()`/`getMonth()`; resolve with `t(DAY_KEYS[d.getDay()])`. Used by DatePicker and the schedule views.
+- **Data keys stay English**: `WorkingHours` day keys ("Monday"…), the add-on catalog `name`s in `service-addons.ts`, `SERVICE_TYPES`/duration labels in AddEditService, and `FilterState.minimumRating`'s `'Any'` are round-trip/lookup **data** — never translate the stored value, only the display (`days.*`, `addons.*` by addon id, `providerTypeValue(label)` → `tEnum`, `shared.any`).
+- Module-level helper functions that build display strings take the translate fn as their first parameter (`t: (key: any, params?) => string`) — see `bookingToRequest` (NewRequests) or `discountToPromotion` (Promotions) for the pattern.
+- **Coverage**: all screens, their sub-components, and shared components are converted (ProviderDetailScreen is orphaned and intentionally skipped).
 
 ---
 

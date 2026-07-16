@@ -51,10 +51,12 @@ import LoginScreen from './screens/login-screen/containers/LoginScreen';
 import RegisterScreen from './screens/register-screen/containers/RegisterScreen';
 import VerifyEmailScreen from './screens/verify-email-screen/containers/VerifyEmailScreen';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { LocaleProvider, useLocale } from './context/LocaleContext';
 import { ToastProvider } from './context/ToastContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationsProvider } from './context/NotificationsContext';
 import { EnumsProvider } from './context/EnumsContext';
+import LanguagePicker from './components/shared/LanguagePicker';
 import { hasSeenPartnerWelcome, markPartnerWelcomeSeen } from './services/onboarding';
 import { Ionicons } from '@expo/vector-icons';
 import { enableScreens } from 'react-native-screens';
@@ -66,6 +68,7 @@ const Stack = createNativeStackNavigator();
 
 function AppContent() {
   const { isDarkMode } = useTheme();
+  const { hasChosen, isLoading: localeLoading, language, setLanguage } = useLocale();
   const { isLoggedIn, isLoading, isPartner, currentUser } = useAuth();
   const navigationRef = useNavigationContainerRef();
   const [navReady, setNavReady] = useState(false);
@@ -88,7 +91,7 @@ function AppContent() {
     };
   }, [navReady, isLoggedIn, isPartner, userId, navigationRef]);
 
-  if (isLoading) {
+  if (isLoading || localeLoading) {
     return (
       <View
         style={{
@@ -187,6 +190,8 @@ function AppContent() {
           )}
         </Stack.Navigator>
       </NavigationContainer>
+      {/* First-run language chooser — asks the user before they interact. */}
+      <LanguagePicker visible={!hasChosen} current={language} onSelect={setLanguage} />
       <StatusBar style={isDarkMode ? 'light' : 'auto'} />
     </GestureHandlerRootView>
   );
@@ -221,15 +226,17 @@ function MainTabs() {
 export default function App() {
   return (
     <ThemeProvider>
-      <ToastProvider>
-        <AuthProvider>
-          <NotificationsProvider>
-            <EnumsProvider>
-              <AppContent />
-            </EnumsProvider>
-          </NotificationsProvider>
-        </AuthProvider>
-      </ToastProvider>
+      <LocaleProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <NotificationsProvider>
+              <EnumsProvider>
+                <AppContent />
+              </EnumsProvider>
+            </NotificationsProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </LocaleProvider>
     </ThemeProvider>
   );
 }

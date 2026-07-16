@@ -15,6 +15,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocation } from '../../../hooks/useLocation';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import PhoneInput from '../../../components/shared/PhoneInput';
@@ -42,6 +43,7 @@ export default function AccountScreen() {
   } = useThemeColors();
 
   const { showError, showSuccess } = useToast();
+  const { t } = useLocale();
 
   const [original, setOriginal] = useState<UserDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,7 +78,7 @@ export default function AccountScreen() {
         setPhone(u.phone ?? '');
         setEmail(u.email ?? '');
       } catch (e) {
-        if (!cancelled) setLoadError(getErrorMessage(e, 'Could not load your profile.'));
+        if (!cancelled) setLoadError(getErrorMessage(e, t('account.loadFailed')));
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -89,10 +91,7 @@ export default function AccountScreen() {
   const pickProfilePhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        'Permission needed',
-        'Please allow access to your photos to upload a profile photo.'
-      );
+      Alert.alert(t('account.permissionNeededTitle'), t('account.permissionPhotoMsg'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -151,9 +150,9 @@ export default function AccountScreen() {
       setNewPhoto(null);
       setAddress(null);
       await refreshUser();
-      showSuccess('Your changes have been saved!');
+      showSuccess(t('account.saved'));
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not save your changes. Please try again.'));
+      showError(getErrorMessage(e, t('account.saveFailed')));
     } finally {
       setIsSaving(false);
     }
@@ -171,7 +170,7 @@ export default function AccountScreen() {
       <ScreenLayout
         headerVariant="standard"
         showBackButton
-        headerTitle="Account"
+        headerTitle={t('account.title')}
         contentBg={bgColor}>
         <View className="flex-1 items-center justify-center py-20">
           <ActivityIndicator size="large" color="#00C870" />
@@ -185,10 +184,14 @@ export default function AccountScreen() {
       <ScreenLayout
         headerVariant="standard"
         showBackButton
-        headerTitle="Account"
+        headerTitle={t('account.title')}
         contentBg={bgColor}>
         <View className="flex-1 items-center justify-center px-8 py-20">
-          <Ionicons name="alert-circle-outline" size={56} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
+          <Ionicons
+            name="alert-circle-outline"
+            size={56}
+            color={isDarkMode ? '#6B7280' : '#9CA3AF'}
+          />
           <Text className={`${subtextColor} mt-4 text-center`}>{loadError}</Text>
         </View>
       </ScreenLayout>
@@ -196,7 +199,11 @@ export default function AccountScreen() {
   }
 
   return (
-    <ScreenLayout headerVariant="standard" showBackButton headerTitle="Account" contentBg={bgColor}>
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle={t('account.title')}
+      contentBg={bgColor}>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Profile Photo */}
         <View className="items-center py-8">
@@ -227,16 +234,18 @@ export default function AccountScreen() {
             </TouchableOpacity>
           </View>
           <TouchableOpacity onPress={pickProfilePhoto} className="mt-3">
-            <Text className="font-semibold text-brand-600">Change Photo</Text>
+            <Text className="font-semibold text-brand-600">{t('account.changePhoto')}</Text>
           </TouchableOpacity>
         </View>
 
         <View className="px-6">
-          <Text className={`text-lg font-bold ${textColor} mb-4`}>Personal Information</Text>
+          <Text className={`text-lg font-bold ${textColor} mb-4`}>{t('account.personalInfo')}</Text>
 
           {/* First Name */}
           <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>First Name</Text>
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('account.firstName')}
+            </Text>
             <TextInput
               value={firstName}
               onChangeText={setFirstName}
@@ -247,7 +256,9 @@ export default function AccountScreen() {
 
           {/* Last Name */}
           <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>Last Name</Text>
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('account.lastName')}
+            </Text>
             <TextInput
               value={lastName}
               onChangeText={setLastName}
@@ -258,7 +269,7 @@ export default function AccountScreen() {
 
           {/* Email — read-only */}
           <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>Email</Text>
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>{t('account.email')}</Text>
             <TextInput
               value={email}
               editable={false}
@@ -267,12 +278,14 @@ export default function AccountScreen() {
               style={{ opacity: 0.6 }}
               placeholderTextColor={placeholderColor}
             />
-            <Text className={`text-xs ${subtextColor} mt-1`}>Email can’t be changed here.</Text>
+            <Text className={`text-xs ${subtextColor} mt-1`}>{t('account.emailReadOnly')}</Text>
           </View>
 
           {/* Phone Number — country flag/dial-code dropdown + national number */}
           <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>Phone Number</Text>
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('account.phoneNumber')}
+            </Text>
             <PhoneInput
               value={phone}
               onChangeText={setPhone}
@@ -289,7 +302,9 @@ export default function AccountScreen() {
 
           {/* Address — picked on a map */}
           <View className="mb-6">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>Address</Text>
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('account.address')}
+            </Text>
             <TouchableOpacity
               onPress={() => setPickerVisible(true)}
               className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor} flex-row items-center`}>
@@ -297,7 +312,7 @@ export default function AccountScreen() {
               <Text
                 className={`ml-3 flex-1 ${currentAddress ? inputText : subtextColor}`}
                 numberOfLines={2}>
-                {currentAddress ? addressLabel(currentAddress) : 'Pick location on map'}
+                {currentAddress ? addressLabel(currentAddress) : t('bookService.pickOnMap')}
               </Text>
               <Ionicons
                 name="chevron-forward"
@@ -309,9 +324,9 @@ export default function AccountScreen() {
 
           {/* Payment Methods (mock — no backend) */}
           <View className="mb-3 flex-row items-center justify-between">
-            <Text className={`text-lg font-bold ${textColor}`}>Payment Methods</Text>
+            <Text className={`text-lg font-bold ${textColor}`}>{t('account.paymentMethods')}</Text>
             <TouchableOpacity>
-              <Text className="font-semibold text-brand-600">+ Add Card</Text>
+              <Text className="font-semibold text-brand-600">{t('account.addCard')}</Text>
             </TouchableOpacity>
           </View>
           <View
@@ -322,11 +337,13 @@ export default function AccountScreen() {
               </View>
               <View className="flex-1">
                 <Text className={`text-sm font-semibold ${textColor}`}>•••• •••• •••• 4242</Text>
-                <Text className={`text-xs ${subtextColor} mt-1`}>Expires 12/25</Text>
+                <Text className={`text-xs ${subtextColor} mt-1`}>
+                  {t('account.expires', { date: '12/25' })}
+                </Text>
               </View>
             </View>
             <TouchableOpacity>
-              <Text className="font-semibold text-red-500">Remove</Text>
+              <Text className="font-semibold text-red-500">{t('account.remove')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -343,7 +360,7 @@ export default function AccountScreen() {
           {isSaving ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-lg font-bold text-white">Save Changes</Text>
+            <Text className="text-lg font-bold text-white">{t('account.saveChanges')}</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -352,7 +369,7 @@ export default function AccountScreen() {
       {pickerVisible && (
         <MapAddressPicker
           visible
-          title="Your address"
+          title={t('account.yourAddress')}
           initialRegion={{ latitude: location.latitude, longitude: location.longitude }}
           isDarkMode={isDarkMode}
           onClose={() => setPickerVisible(false)}

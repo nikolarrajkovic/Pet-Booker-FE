@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useLocale } from '../../context/LocaleContext';
 
 type ReviewModalProps = {
   visible: boolean;
@@ -23,7 +24,15 @@ type ReviewModalProps = {
   onSubmit: (rating: number, comment: string) => void;
 };
 
-const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
+// Translation keys per star value, resolved with t() at render.
+const RATING_LABEL_KEYS = [
+  '',
+  'reviewModal.ratingPoor',
+  'reviewModal.ratingFair',
+  'reviewModal.ratingGood',
+  'reviewModal.ratingGreat',
+  'reviewModal.ratingExcellent',
+];
 
 /**
  * Centered modal for rating a completed service: 1–5 stars + an optional comment.
@@ -39,6 +48,7 @@ export default function ReviewModal({
   onSubmit,
 }: ReviewModalProps) {
   const { isDarkMode, hex, placeholderColor } = useThemeColors();
+  const { t } = useLocale();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
 
@@ -88,10 +98,12 @@ export default function ReviewModal({
                 <Ionicons name="checkmark-done" size={32} color="#00C870" />
               </View>
               <Text style={{ color: hex.text }} className="text-xl font-bold">
-                Rate your experience
+                {t('reviewModal.rateYourExperience')}
               </Text>
               <Text style={{ color: hex.subtext }} className="mt-1 text-center text-sm">
-                {serviceName ? `How was ${serviceName}?` : 'How was your service?'}
+                {serviceName
+                  ? t('reviewModal.howWas', { name: serviceName })
+                  : t('reviewModal.howWasYourService')}
               </Text>
             </View>
 
@@ -114,7 +126,7 @@ export default function ReviewModal({
             <Text
               style={{ color: rating > 0 ? '#F59E0B' : hex.subtext }}
               className="mt-2 text-center text-sm font-semibold">
-              {rating > 0 ? RATING_LABELS[rating] : 'Tap to rate'}
+              {rating > 0 ? t(RATING_LABEL_KEYS[rating] as any) : t('reviewModal.tapToRate')}
             </Text>
 
             {/* Comment */}
@@ -122,7 +134,7 @@ export default function ReviewModal({
               value={comment}
               onChangeText={setComment}
               editable={!submitting}
-              placeholder="Share details of your experience (optional)"
+              placeholder={t('reviewModal.commentPlaceholder')}
               placeholderTextColor={placeholderColor}
               multiline
               numberOfLines={4}
@@ -150,7 +162,9 @@ export default function ReviewModal({
               {submitting ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text className="text-base font-bold text-white">Submit Review</Text>
+                <Text className="text-base font-bold text-white">
+                  {t('reviewModal.submitReview')}
+                </Text>
               )}
             </TouchableOpacity>
           </Pressable>

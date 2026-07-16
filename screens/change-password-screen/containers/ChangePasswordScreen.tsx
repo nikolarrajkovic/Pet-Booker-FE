@@ -1,16 +1,27 @@
 import React, { useState } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import {
+  ScrollView,
+  Text,
+  View,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { changePassword } from '../../../services/auth';
 import { getErrorMessage } from '../../../services/http';
 
 export default function ChangePasswordScreen() {
   const navigation = useNavigation();
-  const { bgColor, textColor, inputBg, inputText, borderColor, placeholderColor } = useThemeColors();
+  const { bgColor, textColor, inputBg, inputText, borderColor, placeholderColor } =
+    useThemeColors();
   const { showError } = useToast();
+  const { t } = useLocale();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -19,21 +30,21 @@ export default function ChangePasswordScreen() {
 
   const handleSubmit = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Missing fields', 'Please fill in all password fields.');
+      Alert.alert(t('changePassword.missingFieldsTitle'), t('changePassword.missingFieldsBody'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Passwords don’t match', 'New password and confirmation must match.');
+      Alert.alert(t('changePassword.mismatchTitle'), t('changePassword.mismatchBody'));
       return;
     }
     setIsSubmitting(true);
     try {
       await changePassword({ currentPassword, newPassword, confirmPassword });
-      Alert.alert('Password changed', 'Your password has been updated.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
+      Alert.alert(t('changePassword.changedTitle'), t('changePassword.changedBody'), [
+        { text: t('common.ok'), onPress: () => navigation.goBack() },
       ]);
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not change password. Please try again.'));
+      showError(getErrorMessage(e, t('changePassword.changeFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -54,19 +65,31 @@ export default function ChangePasswordScreen() {
   );
 
   return (
-    <ScreenLayout headerVariant="standard" showBackButton headerTitle="Change Password" contentBg={bgColor}>
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }} keyboardShouldPersistTaps="handled">
-        {field('Current Password', currentPassword, setCurrentPassword)}
-        {field('New Password', newPassword, setNewPassword)}
-        {field('Confirm New Password', confirmPassword, setConfirmPassword)}
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle={t('changePassword.title')}
+      contentBg={bgColor}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ padding: 24 }}
+        keyboardShouldPersistTaps="handled">
+        {field(t('changePassword.currentPassword'), currentPassword, setCurrentPassword)}
+        {field(t('changePassword.newPassword'), newPassword, setNewPassword)}
+        {field(t('changePassword.confirmPassword'), confirmPassword, setConfirmPassword)}
 
         <TouchableOpacity
           onPress={handleSubmit}
           disabled={isSubmitting}
-          className="bg-brand-500 py-4 rounded-2xl items-center mt-2"
-          style={{ opacity: isSubmitting ? 0.7 : 1 }}
-        >
-          {isSubmitting ? <ActivityIndicator color="white" /> : <Text className="text-white text-lg font-bold">Update Password</Text>}
+          className="mt-2 items-center rounded-2xl bg-brand-500 py-4"
+          style={{ opacity: isSubmitting ? 0.7 : 1 }}>
+          {isSubmitting ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text className="text-lg font-bold text-white">
+              {t('changePassword.updatePassword')}
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </ScreenLayout>

@@ -26,15 +26,21 @@ export async function getPaymentMethods(userId: number): Promise<PaymentMethodDt
   const response = await apiAuthFetch(url, { method: 'GET' });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to load payment methods.', 'getPaymentMethods'));
+    throw new Error(
+      await parseApiError(response, 'Failed to load payment methods.', 'getPaymentMethods')
+    );
   }
 
   const raw = await response.json();
   // Only surface active methods by default
-  return extractPageItems<PaymentMethodDto>(raw).filter((m) => m.status === PaymentMethodStatus.Active);
+  return extractPageItems<PaymentMethodDto>(raw).filter(
+    (m) => m.status === PaymentMethodStatus.Active
+  );
 }
 
-export async function createPaymentMethod(method: Omit<PaymentMethodDto, 'id'>): Promise<PaymentMethodDto> {
+export async function createPaymentMethod(
+  method: Omit<PaymentMethodDto, 'id'>
+): Promise<PaymentMethodDto> {
   const url = `${getApiBaseUrl()}/api/payment-methods`;
   const response = await apiAuthFetch(url, {
     method: 'POST',
@@ -42,7 +48,9 @@ export async function createPaymentMethod(method: Omit<PaymentMethodDto, 'id'>):
   });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to save payment method.', 'createPaymentMethod'));
+    throw new Error(
+      await parseApiError(response, 'Failed to save payment method.', 'createPaymentMethod')
+    );
   }
 
   return response.json();
@@ -53,6 +61,8 @@ export async function deletePaymentMethod(id: number): Promise<void> {
   const response = await apiAuthFetch(url, { method: 'DELETE' });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to remove payment method.', 'deletePaymentMethod'));
+    throw new Error(
+      await parseApiError(response, 'Failed to remove payment method.', 'deletePaymentMethod')
+    );
   }
 }

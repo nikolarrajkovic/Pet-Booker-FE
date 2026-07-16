@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { RequestCard } from '../components';
@@ -28,14 +29,17 @@ import {
   BookingStatusType,
 } from '../../../services/bookings';
 
-function relativeTime(iso?: string): string {
+// Translate function shape shared by the helpers below (labels follow the
+// active language; the container passes its useLocale().t down).
+type TFn = (key: any, params?: Record<string, string | number>) => string;
+
+function relativeTime(t: TFn, iso?: string): string {
   if (!iso) return '';
   const then = new Date(iso).getTime();
   if (isNaN(then)) return '';
   const days = Math.floor((Date.now() - then) / 86400000);
-  if (days <= 0) return 'today';
-  if (days === 1) return '1d ago';
-  return `${days}d ago`;
+  if (days <= 0) return t('requests.today');
+  return t('requests.daysAgo', { d: days });
 }
 
 function petTypeOf(pet: any): ServiceRequest['petType'] {
@@ -49,13 +53,13 @@ function petTypeOf(pet: any): ServiceRequest['petType'] {
 // match the catalog (services/service-addons.ts); the server-computed surcharge
 // is appended when it's non-zero. Pickup ↔ includePickup, Drop-off ↔
 // includePetReturn, Special Needs Care ↔ includeSpecialNeeds.
-function selectedAddOns(b: BookingDto): string[] {
+function selectedAddOns(t: TFn, b: BookingDto): string[] {
   const label = (name: string, price?: number | null) =>
     price && price > 0 ? `${name} • $${price}` : name;
   const out: string[] = [];
-  if (b.includePickup) out.push(label('Pickup', b.pickupPrice));
-  if (b.includePetReturn) out.push(label('Drop-off', b.petReturnPrice));
-  if (b.includeSpecialNeeds) out.push(label('Special Needs Care', b.specialNeedsPrice));
+  if (b.includePickup) out.push(label(t('addons.pickup'), b.pickupPrice));
+  if (b.includePetReturn) out.push(label(t('addons.dropoff'), b.petReturnPrice));
+  if (b.includeSpecialNeeds) out.push(label(t('addons.specialNeeds'), b.specialNeedsPrice));
   return out;
 }
 
@@ -63,7 +67,7 @@ function selectedAddOns(b: BookingDto): string[] {
 // Add-ons come from the booking's include* flags (selectedAddOns). Fields the
 // booking API still doesn't carry (client phone, location, owner notes, pet
 // age/weight) are blank — see BACKEND_GAPS.md.
-function bookingToRequest(b: BookingDto): ServiceRequest {
+function bookingToRequest(t: TFn, b: BookingDto): ServiceRequest {
   const from = parseBookingDate(b.bookingFrom);
   const to = parseBookingDate(b.bookingTo);
   const hours = Math.max(0, Math.round(((to.getTime() - from.getTime()) / 3600000) * 10) / 10);
@@ -76,19 +80,19 @@ function bookingToRequest(b: BookingDto): ServiceRequest {
   const pet: any = b.pet;
   return {
     id: b.id ?? 0,
-    clientName: b.user?.userName ?? 'Client',
+    clientName: b.user?.userName ?? t('requests.client'),
     clientAvatar: resolveImageUrl(b.user?.photos?.[0]?.src) || null,
     clientEmail: b.user?.email ?? '',
     clientPhone: '', // BACKEND-GAP B1: no phone on the booking's user include
-    postedAgo: relativeTime(b.createdAt),
-    petName: pet?.name ?? 'Pet',
+    postedAgo: relativeTime(t, b.createdAt),
+    petName: pet?.name ?? t('requests.pet'),
     petBreed: pet?.breed ?? '',
     petAge: '',
     petWeight: '',
     petImage: resolveImageUrl(pet?.photos?.[0]?.src) || null,
     petSpecialNeeds: null,
     petType: petTypeOf(pet),
-    serviceName: b.service?.name ?? 'Service',
+    serviceName: b.service?.name ?? t('requests.service'),
     serviceDate: isNaN(from.getTime())
       ? ''
       : from.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }),
@@ -96,9 +100,9 @@ function bookingToRequest(b: BookingDto): ServiceRequest {
       ? ''
       : from.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }),
     serviceLocation: '', // BACKEND-GAP: no location name on booking
-    duration: `${hours} hour${hours === 1 ? '' : 's'}`,
+    duration: hours === 1 ? t('requests.hour', { h: hours }) : t('requests.hours', { h: hours }),
     totalPrice: b.totalPrice,
-    additionalServices: selectedAddOns(b), // pickup / drop-off / special-needs the booker picked
+    additionalServices: selectedAddOns(t, b), // pickup / drop-off / special-needs the booker picked
     notesFromOwner: '', // BACKEND-GAP: no owner-notes field
     status,
   };
@@ -106,11 +110,12 @@ function bookingToRequest(b: BookingDto): ServiceRequest {
 
 type FilterTab = 'new' | 'accepted' | 'declined' | 'all';
 
-const TABS: { key: FilterTab; label: string }[] = [
-  { key: 'new', label: 'New' },
-  { key: 'accepted', label: 'Accepted' },
-  { key: 'declined', label: 'Declined' },
-  { key: 'all', label: 'All' },
+// Tab labels are translation keys, resolved with t() at render.
+const TABS: { key: FilterTab; labelKey: string }[] = [
+  { key: 'new', labelKey: 'requests.tabNew' },
+  { key: 'accepted', labelKey: 'requests.tabAccepted' },
+  { key: 'declined', labelKey: 'requests.tabDeclined' },
+  { key: 'all', labelKey: 'requests.tabAll' },
 ];
 
 export default function NewRequestsScreen() {
@@ -126,6 +131,7 @@ export default function NewRequestsScreen() {
     placeholderColor,
   } = useThemeColors();
   const { showError } = useToast();
+  const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<FilterTab>('new');
   const [bookings, setBookings] = useState<BookingDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -146,11 +152,11 @@ export default function NewRequestsScreen() {
       const providerId = currentUser.serviceProviderId || null;
       setBookings(providerId ? await getBookings({ serviceProviderId: providerId }) : []);
     } catch (e) {
-      setLoadError(getErrorMessage(e, 'Could not load requests. Please try again.'));
+      setLoadError(getErrorMessage(e, t('requests.loadFailed')));
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser?.id, currentUser?.serviceProviderId]);
+  }, [currentUser?.id, currentUser?.serviceProviderId, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -167,7 +173,7 @@ export default function NewRequestsScreen() {
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]';
   const tabBg = cardBg;
 
-  const requests = useMemo(() => bookings.map(bookingToRequest), [bookings]);
+  const requests = useMemo(() => bookings.map((b) => bookingToRequest(t, b)), [bookings, t]);
   const newCount = requests.filter((r) => r.status === 'new').length;
 
   const filtered = requests.filter((r) => {
@@ -184,7 +190,7 @@ export default function NewRequestsScreen() {
       await confirmBooking(id);
       await load();
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not accept the request. Please try again.'));
+      showError(getErrorMessage(e, t('requests.acceptFailed')));
     } finally {
       setBusyId(null);
     }
@@ -207,29 +213,32 @@ export default function NewRequestsScreen() {
     // Server requires a reason of ≥10 chars when one is given; blank is allowed
     // and uses a generic fallback. Guard the 1–9 char range.
     if (trimmed.length > 0 && trimmed.length < 10) return;
-    const reason = trimmed || 'Declined by provider';
+    const reason = trimmed || t('requests.declinedByProvider');
     setDeclineTargetId(null);
     setBusyId(id);
     try {
       await declineBooking(id, reason);
       await load();
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not decline the request. Please try again.'));
+      showError(getErrorMessage(e, t('requests.declineFailed')));
     } finally {
       setBusyId(null);
     }
   };
 
   // A typed reason must be ≥10 chars (server rule); blank is fine (uses fallback).
-  const declineReasonTooShort =
-    declineReason.trim().length > 0 && declineReason.trim().length < 10;
+  const declineReasonTooShort = declineReason.trim().length > 0 && declineReason.trim().length < 10;
 
   return (
     <ScreenLayout
       headerVariant="standard"
       showBackButton
-      headerTitle="Requests"
-      headerSubtitle={`${newCount} pending request${newCount !== 1 ? 's' : ''}`}
+      headerTitle={t('requests.title')}
+      headerSubtitle={
+        newCount === 1
+          ? t('requests.pendingOne', { count: newCount })
+          : t('requests.pendingMany', { count: newCount })
+      }
       contentBg={contentBg}
       showNotificationButton>
       {/* Filter tabs */}
@@ -255,7 +264,7 @@ export default function NewRequestsScreen() {
                 isActive ? 'bg-brand-500' : ''
               }`}>
               <Text className={`text-xs font-semibold ${isActive ? 'text-white' : subtextColor}`}>
-                {tab.label}
+                {t(tab.labelKey as any)}
               </Text>
               {count > 0 && (
                 <View
@@ -298,7 +307,13 @@ export default function NewRequestsScreen() {
               color={isDarkMode ? '#4B5563' : '#D1D5DB'}
             />
             <Text className={`${subtextColor} mt-4 text-center text-base`}>
-              No {activeTab === 'all' ? '' : activeTab} requests
+              {activeTab === 'all'
+                ? t('requests.noRequests')
+                : activeTab === 'new'
+                  ? t('requests.noNewRequests')
+                  : activeTab === 'accepted'
+                    ? t('requests.noAcceptedRequests')
+                    : t('requests.noDeclinedRequests')}
             </Text>
           </View>
         ) : (
@@ -326,14 +341,14 @@ export default function NewRequestsScreen() {
         onRequestClose={() => setDeclineTargetId(null)}>
         <View className="flex-1 justify-center bg-black/50 px-6">
           <View className={`${cardBg} rounded-2xl p-5`}>
-            <Text className={`text-lg font-bold ${textColor} mb-1`}>Decline request?</Text>
-            <Text className={`text-sm ${subtextColor} mb-4`}>
-              This cancels the booking request. Add a reason for the client (optional).
+            <Text className={`text-lg font-bold ${textColor} mb-1`}>
+              {t('requests.declineTitle')}
             </Text>
+            <Text className={`text-sm ${subtextColor} mb-4`}>{t('requests.declineSubtitle')}</Text>
             <TextInput
               value={declineReason}
               onChangeText={setDeclineReason}
-              placeholder="e.g. Fully booked that day"
+              placeholder={t('requests.declinePlaceholder')}
               placeholderTextColor={placeholderColor}
               multiline
               numberOfLines={3}
@@ -343,23 +358,21 @@ export default function NewRequestsScreen() {
               selectionColor="#00C870"
             />
             {declineReasonTooShort && (
-              <Text className="mb-4 text-xs text-red-500">
-                Please use at least 10 characters, or leave it blank.
-              </Text>
+              <Text className="mb-4 text-xs text-red-500">{t('requests.declineTooShort')}</Text>
             )}
             <View className="flex-row" style={{ gap: 12 }}>
               <TouchableOpacity
                 onPress={() => setDeclineTargetId(null)}
                 activeOpacity={0.7}
                 className={`flex-1 items-center rounded-xl border py-3 ${borderColor}`}>
-                <Text className={`font-semibold ${textColor}`}>Cancel</Text>
+                <Text className={`font-semibold ${textColor}`}>{t('requests.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={confirmDecline}
                 disabled={declineReasonTooShort}
                 activeOpacity={0.7}
                 className={`flex-1 items-center rounded-xl bg-red-500 py-3 ${declineReasonTooShort ? 'opacity-50' : ''}`}>
-                <Text className="font-semibold text-white">Decline</Text>
+                <Text className="font-semibold text-white">{t('requests.decline')}</Text>
               </TouchableOpacity>
             </View>
           </View>

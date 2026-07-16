@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import TabBar from '../../../components/shared/TabBar';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
@@ -12,29 +13,78 @@ import { getBookings, parseBookingDate, BookingStatusType } from '../../../servi
 import { MenuItem } from '../components';
 
 const USER_MENU_ITEMS = [
-  { id: 'account', icon: 'person-outline', iconType: 'ionicons', title: 'Account', subtitle: 'Manage your personal info', color: '#00C870' },
-  { id: 'pets', icon: 'paw', iconType: 'material', title: 'My Pets', subtitle: 'Add and manage your pets', color: '#00C870' },
-  { id: 'bookings', icon: 'briefcase-outline', iconType: 'ionicons', title: 'My Bookings', subtitle: 'View booking history', color: '#00C870' },
-  { id: 'schedule', icon: 'calendar-outline', iconType: 'ionicons', title: 'My Schedule', subtitle: 'View your appointments', color: '#00C870' },
-  { id: 'notifications', icon: 'notifications-outline', iconType: 'ionicons', title: 'Notifications', subtitle: 'View your notifications', color: '#00C870' },
-  { id: 'notification-settings', icon: 'options-outline', iconType: 'ionicons', title: 'Notifications settings', subtitle: 'Manage your preferences', color: '#00C870' },
-  { id: 'settings', icon: 'settings-outline', iconType: 'ionicons', title: 'Settings', subtitle: 'App configuration', color: '#00C870' },
+  {
+    id: 'account',
+    icon: 'person-outline',
+    iconType: 'ionicons',
+    titleKey: 'profile.account',
+    subtitleKey: 'profile.accountSub',
+    color: '#00C870',
+  },
+  {
+    id: 'pets',
+    icon: 'paw',
+    iconType: 'material',
+    titleKey: 'profile.pets',
+    subtitleKey: 'profile.petsSub',
+    color: '#00C870',
+  },
+  {
+    id: 'bookings',
+    icon: 'briefcase-outline',
+    iconType: 'ionicons',
+    titleKey: 'profile.bookings',
+    subtitleKey: 'profile.bookingsSub',
+    color: '#00C870',
+  },
+  {
+    id: 'schedule',
+    icon: 'calendar-outline',
+    iconType: 'ionicons',
+    titleKey: 'profile.schedule',
+    subtitleKey: 'profile.scheduleSub',
+    color: '#00C870',
+  },
+  {
+    id: 'notifications',
+    icon: 'notifications-outline',
+    iconType: 'ionicons',
+    titleKey: 'profile.notifications',
+    subtitleKey: 'profile.notificationsSub',
+    color: '#00C870',
+  },
+  {
+    id: 'notification-settings',
+    icon: 'options-outline',
+    iconType: 'ionicons',
+    titleKey: 'profile.notificationSettings',
+    subtitleKey: 'profile.notificationSettingsSub',
+    color: '#00C870',
+  },
+  {
+    id: 'settings',
+    icon: 'settings-outline',
+    iconType: 'ionicons',
+    titleKey: 'profile.settings',
+    subtitleKey: 'profile.settingsSub',
+    color: '#00C870',
+  },
 ];
 
-const PARTNER_MENU_ITEMS = [
-  { id: 'account', icon: 'person-outline', iconType: 'ionicons', title: 'Account', subtitle: 'Manage your personal info', color: '#00C870' },
-  { id: 'pets', icon: 'paw', iconType: 'material', title: 'My Pets', subtitle: 'Add and manage your pets', color: '#00C870' },
-  { id: 'bookings', icon: 'briefcase-outline', iconType: 'ionicons', title: 'My Bookings', subtitle: 'View booking history', color: '#00C870' },
-  { id: 'schedule', icon: 'calendar-outline', iconType: 'ionicons', title: 'My Schedule', subtitle: 'View your appointments', color: '#00C870' },
-  { id: 'notifications', icon: 'notifications-outline', iconType: 'ionicons', title: 'Notifications', subtitle: 'View your notifications', color: '#00C870' },
-  { id: 'notification-settings', icon: 'options-outline', iconType: 'ionicons', title: 'Notifications settings', subtitle: 'Manage your preferences', color: '#00C870' },
-  { id: 'settings', icon: 'settings-outline', iconType: 'ionicons', title: 'Settings', subtitle: 'App configuration', color: '#00C870' },
-];
+const PARTNER_MENU_ITEMS = USER_MENU_ITEMS;
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
-  const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor, borderColor } = useThemeColors();
+  const {
+    isDarkMode,
+    cardBg,
+    bgColor: contentBg,
+    textColor,
+    subtextColor,
+    borderColor,
+  } = useThemeColors();
   const { signOut, isPartner, currentUser } = useAuth();
+  const { t } = useLocale();
 
   const [user, setUser] = useState<UserDto | null>(null);
   const [avatarError, setAvatarError] = useState(false);
@@ -49,14 +99,17 @@ export default function ProfileScreen() {
       let cancelled = false;
       if (currentUser?.id) {
         getUser(currentUser.id)
-          .then((u) => { if (!cancelled) { setUser(u); setAvatarError(false); } })
+          .then((u) => {
+            if (!cancelled) {
+              setUser(u);
+              setAvatarError(false);
+            }
+          })
           .catch(() => {});
         getBookings({ userId: currentUser.id })
           .then((list) => {
             if (cancelled) return;
-            const started = list.some(
-              (b) => b.currentStatus === BookingStatusType.ServiceStarted
-            );
+            const started = list.some((b) => b.currentStatus === BookingStatusType.ServiceStarted);
             const upcoming = list.some(
               (b) =>
                 (b.currentStatus === BookingStatusType.ServiceConfirmedByProvider ||
@@ -65,9 +118,13 @@ export default function ProfileScreen() {
             );
             setLiveSession(started ? 'started' : upcoming ? 'upcoming' : 'none');
           })
-          .catch(() => { if (!cancelled) setLiveSession('none'); });
+          .catch(() => {
+            if (!cancelled) setLiveSession('none');
+          });
       }
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     }, [currentUser?.id])
   );
 
@@ -75,10 +132,14 @@ export default function ProfileScreen() {
     [user?.firstName ?? currentUser?.firstName, user?.lastName ?? currentUser?.lastName]
       .filter(Boolean)
       .join(' ')
-      .trim() || currentUser?.userName || 'Your Profile';
+      .trim() ||
+    currentUser?.userName ||
+    t('profile.yourProfile');
   const email = user?.email ?? currentUser?.email ?? '';
   const avatarUri = avatarError ? '' : resolveImageUrl(user?.avatarUrl);
-  const initials = ((user?.firstName ?? currentUser?.firstName ?? email ?? '?').trim()[0] ?? '?').toUpperCase();
+  const initials = (
+    (user?.firstName ?? currentUser?.firstName ?? email ?? '?').trim()[0] ?? '?'
+  ).toUpperCase();
 
   const baseMenu = isPartner ? PARTNER_MENU_ITEMS : USER_MENU_ITEMS;
   const menuItems =
@@ -88,11 +149,11 @@ export default function ProfileScreen() {
             id: 'live-session',
             icon: 'radio',
             iconType: 'ionicons',
-            title: 'Live Session',
-            subtitle:
+            titleKey: 'profile.liveSession',
+            subtitleKey:
               liveSession === 'started'
-                ? 'Service in progress — tap to track'
-                : 'Upcoming service — open to watch it start',
+                ? 'profile.liveSessionStartedSub'
+                : 'profile.liveSessionUpcomingSub',
             color: liveSession === 'started' ? '#EF4444' : '#00A85A',
           },
           ...baseMenu,
@@ -120,37 +181,42 @@ export default function ProfileScreen() {
       footer={<TabBar />}
       headerChildren={
         <>
-          <Text className="text-white text-2xl font-bold mb-6">Profile</Text>
-          <View className={`${isDarkMode ? 'bg-[#243447]' : 'bg-brand-400'} rounded-2xl p-4 flex-row items-center mb-8`}>
+          <Text className="mb-6 text-2xl font-bold text-white">{t('profile.title')}</Text>
+          <View
+            className={`${isDarkMode ? 'bg-[#243447]' : 'bg-brand-400'} mb-8 flex-row items-center rounded-2xl p-4`}>
             {avatarUri ? (
               <Image
                 source={{ uri: avatarUri }}
-                className="w-16 h-16 rounded-full mr-4"
+                className="mr-4 h-16 w-16 rounded-full"
                 onError={() => setAvatarError(true)}
               />
             ) : (
-              <View className="w-16 h-16 rounded-full items-center justify-center mr-4 bg-white/25">
-                <Text className="text-white text-2xl font-bold">{initials}</Text>
+              <View className="mr-4 h-16 w-16 items-center justify-center rounded-full bg-white/25">
+                <Text className="text-2xl font-bold text-white">{initials}</Text>
               </View>
             )}
             <View className="flex-1">
-              <Text className="text-white text-lg font-bold">{fullName}</Text>
-              {email ? <Text className="text-brand-100 text-sm mt-1">{email}</Text> : null}
+              <Text className="text-lg font-bold text-white">{fullName}</Text>
+              {email ? <Text className="mt-1 text-sm text-brand-100">{email}</Text> : null}
             </View>
           </View>
         </>
-      }
-    >
+      }>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingTop: 24, paddingBottom: 100 }}>
         {/* Become a Partner Banner — only for non-partners */}
         {!isPartner && (
-        <View className="mx-6 mb-6 bg-brand-500 rounded-2xl p-6">
-          <Text className="text-white text-xl font-bold mb-2">Become a Partner</Text>
-          <Text className="text-brand-100 text-sm mb-4">Share your passion for pets and earn extra income</Text>
-          <TouchableOpacity className="bg-white py-3 rounded-xl" activeOpacity={0.7} onPress={() => (navigation as any).navigate('BecomePartner')}>
-            <Text className="text-brand-600 text-center font-semibold">Learn More</Text>
-          </TouchableOpacity>
-        </View>
+          <View className="mx-6 mb-6 rounded-2xl bg-brand-500 p-6">
+            <Text className="mb-2 text-xl font-bold text-white">{t('profile.becomePartner')}</Text>
+            <Text className="mb-4 text-sm text-brand-100">{t('profile.becomePartnerSub')}</Text>
+            <TouchableOpacity
+              className="rounded-xl bg-white py-3"
+              activeOpacity={0.7}
+              onPress={() => (navigation as any).navigate('BecomePartner')}>
+              <Text className="text-center font-semibold text-brand-600">
+                {t('profile.learnMore')}
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         <View className="px-6">
@@ -159,8 +225,8 @@ export default function ProfileScreen() {
               key={item.id}
               icon={item.icon}
               iconType={item.iconType}
-              title={item.title}
-              subtitle={item.subtitle}
+              title={t(item.titleKey as any)}
+              subtitle={t(item.subtitleKey as any)}
               color={item.color}
               isDarkMode={isDarkMode}
               cardBg={cardBg}
@@ -172,20 +238,26 @@ export default function ProfileScreen() {
             />
           ))}
 
-          <TouchableOpacity className={`flex-row items-center ${cardBg} rounded-2xl p-4 mb-3 border ${borderColor}`} activeOpacity={0.7} onPress={() => signOut()}>
-            <View className={`w-12 h-12 ${isDarkMode ? 'bg-[#243447]' : 'bg-red-50'} rounded-xl items-center justify-center mr-4`}>
+          <TouchableOpacity
+            className={`flex-row items-center ${cardBg} mb-3 rounded-2xl border p-4 ${borderColor}`}
+            activeOpacity={0.7}
+            onPress={() => signOut()}>
+            <View
+              className={`h-12 w-12 ${isDarkMode ? 'bg-[#243447]' : 'bg-red-50'} mr-4 items-center justify-center rounded-xl`}>
               <Ionicons name="log-out-outline" size={24} color="#EF4444" />
             </View>
             <View className="flex-1">
-              <Text className="text-base font-semibold text-red-600">Logout</Text>
-              <Text className={`text-sm ${subtextColor} mt-0.5`}>Sign out of your account</Text>
+              <Text className="text-base font-semibold text-red-600">{t('profile.logout')}</Text>
+              <Text className={`text-sm ${subtextColor} mt-0.5`}>{t('profile.logoutSub')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
 
-          <View className="items-center mt-6 mb-4">
+          <View className="mb-4 mt-6 items-center">
             <Text className={`text-sm ${subtextColor}`}>PawCare v1.0.0</Text>
-            <Text className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} mt-1`}>© 2025 All rights reserved</Text>
+            <Text className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} mt-1`}>
+              {t('profile.rights')}
+            </Text>
           </View>
         </View>
       </ScrollView>

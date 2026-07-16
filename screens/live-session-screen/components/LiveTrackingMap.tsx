@@ -48,7 +48,11 @@ export default function LiveTrackingMap({ latest, trail }: LiveTrackingMapProps)
 
   return (
     <View style={{ flex: 1, borderRadius: 16, overflow: 'hidden' }}>
-      <MapView ref={mapRef} style={{ flex: 1 }} provider={PROVIDER_GOOGLE} initialRegion={initialRegion}>
+      <MapView
+        ref={mapRef}
+        style={{ flex: 1 }}
+        provider={PROVIDER_GOOGLE}
+        initialRegion={initialRegion}>
         {trail.length > 1 ? (
           <Polyline coordinates={trail} strokeColor="#00C870" strokeWidth={4} />
         ) : null}

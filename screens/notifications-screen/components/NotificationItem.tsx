@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppNotificationDto, NotificationType } from '../../../services/app-notifications';
+import { useLocale } from '../../../context/LocaleContext';
 
 type Visual = { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string };
 
@@ -37,19 +38,23 @@ function notificationVisual(type: number): Visual {
   }
 }
 
-// ISO date-time → "Just now" / "5m ago" / "3h ago" / "2d ago" / "Jun 3"
-function formatRelativeTime(iso: string): string {
+// ISO date-time → "Just now" / "5m ago" / "3h ago" / "2d ago" / "Jun 3".
+// Takes the translate fn so the labels follow the active language.
+function formatRelativeTime(
+  t: (key: any, params?: Record<string, string | number>) => string,
+  iso: string
+): string {
   const then = new Date(iso).getTime();
   if (isNaN(then)) return '';
   const diff = Date.now() - then;
-  if (diff < 0) return 'Just now';
+  if (diff < 0) return t('notifications.justNow');
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t('notifications.justNow');
+  if (mins < 60) return t('notifications.minutesAgo', { m: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t('notifications.hoursAgo', { h: hours });
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return t('notifications.daysAgo', { d: days });
   return new Date(then).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
@@ -72,6 +77,7 @@ export default function NotificationItem({
   borderColor,
   onPress,
 }: NotificationItemProps) {
+  const { t } = useLocale();
   const { icon, color, bg } = notificationVisual(notification.type);
   const unread = !notification.isRead;
   // Unread rows get a subtle brand tint so they stand out from read ones.
@@ -93,7 +99,7 @@ export default function NotificationItem({
             {notification.title}
           </Text>
           <Text className={`text-xs ${subtextColor}`}>
-            {formatRelativeTime(notification.createdAt)}
+            {formatRelativeTime(t, notification.createdAt)}
           </Text>
         </View>
         <Text className={`text-sm ${subtextColor} mt-1`} numberOfLines={3}>

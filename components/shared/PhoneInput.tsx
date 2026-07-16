@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, Pressable } f
 import { Ionicons } from '@expo/vector-icons';
 import { COUNTRIES, Country, DEFAULT_COUNTRY, detectCountry, parsePhone } from './countries';
 import CountryFlag from './CountryFlag';
+import { useLocale } from '../../context/LocaleContext';
 
 interface PhoneInputProps {
   /** Stored phone value (dial code + national number, e.g. "+38164 123 4567"). */
@@ -53,6 +54,7 @@ export default function PhoneInput({
   placeholderColor,
   cardBg,
 }: PhoneInputProps) {
+  const { t } = useLocale();
   const parsed = parsePhone(value);
   const [country, setCountry] = useState<Country>(parsed.country ?? DEFAULT_COUNTRY);
   const [national, setNational] = useState<string>(parsed.national);
@@ -131,7 +133,7 @@ export default function PhoneInput({
           onPress={() => setPickerVisible(true)}
           className="flex-row items-center py-3 pl-4 pr-3"
           accessibilityRole="button"
-          accessibilityLabel="Select country calling code">
+          accessibilityLabel={t('shared.selectCallingCode')}>
           <CountryFlag iso={country.iso} width={26} />
           <Text className={`ml-2 font-semibold ${inputText}`}>{country.dialCode}</Text>
           <Ionicons
@@ -189,7 +191,7 @@ export default function PhoneInput({
                 />
                 <TextInput
                   className={`flex-1 ${inputText}`}
-                  placeholder="Search country"
+                  placeholder={t('shared.searchCountry')}
                   placeholderTextColor={placeholderColor}
                   value={search}
                   onChangeText={setSearch}
