@@ -43,8 +43,7 @@ export default function MapViewComponent({ services, location }: MapViewComponen
           longitudeDelta: 0.0421,
         }}
         showsUserLocation={true}
-        showsMyLocationButton={true}
-      >
+        showsMyLocationButton={true}>
         {/* Current location marker */}
         <Marker
           coordinate={{
@@ -64,11 +63,10 @@ export default function MapViewComponent({ services, location }: MapViewComponen
               longitude: item.longitude,
             }}
             title={item.name}
-            description={`${item.service} - $${item.price}`}
-          >
+            description={`${item.service} - $${item.price}`}>
             <View className="items-center">
-              <View className="bg-white rounded-full px-3 py-1.5 shadow-lg border border-gray-200">
-                <Text className="text-gray-900 font-bold text-xs">${item.price}</Text>
+              <View className="rounded-full border border-gray-200 bg-white px-3 py-1.5 shadow-lg">
+                <Text className="text-xs font-bold text-gray-900">${item.price}</Text>
               </View>
             </View>
           </Marker>

@@ -52,14 +52,12 @@ export const EnumsProvider = ({ children }: { children: ReactNode }) => {
 
     load();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isLoggedIn]);
 
-  return (
-    <EnumsContext.Provider value={{ enums, isLoading }}>
-      {children}
-    </EnumsContext.Provider>
-  );
+  return <EnumsContext.Provider value={{ enums, isLoading }}>{children}</EnumsContext.Provider>;
 };
 
 export const useEnums = () => {

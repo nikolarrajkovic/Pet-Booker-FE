@@ -15,34 +15,37 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useLocale } from '../../../context/LocaleContext';
 import type { Partner, PartnerStatus, ServiceHistoryItem } from '../components';
 import {
   getServiceProvider,
   extractProviderDocuments,
+  providerTypeValue,
   type ProviderDocuments,
   type ProviderDocumentImage,
 } from '../../../services/service-providers';
 
+// Labels are translation keys, resolved with t() at render.
 const STATUS_CFG: Record<
   PartnerStatus,
-  { label: string; bg: string; text: string; borderColor: string; icon: any }
+  { labelKey: string; bg: string; text: string; borderColor: string; icon: any }
 > = {
   active: {
-    label: 'Active',
+    labelKey: 'admin.statusActive',
     bg: '#DCFCE7',
     text: '#15803D',
     borderColor: '#86EFAC',
     icon: 'checkmark-circle-outline',
   },
   timeout: {
-    label: 'Timeout',
+    labelKey: 'admin.statusTimeout',
     bg: '#FEF9C3',
     text: '#A16207',
     borderColor: '#FDE047',
     icon: 'time-outline',
   },
   banned: {
-    label: 'Banned',
+    labelKey: 'admin.statusBanned',
     bg: '#FEE2E2',
     text: '#B91C1C',
     borderColor: '#FCA5A5',
@@ -63,11 +66,14 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-async function openDownload(url: string) {
+async function openDownload(
+  url: string,
+  t: (key: any, params?: Record<string, string | number>) => string
+) {
   try {
     await Linking.openURL(url);
   } catch {
-    Alert.alert('Unable to open file', 'The file could not be opened.');
+    Alert.alert(t('admin.fileOpenErrorTitle'), t('admin.fileOpenErrorMsg'));
   }
 }
 
@@ -75,6 +81,7 @@ export default function PartnerDetailsScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { isDarkMode, hex } = useThemeColors();
+  const { t, tEnum } = useLocale();
   const insets = useSafeAreaInsets();
 
   const partner: Partner = route.params?.partner;
@@ -119,7 +126,7 @@ export default function PartnerDetailsScreen() {
   if (!partner) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Text>Partner not found.</Text>
+        <Text>{t('admin.partnerNotFound')}</Text>
       </View>
     );
   }
@@ -138,9 +145,9 @@ export default function PartnerDetailsScreen() {
   const handleTimeout = () => {
     if (partnerStatus === 'timeout') {
       setConfirm({
-        title: 'Lift Timeout',
-        message: `Restore ${partner.name} to active status?`,
-        confirmLabel: 'Restore',
+        title: t('admin.liftTimeout'),
+        message: t('admin.liftTimeoutMsg', { name: partner.name }),
+        confirmLabel: t('admin.restore'),
         confirmColor: '#00C870',
         onConfirm: () => {
           setPartnerStatus('active');
@@ -149,9 +156,9 @@ export default function PartnerDetailsScreen() {
       });
     } else {
       setConfirm({
-        title: 'Timeout Partner',
-        message: `Put ${partner.name} on timeout? They will be temporarily suspended.`,
-        confirmLabel: 'Timeout',
+        title: t('admin.timeoutPartner'),
+        message: t('admin.timeoutPartnerMsg', { name: partner.name }),
+        confirmLabel: t('admin.timeout'),
         confirmColor: '#D97706',
         onConfirm: () => {
           setPartnerStatus('timeout');
@@ -164,9 +171,9 @@ export default function PartnerDetailsScreen() {
   const handleBan = () => {
     if (partnerStatus === 'banned') {
       setConfirm({
-        title: 'Unban Partner',
-        message: `Unban ${partner.name} and restore their access?`,
-        confirmLabel: 'Unban',
+        title: t('admin.unbanPartner'),
+        message: t('admin.unbanPartnerMsg', { name: partner.name }),
+        confirmLabel: t('admin.unban'),
         confirmColor: '#00C870',
         onConfirm: () => {
           setPartnerStatus('active');
@@ -175,9 +182,9 @@ export default function PartnerDetailsScreen() {
       });
     } else {
       setConfirm({
-        title: 'Ban Partner',
-        message: `Permanently ban ${partner.name}? This will revoke all access.`,
-        confirmLabel: 'Ban Partner',
+        title: t('admin.banPartner'),
+        message: t('admin.banPartnerMsg', { name: partner.name }),
+        confirmLabel: t('admin.banPartner'),
         confirmColor: '#EF4444',
         onConfirm: () => {
           setPartnerStatus('banned');
@@ -210,7 +217,7 @@ export default function PartnerDetailsScreen() {
           <Ionicons name="arrow-back" size={20} color="white" />
         </TouchableOpacity>
         <Text style={{ color: 'white', fontSize: 20, fontWeight: '700', marginTop: 10 }}>
-          Partner Details
+          {t('admin.partnerDetails')}
         </Text>
       </View>
 
@@ -315,7 +322,7 @@ export default function PartnerDetailsScreen() {
                   }}>
                   <Ionicons name={cfg.icon} size={13} color={cfg.text} style={{ marginRight: 4 }} />
                   <Text style={{ color: cfg.text, fontSize: 12, fontWeight: '700' }}>
-                    {cfg.label}
+                    {t(cfg.labelKey as any)}
                   </Text>
                 </View>
               </View>
@@ -347,7 +354,12 @@ export default function PartnerDetailsScreen() {
                     paddingVertical: 3,
                   }}>
                   <Text style={{ color: '#00A85A', fontSize: 12, fontWeight: '500' }}>
-                    {partner.services[0]}
+                    {(() => {
+                      const v = providerTypeValue(partner.services[0]);
+                      return v != null
+                        ? tEnum('serviceProviderType', v, partner.services[0])
+                        : partner.services[0];
+                    })()}
                   </Text>
                 </View>
                 {partner.distance ? (
@@ -402,7 +414,7 @@ export default function PartnerDetailsScreen() {
                 {partner.totalServices}
               </Text>
               <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2 }}>
-                Total Services
+                {t('admin.totalServices')}
               </Text>
             </View>
             <View style={{ width: 1, backgroundColor: dividerColor }} />
@@ -410,7 +422,9 @@ export default function PartnerDetailsScreen() {
               <Text style={{ color: textColor, fontSize: 20, fontWeight: '800' }}>
                 {partner.avgRating.toFixed(1)}
               </Text>
-              <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2 }}>Avg Rating</Text>
+              <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2 }}>
+                {t('admin.avgRating')}
+              </Text>
             </View>
             <View style={{ width: 1, backgroundColor: dividerColor }} />
             <View style={{ flex: 1, alignItems: 'center', paddingVertical: 16 }}>
@@ -439,7 +453,7 @@ export default function PartnerDetailsScreen() {
                 <Ionicons name="document-text-outline" size={16} color="#00C870" />
               </View>
               <Text style={{ color: textColor, fontSize: 15, fontWeight: '700' }}>
-                Partner Documents
+                {t('admin.partnerDocuments')}
               </Text>
             </View>
 
@@ -458,8 +472,8 @@ export default function PartnerDetailsScreen() {
                   iconBg="#E8F5EF"
                   iconColor="#00C870"
                   iconName="person-circle-outline"
-                  title="Profile Photo"
-                  subtitle={docs.profilePhoto ? 'Uploaded' : 'Not provided'}
+                  title={t('admin.profilePhoto')}
+                  subtitle={docs.profilePhoto ? t('admin.uploaded') : t('admin.notProvided')}
                   uploaded={!!docs.profilePhoto}>
                   {docs.profilePhoto ? (
                     <ViewableImage
@@ -468,7 +482,7 @@ export default function PartnerDetailsScreen() {
                       onPress={() => setViewerUri(docs.profilePhoto!.src)}
                     />
                   ) : (
-                    <EmptyDoc text="No profile photo uploaded" subTextColor={subTextColor} />
+                    <EmptyDoc text={t('admin.noProfilePhoto')} subTextColor={subTextColor} />
                   )}
                 </DocCard>
 
@@ -481,8 +495,12 @@ export default function PartnerDetailsScreen() {
                   iconBg="#FEF3C7"
                   iconColor="#D97706"
                   iconName="paw-outline"
-                  title={`Pet Photos${docs.petPhotos.length ? ` (${docs.petPhotos.length})` : ''}`}
-                  subtitle={docs.petPhotos.length ? 'Uploaded' : 'Not provided'}
+                  title={
+                    docs.petPhotos.length
+                      ? t('admin.petPhotosCount', { n: docs.petPhotos.length })
+                      : t('admin.petPhotos')
+                  }
+                  subtitle={docs.petPhotos.length ? t('admin.uploaded') : t('admin.notProvided')}
                   uploaded={docs.petPhotos.length > 0}>
                   {docs.petPhotos.length ? (
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -506,7 +524,7 @@ export default function PartnerDetailsScreen() {
                       ))}
                     </View>
                   ) : (
-                    <EmptyDoc text="No pet photos uploaded" subTextColor={subTextColor} />
+                    <EmptyDoc text={t('admin.noPetPhotos')} subTextColor={subTextColor} />
                   )}
                 </DocCard>
 
@@ -519,17 +537,17 @@ export default function PartnerDetailsScreen() {
                   iconBg="#EEF2FF"
                   iconColor="#6366F1"
                   iconName="shield-checkmark-outline"
-                  title="Government ID"
+                  title={t('admin.governmentId')}
                   subtitle={
                     docs.governmentIdFront || docs.governmentIdBack
-                      ? "Driver's License"
-                      : 'Not provided'
+                      ? t('admin.driversLicense')
+                      : t('admin.notProvided')
                   }
                   uploaded={!!(docs.governmentIdFront || docs.governmentIdBack)}>
                   {docs.governmentIdFront || docs.governmentIdBack ? (
                     <View style={{ flexDirection: 'row', gap: 10 }}>
                       <IdSide
-                        label="Front"
+                        label={t('admin.front')}
                         img={docs.governmentIdFront}
                         revealed={idFrontRevealed}
                         onReveal={() => setIdFrontRevealed(true)}
@@ -538,7 +556,7 @@ export default function PartnerDetailsScreen() {
                         subTextColor={subTextColor}
                       />
                       <IdSide
-                        label="Back"
+                        label={t('admin.back')}
                         img={docs.governmentIdBack}
                         revealed={idBackRevealed}
                         onReveal={() => setIdBackRevealed(true)}
@@ -548,7 +566,7 @@ export default function PartnerDetailsScreen() {
                       />
                     </View>
                   ) : (
-                    <EmptyDoc text="No government ID uploaded" subTextColor={subTextColor} />
+                    <EmptyDoc text={t('admin.noGovernmentId')} subTextColor={subTextColor} />
                   )}
                 </DocCard>
 
@@ -561,8 +579,12 @@ export default function PartnerDetailsScreen() {
                   iconBg="#E8F5EF"
                   iconColor="#00C870"
                   iconName="ribbon-outline"
-                  title={`Certificates${docs.certificates.length ? ` (${docs.certificates.length})` : ''}`}
-                  subtitle={docs.certificates.length ? 'Uploaded' : 'Not provided'}
+                  title={
+                    docs.certificates.length
+                      ? t('admin.certificatesCount', { n: docs.certificates.length })
+                      : t('admin.certificates')
+                  }
+                  subtitle={docs.certificates.length ? t('admin.uploaded') : t('admin.notProvided')}
                   uploaded={docs.certificates.length > 0}>
                   {docs.certificates.length ? (
                     docs.certificates.map((c, i) => (
@@ -607,7 +629,7 @@ export default function PartnerDetailsScreen() {
                             </View>
                             <TouchableOpacity
                               activeOpacity={0.8}
-                              onPress={() => openDownload(c.fileSrc)}
+                              onPress={() => openDownload(c.fileSrc, t)}
                               style={{ padding: 8 }}>
                               <Ionicons name="open-outline" size={20} color="#00C870" />
                             </TouchableOpacity>
@@ -616,7 +638,7 @@ export default function PartnerDetailsScreen() {
                       </View>
                     ))
                   ) : (
-                    <EmptyDoc text="No certificates uploaded" subTextColor={subTextColor} />
+                    <EmptyDoc text={t('admin.noCertificates')} subTextColor={subTextColor} />
                   )}
                 </DocCard>
               </>
@@ -695,7 +717,7 @@ export default function PartnerDetailsScreen() {
             }}>
             <Ionicons name="time-outline" size={17} color="#D97706" style={{ marginRight: 6 }} />
             <Text style={{ color: '#D97706', fontSize: 14, fontWeight: '700' }}>
-              {partnerStatus === 'timeout' ? 'Lift Timeout' : 'Timeout'}
+              {partnerStatus === 'timeout' ? t('admin.liftTimeout') : t('admin.timeout')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -713,7 +735,7 @@ export default function PartnerDetailsScreen() {
             }}>
             <Ionicons name="ban-outline" size={17} color="#EF4444" style={{ marginRight: 6 }} />
             <Text style={{ color: '#EF4444', fontSize: 14, fontWeight: '700' }}>
-              {partnerStatus === 'banned' ? 'Unban Partner' : 'Ban Partner'}
+              {partnerStatus === 'banned' ? t('admin.unbanPartner') : t('admin.banPartner')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -756,7 +778,9 @@ export default function PartnerDetailsScreen() {
                   borderColor,
                   alignItems: 'center',
                 }}>
-                <Text style={{ color: subTextColor, fontSize: 14, fontWeight: '600' }}>Cancel</Text>
+                <Text style={{ color: subTextColor, fontSize: 14, fontWeight: '600' }}>
+                  {t('admin.cancel')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -916,6 +940,7 @@ function ViewableImage({
   height: number;
   onPress: () => void;
 }) {
+  const { t } = useLocale();
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{ position: 'relative' }}>
       <Image
@@ -936,7 +961,7 @@ function ViewableImage({
           alignItems: 'center',
         }}>
         <Ionicons name="expand-outline" size={13} color="white" />
-        <Text style={{ color: 'white', fontSize: 11, marginLeft: 4 }}>Tap to view</Text>
+        <Text style={{ color: 'white', fontSize: 11, marginLeft: 4 }}>{t('admin.tapToView')}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -960,6 +985,7 @@ function IdSide({
   isDarkMode: boolean;
   subTextColor: string;
 }) {
+  const { t } = useLocale();
   return (
     <View style={{ flex: 1 }}>
       <Text style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 6 }}>
@@ -990,7 +1016,7 @@ function IdSide({
             }}>
             <Ionicons name={revealed ? 'expand-outline' : 'eye-outline'} size={12} color="white" />
             <Text style={{ color: 'white', fontSize: 10, marginLeft: 3 }}>
-              {revealed ? 'View' : 'Reveal'}
+              {revealed ? t('admin.view') : t('admin.reveal')}
             </Text>
           </View>
         </TouchableOpacity>
@@ -1006,7 +1032,9 @@ function IdSide({
             justifyContent: 'center',
           }}>
           <Ionicons name="image-outline" size={20} color={subTextColor} />
-          <Text style={{ color: subTextColor, fontSize: 11, marginTop: 4 }}>Not provided</Text>
+          <Text style={{ color: subTextColor, fontSize: 11, marginTop: 4 }}>
+            {t('admin.notProvided')}
+          </Text>
         </View>
       )}
     </View>

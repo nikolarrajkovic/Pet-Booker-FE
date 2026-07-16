@@ -51,34 +51,35 @@ export default function ListView({
           <TouchableOpacity
             key={item.id}
             onPress={() => (navigation as any).navigate('ServiceDetail', { service: item.dto })}
-            className={`${cardBg} rounded-2xl mb-3 p-3 flex-row shadow-sm border ${borderColor}`}
-            activeOpacity={0.9}
-          >
+            className={`${cardBg} mb-3 flex-row rounded-2xl border p-3 shadow-sm ${borderColor}`}
+            activeOpacity={0.9}>
             {/* Service image + category banner (Popular / Deal) */}
             <View className="relative">
               <Image
                 source={{ uri: item.image }}
-                className="w-20 h-20 rounded-xl"
+                className="h-20 w-20 rounded-xl"
                 resizeMode="cover"
               />
               {badge === 'popular' && (
-                <View className="absolute top-1 left-1 bg-amber-500 rounded-full px-1.5 py-0.5 flex-row items-center">
+                <View className="absolute left-1 top-1 flex-row items-center rounded-full bg-amber-500 px-1.5 py-0.5">
                   <Ionicons name="flame" size={10} color="white" />
-                  <Text className="text-white text-[9px] font-bold ml-0.5">Popular</Text>
+                  <Text className="ml-0.5 text-[9px] font-bold text-white">Popular</Text>
                 </View>
               )}
               {badge === 'deal' && (
-                <View className="absolute top-1 left-1 bg-red-500 rounded-full px-1.5 py-0.5 flex-row items-center">
+                <View className="absolute left-1 top-1 flex-row items-center rounded-full bg-red-500 px-1.5 py-0.5">
                   <Ionicons name="pricetag" size={10} color="white" />
-                  <Text className="text-white text-[9px] font-bold ml-0.5">Deal</Text>
+                  <Text className="ml-0.5 text-[9px] font-bold text-white">Deal</Text>
                 </View>
               )}
             </View>
 
             {/* Service info */}
-            <View className="flex-1 ml-3 justify-between">
+            <View className="ml-3 flex-1 justify-between">
               <View>
-                <Text className={`text-base font-semibold ${textColor}`} numberOfLines={1}>{item.name}</Text>
+                <Text className={`text-base font-semibold ${textColor}`} numberOfLines={1}>
+                  {item.name}
+                </Text>
                 {item.service ? (
                   <Text className={`text-sm ${subtextColor} mt-0.5`}>{item.service}</Text>
                 ) : null}
@@ -88,8 +89,10 @@ export default function ListView({
                 {item.rating > 0 && (
                   <View className="flex-row items-center">
                     <Ionicons name="star" size={14} color="#F59E0B" />
-                    <Text className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} ml-1 font-medium`}>
-                      {item.rating.toFixed(1)} <Text className={subtextColor}>({item.reviews})</Text>
+                    <Text
+                      className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} ml-1 font-medium`}>
+                      {item.rating.toFixed(1)}{' '}
+                      <Text className={subtextColor}>({item.reviews})</Text>
                     </Text>
                   </View>
                 )}
@@ -101,7 +104,7 @@ export default function ListView({
                 ) : null}
               </View>
 
-              <Text className="text-brand-600 font-semibold mt-1">from ${item.price}</Text>
+              <Text className="mt-1 font-semibold text-brand-600">from ${item.price}</Text>
             </View>
           </TouchableOpacity>
         ))}

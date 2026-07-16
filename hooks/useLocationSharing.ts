@@ -94,7 +94,7 @@ export function useLocationSharing(bookingId: number | null): SharingState {
               timestamp: p.timestamp,
             }),
           () => safeSet((prev) => ({ ...prev, error: 'Location permission was denied.' })),
-          { enableHighAccuracy: true, maximumAge: 0 },
+          { enableHighAccuracy: true, maximumAge: 0 }
         );
         return () => navigator.geolocation.clearWatch(watchId);
       }
@@ -118,7 +118,7 @@ export function useLocationSharing(bookingId: number | null): SharingState {
             heading: p.coords.heading,
             speed: p.coords.speed,
             timestamp: p.timestamp,
-          }),
+          })
       );
       return () => subscription.remove();
     };

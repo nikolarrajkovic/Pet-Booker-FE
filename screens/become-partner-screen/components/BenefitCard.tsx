@@ -28,8 +28,10 @@ export default function BenefitCard({
   borderColor,
 }: BenefitCardProps) {
   return (
-    <View className={`${cardBg} rounded-2xl p-4 mb-3 border ${borderColor} flex-row items-center`}>
-      <View className="w-12 h-12 rounded-xl items-center justify-center mr-4" style={{ backgroundColor: isDarkMode ? '#243447' : bgColor }}>
+    <View className={`${cardBg} mb-3 rounded-2xl border p-4 ${borderColor} flex-row items-center`}>
+      <View
+        className="mr-4 h-12 w-12 items-center justify-center rounded-xl"
+        style={{ backgroundColor: isDarkMode ? '#243447' : bgColor }}>
         <Ionicons name={icon as any} size={24} color={color} />
       </View>
       <View className="flex-1">

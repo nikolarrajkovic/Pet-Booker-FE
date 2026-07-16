@@ -5,30 +5,36 @@ import TabBar from '../../../components/shared/TabBar';
 import ServiceCard from '../../../components/shared/ServiceCard';
 import SeeMoreCard from '../../../components/shared/SeeMoreCard';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
-import { Ionicons , MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useLocation } from '../../../hooks/useLocation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
-import { resolveImageUrl, providerTypeLabel } from '../../../services/service-providers';
+import { useLocale } from '../../../context/LocaleContext';
+import { resolveImageUrl } from '../../../services/service-providers';
 import { getErrorMessage } from '../../../services/http';
 import { ServiceDto } from '../../../services/services';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
 import { useNotifications } from '../../../context/NotificationsContext';
-import { getServiceDiscounts, ServiceDiscountDto, DiscountType } from '../../../services/service-discounts';
+import {
+  getServiceDiscounts,
+  ServiceDiscountDto,
+  DiscountType,
+} from '../../../services/service-discounts';
 import { formatOfferAmount } from '../../../screens/promotions-screen/components';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600';
 
-// Service type pills — labels are the serviceProviderType enum `displayName`s
-// (Sitter/Walker/Boarder/Pet Hotel/Groomer) so SearchScreen's reverse lookup
-// (providerTypeValue) resolves the tapped pill back to its enum value.
+// Service type pills — `label` is the serviceProviderType enum `displayName`
+// (Sitter/Walker/Boarder/Pet Hotel/Groomer), passed to Search so its reverse
+// lookup (providerTypeValue) resolves the tapped pill back to its enum value.
+// The DISPLAYED text is localized via tEnum(value); the nav key stays English.
 const SERVICE_TYPES = [
-  { id: 'pet-sitting', label: 'Sitter', icon: 'bed' },
-  { id: 'dog-walking', label: 'Walker', icon: 'walk' },
-  { id: 'boarding', label: 'Boarder', icon: 'home' },
-  { id: 'pet-hotel', label: 'Pet Hotel', icon: 'business' },
-  { id: 'grooming', label: 'Groomer', icon: 'cut' },
+  { id: 'pet-sitting', label: 'Sitter', value: 0, icon: 'bed' },
+  { id: 'dog-walking', label: 'Walker', value: 1, icon: 'walk' },
+  { id: 'boarding', label: 'Boarder', value: 2, icon: 'home' },
+  { id: 'pet-hotel', label: 'Pet Hotel', value: 3, icon: 'business' },
+  { id: 'grooming', label: 'Groomer', value: 4, icon: 'cut' },
 ];
 
 /** A service flattened for ServiceCard. Booking targets the service itself. */
@@ -70,7 +76,8 @@ function toServiceItem(svc: ServiceDto): ServiceItem | null {
   return {
     id: svc.id,
     name: svc.name ?? svc.basicServiceName ?? 'Service',
-    subtitle: svc.basicServiceName ?? (svc.type != null ? providerTypeLabel(svc.type) : ''),
+    // Backend free-text name if present; else the (localized-at-render) type label.
+    subtitle: svc.basicServiceName ?? '',
     rating: svc.rating ?? 0,
     reviews: svc.totalRatingNumber ?? 0,
     price: svc.price ?? svc.pricing?.basePrice ?? 0,
@@ -87,6 +94,7 @@ export default function HomeScreen() {
   const location = useLocation();
   const { isDarkMode, textColor } = useThemeColors();
   const { currentUser } = useAuth();
+  const { t, tEnum } = useLocale();
 
   const [nearYou, setNearYou] = useState<ServiceItem[]>([]);
   const [mostPopular, setMostPopular] = useState<ServiceItem[]>([]);
@@ -140,15 +148,17 @@ export default function HomeScreen() {
         const allFailed = contentResults.every((r) => r.status === 'rejected');
         if (allFailed) {
           const firstError = contentResults.find(
-            (r): r is PromiseRejectedResult => r.status === 'rejected',
+            (r): r is PromiseRejectedResult => r.status === 'rejected'
           );
-          setLoadError(getErrorMessage(firstError?.reason, 'Could not load services. Please try again.'));
+          setLoadError(getErrorMessage(firstError?.reason, t('home.loadError')));
         }
         setIsLoading(false);
       };
 
       load();
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     }, [latitude, longitude])
   );
 
@@ -179,15 +189,15 @@ export default function HomeScreen() {
     icon: string,
     items: ServiceItem[],
     category: string,
-    badge?: 'popular' | 'deal',
+    badge?: 'popular' | 'deal'
   ) => {
     if (!isLoading && items.length === 0) return null;
     return (
       <View className="mb-6">
-        <View className="flex-row justify-between items-center px-6 mb-3">
+        <View className="mb-3 flex-row items-center justify-between px-6">
           <View className="flex-row items-center">
             <Ionicons name={icon as any} size={20} color="#10B981" />
-            <Text className={`font-semibold text-base ml-2 ${sectionTitleColor}`}>{title}</Text>
+            <Text className={`ml-2 text-base font-semibold ${sectionTitleColor}`}>{title}</Text>
           </View>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-6">
@@ -196,9 +206,8 @@ export default function HomeScreen() {
               ? Array.from({ length: 3 }).map((_, i) => (
                   <View
                     key={i}
-                    className={`rounded-2xl overflow-hidden ${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}`}
-                    style={{ width: 200, height: 160 }}
-                  >
+                    className={`overflow-hidden rounded-2xl ${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}`}
+                    style={{ width: 200, height: 160 }}>
                     <View className={`flex-1 items-center justify-center`}>
                       <ActivityIndicator color="#00C870" />
                     </View>
@@ -209,7 +218,10 @@ export default function HomeScreen() {
                     key={item.id}
                     image={item.image}
                     name={item.name}
-                    service={item.subtitle}
+                    service={
+                      item.subtitle ||
+                      (item.dto.type != null ? tEnum('serviceProviderType', item.dto.type) : '')
+                    }
                     rating={item.rating}
                     reviews={item.reviews}
                     price={item.price}
@@ -232,81 +244,103 @@ export default function HomeScreen() {
       footer={<TabBar />}
       headerChildren={
         <>
-          <View className="flex-row justify-between items-center mb-4">
-            <View className="flex-row items-center flex-1">
+          <View className="mb-4 flex-row items-center justify-between">
+            <View className="flex-1 flex-row items-center">
               <Ionicons name="location-outline" size={18} color="#ffffff" />
               {location.loading ? (
                 <ActivityIndicator size="small" color="#ffffff" style={{ marginLeft: 8 }} />
               ) : (
-                <Text className="text-white ml-2 text-sm" numberOfLines={1}>{location.address}</Text>
+                <Text className="ml-2 text-sm text-white" numberOfLines={1}>
+                  {location.address}
+                </Text>
               )}
             </View>
-            <TouchableOpacity className="p-2" onPress={() => (navigation as any).navigate('Notifications')}>
+            <TouchableOpacity
+              className="p-2"
+              onPress={() => (navigation as any).navigate('Notifications')}>
               <Ionicons name="notifications-outline" size={22} color="white" />
               {unreadCount > 0 && (
-                <View className="absolute top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 items-center justify-center border border-brand-500">
-                  <Text className="text-white text-[10px] font-bold">{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                <View className="absolute right-0.5 top-0.5 h-[18px] min-w-[18px] items-center justify-center rounded-full border border-brand-500 bg-red-500 px-1">
+                  <Text className="text-[10px] font-bold text-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
           </View>
 
-          <View className="flex-row items-center mb-2">
+          <View className="mb-2 flex-row items-center">
             <MaterialCommunityIcons name="paw" size={24} color="white" />
-            <Text className="text-white text-2xl font-bold ml-2">PawCare</Text>
+            <Text className="ml-2 text-2xl font-bold text-white">PawCare</Text>
           </View>
-          <Text className={`${subtitleColor} text-sm mb-8`}>Find the perfect care for your pet</Text>
+          <Text className={`${subtitleColor} mb-8 text-sm`}>{t('home.tagline')}</Text>
         </>
-      }
-    >
-
+      }>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Service Type Pills */}
         <View className="px-6 py-4">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row -mx-2">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-2 flex-row">
             {SERVICE_TYPES.map((service, index) => (
               <TouchableOpacity
                 key={service.id}
                 onPress={() => handleServiceTypePress(service.label)}
-                className={`rounded-full px-6 py-3 flex-row items-center mx-2 ${
-                  index === 0
-                    ? 'bg-blue-500'
-                    : index === 1
-                    ? 'bg-purple-500'
-                    : 'bg-brand-500'
-                }`}
-              >
+                className={`mx-2 flex-row items-center rounded-full px-6 py-3 ${
+                  index === 0 ? 'bg-blue-500' : index === 1 ? 'bg-purple-500' : 'bg-brand-500'
+                }`}>
                 <Ionicons name={service.icon as any} size={18} color="white" />
-                <Text className="text-white font-semibold ml-2">{service.label}</Text>
+                <Text className="ml-2 font-semibold text-white">
+                  {tEnum('serviceProviderType', service.value, service.label)}
+                </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
 
-        {renderSection('Recently Booked', 'time-outline', recentlyBooked, 'recently-booked')}
-        {renderSection('Near You', 'location-outline', nearYou, 'near-you')}
-        {renderSection('Most Popular', 'trending-up-outline', mostPopular, 'most-popular', 'popular')}
-        {renderSection('Special Deals', 'pricetag-outline', specialDeals, 'special-deals', 'deal')}
+        {renderSection(t('home.recentlyBooked'), 'time-outline', recentlyBooked, 'recently-booked')}
+        {renderSection(t('home.nearYou'), 'location-outline', nearYou, 'near-you')}
+        {renderSection(
+          t('home.mostPopular'),
+          'trending-up-outline',
+          mostPopular,
+          'most-popular',
+          'popular'
+        )}
+        {renderSection(
+          t('home.specialDeals'),
+          'pricetag-outline',
+          specialDeals,
+          'special-deals',
+          'deal'
+        )}
 
-        {!isLoading && nearYou.length === 0 && mostPopular.length === 0 && recentlyBooked.length === 0 && specialDeals.length === 0 && (
-          loadError ? (
-            <View className="flex-1 items-center justify-center py-20 px-6">
+        {!isLoading &&
+          nearYou.length === 0 &&
+          mostPopular.length === 0 &&
+          recentlyBooked.length === 0 &&
+          specialDeals.length === 0 &&
+          (loadError ? (
+            <View className="flex-1 items-center justify-center px-6 py-20">
               <Ionicons name="alert-circle-outline" size={48} color="#9CA3AF" />
-              <Text className={`text-lg font-semibold ${sectionTitleColor} mt-4 text-center`}>Couldn’t load services</Text>
-              <Text className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2 text-center`}>
+              <Text className={`text-lg font-semibold ${sectionTitleColor} mt-4 text-center`}>
+                {t('home.couldntLoad')}
+              </Text>
+              <Text
+                className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2 text-center`}>
                 {loadError}
               </Text>
             </View>
           ) : (
-            <View className="flex-1 items-center justify-center py-20 px-6">
+            <View className="flex-1 items-center justify-center px-6 py-20">
               <Ionicons name="paw-outline" size={48} color="#9CA3AF" />
-              <Text className={`text-lg font-semibold ${sectionTitleColor} mt-4 text-center`}>No services found</Text>
-              <Text className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2 text-center`}>
-                Check back soon — new partners are joining every day.
+              <Text className={`text-lg font-semibold ${sectionTitleColor} mt-4 text-center`}>
+                {t('home.noServices')}
+              </Text>
+              <Text
+                className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2 text-center`}>
+                {t('home.noServicesSub')}
               </Text>
             </View>
-          )
-        )}
+          ))}
       </ScrollView>
     </ScreenLayout>
   );

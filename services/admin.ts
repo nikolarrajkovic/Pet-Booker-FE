@@ -20,7 +20,9 @@ export async function approveServiceProvider(serviceProviderId: number): Promise
   const response = await apiAuthFetch(url, { method: 'POST' });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to approve provider.', 'approveServiceProvider'));
+    throw new Error(
+      await parseApiError(response, 'Failed to approve provider.', 'approveServiceProvider')
+    );
   }
 }
 
@@ -29,7 +31,10 @@ export async function approveServiceProvider(serviceProviderId: number): Promise
  * Declined with an optional reason). The record is kept — this replaces the
  * old "reject = delete the provider" workaround.
  */
-export async function declineServiceProvider(serviceProviderId: number, reason?: string): Promise<void> {
+export async function declineServiceProvider(
+  serviceProviderId: number,
+  reason?: string
+): Promise<void> {
   const url = `${getApiBaseUrl()}/admin/service-providers/${serviceProviderId}/decline`;
   const response = await apiAuthFetch(url, {
     method: 'POST',
@@ -37,7 +42,9 @@ export async function declineServiceProvider(serviceProviderId: number, reason?:
   });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to decline provider.', 'declineServiceProvider'));
+    throw new Error(
+      await parseApiError(response, 'Failed to decline provider.', 'declineServiceProvider')
+    );
   }
 }
 
@@ -47,7 +54,9 @@ export async function approveCertificate(certificateId: number): Promise<void> {
   const response = await apiAuthFetch(url, { method: 'POST' });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to approve certificate.', 'approveCertificate'));
+    throw new Error(
+      await parseApiError(response, 'Failed to approve certificate.', 'approveCertificate')
+    );
   }
 }
 
@@ -60,7 +69,9 @@ export async function declineCertificate(certificateId: number, reason?: string)
   });
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to decline certificate.', 'declineCertificate'));
+    throw new Error(
+      await parseApiError(response, 'Failed to decline certificate.', 'declineCertificate')
+    );
   }
 }
 

@@ -12,7 +12,7 @@ type Props = {
 export const ServiceBubble = ({ label, bg = 'bg-brand-500', onPress, icon }: Props) => {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.9} className="items-center">
-      <View className={`w-24 h-24 rounded-full items-center justify-center ${bg} shadow-lg`}>
+      <View className={`h-24 w-24 items-center justify-center rounded-full ${bg} shadow-lg`}>
         {icon ?? <MaterialCommunityIcons name="dog-side" size={28} color="white" />}
       </View>
       <Text className="mt-3 text-sm text-gray-800">{label}</Text>

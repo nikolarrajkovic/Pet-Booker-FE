@@ -66,7 +66,7 @@ export async function getCurrentPosition(): Promise<GeoPoint | null> {
       navigator.geolocation.getCurrentPosition(
         (p) => resolve({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
         () => resolve(null),
-        { enableHighAccuracy: true, timeout: 8000 },
+        { enableHighAccuracy: true, timeout: 8000 }
       );
     });
   }

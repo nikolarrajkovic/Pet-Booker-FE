@@ -11,6 +11,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
+import { useLocale } from '../../../context/LocaleContext';
 import { useNotifications } from '../../../context/NotificationsContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ReviewModal from '../../../components/shared/ReviewModal';
@@ -31,6 +32,7 @@ export default function NotificationsScreen() {
   const { currentUser } = useAuth();
   const { subscribe, refreshUnreadCount } = useNotifications();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
+  const { t } = useLocale();
 
   const [notifications, setNotifications] = useState<AppNotificationDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,14 +89,14 @@ export default function NotificationsScreen() {
         openReview({
           bookingId,
           serviceProviderId: booking.serviceProviderId,
-          serviceName: booking.service?.name ?? 'your service',
+          serviceName: booking.service?.name ?? t('notifications.yourService'),
         });
         return true;
       } catch {
         return false;
       }
     },
-    [openReview]
+    [openReview, t]
   );
 
   // Auto-pop the review modal for the newest unread "Service completed"
@@ -133,13 +135,13 @@ export default function NotificationsScreen() {
         setNotifications(items);
         void maybeAutoOpenReview(items);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load notifications.');
+        setError(e instanceof Error ? e.message : t('notifications.loadFailed'));
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);
       }
     },
-    [currentUser?.id, maybeAutoOpenReview]
+    [currentUser?.id, maybeAutoOpenReview, t]
   );
 
   useFocusEffect(
@@ -200,14 +202,16 @@ export default function NotificationsScreen() {
       <ScreenLayout
         headerVariant="standard"
         showBackButton
-        headerTitle="Notifications"
+        headerTitle={t('notifications.title')}
         contentBg={bgColor}
         rightAction={
           unreadCount > 0 ? (
             <TouchableOpacity
               onPress={handleMarkAll}
               className="h-10 items-center justify-center rounded-full bg-brand-600 px-3">
-              <Text className="text-xs font-semibold text-white">Mark all read</Text>
+              <Text className="text-xs font-semibold text-white">
+                {t('notifications.markAllRead')}
+              </Text>
             </TouchableOpacity>
           ) : undefined
         }>
@@ -232,13 +236,13 @@ export default function NotificationsScreen() {
               <View className="flex-1 items-center justify-center px-6 py-20">
                 <Ionicons name="cloud-offline-outline" size={48} color="#9CA3AF" />
                 <Text className={`text-base font-semibold ${textColor} mt-4 text-center`}>
-                  Couldn’t load notifications
+                  {t('notifications.couldNotLoad')}
                 </Text>
                 <Text className={`text-sm ${subtextColor} mt-2 text-center`}>{error}</Text>
                 <TouchableOpacity
                   onPress={() => load()}
                   className="mt-4 rounded-full bg-brand-500 px-5 py-2.5">
-                  <Text className="font-semibold text-white">Try again</Text>
+                  <Text className="font-semibold text-white">{t('notifications.tryAgain')}</Text>
                 </TouchableOpacity>
               </View>
             ) : notifications.length === 0 ? (
@@ -248,10 +252,10 @@ export default function NotificationsScreen() {
                   <Ionicons name="notifications-off-outline" size={36} color="#00C870" />
                 </View>
                 <Text className={`text-lg font-semibold ${textColor} text-center`}>
-                  No notifications yet
+                  {t('notifications.emptyTitle')}
                 </Text>
                 <Text className={`text-sm ${subtextColor} mt-2 text-center`}>
-                  Updates about your bookings and account will show up here.
+                  {t('notifications.emptyText')}
                 </Text>
               </View>
             ) : (

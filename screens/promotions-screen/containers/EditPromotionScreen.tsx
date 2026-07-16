@@ -12,6 +12,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import DatePicker from '../../../components/shared/DatePicker';
 import type { Promotion, PromotionType, PromotionStatus } from '../components';
@@ -22,34 +23,38 @@ import {
 } from '../../../services/service-discounts';
 import { getErrorMessage } from '../../../services/http';
 
-const TYPE_META: Record<PromotionType, { label: string; iconBg: string; icon: React.ReactNode }> = {
+// Labels are translation keys, resolved with t() at render.
+const TYPE_META: Record<
+  PromotionType,
+  { labelKey: string; iconBg: string; icon: React.ReactNode }
+> = {
   boost: {
-    label: 'Boost Listing',
+    labelKey: 'promotions.boostListing',
     iconBg: 'bg-blue-100',
     icon: <Ionicons name="trending-up" size={22} color="#00C870" />,
   },
   featured: {
-    label: 'Featured Badge',
+    labelKey: 'promotions.featuredBadge',
     iconBg: 'bg-purple-100',
     icon: <Ionicons name="flash" size={22} color="#9333EA" />,
   },
   offer: {
-    label: 'Special Offer',
+    labelKey: 'promotions.specialOffer',
     iconBg: 'bg-green-100',
     icon: <MaterialCommunityIcons name="gift-outline" size={22} color="#16A34A" />,
   },
   ad: {
-    label: 'Ad Campaign',
+    labelKey: 'promotions.adCampaign',
     iconBg: 'bg-orange-100',
     icon: <MaterialCommunityIcons name="bullseye" size={22} color="#EA580C" />,
   },
 };
 
-const STATUS_STYLES: Record<PromotionStatus, { bg: string; text: string; label: string }> = {
-  active: { bg: 'bg-green-100', text: 'text-green-700', label: 'Active' },
-  paused: { bg: 'bg-gray-100', text: 'text-gray-500', label: 'Paused' },
-  scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Scheduled' },
-  ended: { bg: 'bg-red-100', text: 'text-red-600', label: 'Ended' },
+const STATUS_STYLES: Record<PromotionStatus, { bg: string; text: string; labelKey: string }> = {
+  active: { bg: 'bg-green-100', text: 'text-green-700', labelKey: 'promotions.statusActive' },
+  paused: { bg: 'bg-gray-100', text: 'text-gray-500', labelKey: 'promotions.statusPaused' },
+  scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', labelKey: 'promotions.statusScheduled' },
+  ended: { bg: 'bg-red-100', text: 'text-red-600', labelKey: 'promotions.statusEnded' },
 };
 
 interface EditPromotionScreenProps {
@@ -91,6 +96,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
   const navigation = useNavigation();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor, inputBg } = useThemeColors();
   const { showError } = useToast();
+  const { t } = useLocale();
 
   const promotion = route?.params?.promotion ?? FALLBACK;
   const meta = TYPE_META[promotion.type];
@@ -131,15 +137,15 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
     } // boost/featured: mock, no persistence
     const val = parseFloat(discount) || 0;
     if (val <= 0) {
-      Alert.alert('Enter an amount', 'The discount amount must be greater than zero.');
+      Alert.alert(t('promotions.enterAmountTitle'), t('promotions.enterAmountMsg'));
       return;
     }
     if (isPercent && val > 100) {
-      Alert.alert('Invalid percentage', 'A percentage discount cannot exceed 100%.');
+      Alert.alert(t('promotions.invalidPctTitle'), t('promotions.invalidPctMsg'));
       return;
     }
     if (startDate && endDate && endDate < startDate) {
-      Alert.alert('Invalid dates', 'The end date must be on or after the start date.');
+      Alert.alert(t('promotions.invalidDatesTitle'), t('promotions.invalidDatesMsg'));
       return;
     }
     setIsSubmitting(true);
@@ -156,7 +162,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
       });
       navigation.goBack();
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not save the promotion. Please try again.'));
+      showError(getErrorMessage(e, t('promotions.saveFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -167,10 +173,10 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
       navigation.goBack();
       return;
     }
-    Alert.alert('Delete promotion?', 'This permanently removes the discount.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('promotions.deletePromoTitle'), t('promotions.deletePromoMsg'), [
+      { text: t('promotions.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('promotions.delete'),
         style: 'destructive',
         onPress: async () => {
           setIsSubmitting(true);
@@ -178,7 +184,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
             await deleteServiceDiscount(promotion.discountId!);
             navigation.goBack();
           } catch (e) {
-            showError(getErrorMessage(e, 'Could not delete the promotion. Please try again.'));
+            showError(getErrorMessage(e, t('promotions.deleteFailed')));
           } finally {
             setIsSubmitting(false);
           }
@@ -197,8 +203,8 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
     <ScreenLayout
       headerVariant="standard"
       showBackButton
-      headerTitle="Edit Promotion"
-      headerSubtitle="Update your promotion details"
+      headerTitle={t('promotions.editTitle')}
+      headerSubtitle={t('promotions.editSubtitle')}
       contentBg={contentBg}
       rightAction={
         <TouchableOpacity
@@ -226,16 +232,20 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
             {meta.icon}
           </View>
           <View className="flex-1">
-            <Text className={`text-xs ${subtextColor}`}>Promotion Type</Text>
-            <Text className={`text-base font-bold ${textColor}`}>{meta.label}</Text>
+            <Text className={`text-xs ${subtextColor}`}>{t('promotions.promotionType')}</Text>
+            <Text className={`text-base font-bold ${textColor}`}>{t(meta.labelKey as any)}</Text>
           </View>
           <View className={`rounded-full px-2.5 py-1 ${statusStyle.bg}`}>
-            <Text className={`text-xs font-semibold ${statusStyle.text}`}>{statusStyle.label}</Text>
+            <Text className={`text-xs font-semibold ${statusStyle.text}`}>
+              {t(statusStyle.labelKey as any)}
+            </Text>
           </View>
         </View>
 
         {/* Promotion Name */}
-        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>Promotion Name</Text>
+        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
+          {t('promotions.promotionName')}
+        </Text>
         <TextInput
           className={`${inputStyle} mb-5`}
           value={name}
@@ -244,28 +254,30 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
         />
 
         {/* Campaign Duration */}
-        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>Campaign Duration</Text>
+        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
+          {t('promotions.campaignDuration')}
+        </Text>
         <View className="mb-2 flex-row gap-3">
           <View className="flex-1">
-            <Text className={`text-xs ${subtextColor} mb-1.5`}>Start Date</Text>
+            <Text className={`text-xs ${subtextColor} mb-1.5`}>{t('promotions.startDate')}</Text>
             <TouchableOpacity
               className={dateField}
               activeOpacity={0.75}
               onPress={() => setShowStartPicker((v) => !v)}>
               <Text className={`text-sm ${startDate ? textColor : subtextColor}`}>
-                {startDate ? fmtDate(startDate) : 'Select date'}
+                {startDate ? fmtDate(startDate) : t('promotions.selectDate')}
               </Text>
               <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
             </TouchableOpacity>
           </View>
           <View className="flex-1">
-            <Text className={`text-xs ${subtextColor} mb-1.5`}>End Date</Text>
+            <Text className={`text-xs ${subtextColor} mb-1.5`}>{t('promotions.endDate')}</Text>
             <TouchableOpacity
               className={dateField}
               activeOpacity={0.75}
               onPress={() => setShowEndPicker((v) => !v)}>
               <Text className={`text-sm ${endDate ? textColor : subtextColor}`}>
-                {endDate ? fmtDate(endDate) : 'No end date'}
+                {endDate ? fmtDate(endDate) : t('promotions.noEndDate')}
               </Text>
               <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
             </TouchableOpacity>
@@ -277,7 +289,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
             activeOpacity={0.7}
             className="mb-5 self-start">
             <Text className="text-xs font-semibold text-brand-600">
-              Clear end date (open-ended)
+              {t('promotions.clearEndDate')}
             </Text>
           </TouchableOpacity>
         )}
@@ -314,7 +326,9 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
         {/* Budget — Boost only */}
         {promotion.type === 'boost' && (
           <>
-            <Text className={`text-sm font-semibold ${labelColor} mb-2`}>Budget</Text>
+            <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
+              {t('promotions.budget')}
+            </Text>
             <View
               className={`${inputBg} border ${borderColor} mb-1 flex-row items-center rounded-xl px-4`}>
               <Ionicons name="cash-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
@@ -328,7 +342,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
             </View>
             {promotion.budgetSpent !== undefined && (
               <Text className={`text-xs ${subtextColor} mb-5`}>
-                ${promotion.budgetSpent} spent of ${budget} budget
+                {t('promotions.spentOfBudget', { spent: promotion.budgetSpent, budget })}
               </Text>
             )}
             {promotion.budgetSpent === undefined && <View className="mb-5" />}
@@ -338,12 +352,22 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
         {/* Discount — Offer only */}
         {promotion.type === 'offer' && (
           <>
-            <Text className={`text-sm font-semibold ${labelColor} mb-2`}>Discount Type</Text>
+            <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
+              {t('promotions.discountTypeLabel')}
+            </Text>
             <View
               className={`mb-4 flex-row rounded-xl p-1 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
               {[
-                { type: DiscountType.Percent, label: 'Percentage', icon: 'percent' as const },
-                { type: DiscountType.Fixed, label: 'Fixed Amount', icon: 'currency-usd' as const },
+                {
+                  type: DiscountType.Percent,
+                  label: t('promotions.percentage'),
+                  icon: 'percent' as const,
+                },
+                {
+                  type: DiscountType.Fixed,
+                  label: t('promotions.fixedAmount'),
+                  icon: 'currency-usd' as const,
+                },
               ].map((opt) => {
                 const active = discountType === opt.type;
                 return (
@@ -367,7 +391,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
             </View>
 
             <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
-              {isPercent ? 'Discount Percentage' : 'Discount Amount'}
+              {isPercent ? t('promotions.discountPercentage') : t('promotions.discountAmount')}
             </Text>
             <View
               className={`${inputBg} border ${borderColor} mb-5 flex-row items-center rounded-xl px-4`}>
@@ -396,7 +420,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
           {isSubmitting ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Text className="text-base font-bold text-white">Save Changes</Text>
+            <Text className="text-base font-bold text-white">{t('promotions.saveChanges')}</Text>
           )}
         </TouchableOpacity>
 
@@ -406,7 +430,9 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
             activeOpacity={0.8}
             className={`mb-3 flex-row items-center justify-center rounded-2xl py-4 ${isDarkMode ? 'bg-yellow-900/30' : 'bg-yellow-50'}`}>
             <Ionicons name="pause" size={16} color="#D97706" style={{ marginRight: 8 }} />
-            <Text className="text-base font-semibold text-yellow-600">Pause Promotion</Text>
+            <Text className="text-base font-semibold text-yellow-600">
+              {t('promotions.pausePromotion')}
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -416,7 +442,9 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
           disabled={isSubmitting}
           activeOpacity={0.8}
           className={`items-center rounded-2xl py-4 ${isDarkMode ? 'bg-red-900/20' : 'bg-red-50'}`}>
-          <Text className="text-base font-semibold text-red-500">Delete Promotion</Text>
+          <Text className="text-base font-semibold text-red-500">
+            {t('promotions.deletePromotion')}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </ScreenLayout>

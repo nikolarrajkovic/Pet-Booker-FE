@@ -1,17 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ScrollView,
-  Text,
-  View,
-  Image,
-  ActivityIndicator,
-  TouchableOpacity,
-} from 'react-native';
+import { ScrollView, Text, View, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import DirectionsModal from '../../../components/shared/DirectionsModal';
@@ -26,11 +20,7 @@ import {
   BookingState,
   BookingStatusType,
 } from '../../../services/bookings';
-import {
-  resolveImageUrl,
-  providerTypeLabel,
-  AddressDto,
-} from '../../../services/service-providers';
+import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import { getPet, PetResponse } from '../../../services/pets';
 import { getService, ServiceDto } from '../../../services/services';
 import { getUser } from '../../../services/users';
@@ -173,6 +163,7 @@ export default function LiveSessionScreen() {
   const { currentUser } = useAuth();
   const { showError, showInfo } = useToast();
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
+  const { t, tEnum } = useLocale();
 
   // The concurrent group the partner is running (user: ≤1). `index` is the
   // currently-viewed session within the group.
@@ -254,11 +245,11 @@ export default function LiveSessionScreen() {
       setPetById({});
       setServiceById({});
       setBookerAddrById({});
-      showError(getErrorMessage(e, 'Could not load your live session. Please try again.'));
+      showError(getErrorMessage(e, t('liveSession.loadFailed')));
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser?.id, currentUser?.serviceProviderId, isPartner]);
+  }, [currentUser?.id, currentUser?.serviceProviderId, isPartner, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -334,7 +325,7 @@ export default function LiveSessionScreen() {
       const addr = dto.pickupAddress ?? bookerAddr ?? undefined;
       items.push({
         key: 'pickup',
-        label: 'Pickup',
+        label: t('addons.pickup'),
         icon: 'car-outline',
         completed: completion.pickup,
         detail: addr ? addressLabel(addr) : undefined,
@@ -346,7 +337,7 @@ export default function LiveSessionScreen() {
       const addr = dto.leaveOverAddress ?? bookerAddr ?? undefined;
       items.push({
         key: 'dropoff',
-        label: 'Drop-off',
+        label: t('addons.dropoff'),
         icon: 'home-outline',
         completed: completion.dropoff,
         detail: addr ? addressLabel(addr) : undefined,
@@ -357,7 +348,7 @@ export default function LiveSessionScreen() {
     if (dto.includeSpecialNeeds)
       items.push({
         key: 'specialNeeds',
-        label: 'Special Needs Care',
+        label: t('addons.specialNeeds'),
         icon: 'medkit-outline',
         completed: false,
         toggleable: false,
@@ -382,19 +373,19 @@ export default function LiveSessionScreen() {
   const handleDirections = async (key: AddOnItem['key']) => {
     const addr = addOns.find((a) => a.key === key)?.address;
     if (!addr) {
-      showInfo('There’s no saved address for this add-on yet.');
+      showInfo(t('liveSession.noSavedAddress'));
       return;
     }
     setDirLoadingKey(key);
     try {
       const point = await forwardGeocode(addressLabel(addr));
       if (!point) {
-        showError('We couldn’t pinpoint this location. Try opening it in your maps app.');
+        showError(t('liveSession.pinpointFailed'));
         return;
       }
       setDirTarget({ point, label: addressLabel(addr) });
     } catch (e) {
-      showError(getErrorMessage(e, 'Directions unavailable. Please try again.'));
+      showError(getErrorMessage(e, t('liveSession.directionsUnavailable')));
     } finally {
       setDirLoadingKey(null);
     }
@@ -413,7 +404,7 @@ export default function LiveSessionScreen() {
         )
       );
     } catch (e) {
-      showError(getErrorMessage(e, 'Could not start service. Please try again.'));
+      showError(getErrorMessage(e, t('liveSession.startFailed')));
     } finally {
       setBusy(null);
     }
@@ -450,7 +441,7 @@ export default function LiveSessionScreen() {
       } catch {
         /* fall through to the error toast */
       }
-      showError(getErrorMessage(e, 'Could not end service. Please try again.'));
+      showError(getErrorMessage(e, t('liveSession.endFailed')));
     } finally {
       setBusy(null);
     }
@@ -459,8 +450,9 @@ export default function LiveSessionScreen() {
   // ── Derived display values ── (prefer the full service; fall back to the
   // shallow booking include while it loads / if the fetch failed)
   const shallowSvc: any = dto?.service;
-  const serviceName = service?.name ?? shallowSvc?.name ?? 'Service';
-  const serviceType = typeof service?.type === 'number' ? providerTypeLabel(service.type) : '';
+  const serviceName = service?.name ?? shallowSvc?.name ?? t('liveSession.service');
+  const serviceType =
+    typeof service?.type === 'number' ? tEnum('serviceProviderType', service.type) : '';
   const serviceDescription = service?.description ?? service?.about ?? '';
   const serviceImage =
     resolveImageUrl(service?.imageUrl) ||
@@ -470,10 +462,10 @@ export default function LiveSessionScreen() {
   // Partner already knows their own service — they only need the *type* (in case
   // they run several services) so they can tell which booking this is. The booker
   // sees the full name + about.
-  const headerTitle = isPartner ? serviceType || 'Service' : serviceName;
+  const headerTitle = isPartner ? serviceType || t('liveSession.service') : serviceName;
   const counterpartyName = isPartner
-    ? dto?.user?.userName || 'Client'
-    : dto?.serviceProvider?.name || 'Provider';
+    ? dto?.user?.userName || t('liveSession.client')
+    : dto?.serviceProvider?.name || t('liveSession.provider');
   const counterpartyAvatar = isPartner
     ? firstPhoto(dto?.user?.photos)
     : firstPhoto(dto?.serviceProvider?.photos);
@@ -501,8 +493,10 @@ export default function LiveSessionScreen() {
       <ScreenLayout
         headerVariant="standard"
         showBackButton
-        headerTitle="Live Session"
-        headerSubtitle={isPartner ? 'Run your current service' : 'Track your service'}
+        headerTitle={t('liveSession.title')}
+        headerSubtitle={
+          isPartner ? t('liveSession.partnerSubtitle') : t('liveSession.userSubtitle')
+        }
         contentBg={bgColor}>
         {isLoading ? (
           <View className="flex-1 items-center justify-center py-20">
@@ -514,15 +508,17 @@ export default function LiveSessionScreen() {
             <View className="mb-5 h-20 w-20 items-center justify-center rounded-full bg-brand-50">
               <Ionicons name="checkmark-done" size={42} color="#00C870" />
             </View>
-            <Text className={`text-xl font-bold ${textColor} mb-2`}>Service completed</Text>
+            <Text className={`text-xl font-bold ${textColor} mb-2`}>
+              {t('liveSession.serviceCompleted')}
+            </Text>
             <Text className={`text-sm ${subtextColor} mb-8 text-center`}>
-              Nice work! This booking has been marked as ended.
+              {t('liveSession.serviceCompletedText')}
             </Text>
             <TouchableOpacity
               onPress={() => navigation.goBack()}
               activeOpacity={0.85}
               className="w-full items-center rounded-2xl bg-brand-500 px-8 py-3.5">
-              <Text className="text-base font-bold text-white">Done</Text>
+              <Text className="text-base font-bold text-white">{t('liveSession.done')}</Text>
             </TouchableOpacity>
           </View>
         ) : !dto ? (
@@ -530,12 +526,10 @@ export default function LiveSessionScreen() {
           <View className="flex-1 items-center justify-center px-8">
             <Ionicons name="radio-outline" size={64} color={isDarkMode ? '#4B5563' : '#D1D5DB'} />
             <Text className={`text-lg font-bold ${textColor} mt-4`}>
-              No active session right now
+              {t('liveSession.noActiveSession')}
             </Text>
             <Text className={`text-sm ${subtextColor} mt-2 text-center`}>
-              {isPartner
-                ? 'When you have a confirmed upcoming booking, you can start it here.'
-                : 'Your session will appear here once your provider confirms an upcoming booking.'}
+              {isPartner ? t('liveSession.partnerEmpty') : t('liveSession.userEmpty')}
             </Text>
           </View>
         ) : (
@@ -561,9 +555,11 @@ export default function LiveSessionScreen() {
                 </TouchableOpacity>
                 <View className="items-center">
                   <Text className={`text-sm font-bold ${textColor}`}>
-                    Session {index + 1} of {sessions.length}
+                    {t('liveSession.sessionOf', { current: index + 1, total: sessions.length })}
                   </Text>
-                  <Text className={`text-xs ${subtextColor}`}>Concurrent bookings</Text>
+                  <Text className={`text-xs ${subtextColor}`}>
+                    {t('liveSession.concurrentBookings')}
+                  </Text>
                 </View>
                 <TouchableOpacity
                   disabled={index === sessions.length - 1}
@@ -605,7 +601,11 @@ export default function LiveSessionScreen() {
               <Text
                 className="text-xs font-bold"
                 style={{ color: started ? '#00A85A' : isDarkMode ? '#9CA3AF' : '#6B7280' }}>
-                {started ? 'IN PROGRESS' : isPartner ? 'READY TO START' : 'STARTING SOON'}
+                {started
+                  ? t('liveSession.inProgress')
+                  : isPartner
+                    ? t('liveSession.readyToStart')
+                    : t('liveSession.startingSoon')}
               </Text>
             </View>
 
@@ -622,7 +622,7 @@ export default function LiveSessionScreen() {
                   }}
                 />
                 <Text className="text-xs font-bold" style={{ color: '#00A85A' }}>
-                  Sharing live location
+                  {t('liveSession.sharingLocation')}
                 </Text>
               </View>
             ) : null}
@@ -658,7 +658,7 @@ export default function LiveSessionScreen() {
             {!isPartner && serviceDescription ? (
               <View className={`${cardBg} rounded-2xl border ${borderColor} mb-5 p-4`}>
                 <Text className={`text-xs font-bold uppercase ${subtextColor} mb-1`}>
-                  About this service
+                  {t('liveSession.aboutThisService')}
                 </Text>
                 <Text className={`text-sm ${textColor} leading-5`}>{serviceDescription}</Text>
               </View>
@@ -675,7 +675,9 @@ export default function LiveSessionScreen() {
             {!isPartner && supportsLiveTracking ? (
               <View className="mb-5">
                 <View className="mb-2 flex-row items-center">
-                  <Text className={`text-base font-bold ${textColor}`}>Live location</Text>
+                  <Text className={`text-base font-bold ${textColor}`}>
+                    {t('liveSession.liveLocation')}
+                  </Text>
                   {tracking.status === 'live' ? (
                     <View className="ml-2 flex-row items-center rounded-full bg-brand-50 px-2 py-0.5">
                       <View
@@ -688,7 +690,7 @@ export default function LiveSessionScreen() {
                         }}
                       />
                       <Text className="text-[10px] font-bold" style={{ color: '#00A85A' }}>
-                        LIVE
+                        {t('liveSession.live')}
                       </Text>
                     </View>
                   ) : null}
@@ -706,7 +708,7 @@ export default function LiveSessionScreen() {
                     className={`${cardBg} rounded-2xl border ${borderColor} flex-row items-center p-4`}>
                     <Ionicons name="flag-outline" size={20} color="#9CA3AF" />
                     <Text className={`text-sm ${subtextColor} ml-2 flex-1`}>
-                      Live tracking has ended for this session.
+                      {t('liveSession.trackingEnded')}
                     </Text>
                   </View>
                 ) : tracking.status === 'error' ? (
@@ -714,7 +716,7 @@ export default function LiveSessionScreen() {
                     className={`${cardBg} rounded-2xl border ${borderColor} flex-row items-center p-4`}>
                     <Ionicons name="cloud-offline-outline" size={20} color="#F97316" />
                     <Text className={`text-sm ${subtextColor} ml-2 flex-1`}>
-                      Couldn’t connect to live tracking. Leave and reopen this screen to retry.
+                      {t('liveSession.trackingError')}
                     </Text>
                   </View>
                 ) : (
@@ -723,8 +725,8 @@ export default function LiveSessionScreen() {
                     <ActivityIndicator size="small" color="#00C870" />
                     <Text className={`text-sm ${subtextColor} ml-2 flex-1`}>
                       {started
-                        ? 'Waiting for your provider’s location…'
-                        : 'Live location will appear here when your provider heads out.'}
+                        ? t('liveSession.waitingForLocation')
+                        : t('liveSession.locationWillAppear')}
                     </Text>
                   </View>
                 )}
@@ -732,7 +734,7 @@ export default function LiveSessionScreen() {
             ) : null}
 
             {/* Pet — full detail so the provider knows the animal */}
-            <Text className={`text-base font-bold ${textColor} mb-2`}>Pet</Text>
+            <Text className={`text-base font-bold ${textColor} mb-2`}>{t('liveSession.pet')}</Text>
             <View className="mb-5">
               {pet ? (
                 <PetDetailsCard
@@ -754,7 +756,7 @@ export default function LiveSessionScreen() {
                     <Ionicons name="paw" size={24} color="#9CA3AF" />
                   </View>
                   <Text className={`text-base font-semibold ${textColor} flex-1`}>
-                    {(dto.pet as any)?.name ?? 'Pet'}
+                    {(dto.pet as any)?.name ?? t('liveSession.pet')}
                   </Text>
                 </View>
               )}
@@ -762,7 +764,7 @@ export default function LiveSessionScreen() {
 
             {/* Counterparty + schedule */}
             <Text className={`text-base font-bold ${textColor} mb-2`}>
-              {isPartner ? 'Client' : 'Provider'}
+              {isPartner ? t('liveSession.client') : t('liveSession.provider')}
             </Text>
             <View className={`${cardBg} rounded-2xl border ${borderColor} mb-5 p-4`}>
               <View className="flex-row items-center">
@@ -791,13 +793,15 @@ export default function LiveSessionScreen() {
             {/* Add-ons — the additional services the client chose */}
             {addOns.length > 0 ? (
               <>
-                <Text className={`text-base font-bold ${textColor} mb-1`}>Additional services</Text>
+                <Text className={`text-base font-bold ${textColor} mb-1`}>
+                  {t('liveSession.additionalServices')}
+                </Text>
                 <Text className={`text-xs ${subtextColor} mb-2`}>
                   {isPartner && started
-                    ? 'Tap Directions to navigate, and mark each pickup/drop-off complete before ending.'
+                    ? t('liveSession.addonHintStarted')
                     : isPartner
-                      ? 'Tap Directions to navigate. You can complete these once the service starts.'
-                      : 'Your provider will complete these during the session.'}
+                      ? t('liveSession.addonHintNotStarted')
+                      : t('liveSession.addonHintUser')}
                 </Text>
                 <View className="mb-5">
                   <AddOnChecklist
@@ -821,8 +825,10 @@ export default function LiveSessionScreen() {
               <>
                 {!canStart ? (
                   <Text className="mb-2 text-center text-xs text-orange-500">
-                    You can start this service from {formatDate(startWindowIso)} at{' '}
-                    {formatTime(startWindowIso)} (30 min before the scheduled time).
+                    {t('liveSession.startWindowNote', {
+                      date: formatDate(startWindowIso),
+                      time: formatTime(startWindowIso),
+                    })}
                   </Text>
                 ) : null}
                 <TouchableOpacity
@@ -842,7 +848,7 @@ export default function LiveSessionScreen() {
                       <Text
                         className="ml-2 text-base font-bold"
                         style={{ color: canStart ? 'white' : '#9CA3AF' }}>
-                        Start Service
+                        {t('liveSession.startService')}
                       </Text>
                     </>
                   )}
@@ -854,7 +860,7 @@ export default function LiveSessionScreen() {
               <>
                 {!canEnd ? (
                   <Text className="mb-2 text-center text-xs text-orange-500">
-                    Complete all add-ons above to end the service.
+                    {t('liveSession.completeAddonsNote')}
                   </Text>
                 ) : null}
                 <TouchableOpacity
@@ -873,7 +879,7 @@ export default function LiveSessionScreen() {
                       <Text
                         className="ml-2 text-base font-bold"
                         style={{ color: canEnd ? 'white' : '#9CA3AF' }}>
-                        End Service
+                        {t('liveSession.endService')}
                       </Text>
                     </>
                   )}
@@ -886,7 +892,7 @@ export default function LiveSessionScreen() {
 
       <DirectionsModal
         visible={!!dirTarget}
-        title="Directions"
+        title={t('liveSession.directions')}
         destination={dirTarget?.point ?? null}
         destinationLabel={dirTarget?.label ?? ''}
         isDarkMode={isDarkMode}

@@ -60,7 +60,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       });
       timers.current[id] = setTimeout(() => dismiss(id), AUTO_DISMISS_MS);
     },
-    [dismiss],
+    [dismiss]
   );
 
   const showError = useCallback((m: string) => showToast(m, 'error'), [showToast]);

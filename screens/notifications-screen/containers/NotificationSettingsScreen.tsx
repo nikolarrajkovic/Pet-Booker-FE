@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { EnableNotificationsCard, NotificationToggle } from '../components';
 import {
@@ -24,6 +25,7 @@ function formatTime(t?: string): string {
 export default function NotificationSettingsScreen() {
   const { currentUser } = useAuth();
   const { isDarkMode, cardBg, textColor, subtextColor } = useThemeColors();
+  const { t } = useLocale();
 
   const [settings, setSettings] = useState<UserNotificationSettingsDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,13 +78,16 @@ export default function NotificationSettingsScreen() {
   const sectionHeaderColor = isDarkMode ? 'text-white' : 'text-[#1a365d]';
 
   const s = settings ?? defaultNotificationSettings(currentUser?.id ?? 0);
-  const dndRange = `${formatTime(s.dndStartTime) || '22:00'} to ${formatTime(s.dndEndTime) || '08:00'}`;
+  const dndRange = t('notificationSettings.rangeTo', {
+    from: formatTime(s.dndStartTime) || '22:00',
+    to: formatTime(s.dndEndTime) || '08:00',
+  });
 
   return (
     <ScreenLayout
       headerVariant="standard"
       showBackButton
-      headerTitle="Notification Settings"
+      headerTitle={t('notificationSettings.title')}
       contentBg={bgColor}>
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
@@ -107,7 +112,7 @@ export default function NotificationSettingsScreen() {
                 style={{ marginRight: 8 }}
               />
               <Text className="flex-1 text-xs text-yellow-700">
-                Couldn’t save your last change. It’s applied on this device only.
+                {t('notificationSettings.saveFailed')}
               </Text>
             </View>
           )}
@@ -115,13 +120,13 @@ export default function NotificationSettingsScreen() {
           {/* Notification Channels */}
           <View className="mt-6 px-4">
             <Text className={`text-sm font-bold ${sectionHeaderColor} mb-3`}>
-              Notification Channels
+              {t('notificationSettings.channels')}
             </Text>
             <View className={`${cardBg} rounded-2xl border ${borderColor} overflow-hidden`}>
               <NotificationToggle
                 icon="phone-portrait-outline"
-                title="Push Notifications"
-                subtitle="Receive notifications on this device"
+                title={t('notificationSettings.push')}
+                subtitle={t('notificationSettings.pushSubtitle')}
                 value={s.pushEnabled}
                 onValueChange={(v) => update({ pushEnabled: v })}
                 isDarkMode={isDarkMode}
@@ -131,8 +136,8 @@ export default function NotificationSettingsScreen() {
               <View className={`h-px ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'} mx-4`} />
               <NotificationToggle
                 icon="mail-outline"
-                title="Email Notifications"
-                subtitle="Receive updates via email"
+                title={t('notificationSettings.email')}
+                subtitle={t('notificationSettings.emailSubtitle')}
                 value={s.emailEnabled}
                 onValueChange={(v) => update({ emailEnabled: v })}
                 isDarkMode={isDarkMode}
@@ -145,12 +150,12 @@ export default function NotificationSettingsScreen() {
           {/* What You'll Receive */}
           <View className="mt-6 px-4">
             <Text className={`text-sm font-bold ${sectionHeaderColor} mb-3`}>
-              What You’ll Receive
+              {t('notificationSettings.whatYouReceive')}
             </Text>
             <View className={`${cardBg} rounded-2xl border ${borderColor} overflow-hidden`}>
               <NotificationToggle
-                title="Booking Updates"
-                subtitle="Confirmations, cancellations, and changes"
+                title={t('notificationSettings.bookingUpdates')}
+                subtitle={t('notificationSettings.bookingUpdatesSubtitle')}
                 value={s.bookingUpdates}
                 onValueChange={(v) => update({ bookingUpdates: v })}
                 isDarkMode={isDarkMode}
@@ -159,8 +164,8 @@ export default function NotificationSettingsScreen() {
               />
               <View className={`h-px ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'} mx-4`} />
               <NotificationToggle
-                title="Appointment Reminders"
-                subtitle="Get reminded before your appointments"
+                title={t('notificationSettings.reminders')}
+                subtitle={t('notificationSettings.remindersSubtitle')}
                 value={s.appointmentReminders}
                 onValueChange={(v) => update({ appointmentReminders: v })}
                 isDarkMode={isDarkMode}
@@ -169,8 +174,8 @@ export default function NotificationSettingsScreen() {
               />
               <View className={`h-px ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'} mx-4`} />
               <NotificationToggle
-                title="Messages"
-                subtitle="New messages from pet care providers"
+                title={t('notificationSettings.messages')}
+                subtitle={t('notificationSettings.messagesSubtitle')}
                 value={s.messages}
                 onValueChange={(v) => update({ messages: v })}
                 isDarkMode={isDarkMode}
@@ -179,8 +184,8 @@ export default function NotificationSettingsScreen() {
               />
               <View className={`h-px ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'} mx-4`} />
               <NotificationToggle
-                title="Promotions & Offers"
-                subtitle="Special deals and discounts"
+                title={t('notificationSettings.promotions')}
+                subtitle={t('notificationSettings.promotionsSubtitle')}
                 value={s.promotionsOffers}
                 onValueChange={(v) => update({ promotionsOffers: v })}
                 isDarkMode={isDarkMode}
@@ -189,8 +194,8 @@ export default function NotificationSettingsScreen() {
               />
               <View className={`h-px ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'} mx-4`} />
               <NotificationToggle
-                title="New Services"
-                subtitle="New pet care services in your area"
+                title={t('notificationSettings.newServices')}
+                subtitle={t('notificationSettings.newServicesSubtitle')}
                 value={s.newServices}
                 onValueChange={(v) => update({ newServices: v })}
                 isDarkMode={isDarkMode}
@@ -202,7 +207,9 @@ export default function NotificationSettingsScreen() {
 
           {/* Quiet Hours */}
           <View className="mb-6 mt-6 px-4">
-            <Text className={`text-sm font-bold ${sectionHeaderColor} mb-3`}>Quiet Hours</Text>
+            <Text className={`text-sm font-bold ${sectionHeaderColor} mb-3`}>
+              {t('notificationSettings.quietHours')}
+            </Text>
             <View className={`${cardBg} rounded-2xl border ${borderColor} overflow-hidden`}>
               <View className="flex-row items-center justify-between px-4 py-4">
                 <View className="flex-1 flex-row items-center">
@@ -212,9 +219,11 @@ export default function NotificationSettingsScreen() {
                     color={isDarkMode ? '#9ca3af' : '#6b7280'}
                   />
                   <View className="ml-3 flex-1">
-                    <Text className={`text-base font-semibold ${textColor}`}>Do Not Disturb</Text>
+                    <Text className={`text-base font-semibold ${textColor}`}>
+                      {t('notificationSettings.dnd')}
+                    </Text>
                     <Text className={`text-sm ${subtextColor} mt-0.5`}>
-                      Mute non-urgent notifications from {dndRange}
+                      {t('notificationSettings.dndSubtitle', { range: dndRange })}
                     </Text>
                   </View>
                 </View>
@@ -230,7 +239,9 @@ export default function NotificationSettingsScreen() {
                 <>
                   <View className={`h-px ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'} mx-4`} />
                   <TouchableOpacity className="px-4 py-3">
-                    <Text className="text-sm font-semibold text-brand-500">Customize Schedule</Text>
+                    <Text className="text-sm font-semibold text-brand-500">
+                      {t('notificationSettings.customizeSchedule')}
+                    </Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -243,7 +254,7 @@ export default function NotificationSettingsScreen() {
                 style={{ marginTop: 2 }}
               />
               <Text className={`text-xs ${subtextColor} ml-2 flex-1`}>
-                You can manage notification permissions in your device settings at any time.
+                {t('notificationSettings.deviceSettingsHint')}
               </Text>
             </View>
           </View>

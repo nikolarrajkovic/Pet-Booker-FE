@@ -3,6 +3,7 @@ import { ScrollView, Text, View, Image, ActivityIndicator, TouchableOpacity } fr
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ReviewModal from '../../../components/shared/ReviewModal';
 import { useReviewModal } from '../../../hooks/useReviewModal';
@@ -12,22 +13,18 @@ import { addressLabel } from '../../../services/geocoding';
 
 type RouteParams = { bookingId: number };
 
-const PAYMENT_LABELS: Record<number, string> = {
-  0: 'Cash',
-  1: 'Card',
-  2: 'Bank Transfer',
-  3: 'Wallet',
-};
-const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> = {
-  upcoming: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Upcoming' },
-  completed: { bg: 'bg-green-100', text: 'text-green-700', label: 'Completed' },
-  cancelled: { bg: 'bg-red-100', text: 'text-red-700', label: 'Cancelled' },
+// statusLabel string → { badge style, BookingState enum value } (label via tEnum).
+const STATUS_STYLE: Record<string, { bg: string; text: string; state: number }> = {
+  upcoming: { bg: 'bg-blue-100', text: 'text-blue-700', state: 0 },
+  completed: { bg: 'bg-green-100', text: 'text-green-700', state: 1 },
+  cancelled: { bg: 'bg-red-100', text: 'text-red-700', state: 2 },
 };
 
 export default function BookingDetailsScreen() {
   const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
   const { bookingId } = route.params;
   const { isDarkMode, bgColor, textColor, subtextColor, borderColor } = useThemeColors();
+  const { t, tEnum } = useLocale();
 
   const [dto, setDto] = useState<BookingDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,7 +45,7 @@ export default function BookingDetailsScreen() {
         const b = await getBooking(bookingId);
         if (!cancelled) setDto(b);
       } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? 'Failed to load booking.');
+        if (!cancelled) setError(e?.message ?? t('bookingDetails.loadFailed'));
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -86,7 +83,7 @@ export default function BookingDetailsScreen() {
       <ScreenLayout
         headerVariant="standard"
         showBackButton
-        headerTitle="Booking Details"
+        headerTitle={t('bookingDetails.title')}
         contentBg={bgColor}>
         {isLoading ? (
           <View className="flex-1 items-center justify-center py-20">
@@ -100,7 +97,7 @@ export default function BookingDetailsScreen() {
               color={isDarkMode ? '#6B7280' : '#9CA3AF'}
             />
             <Text className={`${subtextColor} mt-4 text-center`}>
-              {error ?? 'Booking not found.'}
+              {error ?? t('bookingDetails.notFound')}
             </Text>
           </View>
         ) : (
@@ -123,18 +120,30 @@ export default function BookingDetailsScreen() {
                 <Text className={`text-lg font-bold ${textColor}`}>{vm.serviceName}</Text>
                 <Text className={`text-sm ${subtextColor} mt-0.5`}>{vm.providerName}</Text>
                 <View className={`mt-2 self-start rounded-full px-2.5 py-1 ${status.bg}`}>
-                  <Text className={`text-xs font-semibold ${status.text}`}>{status.label}</Text>
+                  <Text className={`text-xs font-semibold ${status.text}`}>
+                    {tEnum('bookingState', status.state)}
+                  </Text>
                 </View>
               </View>
             </View>
 
             {/* Appointment */}
             <View className="mt-6 px-6">
-              <Text className={`text-base font-bold ${textColor} mb-1`}>Appointment</Text>
-              <Row icon="calendar-outline" label="Date" value={vm.date} />
-              <Row icon="time-outline" label="Time" value={vm.time} />
-              <Row icon="paw-outline" label="Pet" value={dto.pet?.name ?? vm.petName} />
-              <Row icon="person-outline" label="Provider" value={vm.providerName} />
+              <Text className={`text-base font-bold ${textColor} mb-1`}>
+                {t('bookingDetails.appointment')}
+              </Text>
+              <Row icon="calendar-outline" label={t('bookingDetails.date')} value={vm.date} />
+              <Row icon="time-outline" label={t('bookingDetails.time')} value={vm.time} />
+              <Row
+                icon="paw-outline"
+                label={t('bookingDetails.pet')}
+                value={dto.pet?.name ?? vm.petName}
+              />
+              <Row
+                icon="person-outline"
+                label={t('bookingDetails.provider')}
+                value={vm.providerName}
+              />
             </View>
 
             {/* Pet image (optional flourish) */}
@@ -152,38 +161,52 @@ export default function BookingDetailsScreen() {
             {/* Location */}
             {(pickup || dropoff) && (
               <View className="mt-6 px-6">
-                <Text className={`text-base font-bold ${textColor} mb-1`}>Location</Text>
+                <Text className={`text-base font-bold ${textColor} mb-1`}>
+                  {t('bookingDetails.location')}
+                </Text>
                 {pickup ? (
-                  <Row icon="car-outline" label="Pickup" value={addressLabel(pickup)} />
+                  <Row
+                    icon="car-outline"
+                    label={t('bookingDetails.pickup')}
+                    value={addressLabel(pickup)}
+                  />
                 ) : null}
                 {dropoff ? (
-                  <Row icon="home-outline" label="Drop-off" value={addressLabel(dropoff)} />
+                  <Row
+                    icon="home-outline"
+                    label={t('bookingDetails.dropoff')}
+                    value={addressLabel(dropoff)}
+                  />
                 ) : null}
               </View>
             )}
 
             {/* Payment */}
             <View className="mt-6 px-6">
-              <Text className={`text-base font-bold ${textColor} mb-1`}>Payment</Text>
+              <Text className={`text-base font-bold ${textColor} mb-1`}>
+                {t('bookingDetails.payment')}
+              </Text>
               <Row
                 icon="card-outline"
-                label="Method"
-                value={PAYMENT_LABELS[dto.paymentType] ?? '—'}
+                label={t('bookingDetails.method')}
+                value={dto.paymentType != null ? tEnum('paymentType', dto.paymentType, '—') : '—'}
               />
               <View
                 className={`flex-row items-center justify-between border-b py-3 ${borderColor}`}>
-                <Text className={`text-sm ${subtextColor}`}>Subtotal</Text>
+                <Text className={`text-sm ${subtextColor}`}>{t('bookingDetails.subtotal')}</Text>
                 <Text className={`text-sm ${textColor}`}>${dto.basePrice}</Text>
               </View>
               {dto.discountAmount > 0 && (
                 <View
                   className={`flex-row items-center justify-between border-b py-3 ${borderColor}`}>
-                  <Text className={`text-sm ${subtextColor}`}>Discount</Text>
+                  <Text className={`text-sm ${subtextColor}`}>{t('bookingDetails.discount')}</Text>
                   <Text className="text-sm text-brand-600">- ${dto.discountAmount}</Text>
                 </View>
               )}
               <View className="flex-row items-center justify-between py-3">
-                <Text className={`text-base font-bold ${textColor}`}>Total</Text>
+                <Text className={`text-base font-bold ${textColor}`}>
+                  {t('bookingDetails.total')}
+                </Text>
                 <Text className="text-xl font-bold text-brand-600">${dto.totalPrice}</Text>
               </View>
             </View>
@@ -191,7 +214,9 @@ export default function BookingDetailsScreen() {
             {/* Review — show the existing rating, or a CTA for completed bookings */}
             {reviewRating != null ? (
               <View className="mt-6 px-6">
-                <Text className={`text-base font-bold ${textColor} mb-2`}>Your Review</Text>
+                <Text className={`text-base font-bold ${textColor} mb-2`}>
+                  {t('bookingDetails.yourReview')}
+                </Text>
                 <View className="flex-row items-center">
                   {[1, 2, 3, 4, 5].map((v) => (
                     <Ionicons
@@ -217,7 +242,9 @@ export default function BookingDetailsScreen() {
                   activeOpacity={0.85}
                   className="flex-row items-center justify-center rounded-2xl bg-brand-500 py-4">
                   <Ionicons name="star" size={18} color="white" />
-                  <Text className="ml-2 text-base font-bold text-white">Leave a Review</Text>
+                  <Text className="ml-2 text-base font-bold text-white">
+                    {t('bookingDetails.leaveAReview')}
+                  </Text>
                 </TouchableOpacity>
               </View>
             ) : null}

@@ -13,6 +13,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useLocale } from '../../../context/LocaleContext';
 import Button from '../../../components/shared/Button';
 import DatePicker from '../../../components/shared/DatePicker';
 import PhoneInput from '../../../components/shared/PhoneInput';
@@ -26,62 +27,61 @@ type RootStackParamList = {
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-// ─── Validators ───────────────────────────────────────────────────────────────
+// ─── Validators (return a translation key or '' when valid) ─────────────────────
 function validateUsername(v: string) {
-  if (!v.trim()) return 'Username is required';
-  if (!/^[A-Za-z][A-Za-z0-9.]{2,19}$/.test(v.trim()))
-    return 'Username must start with a letter and contain only valid characters';
+  if (!v.trim()) return 'register.errUsernameRequired';
+  if (!/^[A-Za-z][A-Za-z0-9.]{2,19}$/.test(v.trim())) return 'register.errUsernameInvalid';
   return '';
 }
 
 function validateEmail(v: string) {
-  if (!v.trim()) return 'Email is required';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()))
-    return 'Enter a valid email address';
+  if (!v.trim()) return 'register.errEmailRequired';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())) return 'register.errEmailInvalid';
   return '';
 }
 
 function validateName(v: string) {
-  if (!v.trim()) return 'This field is required';
-  if (!/^[A-Za-zČĆŽŠĐčćžšđ-]{2,50}$/.test(v.trim()))
-    return 'Name can only contain letters';
+  if (!v.trim()) return 'register.errNameRequired';
+  if (!/^[A-Za-zČĆŽŠĐčćžšđ-]{2,50}$/.test(v.trim())) return 'register.errNameInvalid';
   return '';
 }
 
 function validatePhone(v: string) {
-  if (!v.trim()) return 'Phone number is required';
+  if (!v.trim()) return 'register.errPhoneRequired';
   // Country-agnostic: a "+" dial code followed by 6–14 national digits
   // (spaces allowed). The dial code + flag come from the PhoneInput picker.
   const digits = v.replace(/[^\d]/g, '');
   if (!v.trim().startsWith('+') || digits.length < 8 || digits.length > 15)
-    return 'Enter a valid phone number';
+    return 'register.errPhoneInvalid';
   return '';
 }
 
 function validatePassword(v: string) {
-  if (!v) return 'Password is required';
+  if (!v) return 'register.errPasswordRequired';
   if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(v))
-    return 'Password does not meet the requirements below';
+    return 'register.errPasswordInvalid';
   return '';
 }
 
 function validateConfirmPassword(v: string, pw: string) {
-  if (!v) return 'Please confirm your password';
-  if (v !== pw) return 'Passwords do not match';
+  if (!v) return 'register.errConfirmRequired';
+  if (v !== pw) return 'register.errPasswordsNoMatch';
   return '';
 }
 
 function validateDateOfBirth(d: Date | null) {
-  if (!d) return 'Date of birth is required';
+  if (!d) return 'register.errDobRequired';
   const today = new Date();
-  const age = today.getFullYear() - d.getFullYear() -
+  const age =
+    today.getFullYear() -
+    d.getFullYear() -
     (today < new Date(today.getFullYear(), d.getMonth(), d.getDate()) ? 1 : 0);
-  if (age < 13) return 'You must be at least 13 years old';
-  if (age > 120) return 'Enter a valid date of birth';
+  if (age < 13) return 'register.errAgeMin';
+  if (age > 120) return 'register.errDobInvalid';
   return '';
 }
 
-// ─── Password strength ────────────────────────────────────────────────────────
+// ─── Password strength (labelKey resolved by the caller via t()) ────────────────
 function getPasswordStrength(pwd: string) {
   if (!pwd) return null;
   const score = [
@@ -91,13 +91,14 @@ function getPasswordStrength(pwd: string) {
     /[^A-Za-z0-9]/.test(pwd),
     pwd.length >= 8,
   ].filter(Boolean).length;
-  if (score <= 2) return { label: 'Weak', color: '#EF4444', flex: 1 / 3 };
-  if (score <= 3) return { label: 'Medium', color: '#F59E0B', flex: 2 / 3 };
-  return { label: 'Strong', color: '#00A85A', flex: 1 };
+  if (score <= 2) return { labelKey: 'register.strengthWeak', color: '#EF4444', flex: 1 / 3 };
+  if (score <= 3) return { labelKey: 'register.strengthMedium', color: '#F59E0B', flex: 2 / 3 };
+  return { labelKey: 'register.strengthStrong', color: '#00A85A', flex: 1 };
 }
 
 export default function RegisterScreen() {
   const { isDarkMode, textColor, subtextColor } = useThemeColors();
+  const { t } = useLocale();
   const navigation = useNavigation<NavigationProp>();
 
   const [username, setUsername] = useState('');
@@ -142,13 +143,19 @@ export default function RegisterScreen() {
     return errors[field] ? '#EF4444' : '#00A85A';
   };
 
-  const touch = (field: string) => setTouched((t) => ({ ...t, [field]: true }));
+  const touch = (field: string) => setTouched((prev) => ({ ...prev, [field]: true }));
 
   // ─── Submit ───────────────────────────────────────────────────────────────
   const handleRegister = async () => {
     setTouched({
-      username: true, email: true, firstName: true,
-      lastName: true, phone: true, dateOfBirth: true, password: true, confirmPassword: true,
+      username: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+      dateOfBirth: true,
+      password: true,
+      confirmPassword: true,
     });
     if (!isFormValid) return;
 
@@ -166,7 +173,7 @@ export default function RegisterScreen() {
       });
       navigation.navigate('VerifyEmail', { email: email.trim() });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Registration failed. Please try again.';
+      const message = error instanceof Error ? error.message : t('register.registrationFailed');
       setSubmitError(message);
     } finally {
       setIsSubmitting(false);
@@ -188,112 +195,132 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView className={`flex-1 ${contentBg}`}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1">
         {/* Green Header */}
-        <View className={`${bgColor} px-6 pt-16 pb-12 items-center rounded-b-3xl`}>
-          <View className="w-20 h-20 bg-white rounded-2xl items-center justify-center mb-4 shadow-lg">
+        <View className={`${bgColor} items-center rounded-b-3xl px-6 pb-12 pt-16`}>
+          <View className="mb-4 h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg">
             <MaterialCommunityIcons name="paw" size={40} color="#00A85A" />
           </View>
-          <Text className="text-white text-2xl font-bold">Pet Booker</Text>
-          <Text className="text-brand-100 mt-1">Create your account</Text>
+          <Text className="text-2xl font-bold text-white">{t('login.appName')}</Text>
+          <Text className="mt-1 text-brand-100">{t('register.subtitle')}</Text>
         </View>
 
         <ScrollView
           className="flex-1"
           contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 40 }}
-          keyboardShouldPersistTaps="handled"
-        >
+          keyboardShouldPersistTaps="handled">
           {/* Username */}
           <View className="mb-4">
-            <View className="flex-row items-center mb-1">
-              <Text className={`text-sm font-semibold ${textColor}`}>Username</Text>
-              <Text className="text-red-500 ml-1 text-sm font-semibold">*</Text>
+            <View className="mb-1 flex-row items-center">
+              <Text className={`text-sm font-semibold ${textColor}`}>{t('register.username')}</Text>
+              <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
             </View>
-            <Text className={`text-xs ${subtextColor} mb-2`}>
-              3–20 characters, starts with letter, only letters/numbers/.
-            </Text>
+            <Text className={`text-xs ${subtextColor} mb-2`}>{t('register.usernameHint')}</Text>
             <TextInput
               value={username}
-              onChangeText={(t) => { setUsername(t); touch('username'); }}
+              onChangeText={(v) => {
+                setUsername(v);
+                touch('username');
+              }}
               onBlur={() => touch('username')}
-              placeholder="Choose a username"
+              placeholder={t('register.usernamePlaceholder')}
               autoCapitalize="none"
               style={inputStyle('username')}
               placeholderTextColor={placeholderColor}
             />
             {touched.username && errors.username ? (
-              <Text className="text-red-500 text-xs mt-1">{errors.username}</Text>
+              <Text className="mt-1 text-xs text-red-500">{t(errors.username as any)}</Text>
             ) : null}
           </View>
 
           {/* Email */}
           <View className="mb-4">
-            <View className="flex-row items-center mb-2">
-              <Text className={`text-sm font-semibold ${textColor}`}>Email Address</Text>
-              <Text className="text-red-500 ml-1 text-sm font-semibold">*</Text>
+            <View className="mb-2 flex-row items-center">
+              <Text className={`text-sm font-semibold ${textColor}`}>{t('register.email')}</Text>
+              <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
             </View>
             <TextInput
               value={email}
-              onChangeText={(t) => { setEmail(t); touch('email'); }}
+              onChangeText={(v) => {
+                setEmail(v);
+                touch('email');
+              }}
               onBlur={() => touch('email')}
-              placeholder="Enter your email"
+              placeholder={t('register.emailPlaceholder')}
               keyboardType="email-address"
               autoCapitalize="none"
               style={inputStyle('email')}
               placeholderTextColor={placeholderColor}
             />
             {touched.email && errors.email ? (
-              <Text className="text-red-500 text-xs mt-1">{errors.email}</Text>
+              <Text className="mt-1 text-xs text-red-500">{t(errors.email as any)}</Text>
             ) : null}
           </View>
 
           {/* First Name + Last Name */}
-          <View className="flex-row gap-3 mb-4">
+          <View className="mb-4 flex-row gap-3">
             <View className="flex-1">
-              <View className="flex-row items-center mb-2">
-                <Text className={`text-sm font-semibold ${textColor}`}>First Name</Text>
-                <Text className="text-red-500 ml-1 text-sm font-semibold">*</Text>
+              <View className="mb-2 flex-row items-center">
+                <Text className={`text-sm font-semibold ${textColor}`}>
+                  {t('register.firstName')}
+                </Text>
+                <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
               </View>
               <TextInput
                 value={firstName}
-                onChangeText={(t) => { setFirstName(t); touch('firstName'); }}
+                onChangeText={(v) => {
+                  setFirstName(v);
+                  touch('firstName');
+                }}
                 onBlur={() => touch('firstName')}
-                placeholder="First name"
+                placeholder={t('register.firstNamePlaceholder')}
                 style={inputStyle('firstName')}
                 placeholderTextColor={placeholderColor}
               />
               {touched.firstName && errors.firstName ? (
-                <Text className="text-red-500 text-xs mt-1">{errors.firstName}</Text>
+                <Text className="mt-1 text-xs text-red-500">{t(errors.firstName as any)}</Text>
               ) : null}
             </View>
             <View className="flex-1">
-              <View className="flex-row items-center mb-2">
-                <Text className={`text-sm font-semibold ${textColor}`}>Last Name</Text>
-                <Text className="text-red-500 ml-1 text-sm font-semibold">*</Text>
+              <View className="mb-2 flex-row items-center">
+                <Text className={`text-sm font-semibold ${textColor}`}>
+                  {t('register.lastName')}
+                </Text>
+                <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
               </View>
               <TextInput
                 value={lastName}
-                onChangeText={(t) => { setLastName(t); touch('lastName'); }}
+                onChangeText={(v) => {
+                  setLastName(v);
+                  touch('lastName');
+                }}
                 onBlur={() => touch('lastName')}
-                placeholder="Last name"
+                placeholder={t('register.lastNamePlaceholder')}
                 style={inputStyle('lastName')}
                 placeholderTextColor={placeholderColor}
               />
               {touched.lastName && errors.lastName ? (
-                <Text className="text-red-500 text-xs mt-1">{errors.lastName}</Text>
+                <Text className="mt-1 text-xs text-red-500">{t(errors.lastName as any)}</Text>
               ) : null}
             </View>
           </View>
 
           {/* Phone Number */}
           <View className="mb-4">
-            <View className="flex-row items-center mb-2">
-              <Text className={`text-sm font-semibold ${textColor}`}>Phone Number</Text>
-              <Text className="text-red-500 ml-1 text-sm font-semibold">*</Text>
+            <View className="mb-2 flex-row items-center">
+              <Text className={`text-sm font-semibold ${textColor}`}>
+                {t('register.phoneNumber')}
+              </Text>
+              <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
             </View>
             <PhoneInput
               value={phone}
-              onChangeText={(t) => { setPhone(t); touch('phone'); }}
+              onChangeText={(v) => {
+                setPhone(v);
+                touch('phone');
+              }}
               isDarkMode={isDarkMode}
               textColor={textColor}
               subtextColor={subtextColor}
@@ -304,18 +331,23 @@ export default function RegisterScreen() {
               cardBg={isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}
             />
             {touched.phone && errors.phone ? (
-              <Text className="text-red-500 text-xs mt-1">{errors.phone}</Text>
+              <Text className="mt-1 text-xs text-red-500">{t(errors.phone as any)}</Text>
             ) : null}
           </View>
 
           {/* Date of Birth */}
           <View className="mb-4">
-            <View className="flex-row items-center mb-2">
-              <Text className={`text-sm font-semibold ${textColor}`}>Date of Birth</Text>
-              <Text className="text-red-500 ml-1 text-sm font-semibold">*</Text>
+            <View className="mb-2 flex-row items-center">
+              <Text className={`text-sm font-semibold ${textColor}`}>
+                {t('register.dateOfBirth')}
+              </Text>
+              <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
             </View>
             <TouchableOpacity
-              onPress={() => { setShowDobPicker(v => !v); touch('dateOfBirth'); }}
+              onPress={() => {
+                setShowDobPicker((v) => !v);
+                touch('dateOfBirth');
+              }}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -323,22 +355,41 @@ export default function RegisterScreen() {
                 borderRadius: 12,
                 borderWidth: 2,
                 borderColor: touched.dateOfBirth
-                  ? errors.dateOfBirth ? '#EF4444' : '#00A85A'
+                  ? errors.dateOfBirth
+                    ? '#EF4444'
+                    : '#00A85A'
                   : defaultBorder,
                 paddingHorizontal: 16,
                 paddingVertical: 13,
-              }}
-            >
-              <Ionicons name="calendar-outline" size={20} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
-              <Text style={{ marginLeft: 10, fontSize: 15, color: dateOfBirth ? inputTextColor : placeholderColor, flex: 1 }}>
+              }}>
+              <Ionicons
+                name="calendar-outline"
+                size={20}
+                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+              />
+              <Text
+                style={{
+                  marginLeft: 10,
+                  fontSize: 15,
+                  color: dateOfBirth ? inputTextColor : placeholderColor,
+                  flex: 1,
+                }}>
                 {dateOfBirth
-                  ? dateOfBirth.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
-                  : 'Select your date of birth'}
+                  ? dateOfBirth.toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric',
+                    })
+                  : t('register.dobPlaceholder')}
               </Text>
-              <Ionicons name={showDobPicker ? 'chevron-up' : 'chevron-down'} size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+              <Ionicons
+                name={showDobPicker ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+              />
             </TouchableOpacity>
             {touched.dateOfBirth && errors.dateOfBirth ? (
-              <Text className="text-red-500 text-xs mt-1">{errors.dateOfBirth}</Text>
+              <Text className="mt-1 text-xs text-red-500">{t(errors.dateOfBirth as any)}</Text>
             ) : null}
             {showDobPicker && (
               <DatePicker
@@ -357,28 +408,27 @@ export default function RegisterScreen() {
 
           {/* Password */}
           <View className="mb-2">
-            <View className="flex-row items-center mb-2">
-              <Text className={`text-sm font-semibold ${textColor}`}>Password</Text>
-              <Text className="text-red-500 ml-1 text-sm font-semibold">*</Text>
+            <View className="mb-2 flex-row items-center">
+              <Text className={`text-sm font-semibold ${textColor}`}>{t('register.password')}</Text>
+              <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
             </View>
             <View>
               <TextInput
                 value={password}
-                onChangeText={(t) => {
-                  setPassword(t);
+                onChangeText={(v) => {
+                  setPassword(v);
                   touch('password');
                   if (touched.confirmPassword) touch('confirmPassword');
                 }}
                 onBlur={() => touch('password')}
-                placeholder="Create a password"
+                placeholder={t('register.passwordPlaceholder')}
                 secureTextEntry={!showPassword}
                 style={{ ...inputStyle('password'), paddingRight: 48 }}
                 placeholderTextColor={placeholderColor}
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
-                style={{ position: 'absolute', right: 16, top: 13 }}
-              >
+                style={{ position: 'absolute', right: 16, top: 13 }}>
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={22}
@@ -390,11 +440,25 @@ export default function RegisterScreen() {
             {/* Strength bar */}
             {password.length > 0 && strength && (
               <View style={{ marginTop: 8, marginBottom: 4 }}>
-                <View style={{ flexDirection: 'row', height: 4, backgroundColor: isDarkMode ? '#374151' : '#E5E7EB', borderRadius: 4, overflow: 'hidden' }}>
-                  <View style={{ flex: strength.flex, backgroundColor: strength.color, borderRadius: 4 }} />
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    height: 4,
+                    backgroundColor: isDarkMode ? '#374151' : '#E5E7EB',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                  }}>
+                  <View
+                    style={{
+                      flex: strength.flex,
+                      backgroundColor: strength.color,
+                      borderRadius: 4,
+                    }}
+                  />
                 </View>
-                <Text style={{ fontSize: 11, color: strength.color, marginTop: 3, fontWeight: '600' }}>
-                  {strength.label}
+                <Text
+                  style={{ fontSize: 11, color: strength.color, marginTop: 3, fontWeight: '600' }}>
+                  {t(strength.labelKey as any)}
                 </Text>
               </View>
             )}
@@ -403,20 +467,27 @@ export default function RegisterScreen() {
             {(touched.password || password.length > 0) && (
               <View style={{ marginTop: 4, marginBottom: 8 }}>
                 {[
-                  { label: 'Uppercase letter', ok: /[A-Z]/.test(password) },
-                  { label: 'Lowercase letter', ok: /[a-z]/.test(password) },
-                  { label: 'Number', ok: /\d/.test(password) },
-                  { label: 'Special character', ok: /[^A-Za-z0-9]/.test(password) },
-                  { label: 'At least 8 characters', ok: password.length >= 8 },
+                  { key: 'register.reqUppercase', ok: /[A-Z]/.test(password) },
+                  { key: 'register.reqLowercase', ok: /[a-z]/.test(password) },
+                  { key: 'register.reqNumber', ok: /\d/.test(password) },
+                  { key: 'register.reqSpecial', ok: /[^A-Za-z0-9]/.test(password) },
+                  { key: 'register.reqMinLength', ok: password.length >= 8 },
                 ].map((item) => (
-                  <View key={item.label} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
+                  <View
+                    key={item.key}
+                    style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
                     <Ionicons
                       name={item.ok ? 'checkmark-circle' : 'ellipse-outline'}
                       size={13}
                       color={item.ok ? '#00A85A' : '#9CA3AF'}
                     />
-                    <Text style={{ fontSize: 11, color: item.ok ? '#00A85A' : '#9CA3AF', marginLeft: 5 }}>
-                      {item.label}
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        color: item.ok ? '#00A85A' : '#9CA3AF',
+                        marginLeft: 5,
+                      }}>
+                      {t(item.key as any)}
                     </Text>
                   </View>
                 ))}
@@ -426,24 +497,28 @@ export default function RegisterScreen() {
 
           {/* Confirm Password */}
           <View className="mb-6">
-            <View className="flex-row items-center mb-2">
-              <Text className={`text-sm font-semibold ${textColor}`}>Confirm Password</Text>
-              <Text className="text-red-500 ml-1 text-sm font-semibold">*</Text>
+            <View className="mb-2 flex-row items-center">
+              <Text className={`text-sm font-semibold ${textColor}`}>
+                {t('register.confirmPassword')}
+              </Text>
+              <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
             </View>
             <View>
               <TextInput
                 value={confirmPassword}
-                onChangeText={(t) => { setConfirmPassword(t); touch('confirmPassword'); }}
+                onChangeText={(v) => {
+                  setConfirmPassword(v);
+                  touch('confirmPassword');
+                }}
                 onBlur={() => touch('confirmPassword')}
-                placeholder="Re-enter your password"
+                placeholder={t('register.confirmPasswordPlaceholder')}
                 secureTextEntry={!showConfirmPassword}
                 style={{ ...inputStyle('confirmPassword'), paddingRight: 48 }}
                 placeholderTextColor={placeholderColor}
               />
               <TouchableOpacity
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                style={{ position: 'absolute', right: 16, top: 13 }}
-              >
+                style={{ position: 'absolute', right: 16, top: 13 }}>
                 <Ionicons
                   name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={22}
@@ -452,36 +527,36 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             </View>
             {touched.confirmPassword && errors.confirmPassword ? (
-              <Text className="text-red-500 text-xs mt-1">{errors.confirmPassword}</Text>
+              <Text className="mt-1 text-xs text-red-500">{t(errors.confirmPassword as any)}</Text>
             ) : null}
           </View>
 
           {/* Create Account Button */}
           <Button
-            text={isSubmitting ? 'Creating Account...' : 'Create Account'}
+            text={isSubmitting ? t('register.creatingAccount') : t('register.createAccount')}
             onPress={handleRegister}
             variant="primary"
-            className="py-4 rounded-2xl mb-4"
+            className="mb-4 rounded-2xl py-4"
             disabled={isSubmitting}
           />
 
           {submitError ? (
-            <Text className="text-red-500 text-sm mb-4 text-center">{submitError}</Text>
+            <Text className="mb-4 text-center text-sm text-red-500">{submitError}</Text>
           ) : null}
 
           {/* Terms */}
-          <Text className={`text-xs text-center ${subtextColor} mb-6 leading-5`}>
-            By creating an account, you agree to our{' '}
-            <Text className="text-brand-600 font-semibold">Terms of Service</Text>
-            {' '}and{' '}
-            <Text className="text-brand-600 font-semibold">Privacy Policy</Text>
+          <Text className={`text-center text-xs ${subtextColor} mb-6 leading-5`}>
+            {t('register.termsPrefix')}
+            <Text className="font-semibold text-brand-600">{t('register.termsOfService')}</Text>
+            {t('register.and')}
+            <Text className="font-semibold text-brand-600">{t('register.privacyPolicy')}</Text>
           </Text>
 
           {/* Sign In Link */}
           <View className="flex-row justify-center">
-            <Text className={`text-sm ${subtextColor}`}>Already have an account? </Text>
+            <Text className={`text-sm ${subtextColor}`}>{t('register.alreadyHaveAccount')}</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text className="text-brand-600 font-semibold text-sm">Sign In</Text>
+              <Text className="text-sm font-semibold text-brand-600">{t('register.signIn')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

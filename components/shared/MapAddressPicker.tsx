@@ -3,6 +3,7 @@ import { Modal, View, Text, TextInput, TouchableOpacity, ActivityIndicator } fro
 import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { themeColors } from '../../hooks/useThemeColors';
+import { useLocale } from '../../context/LocaleContext';
 import {
   reverseGeocodeToAddress,
   forwardGeocode,
@@ -37,6 +38,7 @@ export default function MapAddressPicker({
   onClose,
   onSelect,
 }: MapAddressPickerProps) {
+  const { t } = useLocale();
   const { hex } = themeColors(isDarkMode);
   const mapRef = useRef<MapView>(null);
   const [center, setCenter] = useState<GeoPoint>(initialRegion);
@@ -98,7 +100,15 @@ export default function MapAddressPicker({
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: hex.bg }}>
         {/* Header */}
-        <View style={{ paddingTop: 48, paddingHorizontal: 16, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', backgroundColor: hex.card }}>
+        <View
+          style={{
+            paddingTop: 48,
+            paddingHorizontal: 16,
+            paddingBottom: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: hex.card,
+          }}>
           <TouchableOpacity onPress={onClose} style={{ marginRight: 12 }}>
             <Ionicons name="close" size={24} color={hex.text} />
           </TouchableOpacity>
@@ -107,14 +117,21 @@ export default function MapAddressPicker({
 
         {/* Search */}
         <View style={{ paddingHorizontal: 16, paddingBottom: 12, backgroundColor: hex.card }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: hex.inputBg, borderRadius: 12, paddingHorizontal: 12 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: hex.inputBg,
+              borderRadius: 12,
+              paddingHorizontal: 12,
+            }}>
             <Ionicons name="search" size={18} color={hex.subtext} />
             <TextInput
               value={query}
               onChangeText={setQuery}
               onSubmitEditing={runSearch}
               returnKeyType="search"
-              placeholder="Search address or place"
+              placeholder={t('shared.searchAddress')}
               placeholderTextColor={hex.subtext}
               style={{ flex: 1, paddingVertical: 10, paddingHorizontal: 8, color: hex.text }}
             />
@@ -129,19 +146,41 @@ export default function MapAddressPicker({
             style={{ flex: 1 }}
             provider={PROVIDER_GOOGLE}
             initialRegion={region}
-            onRegionChangeComplete={(r) => setCenter({ latitude: r.latitude, longitude: r.longitude })}
+            onRegionChangeComplete={(r) =>
+              setCenter({ latitude: r.latitude, longitude: r.longitude })
+            }
             showsUserLocation
           />
           <View
             pointerEvents="none"
-            style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' }}
-          >
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: 0,
+              right: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
             <Ionicons name="location" size={42} color="#00C870" style={{ marginBottom: 42 }} />
           </View>
           <TouchableOpacity
             onPress={locateMe}
-            style={{ position: 'absolute', right: 16, bottom: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: hex.card, alignItems: 'center', justifyContent: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 4 }}
-          >
+            style={{
+              position: 'absolute',
+              right: 16,
+              bottom: 16,
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: hex.card,
+              alignItems: 'center',
+              justifyContent: 'center',
+              elevation: 4,
+              shadowColor: '#000',
+              shadowOpacity: 0.2,
+              shadowRadius: 4,
+            }}>
             <Ionicons name="locate" size={22} color="#00C870" />
           </TouchableOpacity>
         </View>
@@ -154,12 +193,19 @@ export default function MapAddressPicker({
           <TouchableOpacity
             onPress={confirm}
             disabled={busy}
-            style={{ backgroundColor: '#00C870', paddingVertical: 16, borderRadius: 16, alignItems: 'center', opacity: busy ? 0.7 : 1 }}
-          >
+            style={{
+              backgroundColor: '#00C870',
+              paddingVertical: 16,
+              borderRadius: 16,
+              alignItems: 'center',
+              opacity: busy ? 0.7 : 1,
+            }}>
             {busy ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>Confirm location</Text>
+              <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>
+                {t('shared.confirmLocation')}
+              </Text>
             )}
           </TouchableOpacity>
         </View>

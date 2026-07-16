@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { themeColors } from '../../hooks/useThemeColors';
+import { useLocale } from '../../context/LocaleContext';
 
 interface TimePickerProps {
   value: Date;
@@ -31,7 +32,14 @@ export function formatTime24(date: Date): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
-export default function TimePicker({ value, onChange, onClose, isDarkMode, minDate }: TimePickerProps) {
+export default function TimePicker({
+  value,
+  onChange,
+  onClose,
+  isDarkMode,
+  minDate,
+}: TimePickerProps) {
+  const { t } = useLocale();
   // Clamp initial value to minDate if it is in the past
   const clampedInit = minDate && value < minDate ? minDate : value;
 
@@ -109,8 +117,7 @@ export default function TimePicker({ value, onChange, onClose, isDarkMode, minDa
         onPress={onUp}
         disabled={upDisabled}
         style={{ padding: 8, marginBottom: 2, opacity: upDisabled ? 0.3 : 1 }}
-        activeOpacity={0.6}
-      >
+        activeOpacity={0.6}>
         <Ionicons name="chevron-up" size={22} color="#00C870" />
       </TouchableOpacity>
 
@@ -123,8 +130,7 @@ export default function TimePicker({ value, onChange, onClose, isDarkMode, minDa
           paddingVertical: 14,
           borderWidth: 1.5,
           borderColor: '#00C870',
-        }}
-      >
+        }}>
         <Text style={{ color: textColor, fontSize: 28, fontWeight: '700' }}>{displayVal}</Text>
       </View>
 
@@ -132,8 +138,7 @@ export default function TimePicker({ value, onChange, onClose, isDarkMode, minDa
         onPress={onDown}
         disabled={downDisabled}
         style={{ padding: 8, marginTop: 2, opacity: downDisabled ? 0.3 : 1 }}
-        activeOpacity={0.6}
-      >
+        activeOpacity={0.6}>
         <Ionicons name="chevron-down" size={22} color="#00C870" />
       </TouchableOpacity>
     </View>
@@ -148,9 +153,15 @@ export default function TimePicker({ value, onChange, onClose, isDarkMode, minDa
         borderColor,
         borderRadius: 16,
         padding: 16,
-      }}
-    >
-      <Text style={{ color: subtextColor, fontSize: 13, fontWeight: '500', textAlign: 'center', marginBottom: 12 }}>
+      }}>
+      <Text
+        style={{
+          color: subtextColor,
+          fontSize: 13,
+          fontWeight: '500',
+          textAlign: 'center',
+          marginBottom: 12,
+        }}>
         Select Time (24h)
       </Text>
 
@@ -161,8 +172,7 @@ export default function TimePicker({ value, onChange, onClose, isDarkMode, minDa
           alignItems: 'center',
           justifyContent: 'center',
           paddingHorizontal: '12%',
-        }}
-      >
+        }}>
         <SpinnerColumn
           value={String(hour).padStart(2, '0')}
           onUp={() => changeHour(1)}
@@ -172,7 +182,16 @@ export default function TimePicker({ value, onChange, onClose, isDarkMode, minDa
         />
 
         {/* Colon separator */}
-        <Text style={{ color: textColor, fontSize: 28, fontWeight: '700', marginHorizontal: 4, marginTop: -8 }}>:</Text>
+        <Text
+          style={{
+            color: textColor,
+            fontSize: 28,
+            fontWeight: '700',
+            marginHorizontal: 4,
+            marginTop: -8,
+          }}>
+          :
+        </Text>
 
         <SpinnerColumn
           value={String(minute).padStart(2, '0')}
@@ -192,9 +211,10 @@ export default function TimePicker({ value, onChange, onClose, isDarkMode, minDa
           borderRadius: 12,
           alignItems: 'center',
           backgroundColor: '#00C870',
-        }}
-      >
-        <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>Done</Text>
+        }}>
+        <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>
+          {t('shared.done')}
+        </Text>
       </TouchableOpacity>
     </View>
   );

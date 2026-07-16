@@ -13,8 +13,9 @@ import type { ServiceSearchItem } from '../components/ListView';
 import { getServices, ServiceDto } from '../../../services/services';
 import { getErrorMessage } from '../../../services/http';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
-import { resolveImageUrl, providerTypeLabel, providerTypeValue } from '../../../services/service-providers';
+import { resolveImageUrl, providerTypeValue } from '../../../services/service-providers';
 import { SERVICE_ADDON_DEFS } from '../../../services/service-addons';
+import { useLocale } from '../../../context/LocaleContext';
 
 type SearchRouteParams = {
   serviceType?: string;
@@ -35,25 +36,46 @@ const serviceTypeParamToValue = (label?: string): number | undefined =>
 // its header title, and the banner each card should carry (mirroring HomeScreen).
 const CATEGORY_CONFIG: Record<
   string,
-  { title: string; badge?: 'popular' | 'deal'; load: (lat: number, lng: number) => Promise<ServiceDto[]> }
+  {
+    titleKey: string;
+    badge?: 'popular' | 'deal';
+    load: (lat: number, lng: number) => Promise<ServiceDto[]>;
+  }
 > = {
-  'most-popular': { title: 'Most Popular', badge: 'popular', load: () => getMostPopular(CATEGORY_TAKE) },
-  'special-deals': { title: 'Special Deals', badge: 'deal', load: () => getOnSale(CATEGORY_TAKE) },
-  'recently-booked': { title: 'Recently Booked', load: () => getRecentlyBooked(CATEGORY_TAKE) },
-  'near-you': { title: 'Near You', load: (lat, lng) => getNearMe({ lat, lng, take: CATEGORY_TAKE }) },
+  'most-popular': {
+    titleKey: 'home.mostPopular',
+    badge: 'popular',
+    load: () => getMostPopular(CATEGORY_TAKE),
+  },
+  'special-deals': {
+    titleKey: 'home.specialDeals',
+    badge: 'deal',
+    load: () => getOnSale(CATEGORY_TAKE),
+  },
+  'recently-booked': {
+    titleKey: 'home.recentlyBooked',
+    load: () => getRecentlyBooked(CATEGORY_TAKE),
+  },
+  'near-you': {
+    titleKey: 'home.nearYou',
+    load: (lat, lng) => getNearMe({ lat, lng, take: CATEGORY_TAKE }),
+  },
 };
 
 // Flattens a ServiceDto (from getServices OR a Home endpoint) into a card item.
+// The type-derived label is localized by the caller (via tEnum); here `service`
+// holds only backend free-text (basicServiceName) so it's never left in English.
 function toSearchItem(svc: ServiceDto): ServiceSearchItem | null {
   if (svc.id == null) return null;
   const photoSrc = svc.imageUrl ?? (svc.photos?.find((p) => p.isSelected) ?? svc.photos?.[0])?.src;
   return {
     id: svc.id,
     name: svc.name ?? svc.basicServiceName ?? 'Service',
-    service: svc.type != null ? providerTypeLabel(svc.type) : (svc.basicServiceName ?? ''),
+    service: svc.basicServiceName ?? '',
     rating: svc.rating ?? 0,
     reviews: svc.totalRatingNumber ?? 0,
-    distance: svc.distanceFromMyLocationKm != null ? `${Math.round(svc.distanceFromMyLocationKm)} km` : '',
+    distance:
+      svc.distanceFromMyLocationKm != null ? `${Math.round(svc.distanceFromMyLocationKm)} km` : '',
     price: svc.price ?? svc.pricing?.basePrice ?? 0,
     image: resolveImageUrl(photoSrc) || FALLBACK_IMAGE,
     // The service address now carries geo coords (null until geocoded) — use them
@@ -70,7 +92,15 @@ export default function SearchScreen() {
   const category = route.params?.category;
   const categoryConfig = category ? CATEGORY_CONFIG[category] : undefined;
   const location = useLocation();
-  const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor, borderColor } = useThemeColors();
+  const {
+    isDarkMode,
+    cardBg,
+    bgColor: contentBg,
+    textColor,
+    subtextColor,
+    borderColor,
+  } = useThemeColors();
+  const { t, tEnum } = useLocale();
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -111,7 +141,7 @@ export default function SearchScreen() {
     setFilters((prev) =>
       prev.priceRange[1] === prevMaxPrice.current
         ? { ...prev, priceRange: [prev.priceRange[0], maxPrice] }
-        : prev,
+        : prev
     );
     prevMaxPrice.current = maxPrice;
   }, [maxPrice]);
@@ -132,19 +162,26 @@ export default function SearchScreen() {
             ? await categoryConfig.load(latitude, longitude)
             : await getServices({ isActive: true, perPage: 100 });
           if (cancelled) return;
-          setAllServices(dtos.flatMap((svc) => {
-            const item = toSearchItem(svc);
-            return item ? [item] : [];
-          }));
+          setAllServices(
+            dtos.flatMap((svc) => {
+              const item = toSearchItem(svc);
+              if (!item) return [];
+              if (!item.service && svc.type != null)
+                item.service = tEnum('serviceProviderType', svc.type);
+              return [item];
+            })
+          );
         } catch (e) {
-          if (!cancelled) setLoadError(getErrorMessage(e, 'Could not load services. Please try again.'));
+          if (!cancelled) setLoadError(getErrorMessage(e, t('search.loadError')));
         } finally {
           if (!cancelled) setIsLoading(false);
         }
       };
 
       load();
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     }, [categoryConfig, latitude, longitude])
   );
 
@@ -166,8 +203,8 @@ export default function SearchScreen() {
 
     // Additional services — service must provide every selected add-on.
     if (filters.addOns.length > 0) {
-      const providesAll = filters.addOns.every((id) =>
-        SERVICE_ADDON_DEFS.find((d) => d.id === id)?.read(svc)?.enabled,
+      const providesAll = filters.addOns.every(
+        (id) => SERVICE_ADDON_DEFS.find((d) => d.id === id)?.read(svc)?.enabled
       );
       if (!providesAll) return false;
     }
@@ -197,53 +234,58 @@ export default function SearchScreen() {
       showBackButton
       headerTitle={
         categoryConfig
-          ? categoryConfig.title
+          ? t(categoryConfig.titleKey as any)
           : filters.serviceTypes.length === 1
-            ? providerTypeLabel(filters.serviceTypes[0])
-            : 'All Services'
+            ? tEnum('serviceProviderType', filters.serviceTypes[0])
+            : t('search.allServices')
       }
       contentBg={contentBg}
       footer={<TabBar />}
       rightAction={
         <TouchableOpacity
           onPress={() => setFilterModalVisible(true)}
-          className="w-10 h-10 rounded-full bg-brand-600 items-center justify-center"
-        >
+          className="h-10 w-10 items-center justify-center rounded-full bg-brand-600">
           <Ionicons name="options-outline" size={20} color="white" />
         </TouchableOpacity>
       }
       headerChildren={
-        <View className="flex-row gap-3 mt-3 mb-8">
+        <View className="mb-8 mt-3 flex-row gap-3">
           <View className="flex-1">
             <Button
-              text="List View"
+              text={t('search.listView')}
               onPress={() => setViewMode('list')}
-              icon={<Ionicons name="list" size={18} color={viewMode === 'list' ? '#00C870' : 'white'} />}
+              icon={
+                <Ionicons name="list" size={18} color={viewMode === 'list' ? '#00C870' : 'white'} />
+              }
               variant={viewMode === 'list' ? 'outline' : 'primary'}
-              className={viewMode === 'list' ? 'bg-white border-2 border-brand-600' : ''}
+              className={viewMode === 'list' ? 'border-2 border-brand-600 bg-white' : ''}
             />
           </View>
           <View className="flex-1">
             <Button
-              text="Map View"
+              text={t('search.mapView')}
               onPress={() => setViewMode('map')}
-              icon={<Ionicons name="map" size={18} color={viewMode === 'map' ? '#00C870' : 'white'} />}
+              icon={
+                <Ionicons name="map" size={18} color={viewMode === 'map' ? '#00C870' : 'white'} />
+              }
               variant={viewMode === 'map' ? 'outline' : 'primary'}
-              className={viewMode === 'map' ? 'bg-white border-2 border-brand-600' : ''}
+              className={viewMode === 'map' ? 'border-2 border-brand-600 bg-white' : ''}
             />
           </View>
         </View>
-      }
-    >
-
+      }>
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
           <ActivityIndicator size="large" color="#00C870" />
-          <Text className={`mt-4 text-sm ${subtextColor}`}>Finding services...</Text>
+          <Text className={`mt-4 text-sm ${subtextColor}`}>{t('search.findingServices')}</Text>
         </View>
       ) : loadError ? (
         <View className="flex-1 items-center justify-center px-8 py-20">
-          <Ionicons name="alert-circle-outline" size={56} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
+          <Ionicons
+            name="alert-circle-outline"
+            size={56}
+            color={isDarkMode ? '#6B7280' : '#9CA3AF'}
+          />
           <Text className={`${subtextColor} mt-4 text-center`}>{loadError}</Text>
         </View>
       ) : viewMode === 'list' ? (
@@ -257,10 +299,7 @@ export default function SearchScreen() {
           badge={categoryConfig?.badge}
         />
       ) : (
-        <MapViewComponent
-          services={services}
-          location={location}
-        />
+        <MapViewComponent services={services} location={location} />
       )}
 
       <FilterModal

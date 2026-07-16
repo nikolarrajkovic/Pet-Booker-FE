@@ -47,19 +47,23 @@ export default function Banner({
   isDarkMode = false,
 }: Props) {
   const sizeConfig = sizeMap[size];
-  const bgColor = isDarkMode ? 'bg-[#1a2332]' : (typeof color === 'string' && colorMap[color] ? colorMap[color] : color);
+  const bgColor = isDarkMode
+    ? 'bg-[#1a2332]'
+    : typeof color === 'string' && colorMap[color]
+      ? colorMap[color]
+      : color;
   const textColor = isDarkMode ? 'text-white' : 'text-gray-800';
   const descriptionColor = isDarkMode ? 'text-gray-400' : 'text-gray-500';
 
   return (
-    <View className={`flex-1 ${sizeConfig.container} ${bgColor} rounded-2xl p-4 items-center`}>
+    <View className={`flex-1 ${sizeConfig.container} ${bgColor} items-center rounded-2xl p-4`}>
       {typeof image === 'string' ? (
         <Text className={`${sizeConfig.imageSize} mb-2`}>{image}</Text>
       ) : (
         <View className="mb-2">{image}</View>
       )}
       <Text className={`${sizeConfig.titleSize} font-semibold ${textColor}`}>{title}</Text>
-      <Text className={`text-xs ${descriptionColor} text-center mt-1`}>{description}</Text>
+      <Text className={`text-xs ${descriptionColor} mt-1 text-center`}>{description}</Text>
     </View>
   );
 }

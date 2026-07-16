@@ -77,10 +77,9 @@ export default function Button({
       disabled={isDisabled}
       activeOpacity={activeOpacity}
       style={style}
-      className={`py-3 px-4 rounded-xl items-center justify-center ${variantClass} ${
+      className={`items-center justify-center rounded-xl px-4 py-3 ${variantClass} ${
         isDisabled ? 'opacity-50' : ''
-      } ${className}`}
-    >
+      } ${className}`}>
       {renderContent()}
     </TouchableOpacity>
   );

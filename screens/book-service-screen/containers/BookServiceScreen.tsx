@@ -6,6 +6,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocation } from '../../../hooks/useLocation';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
+import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import DatePicker from '../../../components/shared/DatePicker';
@@ -18,12 +19,8 @@ import {
   AvailabilityWindowDto,
   effectiveOptionPrice,
 } from '../../../services/services';
-import { getPets, petTypeLabel } from '../../../services/pets';
-import {
-  resolveImageUrl,
-  providerTypeLabel,
-  AddressDto,
-} from '../../../services/service-providers';
+import { getPets } from '../../../services/pets';
+import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import { parseBookingDate, formatBookingDate } from '../../../services/bookings';
 import { getEnabledServiceAddons } from '../../../services/service-addons';
 import { addressLabel } from '../../../services/geocoding';
@@ -94,6 +91,7 @@ export default function BookServiceScreen() {
     borderColor,
   } = useThemeColors();
   const location = useLocation();
+  const { t, tEnum } = useLocale();
 
   // The service is fixed for this screen — booking targets this one service.
   // It arrives from Home/Search list endpoints, which return a LEANER ServiceDto
@@ -108,7 +106,7 @@ export default function BookServiceScreen() {
   );
   const serviceTypeLabel =
     selectedService.basicServiceName ??
-    (selectedService.type != null ? providerTypeLabel(selectedService.type) : '');
+    (selectedService.type != null ? tEnum('serviceProviderType', selectedService.type) : '');
 
   const [pets, setPets] = useState<{ id: number; name: string; breed: string; image: string }[]>(
     []
@@ -161,12 +159,12 @@ export default function BookServiceScreen() {
           petList.map((p) => ({
             id: Number(p.id),
             name: p.name,
-            breed: p.breed || petTypeLabel(p.type),
+            breed: p.breed || tEnum('petSpeciesType', p.type),
             image: p.photoUrl ? resolveImageUrl(p.photoUrl) : resolveImageUrl(p.photos?.[0]?.src),
           }))
         );
       } catch (e) {
-        if (!cancelled) showError(getErrorMessage(e, 'Could not load your pets. Please try again.'));
+        if (!cancelled) showError(getErrorMessage(e, t('bookService.petsLoadError')));
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -199,7 +197,7 @@ export default function BookServiceScreen() {
       } catch (e) {
         if (!cancelled) {
           setAvailWindows([]); // no windows → no slots
-          showError(getErrorMessage(e, 'Could not load available times. Please try again.'));
+          showError(getErrorMessage(e, t('bookService.slotsLoadError')));
         }
       } finally {
         if (!cancelled) setIsLoadingSlots(false);
@@ -317,7 +315,8 @@ export default function BookServiceScreen() {
       pet: { id: selectedPet, name: pet?.name ?? 'Pet', image: pet?.image ?? '' },
       addons: selectedAddons.flatMap((id) => {
         const def = serviceAddons.find((a) => a.id === id);
-        return def ? [{ name: def.name, price: def.price }] : [];
+        // Localized display name, frozen at add time (shown here + on Review).
+        return def ? [{ name: t(`addons.${def.id}` as any), price: def.price }] : [];
       }),
       // Naive local wall-clock (no offset) so the booking round-trips to the same
       // time the user picked under parseBookingDate (see services/bookings.ts).
@@ -388,7 +387,7 @@ export default function BookServiceScreen() {
       contentRounded={false}
       headerChildren={
         <View className="flex-1">
-          <Text className="text-xl font-bold text-white">Book Service</Text>
+          <Text className="text-xl font-bold text-white">{t('bookService.title')}</Text>
           <Text className={`${isDarkMode ? 'text-gray-300' : 'text-brand-100'} text-sm`}>
             {[selectedService.name, selectedService.basicServiceName].filter(Boolean).join(' • ')}
           </Text>
@@ -406,7 +405,9 @@ export default function BookServiceScreen() {
           <View className="px-6 py-5">
             <View className="mb-4 flex-row items-center">
               {stepDot(optionChosen, 1)}
-              <Text className={`text-base font-semibold ${textColor} ml-3`}>Service</Text>
+              <Text className={`text-base font-semibold ${textColor} ml-3`}>
+                {t('bookService.step1')}
+              </Text>
             </View>
             <View
               className={`overflow-hidden rounded-2xl border-2 border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`}>
@@ -434,7 +435,7 @@ export default function BookServiceScreen() {
                   {pricingOptions.length > 0
                     ? selectedOption
                       ? `$${effectiveOptionPrice(selectedService, selectedOption)}`
-                      : `from $${Math.min(
+                      : `${t('bookService.priceFrom')} $${Math.min(
                           ...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o))
                         )}`
                     : `$${servicePrice(selectedService)}`}
@@ -446,7 +447,7 @@ export default function BookServiceScreen() {
             {pricingOptions.length > 0 && (
               <View className="mt-4">
                 <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-                  Choose Duration & Price *
+                  {t('bookService.chooseDuration')}
                 </Text>
                 {pricingOptions.map((option) => {
                   const effective = effectiveOptionPrice(selectedService, option);
@@ -496,14 +497,12 @@ export default function BookServiceScreen() {
             <View className="mb-4 flex-row items-center">
               {stepDot(selectedAddons.length > 0, 2)}
               <Text className={`text-base font-semibold ${textColor} ml-3`}>
-                Additional Services
+                {t('bookService.additionalServices')}
               </Text>
-              <Text className={`text-sm ${subtextColor} ml-2`}>Optional</Text>
+              <Text className={`text-sm ${subtextColor} ml-2`}>{t('bookService.optional')}</Text>
             </View>
             {serviceAddons.length === 0 ? (
-              <Text className={`text-sm ${subtextColor}`}>
-                This service doesn&apos;t offer any additional services.
-              </Text>
+              <Text className={`text-sm ${subtextColor}`}>{t('bookService.noAddons')}</Text>
             ) : (
               serviceAddons.map((addon) => (
                 <TouchableOpacity
@@ -516,8 +515,12 @@ export default function BookServiceScreen() {
                   }`}>
                   <View className="flex-row items-center justify-between">
                     <View className="flex-1">
-                      <Text className={`text-base font-semibold ${textColor}`}>{addon.name}</Text>
-                      <Text className={`text-sm ${subtextColor} mt-1`}>{addon.description}</Text>
+                      <Text className={`text-base font-semibold ${textColor}`}>
+                        {t(`addons.${addon.id}` as any)}
+                      </Text>
+                      <Text className={`text-sm ${subtextColor} mt-1`}>
+                        {t(`addons.${addon.id}Desc` as any)}
+                      </Text>
                     </View>
                     <Text className="ml-4 text-lg font-bold text-brand-600">${addon.price}</Text>
                   </View>
@@ -528,7 +531,9 @@ export default function BookServiceScreen() {
             {/* Location required when Pickup / Drop-off is selected — picked on a map */}
             {pickupSelected && (
               <View className="mb-3 mt-1">
-                <Text className={`text-sm font-semibold ${textColor} mb-2`}>Pickup Address *</Text>
+                <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                  {t('bookService.pickupAddress')}
+                </Text>
                 <TouchableOpacity
                   onPress={() => setPickerFor('pickup')}
                   className={`rounded-2xl border px-4 py-3 ${borderColor} ${cardBg} flex-row items-center`}>
@@ -536,7 +541,7 @@ export default function BookServiceScreen() {
                   <Text
                     className={`ml-3 flex-1 ${pickupAddr ? textColor : subtextColor}`}
                     numberOfLines={2}>
-                    {pickupAddr ? addressLabel(pickupAddr) : 'Pick location on map'}
+                    {pickupAddr ? addressLabel(pickupAddr) : t('bookService.pickOnMap')}
                   </Text>
                   <Ionicons
                     name="chevron-forward"
@@ -551,7 +556,7 @@ export default function BookServiceScreen() {
                     className="mt-2 flex-row items-center self-start">
                     <Ionicons name="copy-outline" size={14} color="#00C870" />
                     <Text className="ml-1.5 text-sm font-medium text-brand-600">
-                      Same as drop-off address
+                      {t('bookService.sameAsDropoff')}
                     </Text>
                   </TouchableOpacity>
                 ) : null}
@@ -560,7 +565,7 @@ export default function BookServiceScreen() {
             {dropoffSelected && (
               <View className="mb-1 mt-1">
                 <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-                  Drop-off Address *
+                  {t('bookService.dropoffAddress')}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setPickerFor('dropoff')}
@@ -569,7 +574,7 @@ export default function BookServiceScreen() {
                   <Text
                     className={`ml-3 flex-1 ${dropoffAddr ? textColor : subtextColor}`}
                     numberOfLines={2}>
-                    {dropoffAddr ? addressLabel(dropoffAddr) : 'Pick location on map'}
+                    {dropoffAddr ? addressLabel(dropoffAddr) : t('bookService.pickOnMap')}
                   </Text>
                   <Ionicons
                     name="chevron-forward"
@@ -584,7 +589,7 @@ export default function BookServiceScreen() {
                     className="mt-2 flex-row items-center self-start">
                     <Ionicons name="copy-outline" size={14} color="#00C870" />
                     <Text className="ml-1.5 text-sm font-medium text-brand-600">
-                      Same as pickup address
+                      {t('bookService.sameAsPickup')}
                     </Text>
                   </TouchableOpacity>
                 ) : null}
@@ -597,7 +602,7 @@ export default function BookServiceScreen() {
             <View className="mb-4 flex-row items-center">
               {stepDot(!!startDateTime, 3)}
               <Text className={`text-base font-semibold ${textColor} ml-3`}>
-                Choose Date & Time
+                {t('bookService.chooseDateTime')}
               </Text>
             </View>
             <TouchableOpacity
@@ -613,7 +618,7 @@ export default function BookServiceScreen() {
                         day: 'numeric',
                         year: 'numeric',
                       })
-                    : 'Select date'}
+                    : t('bookService.selectDate')}
                 </Text>
               </View>
               <Ionicons
@@ -672,16 +677,16 @@ export default function BookServiceScreen() {
             <View className={`border-t px-6 py-5 ${borderColor}`}>
               <View className="mb-3 flex-row items-center">
                 {stepDot(false, 4)}
-                <Text className={`text-base font-semibold ${textColor} ml-3`}>Select Pet</Text>
+                <Text className={`text-base font-semibold ${textColor} ml-3`}>
+                  {t('bookService.selectPet')}
+                </Text>
               </View>
-              <Text className={`text-sm ${subtextColor} mb-3`}>
-                You don&apos;t have any pets yet.
-              </Text>
+              <Text className={`text-sm ${subtextColor} mb-3`}>{t('bookService.noPetsYet')}</Text>
               <TouchableOpacity
                 onPress={() => (navigation as any).navigate('AddPet')}
                 className="flex-row items-center justify-center rounded-2xl bg-brand-500 py-3">
                 <Ionicons name="add" size={20} color="white" />
-                <Text className="ml-2 font-bold text-white">Add a Pet</Text>
+                <Text className="ml-2 font-bold text-white">{t('bookService.addAPet')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -694,7 +699,9 @@ export default function BookServiceScreen() {
                 className="flex-row items-center justify-center rounded-2xl bg-brand-500 py-4">
                 <Ionicons name="add" size={20} color="white" />
                 <Text className="ml-2 text-base font-bold text-white">
-                  {appointments.length === 0 ? 'Add This Appointment' : 'Add Another Appointment'}
+                  {appointments.length === 0
+                    ? t('bookService.addThisAppointment')
+                    : t('bookService.addAnotherAppointment')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -704,7 +711,7 @@ export default function BookServiceScreen() {
           {appointments.length > 0 && (
             <View className="px-6 py-5">
               <Text className={`text-base font-semibold ${textColor} mb-4`}>
-                Added Appointments ({appointments.length})
+                {t('bookService.addedAppointments', { count: appointments.length })}
               </Text>
               {appointments.map((apt) => (
                 <View
@@ -726,7 +733,9 @@ export default function BookServiceScreen() {
                     <View className="flex-1">
                       <Text className={`text-base font-semibold ${textColor}`}>
                         {apt.service.name}{' '}
-                        <Text className={`${subtextColor} font-normal`}>for {apt.pet.name}</Text>
+                        <Text className={`${subtextColor} font-normal`}>
+                          {t('bookService.forPet', { name: apt.pet.name })}
+                        </Text>
                       </Text>
                       <Text className={`text-sm ${subtextColor} mt-1`}>
                         {parseBookingDate(apt.bookingFrom).toLocaleDateString(undefined, {
@@ -734,7 +743,7 @@ export default function BookServiceScreen() {
                           month: 'short',
                           day: 'numeric',
                         })}{' '}
-                        at{' '}
+                        {t('bookService.at')}{' '}
                         {parseBookingDate(apt.bookingFrom).toLocaleTimeString(undefined, {
                           hour: '2-digit',
                           minute: '2-digit',
@@ -743,7 +752,7 @@ export default function BookServiceScreen() {
                       </Text>
                       {apt.pricingOptionName && (
                         <Text className={`text-xs ${subtextColor} mt-1`}>
-                          Option: {apt.pricingOptionName}
+                          {t('bookService.option', { name: apt.pricingOptionName })}
                         </Text>
                       )}
                       {apt.addons.length > 0 && (
@@ -783,7 +792,9 @@ export default function BookServiceScreen() {
           {appointments.length === 0 && selectedService && (
             <View
               className={`border-t px-6 py-5 ${borderColor} flex-row items-center justify-between`}>
-              <Text className={`text-base font-semibold ${textColor}`}>Total</Text>
+              <Text className={`text-base font-semibold ${textColor}`}>
+                {t('bookService.total')}
+              </Text>
               <Text className="text-2xl font-bold text-brand-600">${currentTotal()}</Text>
             </View>
           )}
@@ -797,7 +808,7 @@ export default function BookServiceScreen() {
           disabled={!canContinue}
           onPress={onContinue}
           className={`items-center rounded-2xl py-4 ${canContinue ? 'bg-brand-500' : 'bg-gray-300'}`}>
-          <Text className="text-lg font-bold text-white">Continue to Review</Text>
+          <Text className="text-lg font-bold text-white">{t('bookService.continueToReview')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -806,7 +817,11 @@ export default function BookServiceScreen() {
       {pickerFor !== null && (
         <MapAddressPicker
           visible
-          title={pickerFor === 'pickup' ? 'Pickup location' : 'Drop-off location'}
+          title={
+            pickerFor === 'pickup'
+              ? t('bookService.pickupLocation')
+              : t('bookService.dropoffLocation')
+          }
           initialRegion={{ latitude: location.latitude, longitude: location.longitude }}
           isDarkMode={isDarkMode}
           onClose={() => setPickerFor(null)}

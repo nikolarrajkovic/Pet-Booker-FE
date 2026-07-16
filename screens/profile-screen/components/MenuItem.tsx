@@ -33,11 +33,11 @@ export default function MenuItem({
 }: MenuItemProps) {
   return (
     <TouchableOpacity
-      className={`flex-row items-center ${cardBg} rounded-2xl p-4 mb-3 border ${borderColor}`}
+      className={`flex-row items-center ${cardBg} mb-3 rounded-2xl border p-4 ${borderColor}`}
       activeOpacity={0.7}
-      onPress={onPress}
-    >
-      <View className={`w-12 h-12 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'} rounded-xl items-center justify-center mr-4`}>
+      onPress={onPress}>
+      <View
+        className={`h-12 w-12 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'} mr-4 items-center justify-center rounded-xl`}>
         {iconType === 'ionicons' ? (
           <Ionicons name={icon as any} size={24} color={color} />
         ) : (
@@ -49,8 +49,8 @@ export default function MenuItem({
         <Text className={`text-sm ${subtextColor} mt-0.5`}>{subtitle}</Text>
       </View>
       {badge !== undefined && badge > 0 && (
-        <View className="w-6 h-6 rounded-full bg-red-500 items-center justify-center mr-2">
-          <Text className="text-white text-xs font-bold">{badge}</Text>
+        <View className="mr-2 h-6 w-6 items-center justify-center rounded-full bg-red-500">
+          <Text className="text-xs font-bold text-white">{badge}</Text>
         </View>
       )}
       <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />

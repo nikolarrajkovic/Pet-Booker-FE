@@ -3,6 +3,7 @@ import { ScrollView, Text, View, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocation } from '../../../hooks/useLocation';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { AddressDto } from '../../../services/service-providers';
@@ -11,6 +12,7 @@ import { PersonalInfoStep, ServiceInfoStep } from '../../partner-application-scr
 export default function AdminAddPartnerScreen() {
   const navigation = useNavigation();
   const location = useLocation();
+  const { t } = useLocale();
   const {
     isDarkMode,
     bgColor,
@@ -66,9 +68,9 @@ export default function AdminAddPartnerScreen() {
 
   const handleSubmit = () => {
     Alert.alert(
-      'Partner Added',
-      `${formData.fullName || 'Partner'} has been successfully added as a partner.`,
-      [{ text: 'OK', onPress: () => navigation.goBack() }]
+      t('admin.partnerAddedTitle'),
+      t('admin.partnerAddedMsg', { name: formData.fullName || t('admin.partner') }),
+      [{ text: t('admin.ok'), onPress: () => navigation.goBack() }]
     );
   };
 
@@ -76,8 +78,8 @@ export default function AdminAddPartnerScreen() {
     <ScreenLayout
       headerVariant="standard"
       showBackButton
-      headerTitle="Add New Partner"
-      headerSubtitle="Add partner details manually"
+      headerTitle={t('admin.addPartnerTitle')}
+      headerSubtitle={t('admin.addPartnerSubtitle')}
       contentBg={bgColor}
       contentRounded={false}
       headerChildren={
@@ -91,7 +93,7 @@ export default function AdminAddPartnerScreen() {
             </View>
           </View>
           <Text className="text-sm text-white">
-            Step {step} of {totalSteps}
+            {t('partnerWelcome.stepOf', { current: step, total: totalSteps })}
           </Text>
         </>
       }>
@@ -124,7 +126,7 @@ export default function AdminAddPartnerScreen() {
           }}
           className="items-center rounded-2xl bg-brand-500 py-4">
           <Text className="text-lg font-bold text-white">
-            {step === totalSteps ? 'Add Partner' : 'Continue'}
+            {step === totalSteps ? t('admin.addPartner') : t('admin.continue')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -133,7 +135,7 @@ export default function AdminAddPartnerScreen() {
       {addressPickerVisible && (
         <MapAddressPicker
           visible
-          title="Partner address"
+          title={t('admin.partnerAddress')}
           initialRegion={{ latitude: location.latitude, longitude: location.longitude }}
           isDarkMode={isDarkMode}
           onClose={() => setAddressPickerVisible(false)}

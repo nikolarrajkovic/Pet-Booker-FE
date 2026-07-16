@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { themeColors } from '../../hooks/useThemeColors';
+import { useLocale } from '../../context/LocaleContext';
 import { getCurrentPosition, GeoPoint } from '../../services/geocoding';
 
 export type DirectionsModalProps = {
@@ -37,6 +38,7 @@ export default function DirectionsModal({
   isDarkMode,
   onClose,
 }: DirectionsModalProps) {
+  const { t } = useLocale();
   const { hex } = themeColors(isDarkMode);
   const [origin, setOrigin] = useState<GeoPoint | null>(null);
   const [located, setLocated] = useState(false);
@@ -147,7 +149,9 @@ export default function DirectionsModal({
           ) : (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="navigate-outline" size={48} color={hex.subtext} />
-              <Text style={{ color: hex.subtext, marginTop: 12 }}>No location to navigate to.</Text>
+              <Text style={{ color: hex.subtext, marginTop: 12 }}>
+                {t('shared.noNavigationTarget')}
+              </Text>
             </View>
           )}
           {destination && !located ? (

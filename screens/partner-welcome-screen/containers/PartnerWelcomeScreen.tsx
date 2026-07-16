@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { useAuth } from '../../../context/AuthContext';
+import { useLocale } from '../../../context/LocaleContext';
 import { hapticSelection, hapticSuccess } from '../../../services/haptics';
 import AnimatedCheckmark from '../../../components/shared/AnimatedCheckmark';
 import Confetti from '../components/Confetti';
@@ -27,47 +28,43 @@ const GREEN = '#22C55E';
 type Slide = {
   id: string;
   Scene: React.ComponentType;
-  title: string;
-  subtitle: string;
+  titleKey: string;
+  subtitleKey: string;
 };
 
 // The tour, in the order a partner lives it. Slide 0 is the celebration hero
 // (rendered specially below); these are the split illustration/card slides.
+// Titles/subtitles are translation keys, resolved with t() at render.
 const SLIDES: Slide[] = [
   {
     id: 'requests',
     Scene: RequestsScene,
-    title: 'Review Requests',
-    subtitle:
-      'New booking requests show up under Requests. Accept the ones that work for you, or decline with a quick reason.',
+    titleKey: 'partnerWelcome.slide1Title',
+    subtitleKey: 'partnerWelcome.slide1Text',
   },
   {
     id: 'schedule',
     Scene: ScheduleScene,
-    title: 'Manage Your Schedule',
-    subtitle:
-      'Every accepted booking lands on My Schedule. Switch between day, week, and month to see what’s coming up.',
+    titleKey: 'partnerWelcome.slide2Title',
+    subtitleKey: 'partnerWelcome.slide2Text',
   },
   {
     id: 'services',
     Scene: ServicesScene,
-    title: 'Set Up Your Services',
-    subtitle:
-      'Add services, set your prices, add-ons, and working hours under My Services so clients can find and book you.',
+    titleKey: 'partnerWelcome.slide3Title',
+    subtitleKey: 'partnerWelcome.slide3Text',
   },
   {
     id: 'promotions',
     Scene: PromotionsScene,
-    title: 'Promote Your Services',
-    subtitle:
-      'Run percentage or fixed-amount offers to boost your visibility, fill quiet days, and win more bookings.',
+    titleKey: 'partnerWelcome.slide4Title',
+    subtitleKey: 'partnerWelcome.slide4Text',
   },
   {
     id: 'live',
     Scene: LiveSessionScene,
-    title: 'Run a Live Session',
-    subtitle:
-      'When it’s time, start a Live Session to track the service from start to finish — right down to pickup and drop-off.',
+    titleKey: 'partnerWelcome.slide5Title',
+    subtitleKey: 'partnerWelcome.slide5Text',
   },
 ];
 
@@ -163,6 +160,7 @@ function PulsingRing({ size }: { size: number }) {
 export default function PartnerWelcomeScreen() {
   const { resetToTab } = useAppNavigation();
   const { currentUser } = useAuth();
+  const { t } = useLocale();
   const insets = useSafeAreaInsets();
 
   const [index, setIndex] = useState(0);
@@ -170,7 +168,7 @@ export default function PartnerWelcomeScreen() {
   const indexRef = useRef(0);
   indexRef.current = index;
 
-  const firstName = currentUser?.firstName?.trim() || 'Partner';
+  const firstName = currentUser?.firstName?.trim() || t('partnerHub.partner');
   const goToHub = () => resetToTab('PartnerHub');
 
   useEffect(() => {
@@ -206,7 +204,7 @@ export default function PartnerWelcomeScreen() {
     <View
       accessible
       accessibilityRole="progressbar"
-      accessibilityLabel={`Step ${index + 1} of ${TOTAL}`}
+      accessibilityLabel={t('partnerWelcome.stepOf', { current: index + 1, total: TOTAL })}
       style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
       {Array.from({ length: TOTAL }).map((_, i) => {
         const active = i === index;
@@ -260,7 +258,7 @@ export default function PartnerWelcomeScreen() {
                   fontWeight: '800',
                   color: '#fff',
                 }}>
-                You’re Approved! 🎉
+                {t('partnerWelcome.approved')}
               </Text>
               <Text
                 style={{
@@ -270,8 +268,7 @@ export default function PartnerWelcomeScreen() {
                   lineHeight: 24,
                   color: 'rgba(255,255,255,0.9)',
                 }}>
-                Welcome to the team, {firstName}. Your partner account is ready to go — here’s a
-                quick tour of what you can do now.
+                {t('partnerWelcome.welcomeText', { name: firstName })}
               </Text>
             </View>
 
@@ -280,7 +277,7 @@ export default function PartnerWelcomeScreen() {
               onPress={next}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel="Start the tour"
+              accessibilityLabel={t('partnerWelcome.startTour')}
               style={{
                 marginTop: 22,
                 alignSelf: 'stretch',
@@ -292,7 +289,9 @@ export default function PartnerWelcomeScreen() {
                 justifyContent: 'center',
                 gap: 8,
               }}>
-              <Text style={{ color: GREEN, fontSize: 17, fontWeight: '800' }}>Get Started</Text>
+              <Text style={{ color: GREEN, fontSize: 17, fontWeight: '800' }}>
+                {t('partnerWelcome.getStarted')}
+              </Text>
               <Ionicons name="chevron-forward" size={18} color={GREEN} />
             </TouchableOpacity>
           </AnimatedPage>
@@ -314,10 +313,10 @@ export default function PartnerWelcomeScreen() {
               }}>
               <AnimatedPage key={index} dir={dir}>
                 <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827' }}>
-                  {slide!.title}
+                  {t(slide!.titleKey as any)}
                 </Text>
                 <Text style={{ marginTop: 10, fontSize: 15, lineHeight: 22, color: '#6b7280' }}>
-                  {slide!.subtitle}
+                  {t(slide!.subtitleKey as any)}
                 </Text>
               </AnimatedPage>
 
@@ -330,7 +329,7 @@ export default function PartnerWelcomeScreen() {
                   onPress={() => goTo(index - 1)}
                   activeOpacity={0.8}
                   accessibilityRole="button"
-                  accessibilityLabel="Previous step"
+                  accessibilityLabel={t('partnerWelcome.prevStep')}
                   style={{
                     width: 48,
                     borderRadius: 16,
@@ -344,7 +343,9 @@ export default function PartnerWelcomeScreen() {
                   onPress={next}
                   activeOpacity={0.85}
                   accessibilityRole="button"
-                  accessibilityLabel={isLast ? 'Explore Partner Hub' : 'Next step'}
+                  accessibilityLabel={
+                    isLast ? t('partnerWelcome.exploreHub') : t('partnerWelcome.nextStep')
+                  }
                   style={{
                     flex: 1,
                     backgroundColor: GREEN,
@@ -356,7 +357,7 @@ export default function PartnerWelcomeScreen() {
                     gap: 8,
                   }}>
                   <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
-                    {isLast ? 'Explore Partner Hub' : 'Next'}
+                    {isLast ? t('partnerWelcome.exploreHub') : t('partnerWelcome.next')}
                   </Text>
                   <Ionicons name="chevron-forward" size={18} color="#fff" />
                 </TouchableOpacity>
@@ -371,7 +372,7 @@ export default function PartnerWelcomeScreen() {
         <TouchableOpacity
           onPress={goToHub}
           accessibilityRole="button"
-          accessibilityLabel="Skip the tour and go to Partner Hub"
+          accessibilityLabel={t('partnerWelcome.skipTour')}
           activeOpacity={0.8}
           style={{
             position: 'absolute',
@@ -383,7 +384,9 @@ export default function PartnerWelcomeScreen() {
             borderRadius: 999,
           }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>Skip</Text>
+          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>
+            {t('partnerWelcome.skip')}
+          </Text>
         </TouchableOpacity>
       )}
 

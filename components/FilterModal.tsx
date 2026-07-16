@@ -5,7 +5,7 @@ import Slider from '@react-native-community/slider';
 import { useThemeColors } from '../hooks/useThemeColors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEnums } from '../context/EnumsContext';
-import { providerTypeLabel } from '../services/service-providers';
+import { useLocale } from '../context/LocaleContext';
 import { PetSpecies } from '../services/pets';
 import { SERVICE_ADDON_DEFS, ServiceAddonId } from '../services/service-addons';
 
@@ -41,6 +41,7 @@ export default function FilterModal({
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const insets = useSafeAreaInsets();
   const { enums } = useEnums();
+  const { t, tEnum } = useLocale();
 
   const [filters, setFilters] = useState<FilterState>(currentFilters);
 
@@ -54,7 +55,7 @@ export default function FilterModal({
   // selectable filters.
   const serviceTypeOptions = enums?.serviceProviderType ?? [];
   const petTypeOptions = (enums?.petSpeciesType ?? []).filter(
-    (e) => e.value > 0 && e.value !== PetSpecies.All,
+    (e) => e.value > 0 && e.value !== PetSpecies.All
   );
 
   const toggleValue = (key: 'serviceTypes' | 'petTypes', value: number) => {
@@ -69,9 +70,7 @@ export default function FilterModal({
   const toggleAddOn = (id: ServiceAddonId) => {
     setFilters((prev) => ({
       ...prev,
-      addOns: prev.addOns.includes(id)
-        ? prev.addOns.filter((a) => a !== id)
-        : [...prev.addOns, id],
+      addOns: prev.addOns.includes(id) ? prev.addOns.filter((a) => a !== id) : [...prev.addOns, id],
     }));
   };
 
@@ -105,16 +104,14 @@ export default function FilterModal({
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <View
         className="flex-1 justify-end"
-        style={{ backgroundColor: isDarkMode ? '#0f1621' : '#ffffff' }}
-      >
+        style={{ backgroundColor: isDarkMode ? '#0f1621' : '#ffffff' }}>
         <View className="absolute inset-0 bg-black/50" />
         <View className={`flex-1 ${bgColor} mt-16`}>
           {/* Header */}
           <View
-            className={`flex-row items-center justify-between px-6 py-4 border-b ${borderColor}`}
-          >
-            <Text className={`text-xl font-bold ${textColor}`}>Filters</Text>
-            <TouchableOpacity onPress={onClose} className="w-8 h-8 items-center justify-center">
+            className={`flex-row items-center justify-between border-b px-6 py-4 ${borderColor}`}>
+            <Text className={`text-xl font-bold ${textColor}`}>{t('shared.filters')}</Text>
+            <TouchableOpacity onPress={onClose} className="h-8 w-8 items-center justify-center">
               <Ionicons name="close" size={24} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
             </TouchableOpacity>
           </View>
@@ -122,7 +119,9 @@ export default function FilterModal({
           <ScrollView className="flex-1 px-6 py-4">
             {/* Service Type — serviceProviderType enum */}
             <View className="mb-6">
-              <Text className={`text-base font-semibold ${textColor} mb-3`}>Service Type</Text>
+              <Text className={`text-base font-semibold ${textColor} mb-3`}>
+                {t('shared.serviceType')}
+              </Text>
               <View className="flex-row flex-wrap gap-2">
                 {serviceTypeOptions.map((opt) => {
                   const active = filters.serviceTypes.includes(opt.value);
@@ -130,9 +129,10 @@ export default function FilterModal({
                     <TouchableOpacity
                       key={opt.value}
                       onPress={() => toggleValue('serviceTypes', opt.value)}
-                      className={chipClass(active)}
-                    >
-                      <Text className={chipTextClass(active)}>{providerTypeLabel(opt.value)}</Text>
+                      className={chipClass(active)}>
+                      <Text className={chipTextClass(active)}>
+                        {tEnum('serviceProviderType', opt.value, opt.name)}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -141,7 +141,9 @@ export default function FilterModal({
 
             {/* Accepted Pets — petSpeciesType enum */}
             <View className="mb-6">
-              <Text className={`text-base font-semibold ${textColor} mb-3`}>Accepted Pets</Text>
+              <Text className={`text-base font-semibold ${textColor} mb-3`}>
+                {t('shared.acceptedPets')}
+              </Text>
               <View className="flex-row flex-wrap gap-2">
                 {petTypeOptions.map((opt) => {
                   const active = filters.petTypes.includes(opt.value);
@@ -149,9 +151,10 @@ export default function FilterModal({
                     <TouchableOpacity
                       key={opt.value}
                       onPress={() => toggleValue('petTypes', opt.value)}
-                      className={chipClass(active)}
-                    >
-                      <Text className={chipTextClass(active)}>{opt.name}</Text>
+                      className={chipClass(active)}>
+                      <Text className={chipTextClass(active)}>
+                        {tEnum('petSpeciesType', opt.value, opt.name)}
+                      </Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -161,7 +164,7 @@ export default function FilterModal({
             {/* Additional Services — service add-on catalog */}
             <View className="mb-6">
               <Text className={`text-base font-semibold ${textColor} mb-3`}>
-                Additional Services
+                {t('shared.additionalServices')}
               </Text>
               <View className="flex-row flex-wrap gap-2">
                 {SERVICE_ADDON_DEFS.map((def) => {
@@ -170,9 +173,8 @@ export default function FilterModal({
                     <TouchableOpacity
                       key={def.id}
                       onPress={() => toggleAddOn(def.id)}
-                      className={chipClass(active)}
-                    >
-                      <Text className={chipTextClass(active)}>{def.name}</Text>
+                      className={chipClass(active)}>
+                      <Text className={chipTextClass(active)}>{t(`addons.${def.id}` as any)}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -181,9 +183,11 @@ export default function FilterModal({
 
             {/* Price Range */}
             <View className="mb-6">
-              <View className="flex-row items-center justify-between mb-3">
-                <Text className={`text-base font-semibold ${textColor}`}>Price Range</Text>
-                <Text className="text-sm text-brand-600 font-medium">
+              <View className="mb-3 flex-row items-center justify-between">
+                <Text className={`text-base font-semibold ${textColor}`}>
+                  {t('shared.priceRange')}
+                </Text>
+                <Text className="text-sm font-medium text-brand-600">
                   ${filters.priceRange[0]} - ${filters.priceRange[1]}
                 </Text>
               </View>
@@ -206,10 +210,12 @@ export default function FilterModal({
 
             {/* Minimum Rating */}
             <View className="mb-6">
-              <View className="flex-row items-center mb-3">
+              <View className="mb-3 flex-row items-center">
                 <Ionicons name="star" size={18} color="#F59E0B" />
-                <Text className={`text-base font-semibold ${textColor} ml-2`}>Minimum Rating</Text>
-                <Text className="text-sm text-brand-600 ml-auto font-medium">
+                <Text className={`text-base font-semibold ${textColor} ml-2`}>
+                  {t('shared.minimumRating')}
+                </Text>
+                <Text className="ml-auto text-sm font-medium text-brand-600">
                   {filters.minimumRating}
                 </Text>
               </View>
@@ -218,18 +224,16 @@ export default function FilterModal({
                   <TouchableOpacity
                     key={rating}
                     onPress={() => setFilters((prev) => ({ ...prev, minimumRating: rating }))}
-                    className={`flex-1 py-2 rounded-xl border ${
+                    className={`flex-1 rounded-xl border py-2 ${
                       filters.minimumRating === rating
-                        ? 'bg-brand-500 border-brand-500'
+                        ? 'border-brand-500 bg-brand-500'
                         : `${cardBg} ${borderColor}`
-                    }`}
-                  >
+                    }`}>
                     <Text
-                      className={`text-sm text-center font-medium ${
+                      className={`text-center text-sm font-medium ${
                         filters.minimumRating === rating ? 'text-white' : subtextColor
-                      }`}
-                    >
-                      {rating}
+                      }`}>
+                      {rating === 'Any' ? t('shared.any') : rating}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -241,20 +245,17 @@ export default function FilterModal({
 
           {/* Footer Buttons */}
           <View
-            className={`flex-row gap-3 px-6 border-t ${borderColor} ${bgColor}`}
-            style={{ paddingTop: 16, paddingBottom: Math.max(insets.bottom, 16) }}
-          >
+            className={`flex-row gap-3 border-t px-6 ${borderColor} ${bgColor}`}
+            style={{ paddingTop: 16, paddingBottom: Math.max(insets.bottom, 16) }}>
             <TouchableOpacity
               onPress={handleReset}
-              className={`flex-1 py-3 rounded-xl border ${borderColor} ${cardBg} items-center`}
-            >
-              <Text className={`${subtextColor} font-semibold`}>Reset</Text>
+              className={`flex-1 rounded-xl border py-3 ${borderColor} ${cardBg} items-center`}>
+              <Text className={`${subtextColor} font-semibold`}>{t('shared.reset')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleApply}
-              className="flex-1 py-3 rounded-xl bg-brand-500 items-center"
-            >
-              <Text className="text-white font-semibold">Apply Filters</Text>
+              className="flex-1 items-center rounded-xl bg-brand-500 py-3">
+              <Text className="font-semibold text-white">{t('shared.applyFilters')}</Text>
             </TouchableOpacity>
           </View>
 

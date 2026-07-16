@@ -4,6 +4,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
+import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ReviewModal from '../../../components/shared/ReviewModal';
 import { useReviewModal } from '../../../hooks/useReviewModal';
@@ -14,6 +15,7 @@ export default function MyBookingsScreen() {
   const navigation = useNavigation();
   const { currentUser } = useAuth();
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
+  const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [bookings, setBookings] = useState<BookingViewModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,11 +34,11 @@ export default function MyBookingsScreen() {
       const dtos = await getBookings({ userId });
       setBookings(dtos.map(bookingToViewModel));
     } catch (e: any) {
-      setError(e?.message ?? 'Failed to load bookings.');
+      setError(e?.message ?? t('myBookings.loadFailed'));
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser?.id]);
+  }, [currentUser?.id, t]);
 
   // Reload after a review is submitted so the new rating replaces the CTA.
   const review = useReviewModal(() => {
@@ -84,7 +86,7 @@ export default function MyBookingsScreen() {
         <View className="items-center justify-center py-12">
           <Ionicons name="calendar-outline" size={64} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
           <Text className={`${subtextColor} mt-4 text-center`}>
-            No {activeTab === 'upcoming' ? 'upcoming' : 'past'} bookings
+            {activeTab === 'upcoming' ? t('myBookings.noUpcoming') : t('myBookings.noPast')}
           </Text>
         </View>
       );
@@ -92,7 +94,9 @@ export default function MyBookingsScreen() {
     return (
       <>
         {activeTab === 'past' && (
-          <Text className={`text-sm ${subtextColor} mb-3`}>{pastBookings.length} bookings</Text>
+          <Text className={`text-sm ${subtextColor} mb-3`}>
+            {t('myBookings.bookingsCount', { count: pastBookings.length })}
+          </Text>
         )}
         {visible.map((booking) => (
           <BookingCard
@@ -134,7 +138,7 @@ export default function MyBookingsScreen() {
       <ScreenLayout
         headerVariant="standard"
         showBackButton
-        headerTitle="My Bookings"
+        headerTitle={t('myBookings.title')}
         contentBg={bgColor}>
         <ScrollView
           className="flex-1"
@@ -146,7 +150,7 @@ export default function MyBookingsScreen() {
                 className={`flex-1 border-b-2 py-3 ${activeTab === 'upcoming' ? 'border-brand-500' : `border-gray-300 ${isDarkMode ? 'border-gray-700' : ''}`}`}>
                 <Text
                   className={`text-center font-semibold ${activeTab === 'upcoming' ? 'text-brand-600' : subtextColor}`}>
-                  Upcoming
+                  {t('myBookings.upcoming')}
                   {!isLoading && upcomingBookings.length > 0 ? ` (${upcomingBookings.length})` : ''}
                 </Text>
               </TouchableOpacity>
@@ -155,7 +159,7 @@ export default function MyBookingsScreen() {
                 className={`flex-1 border-b-2 py-3 ${activeTab === 'past' ? 'border-brand-500' : `border-gray-300 ${isDarkMode ? 'border-gray-700' : ''}`}`}>
                 <Text
                   className={`text-center font-semibold ${activeTab === 'past' ? 'text-brand-600' : subtextColor}`}>
-                  Past Bookings
+                  {t('myBookings.pastBookings')}
                 </Text>
               </TouchableOpacity>
             </View>
