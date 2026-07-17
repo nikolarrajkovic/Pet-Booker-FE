@@ -24,6 +24,7 @@ import {
   confirmBooking,
   declineBooking,
   parseBookingDate,
+  formatMoney,
   BookingDto,
   BookingState,
   BookingStatusType,
@@ -55,7 +56,7 @@ function petTypeOf(pet: any): ServiceRequest['petType'] {
 // includePetReturn, Special Needs Care ↔ includeSpecialNeeds.
 function selectedAddOns(t: TFn, b: BookingDto): string[] {
   const label = (name: string, price?: number | null) =>
-    price && price > 0 ? `${name} • $${price}` : name;
+    price && price > 0 ? `${name} • ${formatMoney(price, b.priceCurrency)}` : name;
   const out: string[] = [];
   if (b.includePickup) out.push(label(t('addons.pickup'), b.pickupPrice));
   if (b.includePetReturn) out.push(label(t('addons.dropoff'), b.petReturnPrice));
@@ -102,6 +103,7 @@ function bookingToRequest(t: TFn, b: BookingDto): ServiceRequest {
     serviceLocation: '', // BACKEND-GAP: no location name on booking
     duration: hours === 1 ? t('requests.hour', { h: hours }) : t('requests.hours', { h: hours }),
     totalPrice: b.totalPrice,
+    currency: b.priceCurrency ?? null,
     additionalServices: selectedAddOns(t, b), // pickup / drop-off / special-needs the booker picked
     notesFromOwner: '', // BACKEND-GAP: no owner-notes field
     status,

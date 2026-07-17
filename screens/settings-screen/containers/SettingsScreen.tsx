@@ -1,18 +1,38 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Switch } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
 import { useLocale } from '../../../context/LocaleContext';
+import { useAuth } from '../../../context/AuthContext';
+import { useToast } from '../../../context/ToastContext';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import LanguagePicker from '../../../components/shared/LanguagePicker';
+import CurrencyPicker from '../../../components/shared/CurrencyPicker';
 import { LANGUAGES } from '../../../i18n';
+import { getErrorMessage } from '../../../services/http';
+import { SUPPORTED_CURRENCIES, type SupportedCurrency } from '../../../services/bookings';
+import {
+  getNotificationSettings,
+  saveNotificationSettings,
+  defaultNotificationSettings,
+  type UserNotificationSettingsDto,
+} from '../../../services/notifications';
+
+function asSupportedCurrency(code?: string | null): SupportedCurrency {
+  const upper = (code ?? 'RSD').toUpperCase();
+  return (SUPPORTED_CURRENCIES as readonly string[]).includes(upper)
+    ? (upper as SupportedCurrency)
+    : 'RSD';
+}
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
   const { toggleDarkMode } = useTheme();
   const { t, language, setLanguage } = useLocale();
+  const { currentUser } = useAuth();
+  const { showError } = useToast();
   const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor } = useThemeColors();
   const sectionTextColor = textColor;
 
@@ -20,6 +40,51 @@ export default function SettingsScreen() {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(false);
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
+  const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
+
+  // The preference lives on the user's UserNotificationSettings record (created lazily on
+  // first save). /auth/me carries it too, so the row shows a value before the fetch lands.
+  const [settingsRecord, setSettingsRecord] = useState<UserNotificationSettingsDto | null>(null);
+  const [currency, setCurrency] = useState<SupportedCurrency>(
+    asSupportedCurrency(currentUser?.preferredCurrency)
+  );
+
+  useEffect(() => {
+    const userId = currentUser?.id;
+    if (!userId) return;
+    let cancelled = false;
+    getNotificationSettings(userId)
+      .then((record) => {
+        if (cancelled || !record) return;
+        setSettingsRecord(record);
+        setCurrency(asSupportedCurrency(record.preferredCurrency));
+      })
+      .catch(() => {}); // no record / fetch failure: keep the /auth/me value
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.id]);
+
+  const handleSelectCurrency = (code: SupportedCurrency) => {
+    setCurrencyPickerOpen(false);
+    const userId = currentUser?.id;
+    if (!userId || code === currency) return;
+    const previous = currency;
+    setCurrency(code);
+    // Round-trip the loaded record so the other settings (incl. preferredLanguage) survive
+    // the save; a fresh record seeds preferredLanguage from the active app language.
+    const base = settingsRecord ?? {
+      ...defaultNotificationSettings(userId),
+      preferredLanguage: language,
+    };
+    const next = { ...base, preferredCurrency: code };
+    saveNotificationSettings(next)
+      .then((saved) => setSettingsRecord({ ...next, id: saved.id ?? next.id }))
+      .catch((e) => {
+        setCurrency(previous);
+        showError(getErrorMessage(e, t('common.somethingWentWrong')));
+      });
+  };
 
   const currentLanguageLabel = LANGUAGES.find((l) => l.code === language)?.label ?? 'English';
 
@@ -174,6 +239,22 @@ export default function SettingsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setCurrencyPickerOpen(true)}
+            className="flex-row items-center border-b border-gray-100 p-4">
+            <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-green-50">
+              <Ionicons name="cash" size={24} color="#00C870" />
+            </View>
+            <View className="flex-1">
+              <Text className={`text-base font-semibold ${textColor}`}>
+                {t('settings.currency')}
+              </Text>
+              <Text className={`text-sm ${subtextColor} mt-0.5`}>
+                {currency} · {t('settings.currencyNote')}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+          </TouchableOpacity>
           <TouchableOpacity className="flex-row items-center border-b border-gray-100 p-4">
             <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-orange-50">
               <Ionicons name="help-circle" size={24} color="#F97316" />
@@ -207,6 +288,13 @@ export default function SettingsScreen() {
           setLanguagePickerOpen(false);
         }}
         onClose={() => setLanguagePickerOpen(false)}
+      />
+
+      <CurrencyPicker
+        visible={currencyPickerOpen}
+        current={currency}
+        onSelect={handleSelectCurrency}
+        onClose={() => setCurrencyPickerOpen(false)}
       />
     </ScreenLayout>
   );

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
+import { formatMoney } from '../../../services/bookings';
 
 export type RequestStatus = 'new' | 'accepted' | 'declined';
 
@@ -28,6 +29,7 @@ export interface ServiceRequest {
   serviceLocation: string;
   duration: string;
   totalPrice: number;
+  currency: string | null; // the booking's priceCurrency (server-stamped from the provider)
   additionalServices: string[];
   notesFromOwner: string;
   status: RequestStatus;
@@ -154,7 +156,9 @@ export default function RequestCard({
         </View>
         <View className="items-end">
           <Text className={`text-xs ${subtextColor} mb-0.5`}>{t('requests.totalPrice')}</Text>
-          <Text className="text-sm font-bold text-green-600">${request.totalPrice}</Text>
+          <Text className="text-sm font-bold text-green-600">
+            {formatMoney(request.totalPrice, request.currency)}
+          </Text>
         </View>
       </View>
 
