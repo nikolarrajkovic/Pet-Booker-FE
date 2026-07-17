@@ -56,6 +56,13 @@ const en = {
     sr: 'Srpski',
     ru: 'Русский',
   },
+  currencies: {
+    title: 'Choose your currency',
+    subtitle: 'Preferred currency for showing prices. Payments are always made in RSD for now.',
+    rsd: 'Serbian dinar (RSD)',
+    eur: 'Euro (EUR)',
+    usd: 'US dollar (USD)',
+  },
   settings: {
     title: 'Settings',
     appearance: 'Appearance',
@@ -72,6 +79,8 @@ const en = {
     privacySettings: 'Privacy Settings',
     general: 'General',
     language: 'Language',
+    currency: 'Currency',
+    currencyNote: 'Payments are always in RSD for now',
     helpSupport: 'Help & Support',
     termsPrivacy: 'Terms & Privacy Policy',
   },

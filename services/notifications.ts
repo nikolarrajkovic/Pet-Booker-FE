@@ -15,6 +15,11 @@ export type UserNotificationSettingsDto = {
   dndStartTime: string; // "HH:MM:SS"
   dndEndTime: string; // "HH:MM:SS"
   timezone?: string | null;
+  // ISO 639-1 language for emails/pushes sent outside a request context (server default 'en').
+  preferredLanguage?: string | null;
+  // Display-currency preference (server-validated against RSD/EUR/USD, default 'RSD').
+  // Payments are always made and shown in RSD for now — no conversion happens yet.
+  preferredCurrency?: string | null;
 };
 
 /** Sensible defaults used when the user has no settings record yet. */
@@ -33,6 +38,7 @@ export function defaultNotificationSettings(userId: number): UserNotificationSet
     dndStartTime: '22:00:00',
     dndEndTime: '08:00:00',
     timezone: 'UTC',
+    preferredCurrency: 'RSD',
   };
 }
 

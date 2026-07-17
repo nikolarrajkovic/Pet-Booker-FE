@@ -26,7 +26,7 @@ services/           # All API calls and storage utilities
   payment-methods.ts  # PaymentMethodDto, getPaymentMethods, createPaymentMethod, deletePaymentMethod
   admin.ts          # Admin-only actions: approve/declineServiceProvider, approve/declineCertificate
   service-discounts.ts  # ServiceDiscountDto, DiscountType (0=Percent,1=Fixed), getServiceDiscounts, create/update/deleteServiceDiscount. Write convention: Percent → type=0, amount=value, percentAmount=value; Fixed → type=1, amount=value, percentAmount=null. Powers the Promotions "offer" create/edit flow.
-  notifications.ts  # UserNotificationSettingsDto, getNotificationSettings, saveNotificationSettings, defaultNotificationSettings (notification PREFERENCES)
+  notifications.ts  # UserNotificationSettingsDto (incl. preferredLanguage + preferredCurrency — display prefs; payments stay RSD), getNotificationSettings, saveNotificationSettings, defaultNotificationSettings (notification PREFERENCES)
   app-notifications.ts  # AppNotificationDto, NotificationType, getAppNotifications, getUnreadNotificationCount, markNotificationRead, markAllNotificationsRead, notificationBookingId (in-app notification INBOX)
   service-addons.ts # SERVICE_ADDON_DEFS catalog + getEnabledServiceAddons (single source of truth for service add-ons / DTO mapping)
   home.ts           # getMostPopular / getOnSale / getRecentlyBooked / getNearMe — per-row Home endpoints (/api/home/*) → ServiceDto[]
@@ -93,7 +93,7 @@ if (!response.ok) {
 - `forgotPassword(email)` → POST `/auth/forgot-password` (public)
 - `resetPassword({ resetToken, newPassword, confirmPassword })` → POST `/auth/reset-password` (public)
 - `logout()` → POST `/auth/logout` (auth). Called best-effort by `signOut()` before clearing tokens.
-- Type `CurrentUser`: `{ id, email, emailConfirmed, roles[], groups[], userName, firstName, lastName, serviceProviderId?, providerProfileId? }`. `serviceProviderId` (0 = none) is the partner's own provider — partner screens read it directly instead of fetching the provider list (P1).
+- Type `CurrentUser`: `{ id, email, emailConfirmed, roles[], groups[], userName, firstName, lastName, serviceProviderId?, providerProfileId?, preferredLanguage?, preferredCurrency? }`. `serviceProviderId` (0 = none) is the partner's own provider — partner screens read it directly instead of fetching the provider list (P1). `preferredLanguage`/`preferredCurrency` are display preferences the gateway resolves from UserNotificationSettings (2026-07); currency is display-only — payments are always in RSD for now.
 
 ### `services/token-storage.ts`
 - `saveTokens(accessToken, refreshToken?)` — stores with TTL (access: 30 min, refresh: 7 days)

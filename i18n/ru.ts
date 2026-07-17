@@ -52,6 +52,13 @@ const ru: TranslationDict = {
     sr: 'Srpski',
     ru: 'Русский',
   },
+  currencies: {
+    title: 'Выберите валюту',
+    subtitle: 'Предпочитаемая валюта для отображения цен. Платежи пока всегда выполняются в RSD.',
+    rsd: 'Сербский динар (RSD)',
+    eur: 'Евро (EUR)',
+    usd: 'Доллар США (USD)',
+  },
   settings: {
     title: 'Настройки',
     appearance: 'Внешний вид',
@@ -68,6 +75,8 @@ const ru: TranslationDict = {
     privacySettings: 'Настройки конфиденциальности',
     general: 'Общие',
     language: 'Язык',
+    currency: 'Валюта',
+    currencyNote: 'Платежи пока всегда в RSD',
     helpSupport: 'Помощь и поддержка',
     termsPrivacy: 'Условия и политика конфиденциальности',
   },

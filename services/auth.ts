@@ -13,6 +13,11 @@ export type CurrentUser = {
   // Lets partner screens resolve their provider without fetching the list.
   serviceProviderId?: number | null;
   providerProfileId?: number | null;
+  // Display preferences resolved by the gateway from UserNotificationSettings
+  // (ProviderProfile.PreferredLanguage for managed profile sessions). Currency is a
+  // display preference only — payments are always in RSD for now.
+  preferredLanguage?: string | null;
+  preferredCurrency?: string | null;
 };
 
 type LoginPayload = {

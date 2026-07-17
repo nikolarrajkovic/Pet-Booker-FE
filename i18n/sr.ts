@@ -52,6 +52,13 @@ const sr: TranslationDict = {
     sr: 'Srpski',
     ru: 'Русский',
   },
+  currencies: {
+    title: 'Izaberite valutu',
+    subtitle: 'Željena valuta za prikaz cena. Plaćanja se za sada uvek vrše u RSD.',
+    rsd: 'Srpski dinar (RSD)',
+    eur: 'Evro (EUR)',
+    usd: 'Američki dolar (USD)',
+  },
   settings: {
     title: 'Podešavanja',
     appearance: 'Izgled',
@@ -68,6 +75,8 @@ const sr: TranslationDict = {
     privacySettings: 'Podešavanja privatnosti',
     general: 'Opšte',
     language: 'Jezik',
+    currency: 'Valuta',
+    currencyNote: 'Plaćanja su za sada uvek u RSD',
     helpSupport: 'Pomoć i podrška',
     termsPrivacy: 'Uslovi i politika privatnosti',
   },

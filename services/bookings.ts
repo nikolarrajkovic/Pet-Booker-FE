@@ -210,6 +210,12 @@ export function formatBookingDate(d: Date): string {
 // rows) formats as EUR, matching the backend payment fallback.
 const CURRENCY_SYMBOLS: Record<string, string> = { EUR: '€', USD: '$', GBP: '£', RUB: '₽' };
 
+// Currencies a user may pick as their display preference (mirrors the backend's
+// Domain.PaymentCurrency.Supported). Payments are always made in RSD for now —
+// the preference is stored for future multi-currency display, no conversion yet.
+export const SUPPORTED_CURRENCIES = ['RSD', 'EUR', 'USD'] as const;
+export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
+
 export function formatMoney(amount: number, currency?: string | null): string {
   const code = (currency ?? 'EUR').toUpperCase();
   const symbol = CURRENCY_SYMBOLS[code];
