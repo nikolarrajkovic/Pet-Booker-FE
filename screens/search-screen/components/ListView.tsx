@@ -13,8 +13,9 @@ export interface ServiceSearchItem {
   distance: string;
   price: number;
   image: string;
-  latitude: number;
-  longitude: number;
+  // Pin position from the service address (null = not geocoded → no map pin)
+  latitude: number | null;
+  longitude: number | null;
   dto: ServiceDto; // the real service record — booking targets this
 }
 

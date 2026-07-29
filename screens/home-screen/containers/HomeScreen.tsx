@@ -26,8 +26,10 @@ import { formatOfferAmount } from '../../../screens/promotions-screen/components
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600';
 
 // Service type pills — `label` is the serviceProviderType enum `displayName`
-// (Sitter/Walker/Boarder/Pet Hotel/Groomer), passed to Search so its reverse
-// lookup (providerTypeValue) resolves the tapped pill back to its enum value.
+// (Sitter/Walker/Boarder/Pet Hotel/Groomer/Transporter), passed to Search so its
+// reverse lookup (providerTypeValue) resolves the tapped pill back to its enum
+// value. Keep in sync with PROVIDER_TYPE_LABELS in services/service-providers.ts
+// — a type missing here is simply unreachable from Home.
 // The DISPLAYED text is localized via tEnum(value); the nav key stays English.
 const SERVICE_TYPES = [
   { id: 'pet-sitting', label: 'Sitter', value: 0, icon: 'bed' },
@@ -35,6 +37,7 @@ const SERVICE_TYPES = [
   { id: 'boarding', label: 'Boarder', value: 2, icon: 'home' },
   { id: 'pet-hotel', label: 'Pet Hotel', value: 3, icon: 'business' },
   { id: 'grooming', label: 'Groomer', value: 4, icon: 'cut' },
+  { id: 'transport', label: 'Transporter', value: 5, icon: 'car' },
 ];
 
 /** A service flattened for ServiceCard. Booking targets the service itself. */

@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import { getCurrentPosition, GeoPoint } from '../../services/geocoding';
+import { loadGoogleMaps, DEV_MAP_ID } from '../../services/google-maps';
 
 export type DirectionsModalProps = {
   visible: boolean;
@@ -25,9 +26,9 @@ function haversineKm(a: GeoPoint, b: GeoPoint): number {
 }
 
 /**
- * Web directions preview — a Leaflet map in an iframe showing the destination,
- * the partner's current location, and the driving route between them (OSRM, with
- * a straight-line fallback). A hand-off button opens Google Maps directions in a
+ * Web directions preview — a Google Map showing the destination, the partner's
+ * current location, and the driving route between them (OSRM, with a
+ * straight-line fallback). A hand-off button opens Google Maps directions in a
  * new tab for turn-by-turn. (Native build: DirectionsModal.tsx.)
  */
 export default function DirectionsModal({
@@ -38,10 +39,12 @@ export default function DirectionsModal({
   isDarkMode,
   onClose,
 }: DirectionsModalProps) {
-  const { t } = useLocale();
+  const { t, language } = useLocale();
   const { hex } = themeColors(isDarkMode);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [origin, setOrigin] = useState<GeoPoint | null>(null);
   const [located, setLocated] = useState(false);
+  const [mapError, setMapError] = useState(false);
 
   // Resolve the partner's current location when the picker opens.
   useEffect(() => {
@@ -62,54 +65,93 @@ export default function DirectionsModal({
 
   const km = origin && destination ? haversineKm(origin, destination) : null;
 
-  // The map only renders once the destination is known; the origin (if any) is
-  // baked in so the iframe can fetch the OSRM route and fit both points.
-  const srcdoc = useMemo(() => {
-    if (!destination) return '';
-    const hasOrigin = !!origin;
-    const o = origin ?? destination;
-    return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <style>html,body,#map{margin:0;padding:0;width:100%;height:100%}</style>
-</head>
-<body>
-  <div id="map"></div>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    const dest = [${destination.latitude}, ${destination.longitude}];
-    const hasOrigin = ${hasOrigin ? 'true' : 'false'};
-    const origin = [${o.latitude}, ${o.longitude}];
-    const map = L.map('map', { zoomControl: true }).setView(dest, 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }).addTo(map);
-    L.marker(dest).addTo(map).bindPopup('Destination');
-    function straight() {
-      L.polyline([origin, dest], { color: '#00C870', weight: 4, dashArray: '6' }).addTo(map);
-      map.fitBounds([origin, dest], { padding: [60, 60] });
-    }
-    if (hasOrigin) {
-      L.marker(origin).addTo(map).bindPopup('You are here');
-      map.fitBounds([origin, dest], { padding: [60, 60] });
-      fetch('https://router.project-osrm.org/route/v1/driving/' + ${o.longitude} + ',' + ${o.latitude} + ';' + ${destination.longitude} + ',' + ${destination.latitude} + '?overview=full&geometries=geojson')
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-          const c = d && d.routes && d.routes[0] && d.routes[0].geometry && d.routes[0].geometry.coordinates;
-          if (c && c.length) {
-            const latlngs = c.map(function (p) { return [p[1], p[0]]; });
-            L.polyline(latlngs, { color: '#00C870', weight: 4 }).addTo(map);
-            map.fitBounds(latlngs, { padding: [50, 50] });
-          } else { straight(); }
-        })
-        .catch(function () { straight(); });
-    }
-  </script>
-</body>
-</html>`;
-  }, [destination, origin]);
+  // Build the map once the destination is known; rebuilt when the origin
+  // resolves so the OSRM route and both markers appear.
+  useEffect(() => {
+    if (!visible || !destination) return;
+    let cancelled = false;
+    loadGoogleMaps(language)
+      .then((maps) => {
+        if (cancelled || !containerRef.current) return;
+        const dest = { lat: destination.latitude, lng: destination.longitude };
+        const map = new maps.Map(containerRef.current, {
+          center: dest,
+          zoom: 14,
+          mapId: DEV_MAP_ID,
+          disableDefaultUI: true,
+          zoomControl: true,
+          // Google's default zoom position is bottom-right; keep the old
+          // MapLibre/Leaflet top-left placement.
+          zoomControlOptions: { position: maps.ControlPosition.LEFT_TOP },
+          colorScheme: isDarkMode ? maps.ColorScheme?.DARK : maps.ColorScheme?.LIGHT,
+        });
+        new maps.marker.AdvancedMarkerElement({
+          map,
+          position: dest,
+          title: t('shared.destination'),
+        });
+        if (!origin) return;
+        const from = { lat: origin.latitude, lng: origin.longitude };
+        new maps.marker.AdvancedMarkerElement({
+          map,
+          position: from,
+          title: t('shared.youAreHere'),
+        });
+        const fit = (path: { lat: number; lng: number }[]) => {
+          const bounds = new maps.LatLngBounds();
+          path.forEach((p) => bounds.extend(p));
+          map.fitBounds(bounds, 50);
+        };
+        fit([from, dest]);
+        // Straight dashed line when no driving route is available.
+        const straight = () => {
+          new maps.Polyline({
+            map,
+            path: [from, dest],
+            strokeOpacity: 0,
+            icons: [
+              {
+                icon: {
+                  path: 'M 0,-1 0,1',
+                  strokeOpacity: 1,
+                  strokeColor: '#00C870',
+                  strokeWeight: 4,
+                  scale: 2,
+                },
+                offset: '0',
+                repeat: '12px',
+              },
+            ],
+          });
+          fit([from, dest]);
+        };
+        fetch(
+          `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}?overview=full&geometries=geojson`
+        )
+          .then((r) => r.json())
+          .then((d) => {
+            if (cancelled) return;
+            const coords = d?.routes?.[0]?.geometry?.coordinates;
+            if (coords?.length) {
+              const path = coords.map((p: [number, number]) => ({ lat: p[1], lng: p[0] }));
+              new maps.Polyline({ map, path, strokeColor: '#00C870', strokeWeight: 4 });
+              fit(path);
+            } else {
+              straight();
+            }
+          })
+          .catch(() => {
+            if (!cancelled) straight();
+          });
+      })
+      .catch(() => {
+        if (!cancelled) setMapError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, destination, origin]);
 
   const openExternal = () => {
     if (!destination) return;
@@ -139,13 +181,13 @@ export default function DirectionsModal({
 
         {/* Map */}
         <View style={{ flex: 1 }}>
-          {destination ? (
-            <iframe
-              key={srcdoc.length}
-              srcDoc={srcdoc}
-              style={{ border: 0, width: '100%', height: '100%' }}
-              title="Directions"
-            />
+          {destination && mapError ? (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="map-outline" size={48} color={hex.subtext} />
+              <Text style={{ color: hex.subtext, marginTop: 12 }}>{t('shared.mapLoadFailed')}</Text>
+            </View>
+          ) : destination ? (
+            <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
           ) : (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="navigate-outline" size={48} color={hex.subtext} />

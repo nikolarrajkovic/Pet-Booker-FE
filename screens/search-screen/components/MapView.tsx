@@ -1,15 +1,9 @@
-import React from 'react';
-import { View, Text } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-
-interface ServiceItem {
-  id: number;
-  name: string;
-  service: string;
-  price: number;
-  latitude: number;
-  longitude: number;
-}
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import type { ServiceSearchItem } from './ListView';
 
 interface LocationData {
   latitude: number;
@@ -18,11 +12,32 @@ interface LocationData {
 }
 
 interface MapViewComponentProps {
-  services: ServiceItem[];
+  services: ServiceSearchItem[];
   location: LocationData;
+  isDarkMode?: boolean;
 }
 
-export default function MapViewComponent({ services, location }: MapViewComponentProps) {
+// Hide POI icons/labels and transit clutter so the service pins stand out.
+// Labels-only for POIs keeps park/landscape fills (relevant for walkers).
+const MAP_DECLUTTER_STYLE = [
+  { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+];
+
+/**
+ * Search results map (native). Tapping a price pin opens a bottom card with the
+ * service photo/name/type/rating/price (custom, instead of the default callout
+ * — Android callouts render as a static bitmap and won't show async-loaded
+ * images); tapping the card goes to ServiceDetail, tapping the map dismisses.
+ */
+export default function MapViewComponent({
+  services,
+  location,
+  isDarkMode,
+}: MapViewComponentProps) {
+  const navigation = useNavigation();
+  const [selected, setSelected] = useState<ServiceSearchItem | null>(null);
+
   if (location.loading) {
     return (
       <View className="flex-1 items-center justify-center">
@@ -43,7 +58,10 @@ export default function MapViewComponent({ services, location }: MapViewComponen
           longitudeDelta: 0.0421,
         }}
         showsUserLocation={true}
-        showsMyLocationButton={true}>
+        showsMyLocationButton={true}
+        showsPointsOfInterest={false}
+        customMapStyle={MAP_DECLUTTER_STYLE}
+        onPress={() => setSelected(null)}>
         {/* Current location marker */}
         <Marker
           coordinate={{
@@ -54,24 +72,78 @@ export default function MapViewComponent({ services, location }: MapViewComponen
           pinColor="#00C870"
         />
 
-        {/* Service markers */}
-        {services.map((item) => (
-          <Marker
-            key={item.id}
-            coordinate={{
-              latitude: item.latitude,
-              longitude: item.longitude,
-            }}
-            title={item.name}
-            description={`${item.service} - $${item.price}`}>
-            <View className="items-center">
-              <View className="rounded-full border border-gray-200 bg-white px-3 py-1.5 shadow-lg">
-                <Text className="text-xs font-bold text-gray-900">${item.price}</Text>
+        {/* Service markers — only services with a geocoded address get a pin */}
+        {services
+          .filter((item) => item.latitude != null && item.longitude != null)
+          .map((item) => (
+            <Marker
+              key={item.id}
+              coordinate={{
+                latitude: item.latitude!,
+                longitude: item.longitude!,
+              }}
+              onPress={(e) => {
+                e.stopPropagation();
+                setSelected(item);
+              }}>
+              <View className="items-center">
+                <View
+                  className={`rounded-full border px-3 py-1.5 shadow-lg ${
+                    selected?.id === item.id
+                      ? 'border-brand-600 bg-brand-500'
+                      : 'border-gray-200 bg-white'
+                  }`}>
+                  <Text
+                    className={`text-xs font-bold ${
+                      selected?.id === item.id ? 'text-white' : 'text-gray-900'
+                    }`}>
+                    ${item.price}
+                  </Text>
+                </View>
               </View>
-            </View>
-          </Marker>
-        ))}
+            </Marker>
+          ))}
       </MapView>
+
+      {/* Selected-service card — replaces the default marker callout */}
+      {selected && (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => (navigation as any).navigate('ServiceDetail', { service: selected.dto })}
+          className={`absolute bottom-4 left-4 right-4 flex-row items-center rounded-2xl p-3 shadow-lg ${
+            isDarkMode ? 'bg-[#1a2332]' : 'bg-white'
+          }`}
+          style={{ elevation: 6 }}>
+          <Image source={{ uri: selected.image }} className="h-16 w-16 rounded-xl" />
+          <View className="ml-3 flex-1">
+            <Text
+              numberOfLines={1}
+              className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {selected.name}
+            </Text>
+            {!!selected.service && (
+              <Text
+                numberOfLines={1}
+                className={`mt-0.5 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                {selected.service}
+              </Text>
+            )}
+            {selected.rating > 0 && (
+              <View className="mt-1 flex-row items-center">
+                <Ionicons name="star" size={12} color="#FBBF24" />
+                <Text className={`ml-1 text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  {selected.rating.toFixed(1)}
+                  {selected.reviews > 0 ? ` (${selected.reviews})` : ''}
+                </Text>
+              </View>
+            )}
+          </View>
+          <View className="ml-2 items-end">
+            <Text className="text-base font-bold text-brand-500">${selected.price}</Text>
+            <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+          </View>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

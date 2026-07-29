@@ -23,6 +23,9 @@ import { getErrorMessage } from '../../../services/http';
 import { useAuth } from '../../../context/AuthContext';
 
 type AddPetRouteParams = {
+  // Set by flows that push AddPet mid-task (e.g. BookService with no pets):
+  // after a successful save, pop back to the caller instead of going to MyPets.
+  goBackOnSave?: boolean;
   pet?: {
     id: string;
     name: string;
@@ -443,7 +446,11 @@ export default function AddPetScreen() {
               } else {
                 await createPet(input);
               }
-              (navigation as any).navigate('MyPets', { refreshKey: Date.now() });
+              if (route.params?.goBackOnSave && navigation.canGoBack()) {
+                navigation.goBack();
+              } else {
+                (navigation as any).navigate('MyPets', { refreshKey: Date.now() });
+              }
             } catch (error) {
               showError(getErrorMessage(error, t('addPet.saveFailed')));
             } finally {

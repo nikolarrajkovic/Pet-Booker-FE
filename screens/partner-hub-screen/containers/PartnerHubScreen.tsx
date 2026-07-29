@@ -10,18 +10,23 @@ import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
 import {
   getBookings,
-  BookingDto,
   BookingState,
   BookingStatusType,
-  parseBookingDate,
+  formatBookingDate,
+  formatMoney,
 } from '../../../services/bookings';
-import { getServiceProvider } from '../../../services/service-providers';
+import {
+  getProviderOverviewStats,
+  getProviderEarnings,
+  getProviderRecentActivity,
+  monthOverMonthChangePct,
+  ActivityEntry,
+} from '../../../services/stats';
 import { getServices } from '../../../services/services';
 import { getServiceDiscounts } from '../../../services/service-discounts';
 import TabBar from '../../../components/shared/TabBar';
 
 // ─── Formatting / time helpers ───────────────────────────────────────────────
-const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
 const fmtPct = (p: number | null): string | undefined =>
   p == null ? undefined : `${p >= 0 ? '+' : ''}${Math.round(p)}%`;
 
@@ -57,6 +62,8 @@ type ActivityItem = {
 type HubData = {
   revenueThisMonth: number;
   revenueChangePct: number | null;
+  /** Currency the money figures are in (server-reported, provider's own). */
+  currency: string | null;
   totalClients: number;
   appointments: number;
   rating: number | null;
@@ -70,6 +77,7 @@ type HubData = {
 const EMPTY_HUB: HubData = {
   revenueThisMonth: 0,
   revenueChangePct: null,
+  currency: null,
   totalClients: 0,
   appointments: 0,
   rating: null,
@@ -80,43 +88,81 @@ const EMPTY_HUB: HubData = {
   recent: [],
 };
 
-function toActivity(t: TFn, b: BookingDto): ActivityItem {
-  const client = b.user?.userName?.trim() || t('partnerHub.aClient');
-  const id = b.id ?? 0;
-  if (b.review?.rating) {
-    return {
-      id,
-      bookingId: id,
-      title: t('partnerHub.starReviewFrom', { rating: b.review.rating, name: client }),
-      time: relativeTime(t, b.updatedAt ?? b.createdAt),
-      icon: 'star-outline',
-      iconBg: '#FEF3C7',
-      iconColor: '#F59E0B',
-    };
+/**
+ * Maps a server activity entry to a display row. The entry's `description` is
+ * backend English free text, so the title is rebuilt from `status` (which has a
+ * localized equivalent) and the counterparty name instead.
+ */
+function toActivity(t: TFn, e: ActivityEntry, index: number): ActivityItem {
+  const client = e.otherPartyName?.trim() || t('partnerHub.aClient');
+  const time = relativeTime(t, e.occurredAt);
+  // `bookingId` repeats across entries (one booking emits several events), so it
+  // can't be the list key on its own.
+  const id = index;
+
+  switch (e.status) {
+    case BookingStatusType.ServiceRequestedByUser:
+      return {
+        id,
+        bookingId: e.bookingId,
+        title: t('partnerHub.newBookingRequestFrom', { name: client }),
+        time,
+        icon: 'calendar-outline',
+        iconBg: '#E8F5EF',
+        iconColor: '#00C870',
+      };
+    case BookingStatusType.ServiceConfirmedByProvider:
+      return {
+        id,
+        bookingId: e.bookingId,
+        title: t('partnerHub.bookingConfirmedFor', { name: client }),
+        time,
+        icon: 'checkmark-circle-outline',
+        iconBg: '#E8F5EF',
+        iconColor: '#00C870',
+      };
+    case BookingStatusType.ServiceStarted:
+      return {
+        id,
+        bookingId: e.bookingId,
+        title: t('partnerHub.serviceStartedFor', { name: client }),
+        time,
+        icon: 'play-circle-outline',
+        iconBg: '#FEE2E2',
+        iconColor: '#EF4444',
+      };
+    case BookingStatusType.ServiceEnded:
+      return {
+        id,
+        bookingId: e.bookingId,
+        title: t('partnerHub.serviceCompletedFor', { name: client }),
+        time,
+        icon: 'checkmark-done-outline',
+        iconBg: '#EEF2FF',
+        iconColor: '#6366F1',
+      };
+    case BookingStatusType.DeclinedByProvider:
+    case BookingStatusType.CancelledByUser:
+      return {
+        id,
+        bookingId: e.bookingId,
+        title: t('partnerHub.bookingCancelledFor', { name: client }),
+        time,
+        icon: 'close-circle-outline',
+        iconBg: '#FEE2E2',
+        iconColor: '#EF4444',
+      };
+    default:
+      return {
+        id,
+        bookingId: e.bookingId,
+        title: t('partnerHub.bookingFrom', { name: client }),
+        time,
+        icon: 'calendar-outline',
+        iconBg: '#E8F5EF',
+        iconColor: '#00C870',
+      };
   }
-  if (b.state === BookingState.Completed) {
-    return {
-      id,
-      bookingId: id,
-      title: t('partnerHub.serviceCompletedFor', { name: client }),
-      time: relativeTime(t, b.updatedAt ?? b.createdAt),
-      icon: 'checkmark-done-outline',
-      iconBg: '#EEF2FF',
-      iconColor: '#6366F1',
-    };
-  }
-  return {
-    id,
-    bookingId: id,
-    title:
-      b.currentStatus === BookingStatusType.ServiceRequestedByUser
-        ? t('partnerHub.newBookingRequestFrom', { name: client })
-        : t('partnerHub.bookingFrom', { name: client }),
-    time: relativeTime(t, b.createdAt),
-    icon: 'calendar-outline',
-    iconBg: '#E8F5EF',
-    iconColor: '#00C870',
-  };
 }
 
 /** Counts a partner's enabled discounts across all their services. */
@@ -134,73 +180,29 @@ async function countActivePromos(providerId: number): Promise<number> {
   }
 }
 
-function computeHub(
-  t: TFn,
-  bookings: BookingDto[],
-  rating: number | null,
-  activePromos: number
-): HubData {
+/**
+ * Counts the partner's appointments for TODAY.
+ *
+ * The overview stats have no "today" bucket, so this stays a booking query — but
+ * a day-scoped one (the BookingFrom/BookingTo range filter is server-side), not
+ * the old "fetch 200 bookings and filter in JS" roll-up.
+ */
+async function countToday(providerId: number): Promise<number> {
   const now = new Date();
-  const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-
-  const active = bookings.filter((b) => b.state !== BookingState.Cancelled);
-
-  const inRange = (iso: string, start: Date, end: Date) => {
-    const d = parseBookingDate(iso);
-    return !isNaN(d.getTime()) && d >= start && d < end;
-  };
-
-  const revenueThisMonth = active
-    .filter((b) => inRange(b.bookingFrom, startOfThisMonth, startOfNextMonth))
-    .reduce((t, b) => t + (b.totalPrice || 0), 0);
-  const revenueLastMonth = active
-    .filter((b) => inRange(b.bookingFrom, startOfLastMonth, startOfThisMonth))
-    .reduce((t, b) => t + (b.totalPrice || 0), 0);
-
-  const totalClients = new Set(active.map((b) => b.userId)).size;
-  // Confirmed upcoming appointments only — a pending request (ServiceRequestedByUser)
-  // is not yet an appointment (it's counted in the "Requests" badge instead).
-  const appointments = active.filter(
-    (b) =>
-      b.currentStatus !== BookingStatusType.ServiceRequestedByUser &&
-      parseBookingDate(b.bookingFrom) >= startOfToday
-  ).length;
-  const todayCount = active.filter((b) =>
-    inRange(b.bookingFrom, startOfToday, startOfTomorrow)
-  ).length;
-  const newRequests = bookings.filter(
-    (b) => b.currentStatus === BookingStatusType.ServiceRequestedByUser
-  ).length;
-  const hasLiveSession = bookings.some((b) => b.currentStatus === BookingStatusType.ServiceStarted);
-
-  const recent = [...bookings]
-    .sort((a, b) => {
-      const ta = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
-      const tb = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
-      return tb - ta;
-    })
-    .slice(0, 4)
-    .map((b) => toActivity(t, b));
-
-  return {
-    revenueThisMonth,
-    revenueChangePct:
-      revenueLastMonth > 0
-        ? ((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100
-        : null,
-    totalClients,
-    appointments,
-    rating,
-    todayCount,
-    newRequests,
-    activePromos,
-    hasLiveSession,
-    recent,
-  };
+  try {
+    const bookings = await getBookings({
+      serviceProviderId: providerId,
+      // Booking times are naive wall-clock — serialize the bounds the same way.
+      bookingFrom: formatBookingDate(startOfToday),
+      bookingTo: formatBookingDate(startOfTomorrow),
+      perPage: 100,
+    });
+    return bookings.filter((b) => b.state !== BookingState.Cancelled).length;
+  } catch {
+    return 0;
+  }
 }
 
 // ─── Quick Actions (static config; titles/subtitles are translation keys,
@@ -282,22 +284,41 @@ export default function PartnerHubScreen() {
           return;
         }
         try {
-          let bookingsError: unknown = null;
-          const [bookings, provider, activePromos] = await Promise.all([
-            getBookings({ serviceProviderId: providerId, perPage: 200 }).catch((e) => {
-              bookingsError = e;
-              return [] as BookingDto[];
+          // The headline numbers come from the server-side stats aggregate
+          // (GET /api/stats/provider/*), which counts over ALL of the partner's
+          // bookings — the old client-side roll-up summed only the first page.
+          let statsError: unknown = null;
+          const [overview, earnings, activity, todayCount, activePromos] = await Promise.all([
+            getProviderOverviewStats(providerId).catch((e) => {
+              statsError = e;
+              return null;
             }),
-            getServiceProvider(providerId).catch(() => null),
+            // Two buckets is all the month-over-month delta needs.
+            getProviderEarnings(providerId, 2).catch(() => []),
+            getProviderRecentActivity(providerId, 4).catch(() => [] as ActivityEntry[]),
+            countToday(providerId),
             countActivePromos(providerId),
           ]);
           if (!cancelled) {
-            setHub(computeHub(t, bookings, provider?.ratingAvg ?? null, activePromos));
+            setHub({
+              revenueThisMonth: overview?.totalEarningsThisMonth ?? 0,
+              revenueChangePct: monthOverMonthChangePct(earnings),
+              currency: overview?.currency ?? null,
+              totalClients: overview?.totalClients ?? 0,
+              appointments: overview?.upcomingAppointments ?? 0,
+              // 0 reviews reads as "no rating yet", not a 0-star average.
+              rating: overview && overview.totalReviews > 0 ? overview.averageRating : null,
+              todayCount,
+              newRequests: overview?.pendingRequests ?? 0,
+              activePromos,
+              hasLiveSession: (overview?.inProgressAppointments ?? 0) > 0,
+              recent: activity.map((e, i) => toActivity(t, e, i)),
+            });
             setLoaded(true);
             // The dashboard otherwise degrades silently to zeros — surface the
             // failure of its primary data source so it doesn't read as "no activity".
-            if (bookingsError) {
-              showError(getErrorMessage(bookingsError, t('partnerHub.dashboardLoadFailed')));
+            if (statsError) {
+              showError(getErrorMessage(statsError, t('partnerHub.dashboardLoadFailed')));
             }
           }
         } catch {
@@ -320,7 +341,7 @@ export default function PartnerHubScreen() {
     {
       id: 'revenue',
       icon: 'cash-outline' as const,
-      value: dash(fmtMoney(hub.revenueThisMonth)),
+      value: dash(formatMoney(hub.revenueThisMonth, hub.currency)),
       label: t('partnerHub.thisMonth'),
       change: loaded ? fmtPct(hub.revenueChangePct) : undefined,
     },

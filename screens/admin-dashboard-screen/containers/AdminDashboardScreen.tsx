@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -13,149 +13,98 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import TabBar from '../../../components/shared/TabBar';
-import {
-  getServiceProviders,
-  ServiceProviderDto,
-  ApprovalStatus,
-  providerTypeLabel,
-} from '../../../services/service-providers';
-import {
-  getBookings,
-  BookingDto,
-  BookingState,
-  parseBookingDate,
-} from '../../../services/bookings';
+import { getAdminOverviewStats, getAdminRevenueByServiceType } from '../../../services/stats';
+import { getServiceProviders, ApprovalStatus } from '../../../services/service-providers';
+import { getReviews } from '../../../services/reviews';
+import { formatMoney } from '../../../services/bookings';
 import { getErrorMessage } from '../../../services/http';
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
-const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
 const fmtCount = (n: number) => n.toLocaleString('en-US');
-const fmtPct = (p: number | null): string | undefined =>
-  p == null ? undefined : `${p >= 0 ? '+' : ''}${p.toFixed(1)}%`;
-
-const pctChange = (cur: number, prev: number): number | null =>
-  prev <= 0 ? null : ((cur - prev) / prev) * 100;
 
 // Stable color per ServiceProviderType for the revenue breakdown bars.
 const TYPE_COLORS: Record<number, string> = {
-  0: '#EC4899', // Pet Sitting
-  1: '#3B82F6', // Dog Walking
-  2: '#F97316', // Boarding
+  0: '#EC4899', // Sitter
+  1: '#3B82F6', // Walker
+  2: '#F97316', // Boarder
   3: '#10B981', // Pet Hotel
-  4: '#8B5CF6', // Grooming
+  4: '#8B5CF6', // Groomer
+  5: '#0EA5E9', // Transporter
 };
 
 type AdminMetrics = {
+  currency: string | null;
+  /** All-time gross revenue. */
   totalRevenue: number;
-  revenueChangePct: number | null;
+  revenueThisMonth: number;
   servicesScheduled: number;
-  servicesChangePct: number | null;
-  newPartners: number;
-  newPartnersChangePct: number | null;
+  newPartnersThisMonth: number;
   activePartners: number;
+  /** Provider applications awaiting review (quick-action badge). */
   pendingRequests: number;
+  /** Reviews awaiting moderation (quick-action badge). */
+  pendingReviews: number;
   revenueByType: { type: number; label: string; value: number; color: string }[];
 };
 
 const EMPTY_METRICS: AdminMetrics = {
+  currency: null,
   totalRevenue: 0,
-  revenueChangePct: null,
+  revenueThisMonth: 0,
   servicesScheduled: 0,
-  servicesChangePct: null,
-  newPartners: 0,
-  newPartnersChangePct: null,
+  newPartnersThisMonth: 0,
   activePartners: 0,
   pendingRequests: 0,
+  pendingReviews: 0,
   revenueByType: [],
 };
 
 /**
- * Derives the dashboard numbers for the selected period from the raw provider +
- * booking lists. Revenue/services are bucketed by `bookingFrom` (non-cancelled
- * bookings only); new partners by provider `createdAt`; active/pending partners
- * by `approvalStatus`. Period deltas compare against the previous month/year.
+ * Loads the dashboard numbers from the server-side stats aggregate
+ * (GET /api/stats/admin/*), which computes over the FULL dataset. This replaces
+ * the previous client-side roll-up, which fetched a capped page of providers +
+ * bookings and summed them in JS — silently under-reporting once the platform
+ * grew past that page size.
+ *
+ * The server exposes no period buckets or prior-period baselines, so the screen
+ * shows the figures it actually reports (all-time revenue alongside this month's)
+ * instead of a month/year toggle with computed ±% deltas.
  */
-function computeAdminMetrics(
-  raw: { providers: ServiceProviderDto[]; bookings: BookingDto[] } | null,
-  period: 'month' | 'year'
-): AdminMetrics {
-  if (!raw) return EMPTY_METRICS;
-  const { providers, bookings } = raw;
-  const now = new Date();
+async function loadAdminMetrics(): Promise<AdminMetrics> {
+  const [overview, byType, pendingProviders, pendingReviews] = await Promise.all([
+    getAdminOverviewStats(),
+    getAdminRevenueByServiceType(),
+    // The quick-action badges deliberately do NOT come from /stats/admin/banner:
+    // its `newRequests`/`newReviews` are recent-activity counts, not moderation
+    // queues (verified live — `newReviews` still counted an already-approved
+    // review, and `newRequests` did not match the pending-application count).
+    // These screens link to the moderation queues, so the badges use the exact
+    // server-side ApprovalStatus filters instead — small, filtered queries.
+    getServiceProviders({ approvalStatus: ApprovalStatus.Pending, perPage: 200 }),
+    getReviews({ approvalStatus: ApprovalStatus.Pending, perPage: 200 }),
+  ]);
 
-  const curStart =
-    period === 'month'
-      ? new Date(now.getFullYear(), now.getMonth(), 1)
-      : new Date(now.getFullYear(), 0, 1);
-  const curEnd =
-    period === 'month'
-      ? new Date(now.getFullYear(), now.getMonth() + 1, 1)
-      : new Date(now.getFullYear() + 1, 0, 1);
-  const prevStart =
-    period === 'month'
-      ? new Date(now.getFullYear(), now.getMonth() - 1, 1)
-      : new Date(now.getFullYear() - 1, 0, 1);
-  const prevEnd = curStart;
-
-  const inWindow = (iso: string | null | undefined, start: Date, end: Date, naive: boolean) => {
-    if (!iso) return false;
-    const d = naive ? parseBookingDate(iso) : new Date(iso);
-    return !isNaN(d.getTime()) && d >= start && d < end;
-  };
-
-  const activeBookings = bookings.filter((b) => b.state !== BookingState.Cancelled);
-  const curBookings = activeBookings.filter((b) => inWindow(b.bookingFrom, curStart, curEnd, true));
-  const prevBookings = activeBookings.filter((b) =>
-    inWindow(b.bookingFrom, prevStart, prevEnd, true)
-  );
-
-  const sum = (arr: BookingDto[]) => arr.reduce((t, b) => t + (b.totalPrice || 0), 0);
-  const totalRevenue = sum(curBookings);
-  const prevRevenue = sum(prevBookings);
-
-  const newPartners = providers.filter((p) =>
-    inWindow(p.createdAt, curStart, curEnd, false)
-  ).length;
-  const prevNewPartners = providers.filter((p) =>
-    inWindow(p.createdAt, prevStart, prevEnd, false)
-  ).length;
-
-  const statusOf = (p: ServiceProviderDto) =>
-    p.approvalStatus ?? (p.isApproved ? ApprovalStatus.Approved : ApprovalStatus.Pending);
-  const activePartners = providers.filter((p) => statusOf(p) === ApprovalStatus.Approved).length;
-  const pendingRequests = providers.filter((p) => statusOf(p) === ApprovalStatus.Pending).length;
-
-  // Revenue by service type: map each booking's provider → its type.
-  const typeById = new Map<number, number>();
-  providers.forEach((p) => {
-    if (p.id != null) typeById.set(p.id, p.type);
-  });
-  const byType = new Map<number, number>();
-  curBookings.forEach((b) => {
-    const t = typeById.get(b.serviceProviderId);
-    if (t == null) return;
-    byType.set(t, (byType.get(t) || 0) + (b.totalPrice || 0));
-  });
-  const revenueByType = [...byType.entries()]
-    .map(([type, value]) => ({
-      type,
+  const revenueByType = byType
+    // The endpoint returns a row for every provider type, including empty ones.
+    .filter((r) => r.amount > 0)
+    .map((r) => ({
+      type: r.serviceTypeValue,
       // English fallback — display localizes via tEnum('serviceProviderType', type).
-      label: providerTypeLabel(type),
-      value,
-      color: TYPE_COLORS[type] ?? '#9CA3AF',
+      label: r.serviceType,
+      value: r.amount,
+      color: TYPE_COLORS[r.serviceTypeValue] ?? '#9CA3AF',
     }))
-    .filter((r) => r.value > 0)
     .sort((a, b) => b.value - a.value);
 
   return {
-    totalRevenue,
-    revenueChangePct: pctChange(totalRevenue, prevRevenue),
-    servicesScheduled: curBookings.length,
-    servicesChangePct: pctChange(curBookings.length, prevBookings.length),
-    newPartners,
-    newPartnersChangePct: pctChange(newPartners, prevNewPartners),
-    activePartners,
-    pendingRequests,
+    currency: overview.currency,
+    totalRevenue: overview.totalRevenue,
+    revenueThisMonth: overview.revenueThisMonth,
+    servicesScheduled: overview.servicesScheduled,
+    newPartnersThisMonth: overview.newPartnersThisMonth,
+    activePartners: overview.activePartners,
+    pendingRequests: pendingProviders.length,
+    pendingReviews: pendingReviews.length,
     revenueByType,
   };
 }
@@ -165,12 +114,9 @@ export default function AdminDashboardScreen() {
   const { isDarkMode, hex } = useThemeColors();
   const { showError } = useToast();
   const { t, tEnum } = useLocale();
-  const [period, setPeriod] = useState<'month' | 'year'>('month');
 
-  const [raw, setRaw] = useState<{
-    providers: ServiceProviderDto[];
-    bookings: BookingDto[];
-  } | null>(null);
+  const [metrics, setMetrics] = useState<AdminMetrics>(EMPTY_METRICS);
+  const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
@@ -179,22 +125,14 @@ export default function AdminDashboardScreen() {
       (async () => {
         setLoading(true);
         try {
-          let failure: unknown = null;
-          const [providers, bookings] = await Promise.all([
-            getServiceProviders({ perPage: 200 }).catch((e) => {
-              failure = e;
-              return [] as ServiceProviderDto[];
-            }),
-            getBookings({ perPage: 500 }).catch((e) => {
-              failure = e;
-              return [] as BookingDto[];
-            }),
-          ]);
+          const next = await loadAdminMetrics();
           if (!cancelled) {
-            setRaw({ providers, bookings });
-            if (failure) {
-              showError(getErrorMessage(failure, t('admin.dashboardLoadFailed')));
-            }
+            setMetrics(next);
+            setLoaded(true);
+          }
+        } catch (e) {
+          if (!cancelled) {
+            showError(getErrorMessage(e, t('admin.dashboardLoadFailed')));
           }
         } finally {
           if (!cancelled) setLoading(false);
@@ -206,9 +144,9 @@ export default function AdminDashboardScreen() {
     }, [])
   );
 
-  const metrics = useMemo(() => computeAdminMetrics(raw, period), [raw, period]);
   const maxRevenue = Math.max(1, ...metrics.revenueByType.map((r) => r.value));
-  const val = (s: string) => (loading && !raw ? '—' : s);
+  const val = (s: string) => (loaded ? s : '—');
+  const money = (n: number) => formatMoney(n, metrics.currency);
 
   const bgColor = hex.bg;
   const cardBg = hex.card;
@@ -247,77 +185,37 @@ export default function AdminDashboardScreen() {
         <ScrollView
           contentContainerStyle={{ paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}>
-          {/* ── Period toggle ── */}
-          <View
-            style={{
-              flexDirection: 'row',
-              marginHorizontal: 20,
-              marginTop: 24,
-              marginBottom: 20,
-              backgroundColor: cardBg,
-              borderRadius: 14,
-              padding: 4,
-              borderWidth: 1,
-              borderColor,
-            }}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setPeriod('month')}
-              style={{
-                flex: 1,
-                paddingVertical: 10,
-                borderRadius: 10,
-                alignItems: 'center',
-                backgroundColor: period === 'month' ? '#00C870' : 'transparent',
-              }}>
-              <Text
-                style={{
-                  color: period === 'month' ? 'white' : subText,
-                  fontWeight: '600',
-                  fontSize: 14,
-                }}>
-                {t('admin.thisMonth')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setPeriod('year')}
-              style={{
-                flex: 1,
-                paddingVertical: 10,
-                borderRadius: 10,
-                alignItems: 'center',
-                backgroundColor: period === 'year' ? '#00C870' : 'transparent',
-              }}>
-              <Text
-                style={{
-                  color: period === 'year' ? 'white' : subText,
-                  fontWeight: '600',
-                  fontSize: 14,
-                }}>
-                {t('admin.thisYear')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* ── Stats grid (2x2) ── */}
+          {/* ── Stats grid ── */}
           <View
             style={{
               flexDirection: 'row',
               flexWrap: 'wrap',
               marginHorizontal: 16,
+              marginTop: 24,
               gap: 12,
               marginBottom: 24,
             }}>
-            {/* Total Revenue */}
+            {/* Total Revenue (all time) */}
             <StatCard
               iconName="cash-outline"
               iconBg="#E8F5EF"
               iconColor="#00C870"
-              change={fmtPct(metrics.revenueChangePct)}
               changeColor="#00C870"
-              value={val(fmtMoney(metrics.totalRevenue))}
+              value={val(money(metrics.totalRevenue))}
               label={t('admin.totalRevenue')}
+              cardBg={cardBg}
+              sectionTitle={sectionTitle}
+              subText={subText}
+              borderColor={borderColor}
+            />
+            {/* Revenue this month */}
+            <StatCard
+              iconName="trending-up-outline"
+              iconBg="#E8F5EF"
+              iconColor="#00C870"
+              changeColor="#00C870"
+              value={val(money(metrics.revenueThisMonth))}
+              label={t('admin.revenueThisMonth')}
               cardBg={cardBg}
               sectionTitle={sectionTitle}
               subText={subText}
@@ -328,7 +226,6 @@ export default function AdminDashboardScreen() {
               iconName="calendar-outline"
               iconBg="#EEF2FF"
               iconColor="#6366F1"
-              change={fmtPct(metrics.servicesChangePct)}
               changeColor="#6366F1"
               value={val(fmtCount(metrics.servicesScheduled))}
               label={t('admin.servicesScheduled')}
@@ -337,15 +234,14 @@ export default function AdminDashboardScreen() {
               subText={subText}
               borderColor={borderColor}
             />
-            {/* New Partners */}
+            {/* New Partners (this month) */}
             <StatCard
               iconName="person-add-outline"
               iconBg="#F3E8FF"
               iconColor="#A855F7"
-              change={fmtPct(metrics.newPartnersChangePct)}
               changeColor="#A855F7"
-              value={val(fmtCount(metrics.newPartners))}
-              label={t('admin.newPartners')}
+              value={val(fmtCount(metrics.newPartnersThisMonth))}
+              label={t('admin.newPartnersThisMonth')}
               cardBg={cardBg}
               sectionTitle={sectionTitle}
               subText={subText}
@@ -356,7 +252,6 @@ export default function AdminDashboardScreen() {
               iconName="people-outline"
               iconBg="#FEF3C7"
               iconColor="#F59E0B"
-              change={undefined}
               changeColor="#F59E0B"
               value={val(fmtCount(metrics.activePartners))}
               label={t('admin.activePartners')}
@@ -384,7 +279,7 @@ export default function AdminDashboardScreen() {
                 {t('admin.revenueByType')}
               </Text>
             </View>
-            {loading && !raw ? (
+            {loading && !loaded ? (
               <ActivityIndicator color="#00C870" style={{ paddingVertical: 12 }} />
             ) : metrics.revenueByType.length === 0 ? (
               <Text style={{ color: subText, fontSize: 13, paddingVertical: 8 }}>
@@ -403,7 +298,7 @@ export default function AdminDashboardScreen() {
                       {tEnum('serviceProviderType', item.type, item.label)}
                     </Text>
                     <Text style={{ color: sectionTitle, fontSize: 13, fontWeight: '600' }}>
-                      {fmtMoney(item.value)}
+                      {money(item.value)}
                     </Text>
                   </View>
                   <View
@@ -580,7 +475,7 @@ export default function AdminDashboardScreen() {
                   borderColor,
                   alignItems: 'flex-start',
                 }}>
-                <View style={{ marginBottom: 12 }}>
+                <View style={{ position: 'relative', marginBottom: 12 }}>
                   <View
                     style={{
                       width: 48,
@@ -592,6 +487,22 @@ export default function AdminDashboardScreen() {
                     }}>
                     <Ionicons name="star-outline" size={24} color="#F59E0B" />
                   </View>
+                  {metrics.pendingReviews > 0 && (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: -6,
+                        right: -6,
+                        backgroundColor: '#F97316',
+                        borderRadius: 10,
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                      }}>
+                      <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
+                        {t('admin.nNew', { n: metrics.pendingReviews })}
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>
                   {t('admin.reviews')}

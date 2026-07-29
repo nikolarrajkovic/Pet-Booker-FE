@@ -157,6 +157,21 @@ function withResolvedAddresses(dto: BookingDto): BookingDto {
   };
 }
 
+/**
+ * Display key derived from BookingState. 'booked' = Accepted (provider
+ * confirmed, not started); 'in-progress' = InProgress (service underway).
+ * These are internal keys — user-facing text comes from tEnum('bookingState').
+ * Active (non-terminal) labels group under the MyBookings "Upcoming" tab.
+ */
+export type BookingStatusLabel = 'upcoming' | 'booked' | 'in-progress' | 'completed' | 'cancelled';
+
+/** The statusLabels that count as active/not-yet-finished (MyBookings "Upcoming" tab). */
+export const ACTIVE_STATUS_LABELS: readonly BookingStatusLabel[] = [
+  'upcoming',
+  'booked',
+  'in-progress',
+];
+
 /** UI-friendly booking shape for MyBookingsScreen / schedule views. */
 export type BookingViewModel = {
   id: number;
@@ -173,7 +188,7 @@ export type BookingViewModel = {
   currency: string | null; // server-stamped from the provider; format via formatMoney
   state: number; // BookingState
   status: number; // BookingStatusType
-  statusLabel: 'upcoming' | 'completed' | 'cancelled';
+  statusLabel: BookingStatusLabel;
   image: string;
   rating?: number; // from the booking's review, when one exists
   clientName: string; // the booker (from the populated `user` include)
@@ -219,7 +234,9 @@ export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
 export function formatMoney(amount: number, currency?: string | null): string {
   const code = (currency ?? 'EUR').toUpperCase();
   const symbol = CURRENCY_SYMBOLS[code];
-  return symbol ? `${symbol}${amount}` : `${amount} ${code}`;
+  // Cap at 2 decimals (trailing zeros trimmed): 35.41666 → 35.42, 30 → 30.
+  const value = Number.isFinite(amount) ? Math.round(amount * 100) / 100 : amount;
+  return symbol ? `${symbol}${value}` : `${value} ${code}`;
 }
 
 function firstPhoto(entity?: NestedEntity | null): string {
@@ -243,6 +260,8 @@ function formatTime(iso: string): string {
 function stateToLabel(state: number): BookingViewModel['statusLabel'] {
   if (state === BookingState.Completed) return 'completed';
   if (state === BookingState.Cancelled) return 'cancelled';
+  if (state === BookingState.Accepted) return 'booked';
+  if (state === BookingState.InProgress) return 'in-progress';
   return 'upcoming';
 }
 
@@ -351,7 +370,38 @@ export type CreateBookingInput = {
   // drop-off), carried through the appointment. Defaults false. The server
   // computes the specialNeedsPrice surcharge from the service pricing.
   includeSpecialNeeds?: boolean;
+  // Distance (km) between the service's address and the pickup/drop-off address,
+  // computed on the client (Google Directions where available, else straight-
+  // line). The server applies this SINGLE value to BOTH the pickup and pet-
+  // return surcharges (baseFee + perKmFee * max(0, min(dist, maxDist) - freeDist),
+  // verified live) — so it's only meaningful when a location add-on is selected.
+  distanceKm?: number | null;
 };
+
+/**
+ * Rounds every number in an outgoing payload to at most 2 decimals, recursing
+ * into nested objects and arrays. `latitude`/`longitude` are left at full
+ * precision on purpose — rounding a coordinate to 2 decimals shifts it by up to
+ * ~1km. Integers round to themselves, so ids / enum values / flags are
+ * unaffected; only fractional money and distance values change. Applied to every
+ * booking payload so no price or distance field is ever sent with >2 decimals.
+ */
+function round2Payload<T>(value: T): T {
+  if (typeof value === 'number') {
+    return (Number.isFinite(value) ? Math.round(value * 100) / 100 : value) as unknown as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => round2Payload(v)) as unknown as T;
+  }
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = k === 'latitude' || k === 'longitude' ? v : round2Payload(v);
+    }
+    return out as unknown as T;
+  }
+  return value;
+}
 
 /**
  * Creates a booking.
@@ -389,6 +439,8 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
     includePickup: !!input.pickupAddress,
     includePetReturn: !!input.leaveOverAddress,
     includeSpecialNeeds: input.includeSpecialNeeds ?? false,
+    // Drives the per-km part of the pickup/drop-off surcharge server-side.
+    distanceKm: input.distanceKm ?? null,
   };
 
   // Pickup/Drop-off addresses are sent INLINE in this POST (never /api/addresses).
@@ -400,7 +452,10 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
   }
 
   const url = `${getApiBaseUrl()}/api/bookings`;
-  const response = await apiAuthFetch(url, { method: 'POST', body: JSON.stringify(body) });
+  const response = await apiAuthFetch(url, {
+    method: 'POST',
+    body: JSON.stringify(round2Payload(body)),
+  });
 
   if (!response.ok) {
     throw new Error(await parseApiError(response, 'Failed to create booking.', 'createBooking'));
@@ -457,7 +512,10 @@ export async function setBookingStatus(
   const url = `${getApiBaseUrl()}/api/bookings/${booking.id}`;
   const body: BookingDto = { ...toWritableBooking(booking), currentStatus };
 
-  const response = await apiAuthFetch(url, { method: 'PUT', body: JSON.stringify(body) });
+  const response = await apiAuthFetch(url, {
+    method: 'PUT',
+    body: JSON.stringify(round2Payload(body)),
+  });
 
   if (!response.ok) {
     throw new Error(await parseApiError(response, 'Failed to update booking.', 'setBookingStatus'));

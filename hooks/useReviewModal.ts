@@ -5,8 +5,14 @@ import { useLocale } from '../context/LocaleContext';
 import { createReview } from '../services/reviews';
 import { getErrorMessage } from '../services/http';
 
-/** Which booking/provider a pending review belongs to, plus a name to show. */
-export type ReviewTarget = { bookingId: number; serviceProviderId: number; serviceName: string };
+/** Which booking/service/provider a pending review belongs to, plus a name to show. */
+export type ReviewTarget = {
+  bookingId: number;
+  serviceProviderId: number;
+  // The reviewed service — required by the API (ServiceId must be > 0).
+  serviceId: number;
+  serviceName: string;
+};
 
 /**
  * Owns the "leave a review" modal lifecycle for completed bookings: which booking
@@ -46,6 +52,7 @@ export function useReviewModal(onSubmitted?: (bookingId: number) => void) {
           bookingId: target.bookingId,
           userId: currentUser.id,
           serviceProviderId: target.serviceProviderId,
+          serviceId: target.serviceId,
           rating,
           comment: comment.trim() || null,
         });

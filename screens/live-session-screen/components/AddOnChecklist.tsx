@@ -25,12 +25,15 @@ type Props = {
   /** Partner taps a row to toggle completion. Omitted/undefined ⇒ read-only (user). */
   onToggle?: (key: AddOnItem['key']) => void;
   /**
-   * Partner taps "Directions" to navigate to the add-on's location. Shown only
-   * for rows that carry an `address`. Omitted ⇒ no directions affordance (user).
+   * Partner taps "Show on map" to route the inline live map to the add-on's
+   * location. Shown only for rows that carry an `address`. Omitted ⇒ no
+   * show-on-map affordance (user, or partner before the service starts).
    */
   onDirections?: (key: AddOnItem['key']) => void;
-  /** The row whose directions are currently being resolved (shows a spinner). */
+  /** The row whose location is currently being resolved (shows a spinner). */
   directionsLoadingKey?: AddOnItem['key'] | null;
+  /** The row currently routed on the inline map — rendered as the active pick. */
+  selectedKey?: AddOnItem['key'] | null;
   readOnly?: boolean;
   isDarkMode: boolean;
   cardBg: string;
@@ -51,6 +54,7 @@ export default function AddOnChecklist({
   onToggle,
   onDirections,
   directionsLoadingKey,
+  selectedKey,
   readOnly,
   isDarkMode,
   cardBg,
@@ -101,24 +105,45 @@ export default function AddOnChecklist({
                 <Text className={`text-xs ${subtextColor} mt-0.5`}>{item.detail}</Text>
               ) : null}
               <Text className={`text-xs ${subtextColor} mt-0.5`}>{statusText}</Text>
-              {onDirections && item.address ? (
-                <TouchableOpacity
-                  onPress={() => onDirections(item.key)}
-                  activeOpacity={0.7}
-                  className="mt-2 flex-row items-center self-start rounded-lg px-2.5 py-1.5"
-                  style={{ backgroundColor: isDarkMode ? '#243447' : '#E6FAF0' }}>
-                  {directionsLoadingKey === item.key ? (
-                    <ActivityIndicator size="small" color="#00C870" />
-                  ) : (
-                    <>
-                      <Ionicons name="navigate" size={14} color="#00A85A" />
-                      <Text className="ml-1 text-xs font-bold" style={{ color: '#00A85A' }}>
-                        {t('liveSession.directions')}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              ) : null}
+              {onDirections && item.address
+                ? (() => {
+                    const selected = selectedKey === item.key;
+                    return (
+                      <TouchableOpacity
+                        onPress={() => onDirections(item.key)}
+                        disabled={directionsLoadingKey === item.key}
+                        activeOpacity={0.7}
+                        className="mt-2 flex-row items-center self-start rounded-lg px-2.5 py-1.5"
+                        style={{
+                          backgroundColor: selected
+                            ? '#00C870'
+                            : isDarkMode
+                              ? '#243447'
+                              : '#E6FAF0',
+                        }}>
+                        {directionsLoadingKey === item.key ? (
+                          <ActivityIndicator
+                            size="small"
+                            color={selected ? '#ffffff' : '#00C870'}
+                          />
+                        ) : (
+                          <>
+                            <Ionicons
+                              name={selected ? 'navigate' : 'navigate-outline'}
+                              size={14}
+                              color={selected ? '#ffffff' : '#00A85A'}
+                            />
+                            <Text
+                              className="ml-1 text-xs font-bold"
+                              style={{ color: selected ? '#ffffff' : '#00A85A' }}>
+                              {selected ? t('liveSession.onMap') : t('liveSession.showOnMap')}
+                            </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })()
+                : null}
             </View>
             {toggleable ? (
               <Ionicons

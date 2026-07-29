@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,11 @@ import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import TimePicker, { formatTime24 } from '../../../components/shared/TimePicker';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import MapAddressPicker from '../../../components/shared/MapAddressPicker';
+import { useLocation } from '../../../hooks/useLocation';
+import { addressLabel } from '../../../services/geocoding';
+import { getUser } from '../../../services/users';
+import type { AddressDto } from '../../../services/service-providers';
 import {
   createService,
   updateService,
@@ -39,6 +44,7 @@ import {
   ALL_ADDITIONAL_SERVICE_NAMES,
   workingHoursToSchedules,
   pricingTiersToOptions,
+  resolveServiceAddressForSave,
   DURATION_OPTION_LABELS,
   PricingTier,
 } from '../serviceModel';
@@ -55,6 +61,10 @@ interface AdditionalService {
   name: string;
   price: string;
   expanded: boolean;
+  // Distance-pricing for location-based add-ons (Pickup / Drop-off).
+  perKmFee?: string;
+  freeDistanceKm?: string;
+  maxDistanceKm?: string;
 }
 
 interface WorkingHours {
@@ -68,7 +78,14 @@ interface ExistingService {
   description: string;
   pricingTiers: PricingTier[];
   maxConcurrentBookings?: number;
-  additionalServices: { name: string; price: string; enabled: boolean }[];
+  additionalServices: {
+    name: string;
+    price: string;
+    enabled: boolean;
+    perKmFee?: string;
+    freeDistanceKm?: string;
+    maxDistanceKm?: string;
+  }[];
   workingHours: WorkingHours;
   images?: string[];
   selectedImageIndex?: number;
@@ -91,21 +108,20 @@ const DEFAULT_WORKING_HOURS: WorkingHours = {
 };
 
 function getInitialAdditionalServices(existing?: ExistingService): AdditionalService[] {
-  if (existing?.additionalServices) {
-    const enabledMap = new Map(
-      existing.additionalServices.filter((s) => s.enabled).map((s) => [s.name, s.price])
-    );
-    return ALL_ADDITIONAL_SERVICE_NAMES.map((name) => ({
+  const enabledMap = new Map(
+    (existing?.additionalServices ?? []).filter((s) => s.enabled).map((s) => [s.name, s])
+  );
+  return ALL_ADDITIONAL_SERVICE_NAMES.map((name) => {
+    const s = enabledMap.get(name);
+    return {
       name,
-      price: enabledMap.get(name) || '',
-      expanded: enabledMap.has(name),
-    }));
-  }
-  return ALL_ADDITIONAL_SERVICE_NAMES.map((name) => ({
-    name,
-    price: '',
-    expanded: false,
-  }));
+      price: s?.price || '',
+      expanded: !!s,
+      perKmFee: s?.perKmFee || '',
+      freeDistanceKm: s?.freeDistanceKm || '',
+      maxDistanceKm: s?.maxDistanceKm || '',
+    };
+  });
 }
 
 export default function AddEditServiceScreen() {
@@ -177,15 +193,50 @@ export default function AddEditServiceScreen() {
     existingService?.workingHours || DEFAULT_WORKING_HOURS
   );
 
+  // Service location — newly picked address only (null = untouched, keep the
+  // original). Same pattern as AccountScreen's address.
+  const location = useLocation();
+  const [pickedAddress, setPickedAddress] = useState<AddressDto | null>(null);
+  const [showAddressPicker, setShowAddressPicker] = useState(false);
+  // The partner's profile address — offered as a one-tap shortcut so they don't
+  // have to re-pick their own address on the map. Fail-soft: if the fetch
+  // fails, the shortcut simply doesn't show.
+  const [profileAddress, setProfileAddress] = useState<AddressDto | null>(null);
+  const currentAddress = pickedAddress ?? params?.serviceDto?.address ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!currentUser?.id) return;
+    getUser(currentUser.id)
+      .then((u) => {
+        if (!cancelled && u.address) setProfileAddress(u.address);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.id]);
+
+  const useProfileAddress = () => {
+    if (!profileAddress) return;
+    // Copy the fields, never the id — linking the user's own address row to the
+    // service would make later profile edits silently move the service.
+    setPickedAddress({ ...profileAddress, id: undefined });
+  };
+
   const toggleAdditionalService = (index: number) => {
     const updated = [...additionalServices];
     updated[index].expanded = !updated[index].expanded;
     setAdditionalServices(updated);
   };
 
-  const updateAdditionalServicePrice = (index: number, value: string) => {
+  const updateAdditionalServiceField = (
+    index: number,
+    field: 'price' | 'perKmFee' | 'freeDistanceKm' | 'maxDistanceKm',
+    value: string
+  ) => {
     const updated = [...additionalServices];
-    updated[index].price = value;
+    updated[index] = { ...updated[index], [field]: value };
     setAdditionalServices(updated);
   };
 
@@ -320,12 +371,21 @@ export default function AddEditServiceScreen() {
         serviceImages.map((img, i) => ({ ...img, isSelected: i === mainImageIndex })),
         params?.serviceDto?.photos
       );
+      // Resolve the picked location into the shape the service write accepts —
+      // may create the address row standalone first in edit mode (the PUT only
+      // takes an existing address id; see serviceModel).
+      const address = await resolveServiceAddressForSave(
+        pickedAddress,
+        params?.serviceDto?.address,
+        isEdit
+      );
       // Only API-backed fields persist. Duration tiers persist separately as
       // pricing options via /api/service-pricing-options below (the DTO's
       // basePrice carries the cheapest tier for the lean Home-rail display).
-      // Add-ons persist via the catalog, but only their flat baseFee — per-km
-      // surcharge fields stay UI-only. Working hours persist separately via
-      // /api/service-schedules below.
+      // Add-ons persist via the catalog — the flat baseFee AND the distance
+      // pricing (perKmFee / freeDistanceKm / maxDistanceKm) for the location
+      // add-ons, as a LocationBasedPriceDto. Working hours persist separately
+      // via /api/service-schedules below.
       const dto = uiToServiceDto(
         {
           serviceProviderId,
@@ -337,6 +397,7 @@ export default function AddEditServiceScreen() {
           maxPetCapacity: parseInt(maxPetCapacity, 10) || 1,
           additionalServices,
           photos,
+          address,
         },
         params?.serviceDto
       );
@@ -468,6 +529,35 @@ export default function AddEditServiceScreen() {
             numberOfLines={4}
             textAlignVertical="top"
           />
+        </View>
+
+        {/* Service Location — picked on a map, or copied from the profile */}
+        <View className="mb-4">
+          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+            {t('addEditService.serviceLocation')}
+          </Text>
+          <Text className={`${subtextColor} mb-3 text-sm`}>
+            {t('addEditService.serviceLocationHint')}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setShowAddressPicker(true)}
+            className={`${inputBg} flex-row items-center rounded-xl px-4 py-3`}>
+            <Ionicons name="location-outline" size={20} color="#00C870" />
+            <Text
+              className={`ml-3 flex-1 ${currentAddress ? inputText : subtextColor}`}
+              numberOfLines={2}>
+              {currentAddress ? addressLabel(currentAddress) : t('bookService.pickOnMap')}
+            </Text>
+            <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+          </TouchableOpacity>
+          {profileAddress && (
+            <TouchableOpacity onPress={useProfileAddress} className="mt-2 flex-row items-center">
+              <Ionicons name="home-outline" size={16} color="#00C870" />
+              <Text className="ml-2 text-sm font-semibold text-brand-500">
+                {t('addEditService.useProfileAddress')}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Service Images */}
@@ -653,7 +743,9 @@ export default function AddEditServiceScreen() {
                     </TouchableOpacity>
                   </View>
                   <Text className={`${subtextColor} mb-2 text-sm`}>
-                    {t('addEditService.priceFreeHint')}
+                    {findServiceAddon(service.name)?.locationBased
+                      ? t('addEditService.baseFeeHint')
+                      : t('addEditService.priceFreeHint')}
                   </Text>
                   <View
                     className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
@@ -663,10 +755,87 @@ export default function AddEditServiceScreen() {
                       placeholderTextColor={placeholderColor}
                       className={`${inputText} ml-2 flex-1`}
                       value={service.price}
-                      onChangeText={(value) => updateAdditionalServicePrice(index, value)}
+                      onChangeText={(value) => updateAdditionalServiceField(index, 'price', value)}
                       keyboardType="numeric"
                     />
                   </View>
+
+                  {/* Distance-based pricing — only for location add-ons (Pickup / Drop-off) */}
+                  {findServiceAddon(service.name)?.locationBased && (
+                    <View className="mt-3">
+                      <Text className={`${subtextColor} mb-2 text-sm`}>
+                        {t('addEditService.distancePricingHint')}
+                      </Text>
+
+                      {/* Per-km fee */}
+                      <Text className={`${textColor} mb-1 text-sm font-medium`}>
+                        {t('addEditService.perKmFee')}
+                      </Text>
+                      <View
+                        className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} mb-3 flex-row items-center rounded-xl px-4 py-3`}>
+                        <Text className={subtextColor}>$</Text>
+                        <TextInput
+                          placeholder="0"
+                          placeholderTextColor={placeholderColor}
+                          className={`${inputText} ml-2 flex-1`}
+                          value={service.perKmFee}
+                          onChangeText={(value) =>
+                            updateAdditionalServiceField(index, 'perKmFee', value)
+                          }
+                          keyboardType="numeric"
+                        />
+                      </View>
+
+                      {/* Free distance + Max distance side by side */}
+                      <View className="flex-row gap-3">
+                        <View className="flex-1">
+                          <Text className={`${textColor} mb-1 text-sm font-medium`}>
+                            {t('addEditService.freeDistance')}
+                          </Text>
+                          <View
+                            className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
+                            <TextInput
+                              placeholder="0"
+                              placeholderTextColor={placeholderColor}
+                              className={`${inputText} flex-1`}
+                              // minWidth:0 lets the input shrink within its
+                              // flex-1 column so the "km" suffix stays inside the
+                              // box on web (without it the input keeps its content
+                              // width and pushes "km" past the card edge).
+                              style={{ minWidth: 0 } as any}
+                              value={service.freeDistanceKm}
+                              onChangeText={(value) =>
+                                updateAdditionalServiceField(index, 'freeDistanceKm', value)
+                              }
+                              keyboardType="numeric"
+                            />
+                            <Text className={`${subtextColor} ml-1`}>{t('addEditService.km')}</Text>
+                          </View>
+                        </View>
+                        <View className="flex-1">
+                          <Text className={`${textColor} mb-1 text-sm font-medium`}>
+                            {t('addEditService.maxDistance')}
+                          </Text>
+                          <View
+                            className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
+                            <TextInput
+                              placeholder="∞"
+                              placeholderTextColor={placeholderColor}
+                              className={`${inputText} flex-1`}
+                              // See freeDistanceKm above — minWidth:0 keeps "km" inside the box.
+                              style={{ minWidth: 0 } as any}
+                              value={service.maxDistanceKm}
+                              onChangeText={(value) =>
+                                updateAdditionalServiceField(index, 'maxDistanceKm', value)
+                              }
+                              keyboardType="numeric"
+                            />
+                            <Text className={`${subtextColor} ml-1`}>{t('addEditService.km')}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  )}
                 </View>
               )}
             </View>
@@ -858,6 +1027,26 @@ export default function AddEditServiceScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* Map picker for the service location — opens on the current address's
+          pin when there is one, else the user's current location */}
+      {showAddressPicker && (
+        <MapAddressPicker
+          visible
+          title={t('addEditService.serviceLocation')}
+          initialRegion={
+            currentAddress?.location
+              ? {
+                  latitude: currentAddress.location.latitude,
+                  longitude: currentAddress.location.longitude,
+                }
+              : { latitude: location.latitude, longitude: location.longitude }
+          }
+          isDarkMode={isDarkMode}
+          onClose={() => setShowAddressPicker(false)}
+          onSelect={(picked) => setPickedAddress(picked)}
+        />
+      )}
 
       {/* Time Picker Modal */}
       {showTimePicker && (

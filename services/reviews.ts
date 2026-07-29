@@ -5,9 +5,9 @@ export type ReviewDto = {
   bookingId: number;
   userId: number;
   serviceProviderId: number;
-  // The reviewed service. Optional on write (server defaults it); returned on
-  // read since the API update. Pass it when available so the review is tied to
-  // the specific service, not just the provider.
+  // The reviewed service. REQUIRED on write — the API validates ServiceId > 0
+  // (GreaterThanValidator; a missing/0 value 422s "ServiceId is required.").
+  // Returned on read. Ties the review to the specific service, not just the provider.
   serviceId?: number;
   rating: number;
   // Per-category sub-ratings (non-nullable server-side — createReview defaults

@@ -3,10 +3,12 @@
 // here and documented in BACKEND_GAPS.md (search for BACKEND-GAP tags).
 import { ServiceDto, ServiceScheduleDto, ServicePricingOptionDto } from '../../services/services';
 import {
+  AddressDto,
   resolveImageUrl,
   providerTypeLabel,
   providerTypeValue,
 } from '../../services/service-providers';
+import { createAddress } from '../../services/addresses';
 import { uploadFilesBulk } from '../../services/files';
 import { getApiBaseUrl } from '../../services/http';
 import { SERVICE_ADDON_DEFS } from '../../services/service-addons';
@@ -23,6 +25,11 @@ export interface AdditionalServiceEntry {
   name: string;
   price: string;
   enabled: boolean;
+  // Distance-pricing fields for location-based add-ons (Pickup / Drop-off).
+  // Empty string = unset. Ignored for flat add-ons (Special Needs Care).
+  perKmFee?: string;
+  freeDistanceKm?: string;
+  maxDistanceKm?: string;
 }
 
 export interface WorkingHours {
@@ -83,6 +90,36 @@ export const DURATION_OPTION_LABELS = Object.keys(DURATION_LABEL_MINUTES);
 export function minutesToDurationLabel(minutes: number): string {
   const match = Object.entries(DURATION_LABEL_MINUTES).find(([, m]) => m === minutes);
   return match ? match[0] : `${minutes} min`;
+}
+
+// English data label → translation key for DISPLAY. The stored value (option
+// name / tier duration) always stays the English data key — see the i18n
+// "data keys stay English" rule.
+const DURATION_LABEL_TRANSLATION_KEYS: Record<string, string> = {
+  '30 minutes': 'durations.min30',
+  '1 hour': 'durations.hour1',
+  '1.5 hours': 'durations.hour1_5',
+  '2 hours': 'durations.hour2',
+  '3 hours': 'durations.hour3',
+  '4 hours': 'durations.hour4',
+  'Full day': 'durations.fullDay',
+  Overnight: 'durations.overnight',
+};
+
+/**
+ * Localized display for a duration label / pricing-option name (which the
+ * backend stores in English). Translates the known duration catalog and the
+ * "{n} min" fallback; anything else (a custom API-created name) displays as-is.
+ */
+export function durationDisplayLabel(
+  t: (key: any, params?: Record<string, string | number>) => string,
+  label: string
+): string {
+  const key = DURATION_LABEL_TRANSLATION_KEYS[label];
+  if (key) return t(key);
+  const minMatch = /^(\d+)\s*min$/.exec(label);
+  if (minMatch) return t('durations.nMin', { n: minMatch[1] });
+  return label;
 }
 
 /** "1 hour" → 60; also decodes the "{n} min" fallback; unknown labels → null. */
@@ -221,7 +258,15 @@ export function serviceDtoToUi(dto: ServiceDto): UiService {
     // as disabled/0 until the backend supports them (see services/service-addons.ts).
     additionalServices: SERVICE_ADDON_DEFS.map((def) => {
       const r = def.read(dto);
-      return { name: def.name, price: String(r?.price ?? 0), enabled: !!r?.enabled };
+      return {
+        name: def.name,
+        price: String(r?.price ?? 0),
+        enabled: !!r?.enabled,
+        // Prefill distance-pricing for location-based add-ons (empty when unset).
+        perKmFee: r?.perKmFee ? String(r.perKmFee) : '',
+        freeDistanceKm: r?.freeDistanceKm != null ? String(r.freeDistanceKm) : '',
+        maxDistanceKm: r?.maxDistanceKm != null ? String(r.maxDistanceKm) : '',
+      };
     }),
     // Real per-day working hours from the service's schedules (S2 now wired).
     workingHours: schedulesToWorkingHours(dto.schedules),
@@ -305,10 +350,46 @@ export type ServiceFormInput = {
   description: string;
   pricingTiers: PricingTier[];
   maxPetCapacity?: number; // → details.maxConcurrentBookings
-  additionalServices: { name: string; price: string; expanded: boolean }[];
+  additionalServices: {
+    name: string;
+    price: string;
+    expanded: boolean;
+    // Distance-pricing for location-based add-ons (empty string = unset).
+    perKmFee?: string;
+    freeDistanceKm?: string;
+    maxDistanceKm?: string;
+  }[];
   // Ready-to-send photos array — build with buildServicePhotos()
   photos?: ServiceDto['photos'];
+  // Ready-to-send address (id already resolved) — build with
+  // resolveServiceAddressForSave(). Omit to keep the original's address.
+  address?: AddressDto | null;
 };
+
+/**
+ * Resolves the address the user picked (map pin or profile copy) into the shape
+ * the service POST/PUT accepts (contract verified live 2026-07-19):
+ * - POST takes a new address inline (id 0 → row created + linked).
+ * - PUT only accepts the service's EXISTING address id (updates it in place);
+ *   a new inline address 500s — so an edit that ADDS a location creates the row
+ *   standalone (POST /api/addresses) first and sends its real id instead.
+ * The standalone create requires a non-empty `state` — falls back to
+ * city/country. Nothing picked → the original address (or null) unchanged.
+ */
+export async function resolveServiceAddressForSave(
+  picked: AddressDto | null,
+  original: AddressDto | null | undefined,
+  isEdit: boolean
+): Promise<AddressDto | null> {
+  if (!picked) return original ?? null;
+  const normalized = {
+    ...picked,
+    state: picked.state || picked.city || picked.country || '-',
+  };
+  if (original?.id) return { ...normalized, id: original.id };
+  if (isEdit) return createAddress(normalized);
+  return { ...normalized, id: 0 };
+}
 
 /**
  * Rich form state → ServiceDto for create/update. Only API-backed fields persist.
@@ -357,9 +438,18 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
 
   // Persist each add-on via the catalog: on/off flag → details, surcharge money
   // → pricing. A single draft carries both so each write() targets the right one.
+  // Location-based add-ons also carry per-km/free/max distance pricing.
+  const parseOptionalKm = (v?: string): number | null => {
+    const n = parseFloat(v ?? '');
+    return Number.isFinite(n) ? n : null;
+  };
   for (const def of SERVICE_ADDON_DEFS) {
     const entry = form.additionalServices.find((a) => a.name === def.name);
-    def.write({ details, pricing }, !!entry?.expanded, parseFloat(entry?.price ?? '') || 0);
+    def.write({ details, pricing }, !!entry?.expanded, parseFloat(entry?.price ?? '') || 0, {
+      perKmFee: parseFloat(entry?.perKmFee ?? '') || 0,
+      freeDistanceKm: parseOptionalKm(entry?.freeDistanceKm),
+      maxDistanceKm: parseOptionalKm(entry?.maxDistanceKm),
+    });
   }
 
   return {
@@ -372,5 +462,8 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
     pricing,
     details,
     photos: form.photos ?? [],
+    // Round-trip the stored address when the form didn't touch it (omitting it
+    // on PUT also keeps it — this is just explicit).
+    address: form.address !== undefined ? form.address : (original?.address ?? null),
   };
 }

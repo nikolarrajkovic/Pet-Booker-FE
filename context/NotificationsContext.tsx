@@ -43,6 +43,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const { showInfo } = useToast();
   const [unreadCount, setUnreadCount] = useState(0);
   const listenersRef = useRef<Set<Listener>>(new Set());
+  const fetchingCountRef = useRef(false);
   const userId = currentUser?.id ?? null;
 
   const refreshUnreadCount = useCallback(() => {
@@ -50,9 +51,16 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       setUnreadCount(0);
       return;
     }
+    // On login the provider's seed and Home's first focus refresh fire
+    // back-to-back — collapse them into one request while it's in flight.
+    if (fetchingCountRef.current) return;
+    fetchingCountRef.current = true;
     getUnreadNotificationCount(userId)
       .then(setUnreadCount)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        fetchingCountRef.current = false;
+      });
   }, [userId]);
 
   const subscribe = useCallback((listener: Listener) => {

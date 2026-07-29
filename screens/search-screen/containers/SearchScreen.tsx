@@ -12,6 +12,7 @@ import { ListView, MapViewComponent } from '../components';
 import type { ServiceSearchItem } from '../components/ListView';
 import { getServices, ServiceDto } from '../../../services/services';
 import { getErrorMessage } from '../../../services/http';
+import { forwardGeocode, GeoPoint } from '../../../services/geocoding';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
 import { resolveImageUrl, providerTypeValue } from '../../../services/service-providers';
 import { SERVICE_ADDON_DEFS } from '../../../services/service-addons';
@@ -78,10 +79,11 @@ function toSearchItem(svc: ServiceDto): ServiceSearchItem | null {
       svc.distanceFromMyLocationKm != null ? `${Math.round(svc.distanceFromMyLocationKm)} km` : '',
     price: svc.price ?? svc.pricing?.basePrice ?? 0,
     image: resolveImageUrl(photoSrc) || FALLBACK_IMAGE,
-    // The service address now carries geo coords (null until geocoded) — use them
-    // for the map marker instead of the old 0/0 placeholder.
-    latitude: svc.address?.location?.latitude ?? 0,
-    longitude: svc.address?.location?.longitude ?? 0,
+    // Map pin position from the service address's geo coords. null = no pin yet:
+    // addresses without coords are forward-geocoded lazily when the map view
+    // opens (see the geocode effect below); services with no address get no pin.
+    latitude: svc.address?.location?.latitude ?? null,
+    longitude: svc.address?.location?.longitude ?? null,
     dto: svc,
   };
 }
@@ -185,6 +187,38 @@ export default function SearchScreen() {
     }, [categoryConfig, latitude, longitude])
   );
 
+  // Lazily resolve pin coordinates when the map view opens: services whose
+  // address has no geo coords yet are forward-geocoded from the address text,
+  // one at a time (Nominatim's fair-use rate on web). Keyed by service id;
+  // null = lookup failed (don't retry). Fail-soft — a service that can't be
+  // geocoded simply gets no pin.
+  const [geocoded, setGeocoded] = useState<Record<number, GeoPoint | null>>({});
+  useEffect(() => {
+    if (viewMode !== 'map') return;
+    const pending = allServices
+      .filter((s) => s.latitude == null && s.dto.address && geocoded[s.id] === undefined)
+      .slice(0, 25);
+    if (!pending.length) return;
+    let cancelled = false;
+    (async () => {
+      for (const item of pending) {
+        const a = item.dto.address!;
+        const query = [a.line1, a.postalCode, a.city, a.country].filter(Boolean).join(', ');
+        let point: GeoPoint | null = null;
+        try {
+          point = await forwardGeocode(query);
+        } catch {
+          point = null;
+        }
+        if (cancelled) return;
+        setGeocoded((prev) => ({ ...prev, [item.id]: point }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewMode, allServices, geocoded]);
+
   // Client-side filtering on the loaded data — every predicate works off the
   // service DTO's real fields (type, accepted species, add-on flags, price, rating).
   const services = allServices.filter((item) => {
@@ -222,6 +256,14 @@ export default function SearchScreen() {
     }
 
     return true;
+  });
+
+  // Map items with the lazily-geocoded coordinates merged in (list view never
+  // needs coords, so the merge is map-only).
+  const mapServices = services.map((s) => {
+    if (s.latitude != null) return s;
+    const g = geocoded[s.id];
+    return g ? { ...s, latitude: g.latitude, longitude: g.longitude } : s;
   });
 
   const handleApplyFilters = (newFilters: FilterState) => {
@@ -299,7 +341,12 @@ export default function SearchScreen() {
           badge={categoryConfig?.badge}
         />
       ) : (
-        <MapViewComponent services={services} location={location} />
+        // The TabBar overlays the bottom of the content area (absolute bottom-0),
+        // so inset the map by its height — otherwise the map's bottom strip and
+        // Google's attribution hide behind it and the map center sits too low.
+        <View className="flex-1 pb-20">
+          <MapViewComponent services={mapServices} location={location} isDarkMode={isDarkMode} />
+        </View>
       )}
 
       <FilterModal
