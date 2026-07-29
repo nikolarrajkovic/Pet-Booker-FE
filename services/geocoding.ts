@@ -58,6 +58,29 @@ export async function forwardGeocode(query: string): Promise<GeoPoint | null> {
   return { latitude: results[0].latitude, longitude: results[0].longitude };
 }
 
+/**
+ * Resolves an address to a coordinate: its stored `location` when the API has
+ * one, otherwise forward-geocodes its text. Returns null when the address is
+ * missing, has no usable text, or can't be found.
+ *
+ * Stored service/profile addresses very often have `location: null` (seeded
+ * rows, or ones copied from a profile address that itself had no coords), so
+ * the geocode fallback is what makes address-based positioning actually work.
+ * Uses postalCode + country (rather than the display-oriented `addressLabel`)
+ * because that reads far better as a geocoder query.
+ */
+export async function addressToPoint(a?: AddressDto | null): Promise<GeoPoint | null> {
+  if (!a) return null;
+  if (a.location) return { latitude: a.location.latitude, longitude: a.location.longitude };
+  const query = [a.line1, a.postalCode, a.city, a.country].filter(Boolean).join(', ');
+  if (!query) return null;
+  try {
+    return await forwardGeocode(query);
+  } catch {
+    return null;
+  }
+}
+
 /** One-shot current position (null if unavailable/denied). */
 export async function getCurrentPosition(): Promise<GeoPoint | null> {
   if (Platform.OS === 'web') {

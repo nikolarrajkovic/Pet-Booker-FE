@@ -89,6 +89,7 @@ export default function NotificationsScreen() {
         openReview({
           bookingId,
           serviceProviderId: booking.serviceProviderId,
+          serviceId: booking.serviceId,
           serviceName: booking.service?.name ?? t('notifications.yourService'),
         });
         return true;

@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocation } from '../../../hooks/useLocation';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
+import { DAY_SHORT_KEYS, MONTH_KEYS, MONTH_SHORT_KEYS } from '../../../i18n';
+import { durationDisplayLabel } from '../../my-services-screen/serviceModel';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import DatePicker from '../../../components/shared/DatePicker';
@@ -19,11 +21,17 @@ import {
   AvailabilityWindowDto,
   effectiveOptionPrice,
 } from '../../../services/services';
-import { getPets } from '../../../services/pets';
+import { getPets, PetResponse } from '../../../services/pets';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import { parseBookingDate, formatBookingDate } from '../../../services/bookings';
-import { getEnabledServiceAddons } from '../../../services/service-addons';
-import { addressLabel } from '../../../services/geocoding';
+import { getEnabledServiceAddons, addonPriceLabel } from '../../../services/service-addons';
+import { addressLabel, forwardGeocode, GeoPoint } from '../../../services/geocoding';
+import { routeDistanceKm } from '../../../services/directions';
+import {
+  locationSurcharge,
+  locationSurchargeBreakdown,
+  LocationSurchargeBreakdown,
+} from '../../../services/distance';
 
 // The user books one specific service (chosen before entering this screen), not
 // a provider — the service comes in as a route param and carries serviceProviderId.
@@ -38,7 +46,9 @@ type Appointment = {
   id: number;
   service: { id: number; name: string; price: number };
   pet: { id: number; name: string; image: string };
-  addons: { name: string; price: number }[];
+  // `breakdown` is set for location add-ons priced per km, so Review can explain
+  // the start fee / per-km charge / free-km credit behind the frozen `price`.
+  addons: { name: string; price: number; breakdown?: LocationSurchargeBreakdown }[];
   bookingFrom: string;
   bookingTo: string;
   total: number;
@@ -54,6 +64,9 @@ type Appointment = {
   leaveOverAddress?: AddressDto;
   // Special Needs add-on has no address — it's carried as a flag (→ includeSpecialNeeds).
   includeSpecialNeeds?: boolean;
+  // Service↔pickup/drop-off distance (km) used for the per-km surcharge. Frozen
+  // at add time and sent on booking create (server applies it to both add-ons).
+  distanceKm?: number;
 };
 
 // Bookable slots are derived from the day's availability windows
@@ -75,6 +88,59 @@ const hmsToMinutes = (t?: string | null): number => {
 /** Two time ranges overlap (half-open intervals). */
 const overlaps = (aFrom: number, aTo: number, bFrom: number, bTo: number) =>
   aFrom < bTo && aTo > bFrom;
+
+/** Round to at most 2 decimals for display (trims per-km float artifacts). */
+const money = (n: number) => Math.round(n * 100) / 100;
+
+type RouteDistanceInfo = {
+  km: number | null;
+  source: 'directions' | 'straight-line' | null;
+  loading: boolean;
+};
+
+/**
+ * Measures the route distance from `from` to `to` (Google Directions on web,
+ * straight-line fallback — see services/directions), re-running whenever either
+ * endpoint actually moves. Inactive, or a missing endpoint, resets it to empty.
+ * One instance per location add-on so the pickup and drop-off price checks each
+ * track their OWN picked address instead of sharing a single measurement.
+ */
+function useRouteDistance(
+  from: GeoPoint | null,
+  to: GeoPoint | null,
+  active: boolean
+): RouteDistanceInfo {
+  const [info, setInfo] = useState<RouteDistanceInfo>({ km: null, source: null, loading: false });
+  // Depend on the primitive lat/lng, not the point objects — those are recreated
+  // every render, which would re-run the measurement (and re-hit Directions) on
+  // every render. Primitives only change when a different point is picked.
+  const fromLat = from?.latitude;
+  const fromLng = from?.longitude;
+  const toLat = to?.latitude;
+  const toLng = to?.longitude;
+  useEffect(() => {
+    if (!active || fromLat == null || fromLng == null || toLat == null || toLng == null) {
+      setInfo({ km: null, source: null, loading: false });
+      return;
+    }
+    let cancelled = false;
+    setInfo((prev) => ({ ...prev, loading: true }));
+    routeDistanceKm(
+      { latitude: fromLat, longitude: fromLng },
+      { latitude: toLat, longitude: toLng }
+    )
+      .then((res) => {
+        if (!cancelled) setInfo({ km: res.km, source: res.source, loading: false });
+      })
+      .catch(() => {
+        if (!cancelled) setInfo({ km: null, source: null, loading: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [active, fromLat, fromLng, toLat, toLng]);
+  return info;
+}
 
 export default function BookServiceScreen() {
   const navigation = useNavigation();
@@ -140,6 +206,16 @@ export default function BookServiceScreen() {
   const [availWindows, setAvailWindows] = useState<AvailabilityWindowDto[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
+  const petToListItem = useCallback(
+    (p: PetResponse) => ({
+      id: Number(p.id),
+      name: p.name,
+      breed: p.breed || tEnum('petSpeciesType', p.type),
+      image: p.photoUrl ? resolveImageUrl(p.photoUrl) : resolveImageUrl(p.photos?.[0]?.src),
+    }),
+    [tEnum]
+  );
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -155,14 +231,7 @@ export default function BookServiceScreen() {
         ]);
         if (cancelled) return;
         if (fullService) setSelectedService(fullService);
-        setPets(
-          petList.map((p) => ({
-            id: Number(p.id),
-            name: p.name,
-            breed: p.breed || tEnum('petSpeciesType', p.type),
-            image: p.photoUrl ? resolveImageUrl(p.photoUrl) : resolveImageUrl(p.photos?.[0]?.src),
-          }))
-        );
+        setPets(petList.map(petToListItem));
       } catch (e) {
         if (!cancelled) showError(getErrorMessage(e, t('bookService.petsLoadError')));
       } finally {
@@ -173,6 +242,36 @@ export default function BookServiceScreen() {
       cancelled = true;
     };
   }, [currentUser?.id, service.id]);
+
+  // This screen stays mounted while AddPet is pushed on top of it, so a pet
+  // created mid-booking isn't picked up by the mount fetch above. Refresh the
+  // pet list on every refocus (skipping the initial one) and auto-select the
+  // newest pet when none is selected yet.
+  const isFirstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      if (!currentUser?.id) return;
+      let cancelled = false;
+      (async () => {
+        try {
+          const petList = await getPets(currentUser.id);
+          if (cancelled) return;
+          const mapped = petList.map(petToListItem);
+          setPets(mapped);
+          setSelectedPet((prev) => prev ?? (mapped.length ? mapped[mapped.length - 1].id : null));
+        } catch (e) {
+          if (!cancelled) showError(getErrorMessage(e, t('bookService.petsLoadError')));
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [currentUser?.id, petToListItem])
+  );
 
   // For the chosen day, fetch the service's bookable windows from the
   // availability endpoint. This is the ONLY source of slot availability — the
@@ -284,6 +383,171 @@ export default function BookServiceScreen() {
   const addressesProvided =
     (!pickupSelected || !!pickupAddr) && (!dropoffSelected || !!dropoffAddr);
 
+  // --- Distance-based add-on pricing -------------------------------------
+  // Pickup/Drop-off can be priced per km (baseFee + perKmFee × billable km). We
+  // measure the road distance (Google Directions where available, else straight-
+  // line) between the SERVICE's address and the booker's pickup/drop-off point,
+  // then estimate the surcharge with the exact server formula (locationSurcharge).
+  // The backend has a SINGLE distanceKm applied to BOTH add-ons, so we measure
+  // one representative point — pickup when selected, else drop-off — and price
+  // both with it (matching what the server will charge).
+  const pickupAddon = serviceAddons.find((a) => a.id === 'pickup');
+  const dropoffAddon = serviceAddons.find((a) => a.id === 'dropoff');
+  // The service's own coordinates anchor the distance measurement. Stored
+  // service addresses often carry only text (no lat/lng) — seeded rows, or ones
+  // copied from a profile address — so when `address.location` is missing we
+  // forward-geocode the address text once (Google on web / Nominatim, fail-soft),
+  // mirroring how SearchScreen resolves its map pins. Without this the per-km
+  // pickup/drop-off surcharge would silently fall back to the flat base fee.
+  const storedServiceLocation = selectedService.address?.location ?? null;
+  const svcAddr = selectedService.address;
+  const [serviceGeo, setServiceGeo] = useState<{ point: GeoPoint | null; loading: boolean }>({
+    point: null,
+    loading: false,
+  });
+  useEffect(() => {
+    if (storedServiceLocation) {
+      setServiceGeo({ point: null, loading: false }); // stored coords win
+      return;
+    }
+    const query = svcAddr
+      ? [svcAddr.line1, svcAddr.postalCode, svcAddr.city, svcAddr.country]
+          .filter(Boolean)
+          .join(', ')
+      : '';
+    if (!query) {
+      setServiceGeo({ point: null, loading: false });
+      return;
+    }
+    let cancelled = false;
+    setServiceGeo({ point: null, loading: true });
+    forwardGeocode(query)
+      .then((point) => {
+        if (!cancelled) setServiceGeo({ point, loading: false });
+      })
+      .catch(() => {
+        if (!cancelled) setServiceGeo({ point: null, loading: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Primitive deps only — the address/location objects are recreated each
+    // render, which would otherwise re-run the geocode on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    storedServiceLocation?.latitude,
+    storedServiceLocation?.longitude,
+    svcAddr?.line1,
+    svcAddr?.city,
+    svcAddr?.postalCode,
+    svcAddr?.country,
+  ]);
+  // Prefer the stored coords; fall back to the geocoded ones.
+  const serviceLocation = storedServiceLocation ?? serviceGeo.point;
+  // Each location add-on measures the distance from the service to ITS OWN
+  // picked point, so the pickup and drop-off price checks each react to their
+  // own address (no shared measurement). A per-km add-on is "active" once it's
+  // selected, bills per km, and has a picked point to measure to.
+  const pickupPerKm = pickupSelected && (pickupAddon?.perKmFee ?? 0) > 0 && !!pickupAddr;
+  const dropoffPerKm = dropoffSelected && (dropoffAddon?.perKmFee ?? 0) > 0 && !!dropoffAddr;
+  const pickupDistance = useRouteDistance(
+    serviceLocation,
+    pickupAddr?.location ?? null,
+    pickupPerKm
+  );
+  const dropoffDistance = useRouteDistance(
+    serviceLocation,
+    dropoffAddr?.location ?? null,
+    dropoffPerKm
+  );
+
+  // The measured distance for a specific add-on (null for non-location add-ons).
+  const addonDistanceKm = (id: string): number | null =>
+    id === 'pickup' ? pickupDistance.km : id === 'dropoff' ? dropoffDistance.km : null;
+
+  // Effective price for an add-on given its own measured distance: the per-km
+  // surcharge once that distance is known, else the flat base fee.
+  const addonEffectivePrice = (addon: (typeof serviceAddons)[number]): number => {
+    const distanceKm = addonDistanceKm(addon.id);
+    if (addon.perKmFee > 0 && distanceKm != null) {
+      return locationSurcharge(distanceKm, {
+        baseFee: addon.price,
+        perKmFee: addon.perKmFee,
+        freeDistanceKm: addon.freeDistanceKm,
+        maxDistanceKm: addon.maxDistanceKm,
+      });
+    }
+    return addon.price;
+  };
+
+  // The single distanceKm the booking sends — the server applies it to both the
+  // pickup and pet-return surcharges. Prefer the pickup measurement (pickup and
+  // drop-off are usually the same point), else the drop-off one.
+  const bookingDistanceKm =
+    pickupPerKm && pickupDistance.km != null
+      ? pickupDistance.km
+      : dropoffPerKm && dropoffDistance.km != null
+        ? dropoffDistance.km
+        : null;
+
+  // Distance must be resolved before the estimate is trustworthy — block adding
+  // the appointment while it's still being resolved. Two async stages: geocoding
+  // the service's address (when it has no stored coords) and measuring each
+  // route. Only gates when a per-km add-on is actually in play.
+  const anyPerKm = pickupPerKm || dropoffPerKm;
+  const distanceReady =
+    !(anyPerKm && serviceGeo.loading) &&
+    !(
+      pickupPerKm &&
+      (pickupDistance.loading || (!!serviceLocation && pickupDistance.km == null))
+    ) &&
+    !(
+      dropoffPerKm &&
+      (dropoffDistance.loading || (!!serviceLocation && dropoffDistance.km == null))
+    );
+
+  const km1 = (km: number) => (Math.round(km * 10) / 10).toFixed(1);
+
+  // The "price check" line under a location add-on's address: the measured
+  // distance + the estimated per-km surcharge (or a loading / unavailable note).
+  // Only shown for add-ons that actually bill per km.
+  const renderDistanceEstimate = (
+    addon: (typeof serviceAddons)[number] | undefined,
+    dist: RouteDistanceInfo
+  ) => {
+    if (!addon || addon.perKmFee <= 0) return null;
+    // Still resolving the service's coordinates or measuring this route.
+    if (serviceGeo.loading || dist.loading) {
+      return (
+        <View className="mt-2 flex-row items-center">
+          <ActivityIndicator size="small" color="#00C870" />
+          <Text className={`text-xs ${subtextColor} ml-2`}>
+            {t('bookService.distanceEstimating')}
+          </Text>
+        </View>
+      );
+    }
+    // No coordinates for the service (missing address / geocode failed) → the
+    // distance can't be measured, so only the flat base fee applies.
+    if (!serviceLocation) {
+      return (
+        <Text className={`text-xs ${subtextColor} mt-2`}>
+          {t('bookService.distanceUnavailable')}
+        </Text>
+      );
+    }
+    if (dist.km == null) return null;
+    return (
+      <Text className="mt-2 text-xs font-medium text-brand-600">
+        {t('bookService.distanceSurcharge', {
+          km: km1(dist.km),
+          price: `$${money(addonEffectivePrice(addon))}`,
+        })}
+        {dist.source === 'straight-line' ? ` · ${t('bookService.distanceApprox')}` : ''}
+      </Text>
+    );
+  };
+
   // Per-selection service price: the chosen option's (discounted) price when
   // the service defines options, else the classic effective service price.
   const currentServicePrice = () =>
@@ -294,13 +558,13 @@ export default function BookServiceScreen() {
   const currentTotal = () => {
     const addons = selectedAddons.reduce((sum, id) => {
       const def = serviceAddons.find((a) => a.id === id);
-      return sum + (def?.price ?? 0);
+      return sum + (def ? addonEffectivePrice(def) : 0);
     }, 0);
-    return currentServicePrice() + addons;
+    return money(currentServicePrice() + addons);
   };
 
   const selectionComplete =
-    optionChosen && !!startDateTime && selectedPet !== null && addressesProvided;
+    optionChosen && !!startDateTime && selectedPet !== null && addressesProvided && distanceReady;
 
   const buildAppointment = (): Appointment | null => {
     if (!optionChosen || !startDateTime || selectedPet === null || !addressesProvided) return null;
@@ -310,13 +574,29 @@ export default function BookServiceScreen() {
       service: {
         id: selectedService.id ?? 0,
         name: selectedService.name ?? 'Service',
-        price: currentServicePrice(),
+        price: money(currentServicePrice()),
       },
       pet: { id: selectedPet, name: pet?.name ?? 'Pet', image: pet?.image ?? '' },
       addons: selectedAddons.flatMap((id) => {
         const def = serviceAddons.find((a) => a.id === id);
-        // Localized display name, frozen at add time (shown here + on Review).
-        return def ? [{ name: t(`addons.${def.id}` as any), price: def.price }] : [];
+        if (!def) return [];
+        // Localized display name + effective (distance-based) price, frozen at
+        // add time (shown here + on Review, and summed into the booking total).
+        // For per-km location add-ons also freeze the surcharge breakdown so the
+        // Review screen can itemize start fee / per-km / free-km credit.
+        const distanceKm = addonDistanceKm(def.id);
+        const breakdown =
+          def.perKmFee > 0 && distanceKm != null
+            ? locationSurchargeBreakdown(distanceKm, {
+                baseFee: def.price,
+                perKmFee: def.perKmFee,
+                freeDistanceKm: def.freeDistanceKm,
+                maxDistanceKm: def.maxDistanceKm,
+              })
+            : undefined;
+        return [
+          { name: t(`addons.${def.id}` as any), price: money(addonEffectivePrice(def)), breakdown },
+        ];
       }),
       // Naive local wall-clock (no offset) so the booking round-trips to the same
       // time the user picked under parseBookingDate (see services/bookings.ts).
@@ -331,6 +611,7 @@ export default function BookServiceScreen() {
       pickupAddress: pickupSelected ? (pickupAddr ?? undefined) : undefined,
       leaveOverAddress: dropoffSelected ? (dropoffAddr ?? undefined) : undefined,
       includeSpecialNeeds: selectedAddons.includes('specialNeeds'),
+      distanceKm: bookingDistanceKm ?? undefined,
     };
   };
 
@@ -434,11 +715,13 @@ export default function BookServiceScreen() {
                 <Text className="text-xl font-bold text-brand-600">
                   {pricingOptions.length > 0
                     ? selectedOption
-                      ? `$${effectiveOptionPrice(selectedService, selectedOption)}`
-                      : `${t('bookService.priceFrom')} $${Math.min(
-                          ...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o))
+                      ? `$${money(effectiveOptionPrice(selectedService, selectedOption))}`
+                      : `${t('bookService.priceFrom')} $${money(
+                          Math.min(
+                            ...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o))
+                          )
                         )}`
-                    : `$${servicePrice(selectedService)}`}
+                    : `$${money(servicePrice(selectedService))}`}
                 </Text>
               </View>
             </View>
@@ -469,20 +752,22 @@ export default function BookServiceScreen() {
                       <View className="flex-row items-center justify-between">
                         <View className="flex-1">
                           <Text className={`text-base font-semibold ${textColor}`}>
-                            {option.name}
+                            {durationDisplayLabel(t, option.name)}
                           </Text>
                           <Text className={`text-sm ${subtextColor} mt-1`}>
-                            {option.durationMinutes} min
+                            {t('durations.nMin', { n: option.durationMinutes })}
                             {option.description ? ` • ${option.description}` : ''}
                           </Text>
                         </View>
                         <View className="ml-4 items-end">
                           {effective < option.price && (
                             <Text className={`text-xs ${subtextColor} line-through`}>
-                              ${option.price}
+                              ${money(option.price)}
                             </Text>
                           )}
-                          <Text className="text-lg font-bold text-brand-600">${effective}</Text>
+                          <Text className="text-lg font-bold text-brand-600">
+                            ${money(effective)}
+                          </Text>
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -522,7 +807,9 @@ export default function BookServiceScreen() {
                         {t(`addons.${addon.id}Desc` as any)}
                       </Text>
                     </View>
-                    <Text className="ml-4 text-lg font-bold text-brand-600">${addon.price}</Text>
+                    <Text className="ml-4 text-lg font-bold text-brand-600">
+                      {addonPriceLabel(t, addon) ?? t('addons.included')}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               ))
@@ -549,6 +836,8 @@ export default function BookServiceScreen() {
                     color={isDarkMode ? '#9CA3AF' : '#6B7280'}
                   />
                 </TouchableOpacity>
+                {/* Price check: measured distance + estimated per-km surcharge. */}
+                {pickupAddr ? renderDistanceEstimate(pickupAddon, pickupDistance) : null}
                 {/* Copy the drop-off address into pickup (explicit, not auto-filled). */}
                 {dropoffSelected && dropoffAddr && pickupAddr !== dropoffAddr ? (
                   <TouchableOpacity
@@ -582,6 +871,8 @@ export default function BookServiceScreen() {
                     color={isDarkMode ? '#9CA3AF' : '#6B7280'}
                   />
                 </TouchableOpacity>
+                {/* Price check: measured distance + estimated per-km surcharge. */}
+                {dropoffAddr ? renderDistanceEstimate(dropoffAddon, dropoffDistance) : null}
                 {/* Copy the pickup address into drop-off (explicit, not auto-filled). */}
                 {pickupSelected && pickupAddr && dropoffAddr !== pickupAddr ? (
                   <TouchableOpacity
@@ -612,12 +903,7 @@ export default function BookServiceScreen() {
                 <Ionicons name="calendar-outline" size={20} color="#00C870" />
                 <Text className={`ml-3 ${selectedDate ? textColor : subtextColor}`}>
                   {selectedDate
-                    ? selectedDate.toLocaleDateString(undefined, {
-                        weekday: 'short',
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })
+                    ? `${t(DAY_SHORT_KEYS[selectedDate.getDay()])}, ${t(MONTH_KEYS[selectedDate.getMonth()])} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`
                     : t('bookService.selectDate')}
                 </Text>
               </View>
@@ -683,7 +969,7 @@ export default function BookServiceScreen() {
               </View>
               <Text className={`text-sm ${subtextColor} mb-3`}>{t('bookService.noPetsYet')}</Text>
               <TouchableOpacity
-                onPress={() => (navigation as any).navigate('AddPet')}
+                onPress={() => (navigation as any).navigate('AddPet', { goBackOnSave: true })}
                 className="flex-row items-center justify-center rounded-2xl bg-brand-500 py-3">
                 <Ionicons name="add" size={20} color="white" />
                 <Text className="ml-2 font-bold text-white">{t('bookService.addAPet')}</Text>
@@ -738,11 +1024,10 @@ export default function BookServiceScreen() {
                         </Text>
                       </Text>
                       <Text className={`text-sm ${subtextColor} mt-1`}>
-                        {parseBookingDate(apt.bookingFrom).toLocaleDateString(undefined, {
-                          weekday: 'short',
-                          month: 'short',
-                          day: 'numeric',
-                        })}{' '}
+                        {(() => {
+                          const d = parseBookingDate(apt.bookingFrom);
+                          return `${t(DAY_SHORT_KEYS[d.getDay()])}, ${t(MONTH_SHORT_KEYS[d.getMonth()])} ${d.getDate()}`;
+                        })()}{' '}
                         {t('bookService.at')}{' '}
                         {parseBookingDate(apt.bookingFrom).toLocaleTimeString(undefined, {
                           hour: '2-digit',
@@ -752,7 +1037,9 @@ export default function BookServiceScreen() {
                       </Text>
                       {apt.pricingOptionName && (
                         <Text className={`text-xs ${subtextColor} mt-1`}>
-                          {t('bookService.option', { name: apt.pricingOptionName })}
+                          {t('bookService.option', {
+                            name: durationDisplayLabel(t, apt.pricingOptionName),
+                          })}
                         </Text>
                       )}
                       {apt.addons.length > 0 && (

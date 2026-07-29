@@ -4,6 +4,7 @@ import * as Location from 'expo-location';
 import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { LocationPingInput } from '../services/live-location';
 import { createLocationHubConnection, LOCATION_HUB_METHODS } from '../services/location-hub';
+import { GeoPoint } from '../services/geocoding';
 
 export type SharingState = {
   /** True while the GPS watcher is running and the hub connection is up. */
@@ -11,9 +12,15 @@ export type SharingState = {
   error: string | null;
   /** Epoch ms of the last successfully pushed ping (null before the first). */
   lastSentAt: number | null;
+  /**
+   * The device's most recent GPS fix (captured from the same watcher that feeds
+   * the hub, independent of push success). Lets the partner's UI render a live
+   * map of where they are without a second location subscription.
+   */
+  latest: GeoPoint | null;
 };
 
-const IDLE: SharingState = { isSharing: false, error: null, lastSentAt: null };
+const IDLE: SharingState = { isSharing: false, error: null, lastSentAt: null, latest: null };
 
 type PositionFix = {
   latitude: number;
@@ -75,6 +82,15 @@ export function useLocationSharing(bookingId: number | null): SharingState {
       }
     };
 
+    // Record the fix for the UI (always) and stream it to the hub (best-effort).
+    const handleFix = (fix: PositionFix) => {
+      safeSet((prev) => ({
+        ...prev,
+        latest: { latitude: fix.latitude, longitude: fix.longitude },
+      }));
+      void push(fix);
+    };
+
     // Returns the watcher's cleanup fn, or null when watching couldn't start
     // (missing capability / permission denied — the error state is already set).
     const startWatching = async (): Promise<(() => void) | null> => {
@@ -85,7 +101,7 @@ export function useLocationSharing(bookingId: number | null): SharingState {
         }
         const watchId = navigator.geolocation.watchPosition(
           (p) =>
-            void push({
+            handleFix({
               latitude: p.coords.latitude,
               longitude: p.coords.longitude,
               accuracy: p.coords.accuracy ?? null,
@@ -111,7 +127,7 @@ export function useLocationSharing(bookingId: number | null): SharingState {
           distanceInterval: 5,
         },
         (p) =>
-          void push({
+          handleFix({
             latitude: p.coords.latitude,
             longitude: p.coords.longitude,
             accuracy: p.coords.accuracy ?? null,
@@ -123,22 +139,45 @@ export function useLocationSharing(bookingId: number | null): SharingState {
       return () => subscription.remove();
     };
 
+    // `isSharing` means "watching AND delivering" — track both legs separately
+    // now that they start independently.
+    let watching = false;
+    let connected = false;
+    const syncSharing = () => safeSet((prev) => ({ ...prev, isSharing: watching && connected }));
+
+    // The GPS watcher starts independently of the hub. Showing the partner their
+    // OWN position (and the route to the pickup) is a purely local feature, and
+    // `push` already no-ops until the connection is up — so a hub failure must
+    // degrade delivery only, never blind the map. Previously the watcher lived
+    // after `await connection.start()`, so any hub error meant no fixes at all.
     (async () => {
       try {
-        connection = createLocationHubConnection();
-        await connection.start();
-        if (cancelled) return;
         const stopWatching = await startWatching();
-        removeWatcher = stopWatching;
         if (cancelled) {
           // Unmounted while the watcher was being set up — don't leak it.
           stopWatching?.();
           return;
         }
-        if (stopWatching) safeSet((prev) => ({ ...prev, isSharing: true }));
+        removeWatcher = stopWatching;
+        watching = !!stopWatching;
+        syncSharing();
       } catch (error) {
-        if (__DEV__) console.warn('[useLocationSharing] start failed', error);
-        safeSet(() => ({ ...IDLE, error: 'Could not start live location sharing.' }));
+        if (__DEV__) console.warn('[useLocationSharing] watch failed', error);
+        safeSet((prev) => ({ ...prev, error: 'Could not read this device’s location.' }));
+      }
+    })();
+
+    (async () => {
+      try {
+        connection = createLocationHubConnection();
+        await connection.start();
+        if (cancelled) return;
+        connected = true;
+        syncSharing();
+      } catch (error) {
+        if (__DEV__) console.warn('[useLocationSharing] hub start failed', error);
+        // Keep any position we already have — only delivery is broken.
+        safeSet((prev) => ({ ...prev, error: 'Live location is not reaching the owner.' }));
       }
     })();
 

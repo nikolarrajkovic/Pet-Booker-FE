@@ -19,10 +19,13 @@ import { addressLabel } from '../../../services/geocoding';
 type RouteParams = { bookingId: number };
 
 // statusLabel string → { badge style, BookingState enum value } (label via tEnum).
+// 'in-progress' gets the loudest badge — the service is happening right now.
 const STATUS_STYLE: Record<string, { bg: string; text: string; state: number }> = {
   upcoming: { bg: 'bg-blue-100', text: 'text-blue-700', state: 0 },
   completed: { bg: 'bg-green-100', text: 'text-green-700', state: 1 },
   cancelled: { bg: 'bg-red-100', text: 'text-red-700', state: 2 },
+  booked: { bg: 'bg-indigo-100', text: 'text-indigo-700', state: 3 },
+  'in-progress': { bg: 'bg-amber-100', text: 'text-amber-700', state: 4 },
 };
 
 export default function BookingDetailsScreen() {
@@ -247,6 +250,7 @@ export default function BookingDetailsScreen() {
                     review.open({
                       bookingId: dto.id ?? bookingId,
                       serviceProviderId: dto.serviceProviderId,
+                      serviceId: dto.serviceId,
                       serviceName: vm.serviceName,
                     })
                   }

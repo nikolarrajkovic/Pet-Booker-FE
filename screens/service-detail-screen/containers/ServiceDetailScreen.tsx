@@ -15,16 +15,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
-import { getService, ServiceDto, effectiveOptionPrice } from '../../../services/services';
-import { getReviews, ReviewDto } from '../../../services/reviews';
 import {
-  getServiceProvider,
-  resolveImageUrl,
-  ApprovalStatus,
-  ServiceProviderDto,
-} from '../../../services/service-providers';
-import { getEnabledServiceAddons } from '../../../services/service-addons';
-import { schedulesToWorkingHours } from '../../my-services-screen/serviceModel';
+  getService,
+  ServiceDto,
+  ServiceProviderInfoDto,
+  effectiveOptionPrice,
+} from '../../../services/services';
+import { ReviewDto } from '../../../services/reviews';
+import { resolveImageUrl, ApprovalStatus } from '../../../services/service-providers';
+import { getEnabledServiceAddons, addonPriceLabel } from '../../../services/service-addons';
+import {
+  schedulesToWorkingHours,
+  durationDisplayLabel,
+} from '../../my-services-screen/serviceModel';
 import { PetSpecies } from '../../../services/pets';
 
 // The booker reads everything about ONE specific service here, then taps
@@ -65,8 +68,6 @@ export default function ServiceDetailScreen() {
   const { t, tEnum } = useLocale();
 
   const [selectedService, setSelectedService] = useState<ServiceDto>(service);
-  const [provider, setProvider] = useState<ServiceProviderDto | null>(null);
-  const [reviews, setReviews] = useState<ReviewDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activePhoto, setActivePhoto] = useState(0);
 
@@ -75,23 +76,14 @@ export default function ServiceDetailScreen() {
     (async () => {
       setIsLoading(true);
       try {
-        // Full service (with details/schedules/pricing) + the provider + the
-        // provider's approved reviews, in parallel. Each fails soft so one
-        // missing piece doesn't blank the screen.
-        const [fullService, prov, rev] = await Promise.all([
-          service.id != null ? getService(service.id).catch(() => null) : Promise.resolve(null),
-          getServiceProvider(service.serviceProviderId).catch(() => null),
-          getReviews({
-            serviceProviderId: service.serviceProviderId,
-            approvalStatus: ApprovalStatus.Approved,
-          }).catch(() => [] as ReviewDto[]),
-        ]);
+        // One fetch: the full service GET embeds details/schedules/pricing plus
+        // the slim provider (name/photos/address/rating/verified) and the
+        // service's reviews. Fails soft — the lean route-param service still
+        // renders (without provider/reviews) if the fetch dies.
+        const fullService =
+          service.id != null ? await getService(service.id).catch(() => null) : null;
         if (cancelled) return;
         if (fullService) setSelectedService(fullService);
-        setProvider(prov);
-        setReviews(rev);
-      } catch (e) {
-        console.warn('[ServiceDetailScreen] load failed', e);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -99,9 +91,15 @@ export default function ServiceDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [service.id, service.serviceProviderId]);
+  }, [service.id]);
 
   const svc = selectedService;
+  const provider: ServiceProviderInfoDto | null = svc.serviceProvider ?? null;
+  // Embedded reviews are service-level and carry every moderation status —
+  // this is a public screen, so show only the approved ones.
+  const reviews: ReviewDto[] = (svc.reviews ?? []).filter(
+    (r) => r.approvalStatus === ApprovalStatus.Approved
+  );
   // All service photos for the gallery, profile photo (isSelected) first, then
   // the rest in order. Falls back to the precomputed imageUrl when there are no
   // photo records.
@@ -352,9 +350,11 @@ export default function ServiceDetailScreen() {
                         <Ionicons name="time-outline" size={20} color="#00C870" />
                       </View>
                       <View className="flex-1">
-                        <Text className={`font-medium ${textColor}`}>{option.name}</Text>
+                        <Text className={`font-medium ${textColor}`}>
+                          {durationDisplayLabel(t, option.name)}
+                        </Text>
                         <Text className={`text-xs ${subtextColor} mt-0.5`}>
-                          {option.durationMinutes} min
+                          {t('durations.nMin', { n: option.durationMinutes })}
                           {option.description ? ` • ${option.description}` : ''}
                         </Text>
                       </View>
@@ -404,7 +404,9 @@ export default function ServiceDetailScreen() {
                     </View>
                   </View>
                   <Text className="font-semibold text-brand-600">
-                    {addon.price > 0 ? `+$${addon.price}` : t('addons.included')}
+                    {addonPriceLabel(t, addon)
+                      ? `+${addonPriceLabel(t, addon)}`
+                      : t('addons.included')}
                   </Text>
                 </View>
               ))
@@ -461,7 +463,7 @@ export default function ServiceDetailScreen() {
           {/* Reviews */}
           {reviews.length > 0 &&
             section(
-              t('serviceDetail.reviewsCount', { count: reviewCount }),
+              t('serviceDetail.reviewsCount', { count: reviews.length }),
               reviews.slice(0, 5).map((review, idx) => (
                 <View
                   key={review.id ?? idx}

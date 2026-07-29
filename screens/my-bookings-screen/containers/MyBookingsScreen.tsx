@@ -9,7 +9,12 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ReviewModal from '../../../components/shared/ReviewModal';
 import { useReviewModal } from '../../../hooks/useReviewModal';
 import { BookingCard } from '../components';
-import { getBookings, bookingToViewModel, BookingViewModel } from '../../../services/bookings';
+import {
+  getBookings,
+  bookingToViewModel,
+  BookingViewModel,
+  ACTIVE_STATUS_LABELS,
+} from '../../../services/bookings';
 
 export default function MyBookingsScreen() {
   const navigation = useNavigation();
@@ -57,8 +62,10 @@ export default function MyBookingsScreen() {
     }, [load])
   );
 
-  const upcomingBookings = bookings.filter((b) => b.statusLabel === 'upcoming');
-  const pastBookings = bookings.filter((b) => b.statusLabel !== 'upcoming');
+  // Active bookings (requested/booked/in-progress) live on the Upcoming tab;
+  // only terminal ones (completed/cancelled) are "past".
+  const upcomingBookings = bookings.filter((b) => ACTIVE_STATUS_LABELS.includes(b.statusLabel));
+  const pastBookings = bookings.filter((b) => !ACTIVE_STATUS_LABELS.includes(b.statusLabel));
   const visible = activeTab === 'upcoming' ? upcomingBookings : pastBookings;
 
   const renderBody = () => {
@@ -125,6 +132,7 @@ export default function MyBookingsScreen() {
               review.open({
                 bookingId: booking.id,
                 serviceProviderId: booking.providerId,
+                serviceId: booking.serviceId,
                 serviceName: booking.serviceName,
               })
             }

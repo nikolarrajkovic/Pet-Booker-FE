@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { themeColors } from '../../hooks/useThemeColors';
@@ -11,6 +11,7 @@ import {
   GeoPoint,
 } from '../../services/geocoding';
 import { AddressDto } from '../../services/service-providers';
+import { loadGoogleMaps, DEV_MAP_ID } from '../../services/google-maps';
 
 export type MapAddressPickerProps = {
   visible: boolean;
@@ -22,11 +23,11 @@ export type MapAddressPickerProps = {
 };
 
 /**
- * Web map picker — a Leaflet map in an iframe. The user can type an address to
- * jump to it, or pan the map under a fixed centre pin. The iframe reports its
- * centre on every pan and accepts re-centre messages (search / locate / current
- * location). On confirm the centre is reverse-geocoded (Nominatim) into the
- * booking AddressDto. Opens centred on the user's current location when available.
+ * Web map picker — a Google Map rendered into a plain div. The user can type an
+ * address to jump to it, or pan the map under a fixed centre pin. On confirm the
+ * centre is reverse-geocoded (Nominatim) into the booking AddressDto. Opens
+ * centred on the user's current location when available.
+ * (Native build: MapAddressPicker.tsx.)
  */
 export default function MapAddressPicker({
   visible,
@@ -36,20 +37,22 @@ export default function MapAddressPicker({
   onClose,
   onSelect,
 }: MapAddressPickerProps) {
-  const { t } = useLocale();
+  const { t, language } = useLocale();
   const { hex } = themeColors(isDarkMode);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const readyRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
   const pendingRef = useRef<GeoPoint | null>(null);
   const [center, setCenter] = useState<GeoPoint>(initialRegion);
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [mapError, setMapError] = useState(false);
 
-  const postToMap = (p: GeoPoint) => {
-    const w = iframeRef.current?.contentWindow;
-    if (readyRef.current && w) {
-      w.postMessage({ type: 'pb-set-center', lat: p.latitude, lng: p.longitude }, '*');
+  const applyToMap = (p: GeoPoint) => {
+    const map = mapRef.current;
+    if (map) {
+      map.setCenter({ lat: p.latitude, lng: p.longitude });
+      map.setZoom(16);
     } else {
       pendingRef.current = p;
     }
@@ -57,27 +60,49 @@ export default function MapAddressPicker({
 
   const recenter = (p: GeoPoint) => {
     setCenter(p);
-    postToMap(p);
+    applyToMap(p);
   };
 
-  // Listen for centre updates and the map-ready handshake from the iframe.
+  // Create the map when the modal opens (the div only exists while visible).
   useEffect(() => {
-    const onMsg = (e: MessageEvent) => {
-      const d = e.data;
-      if (!d || typeof d !== 'object') return;
-      if (d.type === 'pb-map-center' && typeof d.lat === 'number') {
-        setCenter({ latitude: d.lat, longitude: d.lng });
-      } else if (d.type === 'pb-map-ready') {
-        readyRef.current = true;
+    if (!visible) {
+      mapRef.current = null;
+      return;
+    }
+    let cancelled = false;
+    loadGoogleMaps(language)
+      .then((maps) => {
+        if (cancelled || !containerRef.current) return;
+        const map = new maps.Map(containerRef.current, {
+          center: { lat: center.latitude, lng: center.longitude },
+          zoom: 15,
+          mapId: DEV_MAP_ID,
+          disableDefaultUI: true,
+          zoomControl: true,
+          // Google's default zoom position is bottom-right, which collides with
+          // the "locate me" button; keep the old MapLibre top-left placement.
+          zoomControlOptions: { position: maps.ControlPosition.LEFT_TOP },
+          colorScheme: isDarkMode ? maps.ColorScheme?.DARK : maps.ColorScheme?.LIGHT,
+        });
+        // Track the centre under the fixed pin after every pan/zoom settles.
+        map.addListener('idle', () => {
+          const c = map.getCenter();
+          if (c) setCenter({ latitude: c.lat(), longitude: c.lng() });
+        });
+        mapRef.current = map;
         if (pendingRef.current) {
-          postToMap(pendingRef.current);
+          applyToMap(pendingRef.current);
           pendingRef.current = null;
         }
-      }
+      })
+      .catch(() => {
+        if (!cancelled) setMapError(true);
+      });
+    return () => {
+      cancelled = true;
     };
-    window.addEventListener('message', onMsg);
-    return () => window.removeEventListener('message', onMsg);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   // Centre on the user's current location when the picker opens.
   useEffect(() => {
@@ -85,79 +110,13 @@ export default function MapAddressPicker({
     (async () => {
       const p = await getCurrentPosition();
       if (!active || !p) return;
-      setCenter(p);
-      postToMap(p);
+      recenter(p);
     })();
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const html = useMemo(
-    () => `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"/>
-  <style>html,body,#map{margin:0;padding:0;width:100%;height:100%}</style>
-</head>
-<body>
-  <div id="map"></div>
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <script>
-    // OpenFreeMap = free, keyless OpenMapTiles vector tiles. Because labels are
-    // vector (rendered client-side), we can force Latin script — so Serbian place
-    // names show in Serbian Latin instead of the tiles' default Cyrillic.
-    const map = new maplibregl.Map({
-      container: 'map',
-      style: 'https://tiles.openfreemap.org/styles/liberty',
-      center: [${initialRegion.longitude}, ${initialRegion.latitude}],
-      zoom: 15,
-      attributionControl: false
-    });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
-    // Override every label layer to prefer the Latin name (name:latin), falling
-    // back to the default name. OpenMapTiles provides name:latin for all features.
-    function setLatinLabels() {
-      for (const layer of (map.getStyle().layers || [])) {
-        if (layer.type === 'symbol' && layer.layout && 'text-field' in layer.layout) {
-          map.setLayoutProperty(layer.id, 'text-field',
-            ['coalesce', ['get', 'name:latin'], ['get', 'name']]);
-        }
-      }
-    }
-    function postCenter() {
-      const c = map.getCenter();
-      parent.postMessage({ type: 'pb-map-center', lat: c.lat, lng: c.lng }, '*');
-    }
-    map.on('moveend', postCenter);
-    window.addEventListener('message', function (e) {
-      // MapLibre uses [lng, lat] order (opposite of Leaflet's [lat, lng]).
-      if (e.data && e.data.type === 'pb-set-center') {
-        map.jumpTo({ center: [e.data.lng, e.data.lat], zoom: 16 });
-      }
-    });
-    map.on('load', function () {
-      setLatinLabels();
-      parent.postMessage({ type: 'pb-map-ready' }, '*');
-      postCenter();
-    });
-  </script>
-</body>
-</html>`,
-    [initialRegion.latitude, initialRegion.longitude]
-  );
-
-  // MapLibre GL can't spawn its Web Worker inside an iframe `srcDoc` document
-  // (the worker's blob URL resolves against `about:srcdoc` and fails to load), so
-  // the WebGL map silently never renders. Serving the same HTML from a blob: URL
-  // gives the iframe a real origin where the worker + WebGL work.
-  const [mapUrl, setMapUrl] = useState<string | null>(null);
-  useEffect(() => {
-    const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
-    setMapUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [html]);
 
   const runSearch = async () => {
     if (!query.trim()) return;
@@ -233,12 +192,14 @@ export default function MapAddressPicker({
 
         {/* Map + fixed centre pin */}
         <View style={{ flex: 1 }}>
-          <iframe
-            ref={iframeRef}
-            src={mapUrl ?? undefined}
-            style={{ border: 0, width: '100%', height: '100%' }}
-            title="Pick location"
-          />
+          {mapError ? (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="map-outline" size={48} color={hex.subtext} />
+              <Text style={{ color: hex.subtext, marginTop: 12 }}>{t('shared.mapLoadFailed')}</Text>
+            </View>
+          ) : (
+            <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+          )}
           <View
             pointerEvents="none"
             style={{

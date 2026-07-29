@@ -14,9 +14,12 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
+import { DAY_KEYS, MONTH_KEYS } from '../../../i18n';
+import { durationDisplayLabel } from '../../my-services-screen/serviceModel';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
-import { PriceBreakdown, PaymentMethodSelector } from '../components';
+import { PriceBreakdown, PaymentMethodSelector, AddonLine } from '../components';
+import { LocationSurchargeBreakdown } from '../../../services/distance';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
 import { ServiceDto } from '../../../services/services';
@@ -32,7 +35,9 @@ type Appointment = {
   id: number;
   service: { id: number; name: string; price: number };
   pet: { id: number; name: string; image: string };
-  addons: { name: string; price: number }[];
+  // `breakdown` is present for per-km location add-ons (pickup/drop-off) so the
+  // price breakdown can itemize the start fee / per-km charge / free-km credit.
+  addons: { name: string; price: number; breakdown?: LocationSurchargeBreakdown }[];
   bookingFrom: string;
   bookingTo: string;
   total: number;
@@ -45,6 +50,9 @@ type Appointment = {
   pickupAddress?: AddressDto;
   leaveOverAddress?: AddressDto;
   includeSpecialNeeds?: boolean;
+  // Service↔pickup/drop-off distance (km) for the per-km surcharge — sent to the
+  // server, which applies it to both the pickup and drop-off add-ons.
+  distanceKm?: number;
 };
 
 type ReviewBookingRouteParams = {
@@ -136,12 +144,36 @@ export default function ReviewBookingScreen() {
           amount: discountTotal,
         }
       : null;
-  // Aggregate add-ons by name across all appointments so each one is its own breakdown line.
-  const addonLines = Object.values(
+  // Aggregate add-ons by name across all appointments so each one is its own
+  // breakdown line. For per-km location add-ons the distance-pricing components
+  // (start fee / per-km charge / free-km credit) are summed too, so the line can
+  // show an itemized sub-breakdown that reconciles to the add-on total.
+  const addonLines: AddonLine[] = Object.values(
     appointments
       .flatMap((a) => a.addons)
-      .reduce<Record<string, { name: string; price: number }>>((acc, ad) => {
-        acc[ad.name] = { name: ad.name, price: (acc[ad.name]?.price ?? 0) + ad.price };
+      .reduce<Record<string, AddonLine>>((acc, ad) => {
+        const cur = acc[ad.name] ?? { name: ad.name, price: 0 };
+        cur.price += ad.price;
+        if (ad.breakdown) {
+          const agg = cur.breakdown ?? {
+            baseFee: 0,
+            distanceCharge: 0,
+            freeDiscount: 0,
+            cappedKm: 0,
+            freeKm: 0,
+            perKmFee: ad.breakdown.perKmFee,
+            count: 0,
+          };
+          agg.baseFee += ad.breakdown.baseFee;
+          agg.distanceCharge += ad.breakdown.distanceCharge;
+          agg.freeDiscount += ad.breakdown.freeDiscount;
+          agg.cappedKm += ad.breakdown.cappedKm;
+          agg.freeKm += ad.breakdown.freeKm;
+          agg.perKmFee = ad.breakdown.perKmFee;
+          agg.count += 1;
+          cur.breakdown = agg;
+        }
+        acc[ad.name] = cur;
         return acc;
       }, {})
   );
@@ -177,6 +209,7 @@ export default function ReviewBookingScreen() {
           pickupAddress: apt.pickupAddress,
           leaveOverAddress: apt.leaveOverAddress,
           includeSpecialNeeds: apt.includeSpecialNeeds,
+          distanceKm: apt.distanceKm,
         });
       }
 
@@ -244,12 +277,7 @@ export default function ReviewBookingScreen() {
                     style={{ marginRight: 6 }}
                   />
                   <Text className={`text-sm ${subtextColor}`}>
-                    {start.toLocaleDateString(undefined, {
-                      weekday: 'long',
-                      month: 'long',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })}
+                    {`${t(DAY_KEYS[start.getDay()])}, ${t(MONTH_KEYS[start.getMonth()])} ${start.getDate()}, ${start.getFullYear()}`}
                   </Text>
                 </View>
                 <View className="mt-1 flex-row items-center">
@@ -276,7 +304,9 @@ export default function ReviewBookingScreen() {
                       style={{ marginRight: 6 }}
                     />
                     <Text className={`text-sm ${subtextColor}`}>
-                      {t('bookService.option', { name: apt.pricingOptionName })}
+                      {t('bookService.option', {
+                        name: durationDisplayLabel(t, apt.pricingOptionName),
+                      })}
                     </Text>
                   </View>
                 )}

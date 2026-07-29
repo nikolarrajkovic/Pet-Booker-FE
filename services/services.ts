@@ -1,7 +1,20 @@
 import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
-import type { AddressDto } from './service-providers';
+import type { AddressDto, PhotoDto } from './service-providers';
 import type { ReviewDto } from './reviews';
 import { DiscountType } from './service-discounts';
+
+// Slim owning-provider embed on the service GET (ServiceProviderInfoReadDto) —
+// name/avatar/address/rating/verified, enough for ServiceDetail's provider card
+// without a separate getServiceProvider call. Same shape as the provider embed
+// on bookings/reviews.
+export type ServiceProviderInfoDto = {
+  id?: number | null;
+  name?: string | null;
+  isApproved?: boolean;
+  ratingAvg?: number | null;
+  address?: AddressDto | null;
+  photos?: PhotoDto[];
+};
 
 // One already-booked slot embedded on the service read DTO (ServiceReadDto.
 // upcomingBookings) — the provider's upcoming bookings for this service, enough
@@ -57,6 +70,8 @@ export type LocationBasedPriceDto = {
 export type ServiceDto = {
   id?: number | null;
   serviceProviderId: number;
+  // Read-only slim provider embed on the service GET (see ServiceProviderInfoDto).
+  serviceProvider?: ServiceProviderInfoDto | null;
   name?: string | null;
   // Long description — the write field (GET also mirrors it as `about`).
   description?: string | null;
@@ -104,8 +119,14 @@ export type ServiceDto = {
   // Duration/price variants (managed via /api/service-pricing-options; embedded
   // on GET). Non-empty → bookings must pick one; empty → classic booking.
   pricingOptions?: ServicePricingOptionDto[] | null;
-  // The service's address — now carries geo coords under `address.location`
-  // (used for map placement). Read-only on the service read DTO.
+  // The service's location — carries geo coords under `address.location` (used
+  // for map placement). WRITABLE, with a quirky PUT contract (verified live
+  // 2026-07-19): POST accepts it inline (id 0 → row created + linked); PUT only
+  // accepts the service's EXISTING address id (updates it in place) and 500s on
+  // a new inline address — create the row via createAddress() (services/
+  // addresses.ts) first and send the returned real-id row instead (see
+  // resolveServiceAddressForSave in my-services-screen/serviceModel.ts).
+  // Omitting the field on PUT keeps the stored address.
   address?: AddressDto | null;
   // Read-only fields the API computes and returns on GET (not sent on create):
   imageUrl?: string | null;

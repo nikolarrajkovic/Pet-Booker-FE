@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
-import { formatMoney } from '../../../services/bookings';
+import { formatMoney, BookingStatusLabel } from '../../../services/bookings';
 
 interface Booking {
   id: number;
@@ -12,7 +12,7 @@ interface Booking {
   time: string;
   price: number;
   currency?: string | null;
-  status: 'upcoming' | 'completed' | 'cancelled';
+  status: BookingStatusLabel;
   rating?: number;
   image: string;
 }
@@ -32,6 +32,10 @@ const getStatusColor = (status: string) => {
   switch (status) {
     case 'upcoming':
       return 'text-blue-600';
+    case 'booked':
+      return 'text-indigo-600';
+    case 'in-progress':
+      return 'text-amber-600';
     case 'completed':
       return 'text-green-600';
     case 'cancelled':
@@ -42,7 +46,13 @@ const getStatusColor = (status: string) => {
 };
 
 // statusLabel string → BookingState enum value (for the localized tEnum lookup).
-const STATUS_TO_STATE: Record<string, number> = { upcoming: 0, completed: 1, cancelled: 2 };
+const STATUS_TO_STATE: Record<string, number> = {
+  upcoming: 0,
+  completed: 1,
+  cancelled: 2,
+  booked: 3,
+  'in-progress': 4,
+};
 
 export default function BookingCard({
   booking,
