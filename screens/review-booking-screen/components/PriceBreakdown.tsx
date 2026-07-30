@@ -5,13 +5,21 @@ import { useLocale } from '../../../context/LocaleContext';
 // Aggregated distance-pricing components behind a location add-on's total,
 // summed across appointments (see ReviewBookingScreen). Present only for
 // per-km pickup/drop-off add-ons; drives the itemized sub-lines.
+/**
+ * The distance-pricing components behind a per-distance extra's charge, as the SERVER reported
+ * them on the booking line. `distanceCharge` is derived as `price − baseFee`, so the sub-lines
+ * always reconcile to the amount actually charged.
+ *
+ * There is no separate free-allowance credit line: the server folds `freeDistanceKm` and
+ * `maxDistanceKm` into the price it returns and doesn't report them per line. Showing them would
+ * mean re-deriving the formula client-side, which is exactly what caused the price to disagree
+ * with the bill before.
+ */
 export interface AddonBreakdown {
-  baseFee: number; // start fee (× count when >1 appointment)
-  distanceCharge: number; // gross per-km charge (perKmFee × billed km)
-  freeDiscount: number; // credit removed by the free distance
-  cappedKm: number; // total distance charged per-km (after max cap)
-  freeKm: number; // total free distance applied
+  baseFee: number; // start fee (summed when >1 appointment)
   perKmFee: number; // the per-km rate (constant for a given add-on)
+  distanceKm: number; // measured distance for the leg this extra bills (summed)
+  distanceCharge: number; // the per-km portion actually charged (price − baseFee)
   count: number; // how many appointments contributed
 }
 
@@ -93,22 +101,12 @@ export default function PriceBreakdown({
                 <View className="mb-1 flex-row justify-between">
                   <Text className={`text-xs ${subtextColor} flex-1 pr-2`}>
                     {t('reviewBooking.addonDistance', {
-                      km: km2(addon.breakdown.cappedKm),
+                      km: km2(addon.breakdown.distanceKm),
                       rate: `$${money(addon.breakdown.perKmFee)}`,
                     })}
                   </Text>
                   <Text className={`text-xs ${subtextColor}`}>
                     ${money(addon.breakdown.distanceCharge)}
-                  </Text>
-                </View>
-              )}
-              {addon.breakdown.freeDiscount > 0 && (
-                <View className="mb-1 flex-row justify-between">
-                  <Text className="flex-1 pr-2 text-xs text-brand-600">
-                    {t('reviewBooking.addonFreeDistance', { km: km2(addon.breakdown.freeKm) })}
-                  </Text>
-                  <Text className="text-xs text-brand-600">
-                    −${money(addon.breakdown.freeDiscount)}
                   </Text>
                 </View>
               )}

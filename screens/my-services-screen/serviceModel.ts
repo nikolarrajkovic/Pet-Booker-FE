@@ -11,7 +11,12 @@ import {
 import { createAddress } from '../../services/addresses';
 import { uploadFilesBulk } from '../../services/files';
 import { getApiBaseUrl } from '../../services/http';
-import { SERVICE_ADDON_DEFS } from '../../services/service-addons';
+import {
+  AdditionalServiceChargeType,
+  DistanceLeg,
+  isPerDistance,
+  type AdditionalServiceDto,
+} from '../../services/service-addons';
 
 export interface PricingTier {
   // The persisted ServicePricingOption id (edit mode) — undefined for a tier
@@ -21,15 +26,45 @@ export interface PricingTier {
   price: string;
 }
 
+/**
+ * One row in the form's "Additional Services" editor. The provider names their own extras now —
+ * this is no longer three fixed rows driven by a hardcoded catalog.
+ *
+ * `chargeType` decides which price fields matter, and the API rejects a mismatch: a PerDistance
+ * extra needs `baseFee`/`perKmFee` and a `distanceLeg`, a Flat one needs `price` and neither of
+ * the others. Money/distance fields are strings because they're bound to text inputs; empty
+ * means unset.
+ */
 export interface AdditionalServiceEntry {
+  // The persisted AdditionalService id (edit mode) — undefined for a row the user just added.
+  // The service write upserts by id, so keeping it is what stops an edit from churning the row
+  // (and orphaning the bookings whose bill lines reference it).
+  id?: number | null;
   name: string;
+  description?: string;
+  /** AdditionalServiceChargeType: 0 = Flat, 1 = PerDistance. */
+  chargeType: number;
+  /** Flat surcharge. Only used when chargeType is Flat. */
   price: string;
-  enabled: boolean;
-  // Distance-pricing fields for location-based add-ons (Pickup / Drop-off).
-  // Empty string = unset. Ignored for flat add-ons (Special Needs Care).
+  /** DistanceLeg: 0 = Pickup, 1 = DropOff, 2 = RoundTrip. Required when PerDistance. */
+  distanceLeg?: number | null;
+  // Per-distance pricing (ignored for a flat extra).
+  baseFee?: string;
   perKmFee?: string;
   freeDistanceKm?: string;
   maxDistanceKm?: string;
+  /** Maps to isActive — a deactivated extra stays configured but can't be booked. */
+  enabled: boolean;
+}
+
+/** A blank row for the "add an extra" button — flat by default, the simpler of the two. */
+export function newAdditionalServiceEntry(): AdditionalServiceEntry {
+  return {
+    name: '',
+    chargeType: AdditionalServiceChargeType.Flat,
+    price: '',
+    enabled: true,
+  };
 }
 
 export interface WorkingHours {
@@ -63,9 +98,83 @@ export const DEFAULT_WORKING_HOURS: WorkingHours = {
   Sunday: { enabled: false, startTime: '08:00', endTime: '18:00' },
 };
 
-// The add-on catalog (names + DTO read/write mapping) is the single source of
-// truth in services/service-addons.ts. Re-export the name list for convenience.
-export { ALL_ADDITIONAL_SERVICE_NAMES } from '../../services/service-addons';
+// There is no add-on name catalog any more — a provider types their own. The charge-type and
+// leg enums are re-exported so the form can build its pickers without importing the service layer.
+export { AdditionalServiceChargeType, DistanceLeg } from '../../services/service-addons';
+
+/** Options for the "how does this bill?" picker in the add-on editor. */
+export const CHARGE_TYPE_OPTIONS = [
+  { value: AdditionalServiceChargeType.Flat, label: 'Flat fee' },
+  { value: AdditionalServiceChargeType.PerDistance, label: 'Per distance' },
+] as const;
+
+/**
+ * Options for the "which journey?" picker, shown only for a per-distance extra. This is what lets
+ * a pickup and a return charge different amounts on the same booking — each bills the leg it
+ * actually performs.
+ */
+export const DISTANCE_LEG_OPTIONS = [
+  { value: DistanceLeg.Pickup, label: 'Pickup (collect the pet)' },
+  { value: DistanceLeg.DropOff, label: 'Drop-off (return the pet)' },
+  { value: DistanceLeg.RoundTrip, label: 'Round trip (both)' },
+] as const;
+
+// --- Additional services <-> DTO ------------------------------------------
+
+const numOrNull = (v?: string): number | null => {
+  const n = parseFloat(v ?? '');
+  return Number.isFinite(n) ? n : null;
+};
+
+/** DTO → form row. */
+export function additionalServiceToEntry(dto: AdditionalServiceDto): AdditionalServiceEntry {
+  const perDistance = isPerDistance(dto);
+  return {
+    id: dto.id ?? undefined,
+    name: dto.name ?? '',
+    description: dto.description ?? '',
+    chargeType: dto.chargeType ?? AdditionalServiceChargeType.Flat,
+    price: perDistance ? '' : String(dto.price ?? 0),
+    distanceLeg: perDistance ? (dto.distanceLeg ?? DistanceLeg.Pickup) : null,
+    baseFee: perDistance ? String(dto.distancePrice?.baseFee ?? 0) : '',
+    perKmFee: perDistance ? String(dto.distancePrice?.perKmFee ?? 0) : '',
+    freeDistanceKm:
+      dto.distancePrice?.freeDistanceKm != null ? String(dto.distancePrice.freeDistanceKm) : '',
+    maxDistanceKm:
+      dto.distancePrice?.maxDistanceKm != null ? String(dto.distancePrice.maxDistanceKm) : '',
+    enabled: dto.isActive !== false,
+  };
+}
+
+/**
+ * Form row → DTO. Sends only the fields the row's charge type allows, because the API validates
+ * that they agree: a PerDistance entry carrying a bare `price` (or a Flat one carrying a
+ * `distancePrice`) is a 422. `id` is preserved so the service write updates the row in place.
+ */
+export function entryToAdditionalService(entry: AdditionalServiceEntry): AdditionalServiceDto {
+  const base: AdditionalServiceDto = {
+    id: entry.id ?? undefined,
+    name: entry.name.trim(),
+    description: entry.description?.trim() || null,
+    chargeType: entry.chargeType,
+    isActive: entry.enabled,
+  };
+
+  if (entry.chargeType !== AdditionalServiceChargeType.PerDistance) {
+    return { ...base, price: parseFloat(entry.price) || 0 };
+  }
+
+  return {
+    ...base,
+    distanceLeg: entry.distanceLeg ?? DistanceLeg.Pickup,
+    distancePrice: {
+      baseFee: parseFloat(entry.baseFee ?? '') || 0,
+      perKmFee: parseFloat(entry.perKmFee ?? '') || 0,
+      freeDistanceKm: numOrNull(entry.freeDistanceKm),
+      maxDistanceKm: numOrNull(entry.maxDistanceKm),
+    },
+  };
+}
 
 // --- Pricing tiers <-> service pricing options ----------------------------
 // The form keeps tiers as { duration label, price string }; the API stores them
@@ -254,20 +363,9 @@ export function serviceDtoToUi(dto: ServiceDto): UiService {
           price: String(o.price),
         }))
       : [{ duration: 'Standard', price }],
-    // Prefill every catalog add-on from the DTO; not-yet-persisted ones read back
-    // as disabled/0 until the backend supports them (see services/service-addons.ts).
-    additionalServices: SERVICE_ADDON_DEFS.map((def) => {
-      const r = def.read(dto);
-      return {
-        name: def.name,
-        price: String(r?.price ?? 0),
-        enabled: !!r?.enabled,
-        // Prefill distance-pricing for location-based add-ons (empty when unset).
-        perKmFee: r?.perKmFee ? String(r.perKmFee) : '',
-        freeDistanceKm: r?.freeDistanceKm != null ? String(r.freeDistanceKm) : '',
-        maxDistanceKm: r?.maxDistanceKm != null ? String(r.maxDistanceKm) : '',
-      };
-    }),
+    // Whatever extras this service actually offers — an open-ended list the provider owns, not a
+    // fixed catalog. A service with none starts the editor empty.
+    additionalServices: (dto.additionalServices ?? []).map(additionalServiceToEntry),
     // Real per-day working hours from the service's schedules (S2 now wired).
     workingHours: schedulesToWorkingHours(dto.schedules),
   };
@@ -350,15 +448,10 @@ export type ServiceFormInput = {
   description: string;
   pricingTiers: PricingTier[];
   maxPetCapacity?: number; // → details.maxConcurrentBookings
-  additionalServices: {
-    name: string;
-    price: string;
-    expanded: boolean;
-    // Distance-pricing for location-based add-ons (empty string = unset).
-    perKmFee?: string;
-    freeDistanceKm?: string;
-    maxDistanceKm?: string;
-  }[];
+  // The full desired set of extras. Same row shape the editor binds to; unnamed rows are
+  // dropped on the way to the DTO. Previously this was a fixed three-row list with an
+  // `expanded` flag doubling as "enabled" — now it's an open list with an explicit `enabled`.
+  additionalServices: AdditionalServiceEntry[];
   // Ready-to-send photos array — build with buildServicePhotos()
   photos?: ServiceDto['photos'];
   // Ready-to-send address (id already resolved) — build with
@@ -409,48 +502,29 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
 
   const details: NonNullable<ServiceDto['details']> = {
     ...original?.details,
-    // Add-on on/off flags — seeded here, then set per-add-on by the loop below.
-    isPickupProvided: original?.details?.isPickupProvided ?? false,
-    isPetReturnProvided: original?.details?.isPetReturnProvided ?? false,
-    isSpecialNeedsProvided: original?.details?.isSpecialNeedsProvided ?? false,
     // Non-nullable booleans with no UI yet — round-trip from the original so a
     // PUT doesn't reset them (default false on create).
-    canSpecialNeedsChange: original?.details?.canSpecialNeedsChange ?? false,
     supportsLiveTracking: original?.details?.supportsLiveTracking ?? false,
     // FLAGS: 63 = all species accepted; new services default to accepting all
     acceptedSpecies: original?.details?.acceptedSpecies ?? 63,
     maxConcurrentBookings: form.maxPetCapacity ?? original?.details?.maxConcurrentBookings ?? 1,
   };
 
-  // Surcharge money lives under `pricing` now. Seed each surcharge from the
-  // original so an add-on's write() can preserve its per-km/distance config;
-  // the loop below sets/clears each one based on the form.
+  // `pricing` prices the service itself; add-on money lives on each extra's own row.
   const pricing: NonNullable<ServiceDto['pricing']> = {
     basePrice,
     unit: original?.pricing?.unit ?? 0,
     isEscrowPercentEnabled: original?.pricing?.isEscrowPercentEnabled ?? false,
     escrowPercent: original?.pricing?.escrowPercent ?? null,
     escrowAmount: original?.pricing?.escrowAmount ?? 0,
-    pickupPrice: original?.pricing?.pickupPrice ?? null,
-    petReturnPrice: original?.pricing?.petReturnPrice ?? null,
-    specialNeedsPrice: original?.pricing?.specialNeedsPrice ?? null,
   };
 
-  // Persist each add-on via the catalog: on/off flag → details, surcharge money
-  // → pricing. A single draft carries both so each write() targets the right one.
-  // Location-based add-ons also carry per-km/free/max distance pricing.
-  const parseOptionalKm = (v?: string): number | null => {
-    const n = parseFloat(v ?? '');
-    return Number.isFinite(n) ? n : null;
-  };
-  for (const def of SERVICE_ADDON_DEFS) {
-    const entry = form.additionalServices.find((a) => a.name === def.name);
-    def.write({ details, pricing }, !!entry?.expanded, parseFloat(entry?.price ?? '') || 0, {
-      perKmFee: parseFloat(entry?.perKmFee ?? '') || 0,
-      freeDistanceKm: parseOptionalKm(entry?.freeDistanceKm),
-      maxDistanceKm: parseOptionalKm(entry?.maxDistanceKm),
-    });
-  }
+  // The extras go over as one array, which the server treats as the desired FULL set: rows keep
+  // their id and are updated in place, id-less rows are created, and anything the form dropped is
+  // removed. Unnamed rows are skipped rather than sent as a 422.
+  const additionalServices = form.additionalServices
+    .filter((e) => e.name.trim().length > 0)
+    .map(entryToAdditionalService);
 
   return {
     id: form.id ?? 0,
@@ -461,6 +535,7 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
     isActive: true,
     pricing,
     details,
+    additionalServices,
     photos: form.photos ?? [],
     // Round-trip the stored address when the form didn't touch it (omitting it
     // on PUT also keeps it — this is just explicit).

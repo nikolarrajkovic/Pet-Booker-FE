@@ -15,15 +15,37 @@ the UI does today, and what the backend would need to fully support it.
 
 ## Services (`/api/services`, `ServiceDto`)
 
-The real `ServiceDto` (writable fields, post 2026-06 API update) is: `name`, `description`,
-`type`, `isActive`, `pricing` (`basePrice`, `unit`, escrow fields, **plus the add-on
-surcharges** `pickupPrice`/`petReturnPrice` (`LocationBasedPriceDto`: `baseFee`, `perKmFee`,
-`freeDistanceKm`, `maxDistanceKm`) and `specialNeedsPrice` (flat)), `details`
-(add-on on/off flags `isPickupProvided`, `isPetReturnProvided`, `isSpecialNeedsProvided`,
-`canSpecialNeedsChange`, `supportsLiveTracking`, plus `acceptedSpecies`, `min/maxWeightKg`,
-`min/maxDurationMinutes`, `leadTimeHours`, `maxConcurrentBookings`, `foodPricings`), `photos`.
-**The 2026-06 update moved the add-on surcharge money out of `details` and into `pricing`,
-and renamed the `supports*` flags to `is*Provided`.** GET also returns read-only `rating`,
+The real `ServiceDto` (writable fields, post 2026-07 API update) is: `name`, `description`,
+`type`, `isActive`, `pricing` (`basePrice`, `unit`, escrow fields — **no add-on money**),
+`additionalServices` (see below), `details` (`supportsLiveTracking`, `acceptedSpecies`,
+`min/maxWeightKg`, `min/maxDurationMinutes`, `leadTimeHours`, `maxConcurrentBookings`,
+`foodPricings`), `photos`.
+
+**The 2026-07 update replaced the three fixed add-ons with an open-ended catalog.** Gone:
+`details.isPickupProvided`/`isPetReturnProvided`/`isSpecialNeedsProvided`/`canSpecialNeedsChange`
+and `pricing.pickupPrice`/`petReturnPrice`/`specialNeedsPrice`. In their place
+`service.additionalServices[]` — each entry `{ id?, name, description?, chargeType, price?,
+distancePrice?, distanceLeg?, isActive }`, where `chargeType` is `0` Flat (uses `price`) or `1`
+PerDistance (uses `distancePrice` = `{ baseFee, perKmFee, freeDistanceKm?, maxDistanceKm? }`).
+A PerDistance entry must also declare `distanceLeg` — `0` Pickup, `1` DropOff, `2` RoundTrip —
+saying which journey it performs; the API 422s a charge-type/price mismatch or a missing leg.
+On write the array is the desired full set, upserted by `id` (keep the id or the row is recreated,
+which would orphan existing bookings' bill lines).
+
+**Booking side:** `booking.additionalServices` is ids-only on write
+(`[{ additionalServiceId }]`) and enriched line items on read — `{ id, additionalServiceId, name,
+chargeType, distanceLeg, price, baseFee, perKmFee, distanceKm }`, everything frozen when the
+booking was priced. `booking.distanceKm` is gone; the two measured trip legs live under
+`booking.location.pickupDistanceKm` / `leaveOverDistanceKm`.
+
+**Distances and prices are server-side.** The app no longer geocodes or measures routes for
+pricing: `POST /api/bookings/quote` takes a booking write body and returns the priced result
+(per-leg distances, itemized lines, totals, deposit) without persisting, from the same code that
+charges the booking. `services/directions.ts` and the surcharge formula in `services/distance.ts`
+were deleted. `EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY` is still needed — but only for rendering the web
+maps, not for any price.
+
+GET also returns read-only `rating`,
 `totalRatingNumber`, `price`, `about`, `imageUrl`, `basicServiceName`, `schedules[]`.
 
 | # | UI location | Field / feature | Status | What the backend needs |

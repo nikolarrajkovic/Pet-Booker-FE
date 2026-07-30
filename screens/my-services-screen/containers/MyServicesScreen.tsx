@@ -19,13 +19,14 @@ import { getServices, deleteService, ServiceDto } from '../../../services/servic
 import { getErrorMessage } from '../../../services/http';
 import { serviceDtoToUi, UiService } from '../serviceModel';
 import { providerTypeValue } from '../../../services/service-providers';
-import { findServiceAddon } from '../../../services/service-addons';
+import { AdditionalServiceChargeType } from '../../../services/service-addons';
 
-const ADDITIONAL_SERVICE_ICONS: Record<string, string> = {
-  Pickup: 'car-outline',
-  'Drop-off': 'car-outline',
-  'Special Needs Care': 'heart-outline',
-};
+// Extras are provider-named free text now, so there's no fixed name→icon table to key off.
+// A per-distance extra is a trip, everything else is a generic service.
+const addonIcon = (chargeType: number) =>
+  chargeType === AdditionalServiceChargeType.PerDistance
+    ? 'car-outline'
+    : 'checkmark-circle-outline';
 
 export default function MyServicesScreen() {
   const navigation = useNavigation();
@@ -196,11 +197,7 @@ function ServiceListCard({
   // `service.type` is the English enum label (a form data key) — localize display only.
   const typeValue = providerTypeValue(service.type);
   const typeLabel = typeValue != null ? tEnum('serviceProviderType', typeValue) : service.type;
-  // Additional-service names are the English catalog keys — localize via addon id.
-  const addonLabel = (name: string) => {
-    const def = findServiceAddon(name);
-    return def ? t(`addons.${def.id}` as any) : name;
-  };
+  // Extra names are free text the provider typed — nothing to localize, show as-is.
 
   return (
     <View
@@ -299,14 +296,18 @@ function ServiceListCard({
             <View className="flex-row flex-wrap" style={{ gap: 8 }}>
               {enabledAdditional.map((svc, i) => (
                 <View key={i} className={`flex-row items-center ${pricingBg} rounded-lg px-2 py-1`}>
-                  <Ionicons
-                    name={(ADDITIONAL_SERVICE_ICONS[svc.name] || 'checkmark-circle-outline') as any}
-                    size={13}
-                    color="#6B7280"
-                  />
+                  <Ionicons name={addonIcon(svc.chargeType) as any} size={13} color="#6B7280" />
                   <Text className={`text-xs ${subtextColor} ml-1`}>
-                    {addonLabel(svc.name)}
-                    {parseFloat(svc.price) > 0 ? ` $${svc.price}` : ''}
+                    {svc.name}
+                    {/* A per-distance extra has no single price until a trip is known, so show
+                        its base fee with a "+" to signal the per-km part. */}
+                    {svc.chargeType === AdditionalServiceChargeType.PerDistance
+                      ? parseFloat(svc.baseFee ?? '') > 0
+                        ? ` $${svc.baseFee}+`
+                        : ''
+                      : parseFloat(svc.price) > 0
+                        ? ` $${svc.price}`
+                        : ''}
                   </Text>
                 </View>
               ))}

@@ -56,15 +56,54 @@ export type ServiceFoodPricingDto = {
   pricePerDay: number;
 };
 
-// Location-based surcharge (Pickup / Pet-return). The fee is `baseFee` plus
-// `perKmFee` per km beyond `freeDistanceKm`, capped at `maxDistanceKm`. The
-// AddEditService form only captures a single flat fee today → mapped to
-// `baseFee` (perKmFee/distance fields default to 0/null and round-trip on edit).
+// Distance-based price carried by a PerDistance additional service. The charge is
+// `baseFee` plus `perKmFee` per km beyond `freeDistanceKm`, capped at `maxDistanceKm`.
+// The server applies this formula authoritatively — do NOT reimplement it client-side;
+// ask POST /api/bookings/quote (services/booking-quote.ts) for a price.
 export type LocationBasedPriceDto = {
   baseFee: number;
   perKmFee: number;
   freeDistanceKm?: number | null;
   maxDistanceKm?: number | null;
+};
+
+/** How an additional service bills. 0 = Flat (uses `price`), 1 = PerDistance (uses `distancePrice`). */
+export const AdditionalServiceChargeType = { Flat: 0, PerDistance: 1 } as const;
+
+/**
+ * Which journey a PerDistance additional service performs, and therefore which of the
+ * booking's two measured legs it bills. A booking can name a pickup address and a
+ * different drop-off address, so collecting the pet and returning it are separate
+ * routes with separate distances.
+ */
+export const DistanceLeg = { Pickup: 0, DropOff: 1, RoundTrip: 2 } as const;
+
+/**
+ * One optional extra a service offers — an open-ended catalog, not the three fixed
+ * flags this replaced. Writable nested on the service POST/PUT as
+ * `additionalServices` (upsert by id: known ids update in place, id-less items are
+ * created, omitted rows are removed) or standalone via /api/service-additional-services.
+ *
+ * `chargeType` decides which price field applies, and the two must agree — a
+ * PerDistance entry needs `distancePrice` and a `distanceLeg`, a Flat one needs
+ * neither (the API 422s the mismatch).
+ */
+export type AdditionalServiceDto = {
+  id?: number | null;
+  serviceId?: number;
+  name: string;
+  description?: string | null;
+  chargeType: number;
+  /** Flat surcharge. Only meaningful when chargeType is Flat. */
+  price?: number;
+  /** Per-km price. Required when chargeType is PerDistance. */
+  distancePrice?: LocationBasedPriceDto | null;
+  /** Required when chargeType is PerDistance — see DistanceLeg. */
+  distanceLeg?: number | null;
+  /** Deactivate to stop offering it on new bookings without deleting it. */
+  isActive?: boolean;
+  /** Read-only: currency the amounts are expressed in. */
+  currency?: string | null;
 };
 
 export type ServiceDto = {
@@ -79,9 +118,8 @@ export type ServiceDto = {
   type?: number | null;
   isActive?: boolean | null;
   // Pricing/escrow live ONLY under `pricing` on the wire (the old top-level
-  // basePrice/escrow* fields were removed from the API). The add-on SURCHARGE
-  // money also lives here now (moved out of `details` in the 2026-06 update):
-  // pickup/pet-return are structured LocationBasedPriceDto, special-needs is a flat fee.
+  // basePrice/escrow* fields were removed from the API). Add-on money is NOT here —
+  // each optional extra is its own `additionalServices` entry with its own price.
   pricing?: {
     basePrice: number;
     // PricingUnit enum (0–3); keep the server's value when round-tripping
@@ -89,18 +127,12 @@ export type ServiceDto = {
     isEscrowPercentEnabled: boolean;
     escrowPercent?: number | null;
     escrowAmount: number;
-    // Surcharges — null when the add-on isn't offered. See details.is*Provided
-    // for the matching on/off flags.
-    pickupPrice?: LocationBasedPriceDto | null;
-    petReturnPrice?: LocationBasedPriceDto | null;
-    specialNeedsPrice?: number | null;
   };
+  // The optional extras this service offers. Nullable on write: omit to leave the
+  // catalog untouched; send an array to make it the desired full set (upsert by id).
+  // Read-only on GET as the full list.
+  additionalServices?: AdditionalServiceDto[] | null;
   details?: {
-    // On/off flags for the add-ons (the SURCHARGE amounts live under `pricing`).
-    isPickupProvided: boolean;
-    isPetReturnProvided: boolean;
-    isSpecialNeedsProvided: boolean;
-    canSpecialNeedsChange: boolean;
     supportsLiveTracking: boolean;
     // Accepted pet species — PetSpeciesType FLAGS (63 = All). Defaults to 0
     // (None) if omitted on write, so always send a value.

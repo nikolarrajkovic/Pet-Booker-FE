@@ -33,7 +33,7 @@ import {
 } from '../../../services/services';
 import { getErrorMessage } from '../../../services/http';
 import { providerTypeValue } from '../../../services/service-providers';
-import { findServiceAddon } from '../../../services/service-addons';
+import { AdditionalServiceChargeType, DistanceLeg } from '../../../services/service-addons';
 import { saveServiceSchedules } from '../../../services/service-schedules';
 import { saveServicePricingOptions } from '../../../services/service-pricing-options';
 import {
@@ -41,7 +41,8 @@ import {
   uiToServiceDto,
   buildServicePhotos,
   ServiceImageInput,
-  ALL_ADDITIONAL_SERVICE_NAMES,
+  AdditionalServiceEntry,
+  newAdditionalServiceEntry,
   workingHoursToSchedules,
   pricingTiersToOptions,
   resolveServiceAddressForSave,
@@ -57,15 +58,9 @@ const SERVICE_TYPES = ['Sitter', 'Walker', 'Boarder', 'Pet Hotel', 'Groomer', 'T
 // every pick persists as a real ServicePricingOption duration.
 const DURATION_OPTIONS = DURATION_OPTION_LABELS;
 
-interface AdditionalService {
-  name: string;
-  price: string;
-  expanded: boolean;
-  // Distance-pricing for location-based add-ons (Pickup / Drop-off).
-  perKmFee?: string;
-  freeDistanceKm?: string;
-  maxDistanceKm?: string;
-}
+// The editor row shape is shared with the mapping layer (serviceModel) — there's no local
+// variant any more, because the extras are an open-ended list the provider names themselves
+// rather than three fixed rows with a hardcoded catalog behind them.
 
 interface WorkingHours {
   [day: string]: { enabled: boolean; startTime: string; endTime: string };
@@ -78,14 +73,7 @@ interface ExistingService {
   description: string;
   pricingTiers: PricingTier[];
   maxConcurrentBookings?: number;
-  additionalServices: {
-    name: string;
-    price: string;
-    enabled: boolean;
-    perKmFee?: string;
-    freeDistanceKm?: string;
-    maxDistanceKm?: string;
-  }[];
+  additionalServices: AdditionalServiceEntry[];
   workingHours: WorkingHours;
   images?: string[];
   selectedImageIndex?: number;
@@ -107,21 +95,10 @@ const DEFAULT_WORKING_HOURS: WorkingHours = {
   Sunday: { enabled: false, startTime: '09:00', endTime: '17:00' },
 };
 
-function getInitialAdditionalServices(existing?: ExistingService): AdditionalService[] {
-  const enabledMap = new Map(
-    (existing?.additionalServices ?? []).filter((s) => s.enabled).map((s) => [s.name, s])
-  );
-  return ALL_ADDITIONAL_SERVICE_NAMES.map((name) => {
-    const s = enabledMap.get(name);
-    return {
-      name,
-      price: s?.price || '',
-      expanded: !!s,
-      perKmFee: s?.perKmFee || '',
-      freeDistanceKm: s?.freeDistanceKm || '',
-      maxDistanceKm: s?.maxDistanceKm || '',
-    };
-  });
+// Whatever the service already offers, in its own order. A new service starts with no extras —
+// the provider adds them. (Previously this seeded three fixed rows from a catalog.)
+function getInitialAdditionalServices(existing?: ExistingService): AdditionalServiceEntry[] {
+  return (existing?.additionalServices ?? []).map((s) => ({ ...s }));
 }
 
 export default function AddEditServiceScreen() {
@@ -155,10 +132,7 @@ export default function AddEditServiceScreen() {
     const v = providerTypeValue(label);
     return v != null ? tEnum('serviceProviderType', v, label) : label;
   };
-  const addonLabel = (name: string) => {
-    const def = findServiceAddon(name);
-    return def ? t(`addons.${def.id}` as any) : name;
-  };
+  // Extra names are free text the provider typed, so there's nothing to translate — show as-is.
 
   // Provider id comes from the nav param, falling back to /auth/me (0 → none).
   const serviceProviderId = params?.serviceProviderId ?? (currentUser?.serviceProviderId || null);
@@ -186,7 +160,7 @@ export default function AddEditServiceScreen() {
       ? String(existingService.maxConcurrentBookings)
       : '1'
   );
-  const [additionalServices, setAdditionalServices] = useState<AdditionalService[]>(
+  const [additionalServices, setAdditionalServices] = useState<AdditionalServiceEntry[]>(
     getInitialAdditionalServices(existingService)
   );
   const [workingHours, setWorkingHours] = useState<WorkingHours>(
@@ -224,21 +198,48 @@ export default function AddEditServiceScreen() {
     setPickedAddress({ ...profileAddress, id: undefined });
   };
 
-  const toggleAdditionalService = (index: number) => {
-    const updated = [...additionalServices];
-    updated[index].expanded = !updated[index].expanded;
-    setAdditionalServices(updated);
-  };
+  const addAdditionalService = () =>
+    setAdditionalServices((prev) => [...prev, newAdditionalServiceEntry()]);
+
+  // Dropping a row deletes the extra from the service on save. Bookings that already bought it
+  // keep their bill line — the server froze the name and amount on it — so this is safe.
+  const removeAdditionalService = (index: number) =>
+    setAdditionalServices((prev) => prev.filter((_, i) => i !== index));
+
+  const patchAdditionalService = (index: number, patch: Partial<AdditionalServiceEntry>) =>
+    setAdditionalServices((prev) =>
+      prev.map((entry, i) => (i === index ? { ...entry, ...patch } : entry))
+    );
 
   const updateAdditionalServiceField = (
     index: number,
-    field: 'price' | 'perKmFee' | 'freeDistanceKm' | 'maxDistanceKm',
+    field: 'name' | 'price' | 'baseFee' | 'perKmFee' | 'freeDistanceKm' | 'maxDistanceKm',
     value: string
-  ) => {
-    const updated = [...additionalServices];
-    updated[index] = { ...updated[index], [field]: value };
-    setAdditionalServices(updated);
-  };
+  ) => patchAdditionalService(index, { [field]: value } as Partial<AdditionalServiceEntry>);
+
+  /**
+   * Switching how an extra bills clears the other mode's price fields. The API validates that
+   * chargeType and the price fields agree, so leaving a stale `distancePrice` on a now-flat extra
+   * would be a 422 on save. A per-distance extra also needs a leg, so default it to Pickup.
+   */
+  const setChargeType = (index: number, chargeType: number) =>
+    patchAdditionalService(
+      index,
+      chargeType === AdditionalServiceChargeType.PerDistance
+        ? {
+            chargeType,
+            price: '',
+            distanceLeg: additionalServices[index].distanceLeg ?? DistanceLeg.Pickup,
+          }
+        : {
+            chargeType,
+            distanceLeg: null,
+            baseFee: '',
+            perKmFee: '',
+            freeDistanceKm: '',
+            maxDistanceKm: '',
+          }
+    );
 
   const toggleWorkingDay = (day: string) => {
     // Just flip the day on/off. Times are set by tapping the Start/End time
@@ -339,14 +340,17 @@ export default function AddEditServiceScreen() {
       description,
       price: parseFloat(pricingTiers[0]?.price) || 0,
       duration: pricingTiers[0]?.duration || '',
-      additionalServices: {
-        pickup: additionalServices[0].expanded
-          ? parseFloat(additionalServices[0].price) || 0
-          : undefined,
-        dropOff: additionalServices[1].expanded
-          ? parseFloat(additionalServices[1].price) || 0
-          : undefined,
-      },
+      // Preview shows the offered extras by name + headline price. A per-distance one has no
+      // single number until a trip is known, so its base fee stands in.
+      additionalServices: additionalServices
+        .filter((s) => s.enabled && s.name.trim())
+        .map((s) => ({
+          name: s.name,
+          price:
+            s.chargeType === AdditionalServiceChargeType.PerDistance
+              ? parseFloat(s.baseFee ?? '') || 0
+              : parseFloat(s.price) || 0,
+        })),
       workingHours,
       isNew: !isEdit,
     };
@@ -726,65 +730,181 @@ export default function AddEditServiceScreen() {
             {t('addEditService.additionalServicesHint')}
           </Text>
 
-          {additionalServices.map((service, index) => (
-            <View key={index}>
-              {!service.expanded ? (
+          {additionalServices.length === 0 && (
+            <Text className={`${subtextColor} mb-3 text-sm italic`}>
+              {t('addEditService.extraNoneYet')}
+            </Text>
+          )}
+
+          {additionalServices.map((service, index) => {
+            const perDistance = service.chargeType === AdditionalServiceChargeType.PerDistance;
+            return (
+              <View
+                key={service.id ?? `new-${index}`}
+                className={`${inputBg} mb-3 rounded-xl border-2 border-brand-300 p-4`}>
+                {/* Name + remove */}
+                <View className="mb-3 flex-row items-center justify-between">
+                  <TextInput
+                    placeholder={t('addEditService.extraNamePlaceholder')}
+                    placeholderTextColor={placeholderColor}
+                    className={`${inputText} mr-2 flex-1 font-medium`}
+                    style={{ minWidth: 0 } as any}
+                    value={service.name}
+                    onChangeText={(value) => updateAdditionalServiceField(index, 'name', value)}
+                  />
+                  <TouchableOpacity
+                    onPress={() => removeAdditionalService(index)}
+                    accessibilityLabel={t('addEditService.removeExtra')}>
+                    <Ionicons name="trash-outline" size={20} color={isDarkMode ? '#fff' : '#000'} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Offered on/off — keeps the config but hides it from new bookings */}
                 <TouchableOpacity
-                  onPress={() => toggleAdditionalService(index)}
-                  className={`${cardBg} border ${borderColor} mb-2 rounded-xl px-4 py-3`}>
-                  <Text className={textColor}>{addonLabel(service.name)}</Text>
-                </TouchableOpacity>
-              ) : (
-                <View className={`${inputBg} mb-3 rounded-xl border-2 border-brand-300 p-4`}>
-                  <View className="mb-3 flex-row items-center justify-between">
-                    <Text className={`${textColor} font-medium`}>{addonLabel(service.name)}</Text>
-                    <TouchableOpacity onPress={() => toggleAdditionalService(index)}>
-                      <Ionicons name="close" size={20} color={isDarkMode ? '#fff' : '#000'} />
-                    </TouchableOpacity>
-                  </View>
-                  <Text className={`${subtextColor} mb-2 text-sm`}>
-                    {findServiceAddon(service.name)?.locationBased
-                      ? t('addEditService.baseFeeHint')
-                      : t('addEditService.priceFreeHint')}
+                  onPress={() => patchAdditionalService(index, { enabled: !service.enabled })}
+                  className="mb-3 flex-row items-center">
+                  <Ionicons
+                    name={service.enabled ? 'checkbox' : 'square-outline'}
+                    size={20}
+                    color={service.enabled ? '#00C870' : isDarkMode ? '#8b9cb3' : '#6b7280'}
+                  />
+                  <Text className={`${subtextColor} ml-2 text-sm`}>
+                    {service.enabled
+                      ? t('addEditService.extraActive')
+                      : t('addEditService.extraInactive')}
                   </Text>
-                  <View
-                    className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
-                    <Text className={subtextColor}>$</Text>
-                    <TextInput
-                      placeholder="0"
-                      placeholderTextColor={placeholderColor}
-                      className={`${inputText} ml-2 flex-1`}
-                      value={service.price}
-                      onChangeText={(value) => updateAdditionalServiceField(index, 'price', value)}
-                      keyboardType="numeric"
-                    />
-                  </View>
+                </TouchableOpacity>
 
-                  {/* Distance-based pricing — only for location add-ons (Pickup / Drop-off) */}
-                  {findServiceAddon(service.name)?.locationBased && (
-                    <View className="mt-3">
-                      <Text className={`${subtextColor} mb-2 text-sm`}>
-                        {t('addEditService.distancePricingHint')}
+                {/* Charge type: flat fee vs priced by trip distance */}
+                <Text className={`${subtextColor} mb-2 text-sm`}>
+                  {t('addEditService.chargeTypeHint')}
+                </Text>
+                <View className="mb-3 flex-row gap-2">
+                  {[
+                    { value: AdditionalServiceChargeType.Flat, label: t('addEditService.chargeFlat') },
+                    {
+                      value: AdditionalServiceChargeType.PerDistance,
+                      label: t('addEditService.chargePerDistance'),
+                    },
+                  ].map((opt) => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      onPress={() => setChargeType(index, opt.value)}
+                      className={`flex-1 rounded-xl px-3 py-2 ${
+                        service.chargeType === opt.value
+                          ? 'bg-brand-500'
+                          : `${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}`
+                      }`}>
+                      <Text
+                        className={`text-center text-sm ${
+                          service.chargeType === opt.value ? 'font-medium text-white' : textColor
+                        }`}>
+                        {opt.label}
                       </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-                      {/* Per-km fee */}
-                      <Text className={`${textColor} mb-1 text-sm font-medium`}>
-                        {t('addEditService.perKmFee')}
-                      </Text>
-                      <View
-                        className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} mb-3 flex-row items-center rounded-xl px-4 py-3`}>
-                        <Text className={subtextColor}>$</Text>
-                        <TextInput
-                          placeholder="0"
-                          placeholderTextColor={placeholderColor}
-                          className={`${inputText} ml-2 flex-1`}
-                          value={service.perKmFee}
-                          onChangeText={(value) =>
-                            updateAdditionalServiceField(index, 'perKmFee', value)
-                          }
-                          keyboardType="numeric"
-                        />
-                      </View>
+                {/* Flat price */}
+                {!perDistance && (
+                  <>
+                    <Text className={`${subtextColor} mb-2 text-sm`}>
+                      {t('addEditService.priceFreeHint')}
+                    </Text>
+                    <View
+                      className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
+                      <Text className={subtextColor}>$</Text>
+                      <TextInput
+                        placeholder="0"
+                        placeholderTextColor={placeholderColor}
+                        className={`${inputText} ml-2 flex-1`}
+                        value={service.price}
+                        onChangeText={(value) =>
+                          updateAdditionalServiceField(index, 'price', value)
+                        }
+                        keyboardType="numeric"
+                      />
+                    </View>
+                  </>
+                )}
+
+                {/* Distance-based pricing */}
+                {perDistance && (
+                  <View>
+                    {/* Which journey — decides which of the booking's two measured legs this bills */}
+                    <Text className={`${subtextColor} mb-2 text-sm`}>
+                      {t('addEditService.journeyHint')}
+                    </Text>
+                    <View className="mb-3">
+                      {[
+                        { value: DistanceLeg.Pickup, label: t('addEditService.legPickup') },
+                        { value: DistanceLeg.DropOff, label: t('addEditService.legDropOff') },
+                        { value: DistanceLeg.RoundTrip, label: t('addEditService.legRoundTrip') },
+                      ].map((opt) => (
+                        <TouchableOpacity
+                          key={opt.value}
+                          onPress={() => patchAdditionalService(index, { distanceLeg: opt.value })}
+                          className="mb-1 flex-row items-center">
+                          <Ionicons
+                            name={
+                              service.distanceLeg === opt.value
+                                ? 'radio-button-on'
+                                : 'radio-button-off'
+                            }
+                            size={18}
+                            color={
+                              service.distanceLeg === opt.value
+                                ? '#00C870'
+                                : isDarkMode
+                                  ? '#8b9cb3'
+                                  : '#6b7280'
+                            }
+                          />
+                          <Text className={`${textColor} ml-2 text-sm`}>{opt.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <Text className={`${subtextColor} mb-2 text-sm`}>
+                      {t('addEditService.baseFeeHint')}
+                    </Text>
+                    <View
+                      className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} mb-3 flex-row items-center rounded-xl px-4 py-3`}>
+                      <Text className={subtextColor}>$</Text>
+                      <TextInput
+                        placeholder="0"
+                        placeholderTextColor={placeholderColor}
+                        className={`${inputText} ml-2 flex-1`}
+                        value={service.baseFee}
+                        onChangeText={(value) =>
+                          updateAdditionalServiceField(index, 'baseFee', value)
+                        }
+                        keyboardType="numeric"
+                      />
+                    </View>
+
+                    <Text className={`${subtextColor} mb-2 text-sm`}>
+                      {t('addEditService.distancePricingHint')}
+                    </Text>
+
+                    {/* Per-km fee */}
+                    <Text className={`${textColor} mb-1 text-sm font-medium`}>
+                      {t('addEditService.perKmFee')}
+                    </Text>
+                    <View
+                      className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} mb-3 flex-row items-center rounded-xl px-4 py-3`}>
+                      <Text className={subtextColor}>$</Text>
+                      <TextInput
+                        placeholder="0"
+                        placeholderTextColor={placeholderColor}
+                        className={`${inputText} ml-2 flex-1`}
+                        value={service.perKmFee}
+                        onChangeText={(value) =>
+                          updateAdditionalServiceField(index, 'perKmFee', value)
+                        }
+                        keyboardType="numeric"
+                      />
+                    </View>
 
                       {/* Free distance + Max distance side by side */}
                       <View className="flex-row gap-3">
@@ -834,12 +954,18 @@ export default function AddEditServiceScreen() {
                           </View>
                         </View>
                       </View>
-                    </View>
-                  )}
-                </View>
-              )}
-            </View>
-          ))}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+
+          <TouchableOpacity
+            onPress={addAdditionalService}
+            className={`${cardBg} border ${borderColor} flex-row items-center justify-center rounded-xl px-4 py-3`}>
+            <Ionicons name="add" size={18} color="#00C870" />
+            <Text className="ml-1 font-medium text-brand-500">{t('addEditService.addExtra')}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Working Hours */}

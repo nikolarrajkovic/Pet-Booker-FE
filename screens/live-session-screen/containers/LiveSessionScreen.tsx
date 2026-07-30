@@ -30,6 +30,7 @@ import {
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import { getPet, PetResponse } from '../../../services/pets';
 import { getService, ServiceDto } from '../../../services/services';
+import { DistanceLeg } from '../../../services/service-addons';
 import { getUser } from '../../../services/users';
 import {
   addressLabel,
@@ -383,13 +384,33 @@ export default function LiveSessionScreen() {
   const addOns = useMemo<AddOnItem[]>(() => {
     if (!dto) return [];
     const items: AddOnItem[] = [];
-    if (dto.includePickup) {
-      // Prefer the booking's own pickup address (when the backend persists one —
-      // B2); otherwise fall back to the booker's saved account address.
+    // The checklist comes from the booking's own frozen bill lines. A line's DistanceLeg is what
+    // makes it a travel task and says which address to drive to; a flat extra (no leg) is
+    // informational and doesn't gate ending the service.
+    //
+    // Grouped by LEG rather than per line, because completion and the map target are tracked per
+    // journey: two extras that both involve collecting the pet are one trip, and a RoundTrip extra
+    // is both trips. The label lists whichever extras that journey is serving.
+    const pickupFor: string[] = [];
+    const dropoffFor: string[] = [];
+    const flatLines: { key: string; label: string }[] = [];
+
+    for (const line of dto.additionalServices ?? []) {
+      if (!('name' in line)) continue;
+      const leg = line.distanceLeg ?? null;
+      if (leg === DistanceLeg.Pickup || leg === DistanceLeg.RoundTrip) pickupFor.push(line.name);
+      if (leg === DistanceLeg.DropOff || leg === DistanceLeg.RoundTrip) dropoffFor.push(line.name);
+      if (leg === null) {
+        flatLines.push({ key: `extra-${line.id ?? line.name}`, label: line.name });
+      }
+    }
+
+    if (pickupFor.length > 0) {
+      // Prefer the booking's own pickup address; otherwise the booker's saved account address.
       const addr = dto.pickupAddress ?? bookerAddr ?? undefined;
       items.push({
         key: 'pickup',
-        label: t('addons.pickup'),
+        label: pickupFor.join(' + '),
         icon: 'car-outline',
         completed: completion.pickup,
         detail: addr ? addressLabel(addr) : undefined,
@@ -397,11 +418,13 @@ export default function LiveSessionScreen() {
         address: addr,
       });
     }
-    if (dto.includePetReturn) {
-      const addr = dto.leaveOverAddress ?? bookerAddr ?? undefined;
+
+    if (dropoffFor.length > 0) {
+      // The return address, falling back to where the pet was collected.
+      const addr = dto.leaveOverAddress ?? dto.pickupAddress ?? bookerAddr ?? undefined;
       items.push({
         key: 'dropoff',
-        label: t('addons.dropoff'),
+        label: dropoffFor.join(' + '),
         icon: 'home-outline',
         completed: completion.dropoff,
         detail: addr ? addressLabel(addr) : undefined,
@@ -409,14 +432,10 @@ export default function LiveSessionScreen() {
         address: addr,
       });
     }
-    if (dto.includeSpecialNeeds)
-      items.push({
-        key: 'specialNeeds',
-        label: t('addons.specialNeeds'),
-        icon: 'medkit-outline',
-        completed: false,
-        toggleable: false,
-      });
+
+    for (const flat of flatLines) {
+      items.push({ ...flat, icon: 'medkit-outline', completed: false, toggleable: false });
+    }
     return items;
   }, [dto, bookerAddr, completion.pickup, completion.dropoff]);
 

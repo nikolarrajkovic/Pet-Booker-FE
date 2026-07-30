@@ -23,7 +23,11 @@ import {
 } from '../../../services/services';
 import { ReviewDto } from '../../../services/reviews';
 import { resolveImageUrl, ApprovalStatus } from '../../../services/service-providers';
-import { getEnabledServiceAddons, addonPriceLabel } from '../../../services/service-addons';
+import {
+  getEnabledServiceAddons,
+  addonPriceLabel,
+  isPerDistance,
+} from '../../../services/service-addons';
 import {
   schedulesToWorkingHours,
   durationDisplayLabel,
@@ -378,29 +382,26 @@ export default function ServiceDetailScreen() {
               t('serviceDetail.additionalServices'),
               addons.map((addon) => (
                 <View
-                  key={addon.id}
+                  key={addon.id ?? addon.name}
                   className={`mb-2 flex-row items-center justify-between rounded-2xl p-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`}>
                   <View className="mr-3 flex-1 flex-row items-center">
                     <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-100">
+                      {/* Extras are provider-named now, so the icon comes from HOW it bills
+                          rather than from a known name: a trip vs a flat service. */}
                       <Ionicons
-                        name={
-                          addon.id === 'pickup'
-                            ? 'car-outline'
-                            : addon.id === 'dropoff'
-                              ? 'home-outline'
-                              : 'heart-outline'
-                        }
+                        name={isPerDistance(addon) ? 'car-outline' : 'heart-outline'}
                         size={20}
                         color="#00C870"
                       />
                     </View>
                     <View className="flex-1">
-                      <Text className={`font-medium ${textColor}`}>
-                        {t(`addons.${addon.id}` as any)}
-                      </Text>
-                      <Text className={`text-xs ${subtextColor} mt-0.5`}>
-                        {t(`addons.${addon.id}Desc` as any)}
-                      </Text>
+                      {/* Provider-authored text — shown verbatim, nothing to translate. */}
+                      <Text className={`font-medium ${textColor}`}>{addon.name}</Text>
+                      {addon.description ? (
+                        <Text className={`text-xs ${subtextColor} mt-0.5`}>
+                          {addon.description}
+                        </Text>
+                      ) : null}
                     </View>
                   </View>
                   <Text className="font-semibold text-brand-600">

@@ -59,21 +59,15 @@ export type BookingDto = {
   paymentType: number;
   paymentMethodId: number; // REQUIRED — must reference an existing PaymentMethod
   currentStatus: number;
-  // Add-on selection — WRITE side. These flags are what register an add-on on
-  // the booking; the server then computes the surcharge from the service's
-  // pricing. Sending `location.pickupAddress` alone does NOT register pickup —
-  // the flag must be set (verified live). Pickup ↔ pickupAddress, PetReturn
-  // (Drop-off) ↔ leaveOverAddress. Non-nullable server-side, so always send them
-  // (toWritableBooking round-trips them on PUT).
-  includePickup?: boolean;
-  includePetReturn?: boolean;
-  includeSpecialNeeds?: boolean;
-  distanceKm?: number | null;
-  // Add-on money — READ-only, computed by the server from the service pricing
-  // (not accepted on write; a client-sent totalPrice is recomputed server-side).
-  pickupPrice?: number | null;
-  petReturnPrice?: number | null;
-  specialNeedsPrice?: number | null;
+  // Add-on selection — WRITE side: ids only. Each entry names one of the booked
+  // service's `additionalServices`. Prices are ALWAYS resolved server-side (from the
+  // service's catalog and, for a per-distance extra, the measured leg) and frozen on
+  // the booking — the client never sends an amount. On update the array is the
+  // desired full set, so a deselected extra loses its line entirely.
+  // On READ the same field comes back enriched: see BookingAdditionalServiceReadDto.
+  additionalServices?: BookingAdditionalServiceReadDto[] | BookingAdditionalServiceRef[];
+  // Add-on money — READ-only, computed by the server (a client-sent totalPrice is
+  // recomputed server-side).
   addOnsTotal?: number | null;
   depositAmount?: number | null;
   // Populated on GET (read-only nested includes — stripped by toWritableBooking):
@@ -112,6 +106,36 @@ export type BookingLocationDto = {
   leaveOverAddressId?: number | null;
   pickupAddress?: AddressDto | null;
   leaveOverAddress?: AddressDto | null;
+  // The measured road distance of each journey, in km, beside the address it was
+  // measured against. READ: what the server routed when it priced the booking.
+  // WRITE: leave both undefined — the server measures them (real routing + geocoding,
+  // server-held key). Sending a value overrides the measurement, which is for operator
+  // correction only; the client must not measure distances, because they set the price.
+  pickupDistanceKm?: number | null;
+  leaveOverDistanceKm?: number | null;
+};
+
+/** What a booking sends to select an extra: the catalog id, nothing else. */
+export type BookingAdditionalServiceRef = { additionalServiceId: number };
+
+/**
+ * One extra charged on a booking — a self-explaining line on the bill, all of it frozen
+ * when the booking was priced. A per-distance line carries the fees and THIS LEG's
+ * distance behind its amount, so a client can render "200 + 8.4 km × 50 = 620" without
+ * recomputing anything.
+ */
+export type BookingAdditionalServiceReadDto = {
+  id?: number | null;
+  /** The service's catalog entry; null if the provider has since removed it. */
+  additionalServiceId?: number | null;
+  name: string;
+  chargeType: number;
+  /** Which journey this line paid for (see DistanceLeg); null for a flat line. */
+  distanceLeg?: number | null;
+  price: number;
+  baseFee?: number | null;
+  perKmFee?: number | null;
+  distanceKm?: number | null;
 };
 
 /**
@@ -134,10 +158,9 @@ type WritableBookingCreate = {
   pricingOptionId?: number | null;
   paymentType: number;
   paymentMethodId: number;
-  includePickup?: boolean;
-  includePetReturn?: boolean;
-  includeSpecialNeeds?: boolean;
-  distanceKm?: number | null;
+  // Ids only — the server prices each extra and freezes it as a bill line. No amounts, and no
+  // distances: it measures each trip leg itself from the addresses under `location`.
+  additionalServices?: BookingAdditionalServiceRef[];
   location?: BookingLocationDto | null;
 };
 
@@ -358,24 +381,17 @@ export type CreateBookingInput = {
   // NOTE: there is deliberately no priceCurrency input — the server stamps it
   // from the booked service's provider (Currency, default EUR) and ignores any
   // client-sent value, like the other server-authoritative price fields.
-  // Selecting Pickup / Drop-off. The presence of an address sets the matching
-  // include flag (includePickup / includePetReturn) on the booking, which is
-  // what actually registers the add-on. The address is posted inline under
-  // `location` and now persists + round-trips on GET (BACKEND_GAPS B2 resolved
-  // 2026-06-22): the read DTO returns it under `location.pickupAddress` /
-  // `location.leaveOverAddress` (backfilled top-level by withResolvedAddresses).
+  // Where the pet is collected / returned. Posted inline under `location`; the read DTO returns
+  // them under `location.pickupAddress` / `location.leaveOverAddress` (backfilled top-level by
+  // withResolvedAddresses). The server measures each trip leg from these — provider to the pickup
+  // address, and the leave-over address back to the provider — so a per-distance extra bills the
+  // journey it actually performs.
   pickupAddress?: AddressDto;
   leaveOverAddress?: AddressDto;
-  // Special Needs add-on — selected in BookService (no address, unlike pickup/
-  // drop-off), carried through the appointment. Defaults false. The server
-  // computes the specialNeedsPrice surcharge from the service pricing.
-  includeSpecialNeeds?: boolean;
-  // Distance (km) between the service's address and the pickup/drop-off address,
-  // computed on the client (Google Directions where available, else straight-
-  // line). The server applies this SINGLE value to BOTH the pickup and pet-
-  // return surcharges (baseFee + perKmFee * max(0, min(dist, maxDist) - freeDist),
-  // verified live) — so it's only meaningful when a location add-on is selected.
-  distanceKm?: number | null;
+  // The extras to buy, by their AdditionalService id. Ids only: the server resolves each price
+  // from the booked service's catalog and freezes it as a line item on the booking. There is
+  // deliberately no way to send a price or a distance — both decide what is charged.
+  additionalServiceIds?: number[];
 };
 
 /**
@@ -434,13 +450,11 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
     pricingOptionId: input.pricingOptionId ?? null,
     paymentType: input.paymentType ?? PaymentType.Card,
     paymentMethodId: input.paymentMethodId,
-    // These flags register the add-ons; the server computes the surcharge (so it
-    // overrides totalPrice). An address without its flag is ignored.
-    includePickup: !!input.pickupAddress,
-    includePetReturn: !!input.leaveOverAddress,
-    includeSpecialNeeds: input.includeSpecialNeeds ?? false,
-    // Drives the per-km part of the pickup/drop-off surcharge server-side.
-    distanceKm: input.distanceKm ?? null,
+    // The selected extras, by id. The server prices each one from the service's catalog and
+    // freezes it as a bill line, overriding the totalPrice sent above.
+    additionalServices: (input.additionalServiceIds ?? []).map((id) => ({
+      additionalServiceId: id,
+    })),
   };
 
   // Pickup/Drop-off addresses are sent INLINE in this POST (never /api/addresses).
@@ -490,12 +504,18 @@ function toWritableBooking(b: BookingDto): BookingDto {
     paymentType: b.paymentType,
     paymentMethodId: b.paymentMethodId,
     currentStatus: b.currentStatus,
-    // Round-trip the add-on flags (non-nullable server-side) so a status/cancel
-    // PUT doesn't silently clear a booking's pickup/return selection.
-    includePickup: b.includePickup ?? false,
-    includePetReturn: b.includePetReturn ?? false,
-    includeSpecialNeeds: b.includeSpecialNeeds ?? false,
-    distanceKm: b.distanceKm ?? null,
+    // Round-trip the extras selection as ids: a PUT's `additionalServices` is the desired FULL
+    // set, so omitting it on a status/cancel edit would silently drop every extra off the bill.
+    // Read DTOs come back enriched (name/price/distance) — reduce them to the id-only write shape.
+    additionalServices: (b.additionalServices ?? [])
+      .map((a) =>
+        'additionalServiceId' in a && typeof a.additionalServiceId === 'number'
+          ? { additionalServiceId: a.additionalServiceId }
+          : null
+      )
+      .filter((a): a is { additionalServiceId: number } => a !== null),
+    // Distances are NOT round-tripped: the server re-measures each leg from the addresses it
+    // already has. Echoing a stored value back would turn a measurement into a client override.
   };
 }
 

@@ -5,7 +5,13 @@ import { AddressDto } from '../../../services/service-providers';
 import { useLocale } from '../../../context/LocaleContext';
 
 export type AddOnItem = {
-  key: 'pickup' | 'dropoff' | 'specialNeeds';
+  /**
+   * `'pickup'` / `'dropoff'` are the two travel tasks — those keys are meaningful, because
+   * completion state and the map target are tracked per LEG, not per extra (several extras can
+   * involve the same journey, and a round-trip extra involves both). Any other key is an
+   * informational, non-toggleable row and is unique per extra.
+   */
+  key: string;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   completed: boolean;

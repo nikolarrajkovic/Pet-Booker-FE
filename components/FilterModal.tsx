@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEnums } from '../context/EnumsContext';
 import { useLocale } from '../context/LocaleContext';
 import { PetSpecies } from '../services/pets';
-import { SERVICE_ADDON_DEFS, ServiceAddonId } from '../services/service-addons';
+// No add-on catalog to import any more — extras are named by each provider, so the filter chips
+// are derived from what the current result set actually offers (see the availableAddOns prop).
 
 interface FilterModalProps {
   visible: boolean;
@@ -16,12 +17,17 @@ interface FilterModalProps {
   currentFilters: FilterState;
   /** Upper bound for the price slider — derived from the loaded services. */
   maxPrice: number;
+  /**
+   * Distinct extra names offered across the loaded services. Extras are provider-named free text
+   * now, so there is no fixed catalog to render as chips — the options come from the data.
+   */
+  availableAddOns?: string[];
 }
 
 export interface FilterState {
   serviceTypes: number[]; // ServiceProviderType enum values
   petTypes: number[]; // PetSpeciesType FLAGS values (a service's acceptedSpecies must include one)
-  addOns: ServiceAddonId[]; // additional services a service must provide
+  addOns: string[]; // names of extras a service must offer (matched case-insensitively)
   priceRange: [number, number];
   minimumRating: string; // 'Any' | '3+' | '4+' | '5+'
 }
@@ -37,6 +43,7 @@ export default function FilterModal({
   onApplyFilters,
   currentFilters,
   maxPrice,
+  availableAddOns = [],
 }: FilterModalProps) {
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -67,10 +74,12 @@ export default function FilterModal({
     }));
   };
 
-  const toggleAddOn = (id: ServiceAddonId) => {
+  const toggleAddOn = (name: string) => {
     setFilters((prev) => ({
       ...prev,
-      addOns: prev.addOns.includes(id) ? prev.addOns.filter((a) => a !== id) : [...prev.addOns, id],
+      addOns: prev.addOns.includes(name)
+        ? prev.addOns.filter((a) => a !== name)
+        : [...prev.addOns, name],
     }));
   };
 
@@ -161,25 +170,28 @@ export default function FilterModal({
               </View>
             </View>
 
-            {/* Additional Services — service add-on catalog */}
-            <View className="mb-6">
-              <Text className={`text-base font-semibold ${textColor} mb-3`}>
-                {t('shared.additionalServices')}
-              </Text>
-              <View className="flex-row flex-wrap gap-2">
-                {SERVICE_ADDON_DEFS.map((def) => {
-                  const active = filters.addOns.includes(def.id);
-                  return (
-                    <TouchableOpacity
-                      key={def.id}
-                      onPress={() => toggleAddOn(def.id)}
-                      className={chipClass(active)}>
-                      <Text className={chipTextClass(active)}>{t(`addons.${def.id}` as any)}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
+            {/* Additional Services — the extras actually offered in the current results. Names
+                are provider-authored, so they're shown verbatim rather than translated. */}
+            {availableAddOns.length > 0 && (
+              <View className="mb-6">
+                <Text className={`text-base font-semibold ${textColor} mb-3`}>
+                  {t('shared.additionalServices')}
+                </Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {availableAddOns.map((name) => {
+                    const active = filters.addOns.includes(name);
+                    return (
+                      <TouchableOpacity
+                        key={name}
+                        onPress={() => toggleAddOn(name)}
+                        className={chipClass(active)}>
+                        <Text className={chipTextClass(active)}>{name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
+            )}
 
             {/* Price Range */}
             <View className="mb-6">

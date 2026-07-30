@@ -23,15 +23,22 @@ import {
 } from '../../../services/services';
 import { getPets, PetResponse } from '../../../services/pets';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
-import { parseBookingDate, formatBookingDate } from '../../../services/bookings';
-import { getEnabledServiceAddons, addonPriceLabel } from '../../../services/service-addons';
-import { addressLabel, forwardGeocode, GeoPoint } from '../../../services/geocoding';
-import { routeDistanceKm } from '../../../services/directions';
 import {
-  locationSurcharge,
-  locationSurchargeBreakdown,
-  LocationSurchargeBreakdown,
-} from '../../../services/distance';
+  parseBookingDate,
+  formatBookingDate,
+  type BookingAdditionalServiceReadDto,
+} from '../../../services/bookings';
+import {
+  getEnabledServiceAddons,
+  addonPriceLabel,
+  isPerDistance,
+  requiredAddresses,
+  requiredAddressesFor,
+  toBookingSelection,
+  type AdditionalServiceDto,
+} from '../../../services/service-addons';
+import { addressLabel } from '../../../services/geocoding';
+import { getBookingQuote, type BookingQuote } from '../../../services/booking-quote';
 
 // The user books one specific service (chosen before entering this screen), not
 // a provider — the service comes in as a route param and carries serviceProviderId.
@@ -46,9 +53,12 @@ type Appointment = {
   id: number;
   service: { id: number; name: string; price: number };
   pet: { id: number; name: string; image: string };
-  // `breakdown` is set for location add-ons priced per km, so Review can explain
-  // the start fee / per-km charge / free-km credit behind the frozen `price`.
-  addons: { name: string; price: number; breakdown?: LocationSurchargeBreakdown }[];
+  // The extras as the SERVER priced them: name, amount, and for a per-distance extra the fees and
+  // that leg's distance behind the number — everything Review needs to itemize the charge without
+  // recomputing anything.
+  addons: BookingAdditionalServiceReadDto[];
+  // The ids the booking create will send (the quote priced exactly these).
+  addonIds: number[];
   bookingFrom: string;
   bookingTo: string;
   total: number;
@@ -59,14 +69,13 @@ type Appointment = {
   pricingOptionId?: number;
   pricingOptionName?: string;
   pricingOptionBase?: number;
-  // Required when the matching add-on is selected; sent inline on booking create.
+  // Required when a selected extra needs that side; sent inline on booking create.
   pickupAddress?: AddressDto;
   leaveOverAddress?: AddressDto;
-  // Special Needs add-on has no address — it's carried as a flag (→ includeSpecialNeeds).
-  includeSpecialNeeds?: boolean;
-  // Service↔pickup/drop-off distance (km) used for the per-km surcharge. Frozen
-  // at add time and sent on booking create (server applies it to both add-ons).
-  distanceKm?: number;
+  // The distances the server measured for each leg when it priced this selection. Display only —
+  // the create re-measures from the addresses above rather than trusting a client value.
+  pickupDistanceKm?: number | null;
+  leaveOverDistanceKm?: number | null;
 };
 
 // Bookable slots are derived from the day's availability windows
@@ -92,55 +101,14 @@ const overlaps = (aFrom: number, aTo: number, bFrom: number, bTo: number) =>
 /** Round to at most 2 decimals for display (trims per-km float artifacts). */
 const money = (n: number) => Math.round(n * 100) / 100;
 
-type RouteDistanceInfo = {
-  km: number | null;
-  source: 'directions' | 'straight-line' | null;
-  loading: boolean;
-};
+/** The current server quote for the in-progress selection, plus its request state. */
+type QuoteState = { quote: BookingQuote | null; loading: boolean; failed: boolean };
 
-/**
- * Measures the route distance from `from` to `to` (Google Directions on web,
- * straight-line fallback — see services/directions), re-running whenever either
- * endpoint actually moves. Inactive, or a missing endpoint, resets it to empty.
- * One instance per location add-on so the pickup and drop-off price checks each
- * track their OWN picked address instead of sharing a single measurement.
- */
-function useRouteDistance(
-  from: GeoPoint | null,
-  to: GeoPoint | null,
-  active: boolean
-): RouteDistanceInfo {
-  const [info, setInfo] = useState<RouteDistanceInfo>({ km: null, source: null, loading: false });
-  // Depend on the primitive lat/lng, not the point objects — those are recreated
-  // every render, which would re-run the measurement (and re-hit Directions) on
-  // every render. Primitives only change when a different point is picked.
-  const fromLat = from?.latitude;
-  const fromLng = from?.longitude;
-  const toLat = to?.latitude;
-  const toLng = to?.longitude;
-  useEffect(() => {
-    if (!active || fromLat == null || fromLng == null || toLat == null || toLng == null) {
-      setInfo({ km: null, source: null, loading: false });
-      return;
-    }
-    let cancelled = false;
-    setInfo((prev) => ({ ...prev, loading: true }));
-    routeDistanceKm(
-      { latitude: fromLat, longitude: fromLng },
-      { latitude: toLat, longitude: toLng }
-    )
-      .then((res) => {
-        if (!cancelled) setInfo({ km: res.km, source: res.source, loading: false });
-      })
-      .catch(() => {
-        if (!cancelled) setInfo({ km: null, source: null, loading: false });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [active, fromLat, fromLng, toLat, toLng]);
-  return info;
-}
+// The client measures nothing. It used to geocode the service address and route to the picked
+// pickup/drop-off point with Google Directions, then apply its own copy of the surcharge formula.
+// That produced a different price on native (no Directions → straight-line distance) than on web,
+// from a number the client chose. Both legs are now measured server-side and reach this screen
+// only inside a quote — see useBookingQuote below.
 
 export default function BookServiceScreen() {
   const navigation = useNavigation();
@@ -190,7 +158,8 @@ export default function BookServiceScreen() {
   // one is chosen, else the classic 1h grid.
   const slotMs = selectedOption ? selectedOption.durationMinutes * 60000 : SLOT_DURATION_MS;
 
-  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  // Selected extras by their real AdditionalService id (they were catalog string ids before).
+  const [selectedAddons, setSelectedAddons] = useState<number[]>([]);
   // Pickup / Drop-off addresses are picked on a map (reverse-geocoded to AddressDto).
   const [pickupAddr, setPickupAddr] = useState<AddressDto | null>(null);
   const [dropoffAddr, setDropoffAddr] = useState<AddressDto | null>(null);
@@ -374,150 +343,138 @@ export default function BookServiceScreen() {
   // Add-ons reflect exactly what the provider enabled on THIS service.
   const serviceAddons = useMemo(() => getEnabledServiceAddons(selectedService), [selectedService]);
 
-  const toggleAddon = (id: string) =>
+  const toggleAddon = (id: number) =>
     setSelectedAddons((prev) => (prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]));
 
-  // Pickup / Drop-off require the booker to pick a location before continuing.
-  const pickupSelected = selectedAddons.includes('pickup');
-  const dropoffSelected = selectedAddons.includes('dropoff');
+  const selectedAddonDefs = useMemo(
+    () => serviceAddons.filter((a) => a.id != null && selectedAddons.includes(a.id)),
+    [serviceAddons, selectedAddons]
+  );
+
+  // Which address pickers the selection needs, derived from each extra's declared journey
+  // (DistanceLeg) rather than from hardcoded add-on names: a pickup extra needs a collection
+  // address, a drop-off extra a return address, a round-trip one both.
+  const { pickup: pickupSelected, dropoff: dropoffSelected } = useMemo(
+    () => requiredAddressesFor(selectedAddonDefs),
+    [selectedAddonDefs]
+  );
   const addressesProvided =
     (!pickupSelected || !!pickupAddr) && (!dropoffSelected || !!dropoffAddr);
 
-  // --- Distance-based add-on pricing -------------------------------------
-  // Pickup/Drop-off can be priced per km (baseFee + perKmFee × billable km). We
-  // measure the road distance (Google Directions where available, else straight-
-  // line) between the SERVICE's address and the booker's pickup/drop-off point,
-  // then estimate the surcharge with the exact server formula (locationSurcharge).
-  // The backend has a SINGLE distanceKm applied to BOTH add-ons, so we measure
-  // one representative point — pickup when selected, else drop-off — and price
-  // both with it (matching what the server will charge).
-  const pickupAddon = serviceAddons.find((a) => a.id === 'pickup');
-  const dropoffAddon = serviceAddons.find((a) => a.id === 'dropoff');
-  // The service's own coordinates anchor the distance measurement. Stored
-  // service addresses often carry only text (no lat/lng) — seeded rows, or ones
-  // copied from a profile address — so when `address.location` is missing we
-  // forward-geocode the address text once (Google on web / Nominatim, fail-soft),
-  // mirroring how SearchScreen resolves its map pins. Without this the per-km
-  // pickup/drop-off surcharge would silently fall back to the flat base fee.
-  const storedServiceLocation = selectedService.address?.location ?? null;
-  const svcAddr = selectedService.address;
-  const [serviceGeo, setServiceGeo] = useState<{ point: GeoPoint | null; loading: boolean }>({
-    point: null,
+  // Several extras can involve the same journey (and a round-trip one involves both), so the
+  // price check under an address lists every selected extra that leg serves.
+  const addonsOnPickupLeg = useMemo(
+    () => selectedAddonDefs.filter((a) => requiredAddresses(a).pickup),
+    [selectedAddonDefs]
+  );
+  const addonsOnDropoffLeg = useMemo(
+    () => selectedAddonDefs.filter((a) => requiredAddresses(a).dropoff),
+    [selectedAddonDefs]
+  );
+
+  // --- Server-priced quote --------------------------------------------------
+  // Every amount on this screen comes from POST /api/bookings/quote — the same server code that
+  // will charge the booking measures each trip leg and applies the surcharge formula. The preview
+  // therefore cannot drift from the bill, and it's identical on web and native.
+  const [quoteState, setQuoteState] = useState<QuoteState>({
+    quote: null,
     loading: false,
+    failed: false,
   });
+
+  // Per-selection service price: the chosen option's (discounted) price when the service defines
+  // options, else the classic effective service price. Only a starting point for the quote body —
+  // the server recomputes base/discount itself when a promotion or option applies.
+  const currentServicePrice = () =>
+    selectedOption
+      ? effectiveOptionPrice(selectedService, selectedOption)
+      : servicePrice(selectedService);
+
+  // The body the quote (and later the create) is built from. Serialized into the effect's dep so
+  // the quote re-runs exactly when something price-relevant changes — not on every render.
+  const quoteRequest = useMemo(() => {
+    if (!optionChosen || !startDateTime || selectedPet === null || !addressesProvided) return null;
+    return {
+      userId: currentUser?.id ?? 0,
+      serviceProviderId: selectedService.serviceProviderId,
+      serviceId: selectedService.id ?? 0,
+      petId: selectedPet,
+      bookingFrom: formatBookingDate(startDateTime),
+      bookingTo: formatBookingDate(new Date(startDateTime.getTime() + slotMs)),
+      basePrice: currentServicePrice(),
+      discountAmount: 0,
+      pricingOptionId: selectedOption?.id ?? null,
+      additionalServices: toBookingSelection(selectedAddonDefs),
+      // Addresses only — never a distance. The server measures each leg from these; sending a
+      // client-measured value would override the measurement that sets the price.
+      location:
+        pickupSelected || dropoffSelected
+          ? {
+              pickupAddress: pickupSelected ? (pickupAddr ?? undefined) : undefined,
+              leaveOverAddress: dropoffSelected ? (dropoffAddr ?? undefined) : undefined,
+            }
+          : undefined,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    optionChosen,
+    startDateTime,
+    selectedPet,
+    addressesProvided,
+    pickupSelected,
+    dropoffSelected,
+    pickupAddr,
+    dropoffAddr,
+    selectedAddonDefs,
+    selectedOption,
+    selectedService,
+    slotMs,
+    currentUser?.id,
+  ]);
+
+  const quoteKey = quoteRequest ? JSON.stringify(quoteRequest) : null;
+
   useEffect(() => {
-    if (storedServiceLocation) {
-      setServiceGeo({ point: null, loading: false }); // stored coords win
-      return;
-    }
-    const query = svcAddr
-      ? [svcAddr.line1, svcAddr.postalCode, svcAddr.city, svcAddr.country]
-          .filter(Boolean)
-          .join(', ')
-      : '';
-    if (!query) {
-      setServiceGeo({ point: null, loading: false });
+    if (!quoteKey || !quoteRequest) {
+      setQuoteState({ quote: null, loading: false, failed: false });
       return;
     }
     let cancelled = false;
-    setServiceGeo({ point: null, loading: true });
-    forwardGeocode(query)
-      .then((point) => {
-        if (!cancelled) setServiceGeo({ point, loading: false });
+    setQuoteState((prev) => ({ ...prev, loading: true, failed: false }));
+    getBookingQuote(quoteRequest as any)
+      .then((quote) => {
+        if (!cancelled) setQuoteState({ quote, loading: false, failed: false });
       })
       .catch(() => {
-        if (!cancelled) setServiceGeo({ point: null, loading: false });
+        // A failed quote must not silently show a stale or guessed price — the UI blocks
+        // continuing instead (see selectionComplete).
+        if (!cancelled) setQuoteState({ quote: null, loading: false, failed: true });
       });
     return () => {
       cancelled = true;
     };
-    // Primitive deps only — the address/location objects are recreated each
-    // render, which would otherwise re-run the geocode on every keystroke.
+    // quoteKey is the value-identity of quoteRequest; depending on the object would refire
+    // whenever it's rebuilt with equal contents.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    storedServiceLocation?.latitude,
-    storedServiceLocation?.longitude,
-    svcAddr?.line1,
-    svcAddr?.city,
-    svcAddr?.postalCode,
-    svcAddr?.country,
-  ]);
-  // Prefer the stored coords; fall back to the geocoded ones.
-  const serviceLocation = storedServiceLocation ?? serviceGeo.point;
-  // Each location add-on measures the distance from the service to ITS OWN
-  // picked point, so the pickup and drop-off price checks each react to their
-  // own address (no shared measurement). A per-km add-on is "active" once it's
-  // selected, bills per km, and has a picked point to measure to.
-  const pickupPerKm = pickupSelected && (pickupAddon?.perKmFee ?? 0) > 0 && !!pickupAddr;
-  const dropoffPerKm = dropoffSelected && (dropoffAddon?.perKmFee ?? 0) > 0 && !!dropoffAddr;
-  const pickupDistance = useRouteDistance(
-    serviceLocation,
-    pickupAddr?.location ?? null,
-    pickupPerKm
-  );
-  const dropoffDistance = useRouteDistance(
-    serviceLocation,
-    dropoffAddr?.location ?? null,
-    dropoffPerKm
-  );
+  }, [quoteKey]);
 
-  // The measured distance for a specific add-on (null for non-location add-ons).
-  const addonDistanceKm = (id: string): number | null =>
-    id === 'pickup' ? pickupDistance.km : id === 'dropoff' ? dropoffDistance.km : null;
+  const quote = quoteState.quote;
 
-  // Effective price for an add-on given its own measured distance: the per-km
-  // surcharge once that distance is known, else the flat base fee.
-  const addonEffectivePrice = (addon: (typeof serviceAddons)[number]): number => {
-    const distanceKm = addonDistanceKm(addon.id);
-    if (addon.perKmFee > 0 && distanceKm != null) {
-      return locationSurcharge(distanceKm, {
-        baseFee: addon.price,
-        perKmFee: addon.perKmFee,
-        freeDistanceKm: addon.freeDistanceKm,
-        maxDistanceKm: addon.maxDistanceKm,
-      });
-    }
-    return addon.price;
-  };
-
-  // The single distanceKm the booking sends — the server applies it to both the
-  // pickup and pet-return surcharges. Prefer the pickup measurement (pickup and
-  // drop-off are usually the same point), else the drop-off one.
-  const bookingDistanceKm =
-    pickupPerKm && pickupDistance.km != null
-      ? pickupDistance.km
-      : dropoffPerKm && dropoffDistance.km != null
-        ? dropoffDistance.km
-        : null;
-
-  // Distance must be resolved before the estimate is trustworthy — block adding
-  // the appointment while it's still being resolved. Two async stages: geocoding
-  // the service's address (when it has no stored coords) and measuring each
-  // route. Only gates when a per-km add-on is actually in play.
-  const anyPerKm = pickupPerKm || dropoffPerKm;
-  const distanceReady =
-    !(anyPerKm && serviceGeo.loading) &&
-    !(
-      pickupPerKm &&
-      (pickupDistance.loading || (!!serviceLocation && pickupDistance.km == null))
-    ) &&
-    !(
-      dropoffPerKm &&
-      (dropoffDistance.loading || (!!serviceLocation && dropoffDistance.km == null))
-    );
+  /** The server's charge for one selected extra, or null until the quote lands. */
+  const quotedAddonLine = (addon: AdditionalServiceDto): BookingAdditionalServiceReadDto | null =>
+    quote?.additionalServices.find((l) => l.additionalServiceId === addon.id) ?? null;
 
   const km1 = (km: number) => (Math.round(km * 10) / 10).toFixed(1);
 
-  // The "price check" line under a location add-on's address: the measured
-  // distance + the estimated per-km surcharge (or a loading / unavailable note).
-  // Only shown for add-ons that actually bill per km.
-  const renderDistanceEstimate = (
-    addon: (typeof serviceAddons)[number] | undefined,
-    dist: RouteDistanceInfo
-  ) => {
-    if (!addon || addon.perKmFee <= 0) return null;
-    // Still resolving the service's coordinates or measuring this route.
-    if (serviceGeo.loading || dist.loading) {
+  /**
+   * The "price check" line under a per-distance extra's address: the leg the server measured and
+   * what it charged. Only meaningful once the quote has landed — before that the amount is
+   * genuinely unknown, so it says so rather than showing a placeholder.
+   */
+  const renderDistanceEstimate = (addon: AdditionalServiceDto | undefined) => {
+    if (!addon || !isPerDistance(addon)) return null;
+
+    if (quoteState.loading) {
       return (
         <View className="mt-2 flex-row items-center">
           <ActivityIndicator size="small" color="#00C870" />
@@ -527,44 +484,46 @@ export default function BookServiceScreen() {
         </View>
       );
     }
-    // No coordinates for the service (missing address / geocode failed) → the
-    // distance can't be measured, so only the flat base fee applies.
-    if (!serviceLocation) {
+    if (quoteState.failed) {
+      return (
+        <Text className={`text-xs ${subtextColor} mt-2`}>{t('bookService.quoteFailed')}</Text>
+      );
+    }
+
+    const line = quotedAddonLine(addon);
+    if (!line) return null;
+    // No measurable distance (address without resolvable coordinates) → only the base fee applies.
+    if (line.distanceKm == null || line.distanceKm <= 0) {
       return (
         <Text className={`text-xs ${subtextColor} mt-2`}>
           {t('bookService.distanceUnavailable')}
         </Text>
       );
     }
-    if (dist.km == null) return null;
     return (
       <Text className="mt-2 text-xs font-medium text-brand-600">
         {t('bookService.distanceSurcharge', {
-          km: km1(dist.km),
-          price: `$${money(addonEffectivePrice(addon))}`,
+          km: km1(line.distanceKm),
+          price: `$${money(line.price)}`,
         })}
-        {dist.source === 'straight-line' ? ` · ${t('bookService.distanceApprox')}` : ''}
       </Text>
     );
   };
 
-  // Per-selection service price: the chosen option's (discounted) price when
-  // the service defines options, else the classic effective service price.
-  const currentServicePrice = () =>
-    selectedOption
-      ? effectiveOptionPrice(selectedService, selectedOption)
-      : servicePrice(selectedService);
+  // Total for the in-progress selection: the server quote when it has landed, else the service
+  // price alone (extras are simply not counted yet — never estimated).
+  const currentTotal = () => money(quote ? quote.totalPrice : currentServicePrice());
 
-  const currentTotal = () => {
-    const addons = selectedAddons.reduce((sum, id) => {
-      const def = serviceAddons.find((a) => a.id === id);
-      return sum + (def ? addonEffectivePrice(def) : 0);
-    }, 0);
-    return money(currentServicePrice() + addons);
-  };
-
+  // A quote is part of "ready": without it the extras have no price, so continuing would show the
+  // user one number and charge another.
   const selectionComplete =
-    optionChosen && !!startDateTime && selectedPet !== null && addressesProvided && distanceReady;
+    optionChosen &&
+    !!startDateTime &&
+    selectedPet !== null &&
+    addressesProvided &&
+    !quoteState.loading &&
+    !quoteState.failed &&
+    (selectedAddonDefs.length === 0 || quote != null);
 
   const buildAppointment = (): Appointment | null => {
     if (!optionChosen || !startDateTime || selectedPet === null || !addressesProvided) return null;
@@ -573,31 +532,15 @@ export default function BookServiceScreen() {
       id: Date.now(),
       service: {
         id: selectedService.id ?? 0,
-        name: selectedService.name ?? 'Service',
-        price: money(currentServicePrice()),
+        name: selectedService.name ?? "Service",
+        price: money(quote ? quote.basePrice - quote.discountAmount : currentServicePrice()),
       },
-      pet: { id: selectedPet, name: pet?.name ?? 'Pet', image: pet?.image ?? '' },
-      addons: selectedAddons.flatMap((id) => {
-        const def = serviceAddons.find((a) => a.id === id);
-        if (!def) return [];
-        // Localized display name + effective (distance-based) price, frozen at
-        // add time (shown here + on Review, and summed into the booking total).
-        // For per-km location add-ons also freeze the surcharge breakdown so the
-        // Review screen can itemize start fee / per-km / free-km credit.
-        const distanceKm = addonDistanceKm(def.id);
-        const breakdown =
-          def.perKmFee > 0 && distanceKm != null
-            ? locationSurchargeBreakdown(distanceKm, {
-                baseFee: def.price,
-                perKmFee: def.perKmFee,
-                freeDistanceKm: def.freeDistanceKm,
-                maxDistanceKm: def.maxDistanceKm,
-              })
-            : undefined;
-        return [
-          { name: t(`addons.${def.id}` as any), price: money(addonEffectivePrice(def)), breakdown },
-        ];
-      }),
+      pet: { id: selectedPet, name: pet?.name ?? "Pet", image: pet?.image ?? "" },
+      // Freeze the SERVER's priced lines. Each already carries the name, the amount, and (for a
+      // per-distance extra) the fees and that leg's distance — so Review itemizes the charge
+      // without recomputing it, and what is shown is what will be billed.
+      addons: quote?.additionalServices ?? [],
+      addonIds: selectedAddonDefs.map((a) => a.id as number),
       // Naive local wall-clock (no offset) so the booking round-trips to the same
       // time the user picked under parseBookingDate (see services/bookings.ts).
       // End = start + the chosen option's duration (1h for option-less services);
@@ -610,8 +553,8 @@ export default function BookServiceScreen() {
       pricingOptionBase: selectedOption?.price,
       pickupAddress: pickupSelected ? (pickupAddr ?? undefined) : undefined,
       leaveOverAddress: dropoffSelected ? (dropoffAddr ?? undefined) : undefined,
-      includeSpecialNeeds: selectedAddons.includes('specialNeeds'),
-      distanceKm: bookingDistanceKm ?? undefined,
+      pickupDistanceKm: quote?.pickupDistanceKm ?? null,
+      leaveOverDistanceKm: quote?.leaveOverDistanceKm ?? null,
     };
   };
 
@@ -789,30 +732,39 @@ export default function BookServiceScreen() {
             {serviceAddons.length === 0 ? (
               <Text className={`text-sm ${subtextColor}`}>{t('bookService.noAddons')}</Text>
             ) : (
-              serviceAddons.map((addon) => (
-                <TouchableOpacity
-                  key={addon.id}
-                  onPress={() => toggleAddon(addon.id)}
-                  className={`mb-3 rounded-2xl border-2 p-4 ${
-                    selectedAddons.includes(addon.id)
-                      ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
-                      : `${borderColor} ${cardBg}`
-                  }`}>
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-1">
-                      <Text className={`text-base font-semibold ${textColor}`}>
-                        {t(`addons.${addon.id}` as any)}
-                      </Text>
-                      <Text className={`text-sm ${subtextColor} mt-1`}>
-                        {t(`addons.${addon.id}Desc` as any)}
+              serviceAddons.map((addon) => {
+                const selected = addon.id != null && selectedAddons.includes(addon.id);
+                // Once selected, show what the server actually quoted for it; before that (or for
+                // an unselected extra) show the provider's rate card, e.g. "$5 + $2/km".
+                const line = selected ? quotedAddonLine(addon) : null;
+                return (
+                  <TouchableOpacity
+                    key={addon.id ?? addon.name}
+                    onPress={() => addon.id != null && toggleAddon(addon.id)}
+                    className={`mb-3 rounded-2xl border-2 p-4 ${
+                      selected
+                        ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                        : `${borderColor} ${cardBg}`
+                    }`}>
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-1">
+                        {/* Provider-authored name/description — shown verbatim. */}
+                        <Text className={`text-base font-semibold ${textColor}`}>{addon.name}</Text>
+                        {addon.description ? (
+                          <Text className={`text-sm ${subtextColor} mt-1`}>
+                            {addon.description}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Text className="ml-4 text-lg font-bold text-brand-600">
+                        {line
+                          ? `$${money(line.price)}`
+                          : (addonPriceLabel(t, addon) ?? t('addons.included'))}
                       </Text>
                     </View>
-                    <Text className="ml-4 text-lg font-bold text-brand-600">
-                      {addonPriceLabel(t, addon) ?? t('addons.included')}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))
+                  </TouchableOpacity>
+                );
+              })
             )}
 
             {/* Location required when Pickup / Drop-off is selected — picked on a map */}
@@ -837,7 +789,11 @@ export default function BookServiceScreen() {
                   />
                 </TouchableOpacity>
                 {/* Price check: measured distance + estimated per-km surcharge. */}
-                {pickupAddr ? renderDistanceEstimate(pickupAddon, pickupDistance) : null}
+                {pickupAddr
+                  ? addonsOnPickupLeg.map((a) => (
+                      <View key={a.id ?? a.name}>{renderDistanceEstimate(a)}</View>
+                    ))
+                  : null}
                 {/* Copy the drop-off address into pickup (explicit, not auto-filled). */}
                 {dropoffSelected && dropoffAddr && pickupAddr !== dropoffAddr ? (
                   <TouchableOpacity
@@ -872,7 +828,11 @@ export default function BookServiceScreen() {
                   />
                 </TouchableOpacity>
                 {/* Price check: measured distance + estimated per-km surcharge. */}
-                {dropoffAddr ? renderDistanceEstimate(dropoffAddon, dropoffDistance) : null}
+                {dropoffAddr
+                  ? addonsOnDropoffLeg.map((a) => (
+                      <View key={a.id ?? a.name}>{renderDistanceEstimate(a)}</View>
+                    ))
+                  : null}
                 {/* Copy the pickup address into drop-off (explicit, not auto-filled). */}
                 {pickupSelected && pickupAddr && dropoffAddr !== pickupAddr ? (
                   <TouchableOpacity

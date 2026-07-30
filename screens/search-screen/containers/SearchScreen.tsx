@@ -15,7 +15,6 @@ import { getErrorMessage } from '../../../services/http';
 import { forwardGeocode, GeoPoint } from '../../../services/geocoding';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
 import { resolveImageUrl, providerTypeValue } from '../../../services/service-providers';
-import { SERVICE_ADDON_DEFS } from '../../../services/service-addons';
 import { useLocale } from '../../../context/LocaleContext';
 
 type SearchRouteParams = {
@@ -129,6 +128,22 @@ export default function SearchScreen() {
     }));
   }, [serviceType]);
 
+  // Add-on filter chips derived from the loaded services. Extras are provider-named free text,
+  // so there is no catalog to enumerate — the options are whatever is on offer. Deduped
+  // case-insensitively (two providers may capitalise "Pickup" differently) keeping first spelling.
+  const availableAddOns = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const item of allServices) {
+      for (const addOn of item.dto.additionalServices ?? []) {
+        const name = (addOn.name ?? '').trim();
+        if (!name || addOn.isActive === false) continue;
+        const key = name.toLowerCase();
+        if (!seen.has(key)) seen.set(key, name);
+      }
+    }
+    return [...seen.values()].sort((a, b) => a.localeCompare(b));
+  }, [allServices]);
+
   // Price-slider ceiling derived from the actual services — no hardcoded cap.
   const maxPrice = useMemo(() => {
     const top = allServices.reduce((m, s) => Math.max(m, s.price), 0);
@@ -235,11 +250,13 @@ export default function SearchScreen() {
       if (!filters.petTypes.some((flag) => (accepted & flag) !== 0)) return false;
     }
 
-    // Additional services — service must provide every selected add-on.
+    // Additional services — the service must offer every selected extra. Matched on name
+    // (case-insensitively) because extras are provider-authored, not a fixed catalog.
     if (filters.addOns.length > 0) {
-      const providesAll = filters.addOns.every(
-        (id) => SERVICE_ADDON_DEFS.find((d) => d.id === id)?.read(svc)?.enabled
-      );
+      const offered = (svc.additionalServices ?? [])
+        .filter((a) => a.isActive !== false)
+        .map((a) => (a.name ?? '').toLowerCase());
+      const providesAll = filters.addOns.every((name) => offered.includes(name.toLowerCase()));
       if (!providesAll) return false;
     }
 
@@ -355,6 +372,7 @@ export default function SearchScreen() {
         onApplyFilters={handleApplyFilters}
         currentFilters={filters}
         maxPrice={maxPrice}
+        availableAddOns={availableAddOns}
       />
     </ScreenLayout>
   );

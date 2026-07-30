@@ -19,7 +19,7 @@ import { durationDisplayLabel } from '../../my-services-screen/serviceModel';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PriceBreakdown, PaymentMethodSelector, AddonLine } from '../components';
-import { LocationSurchargeBreakdown } from '../../../services/distance';
+import type { BookingAdditionalServiceReadDto } from '../../../services/bookings';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
 import { ServiceDto } from '../../../services/services';
@@ -35,9 +35,11 @@ type Appointment = {
   id: number;
   service: { id: number; name: string; price: number };
   pet: { id: number; name: string; image: string };
-  // `breakdown` is present for per-km location add-ons (pickup/drop-off) so the
-  // price breakdown can itemize the start fee / per-km charge / free-km credit.
-  addons: { name: string; price: number; breakdown?: LocationSurchargeBreakdown }[];
+  // The extras as the SERVER priced them (frozen when the appointment was added). A per-distance
+  // line carries the fees and its own leg's distance, which is what the breakdown itemizes.
+  addons: BookingAdditionalServiceReadDto[];
+  // The catalog ids the booking create sends — the quote priced exactly these.
+  addonIds: number[];
   bookingFrom: string;
   bookingTo: string;
   total: number;
@@ -154,22 +156,21 @@ export default function ReviewBookingScreen() {
       .reduce<Record<string, AddonLine>>((acc, ad) => {
         const cur = acc[ad.name] ?? { name: ad.name, price: 0 };
         cur.price += ad.price;
-        if (ad.breakdown) {
+        // A per-distance line reports the fees and the leg's distance behind its amount. The
+        // per-km portion is derived as price − baseFee so the sub-lines always reconcile to what
+        // is charged, rather than re-deriving the surcharge formula here.
+        if (ad.baseFee != null && ad.perKmFee != null) {
           const agg = cur.breakdown ?? {
             baseFee: 0,
+            perKmFee: ad.perKmFee,
+            distanceKm: 0,
             distanceCharge: 0,
-            freeDiscount: 0,
-            cappedKm: 0,
-            freeKm: 0,
-            perKmFee: ad.breakdown.perKmFee,
             count: 0,
           };
-          agg.baseFee += ad.breakdown.baseFee;
-          agg.distanceCharge += ad.breakdown.distanceCharge;
-          agg.freeDiscount += ad.breakdown.freeDiscount;
-          agg.cappedKm += ad.breakdown.cappedKm;
-          agg.freeKm += ad.breakdown.freeKm;
-          agg.perKmFee = ad.breakdown.perKmFee;
+          agg.baseFee += ad.baseFee;
+          agg.perKmFee = ad.perKmFee;
+          agg.distanceKm += ad.distanceKm ?? 0;
+          agg.distanceCharge += Math.max(0, ad.price - ad.baseFee);
           agg.count += 1;
           cur.breakdown = agg;
         }
@@ -208,8 +209,10 @@ export default function ReviewBookingScreen() {
           paymentType: isCash ? PaymentType.Cash : PaymentType.Card,
           pickupAddress: apt.pickupAddress,
           leaveOverAddress: apt.leaveOverAddress,
-          includeSpecialNeeds: apt.includeSpecialNeeds,
-          distanceKm: apt.distanceKm,
+          // Ids only — the server re-resolves each extra's price from the service's catalog and
+          // re-measures each trip leg from the addresses above. No distance is sent: a
+          // client-supplied one would override the measurement that sets the price.
+          additionalServiceIds: apt.addonIds,
         });
       }
 
