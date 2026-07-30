@@ -25,5 +25,6 @@ android
 # Claude Code local config and memory
 .claude/
 memory/
-# Local env (contains API keys) — use .env.example as the template
-.env
+# Local env overrides — real API keys live here, never in the committed .env
+.env.local
+.env*.local
