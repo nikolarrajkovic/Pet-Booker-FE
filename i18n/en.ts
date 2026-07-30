@@ -450,7 +450,10 @@ const en = {
     distanceSurcharge: '≈ {km} km · {price}',
     distanceApprox: 'approx.',
     distanceUnavailable:
-      'Distance pricing unavailable — this service has no map location set, so only the base fee applies.',
+      "Distance pricing unavailable — this address couldn't be located, so only the base fee applies.",
+    // The server prices every booking; if that call fails there is no trustworthy number to show,
+    // so the flow says so rather than falling back to a guess.
+    quoteFailed: "Couldn't get a price just now — check your connection and try again.",
     chooseDateTime: 'Choose Date & Time',
     selectDate: 'Select date',
     selectPet: 'Select Pet',
@@ -1130,7 +1133,22 @@ const en = {
     maxCapacity: 'Maximum Pet Capacity *',
     maxCapacityHint: 'How many pets can you care for at the same time?',
     additionalServicesOffered: 'Additional Services Offered',
-    additionalServicesHint: 'Select services and set pricing (enter 0 for free)',
+    additionalServicesHint: 'Optional extras a customer can add to a booking (enter 0 for free)',
+    addExtra: 'Add an extra',
+    extraNamePlaceholder: 'Name (e.g. Pickup, Nail trim)',
+    extraNoneYet: 'No extras yet — customers will only see the service itself.',
+    chargeFlat: 'Flat fee',
+    chargePerDistance: 'Per distance',
+    chargeTypeHint: 'How does this extra bill?',
+    // A per-distance extra must say which journey it performs: the two legs of a booking are
+    // measured separately, so a collection and a return can cost different amounts.
+    journeyHint: 'Which journey is this?',
+    legPickup: 'Pickup — collect the pet',
+    legDropOff: 'Drop-off — return the pet',
+    legRoundTrip: 'Round trip — both',
+    extraActive: 'Offered',
+    extraInactive: 'Not offered',
+    removeExtra: 'Remove',
     priceFreeHint: 'Price (enter 0 for free)',
     baseFeeHint: 'Base fee (enter 0 for free)',
     distancePricingHint:

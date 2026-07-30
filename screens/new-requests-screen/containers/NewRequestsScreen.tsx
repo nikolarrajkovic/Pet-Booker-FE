@@ -50,18 +50,15 @@ function petTypeOf(pet: any): ServiceRequest['petType'] {
   return 'other';
 }
 
-// Add-ons the booker selected, derived from the booking's include* flags. Labels
-// match the catalog (services/service-addons.ts); the server-computed surcharge
-// is appended when it's non-zero. Pickup ↔ includePickup, Drop-off ↔
-// includePetReturn, Special Needs Care ↔ includeSpecialNeeds.
-function selectedAddOns(t: TFn, b: BookingDto): string[] {
-  const label = (name: string, price?: number | null) =>
-    price && price > 0 ? `${name} • ${formatMoney(price, b.priceCurrency)}` : name;
-  const out: string[] = [];
-  if (b.includePickup) out.push(label(t('addons.pickup'), b.pickupPrice));
-  if (b.includePetReturn) out.push(label(t('addons.dropoff'), b.petReturnPrice));
-  if (b.includeSpecialNeeds) out.push(label(t('addons.specialNeeds'), b.specialNeedsPrice));
-  return out;
+// The extras charged on this booking, straight off its frozen bill lines. Names are the
+// provider's own (shown verbatim) and the amount is what was actually charged — no derivation
+// from flags, and no recomputing: the server froze both when it priced the booking.
+function selectedAddOns(_t: TFn, b: BookingDto): string[] {
+  return (b.additionalServices ?? []).map((line) => {
+    const named = 'name' in line ? line.name : '';
+    const price = 'price' in line ? line.price : 0;
+    return price > 0 ? `${named} • ${formatMoney(price, b.priceCurrency)}` : named;
+  });
 }
 
 // BookingDto (with nested includes) → RequestCard's ServiceRequest shape.

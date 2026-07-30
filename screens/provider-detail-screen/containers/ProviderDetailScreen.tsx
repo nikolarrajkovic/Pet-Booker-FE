@@ -201,14 +201,15 @@ export default function ProviderDetailScreen() {
                             {svc.description ?? svc.about}
                           </Text>
                         ) : null}
-                        {svc.details?.isPickupProvided && (
-                          <Text className="mt-1 text-xs text-brand-600">Pickup available</Text>
-                        )}
-                        {svc.details?.isPetReturnProvided && (
-                          <Text className="mt-0.5 text-xs text-brand-600">
-                            Leave-over available
-                          </Text>
-                        )}
+                        {/* The extras this service offers, by the provider's own names — there
+                            are no longer fixed pickup/return flags to check. */}
+                        {(svc.additionalServices ?? [])
+                          .filter((a) => a.isActive !== false && a.name)
+                          .map((a) => (
+                            <Text key={a.id ?? a.name} className="mt-1 text-xs text-brand-600">
+                              {a.name}
+                            </Text>
+                          ))}
                       </View>
                       <View className="items-end">
                         <Text className="text-base font-bold text-brand-600">
