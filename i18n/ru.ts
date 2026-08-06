@@ -37,6 +37,8 @@ const ru: TranslationDict = {
     somethingWentWrong: 'Что-то пошло не так. Попробуйте снова.',
     noResults: 'Ничего не найдено',
     all: 'Все',
+    loadMore: 'Показать ещё',
+    showingOf: 'Показано {loaded} из {total}',
   },
   tabs: {
     home: 'Главная',

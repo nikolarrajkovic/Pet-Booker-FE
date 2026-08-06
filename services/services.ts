@@ -1,4 +1,11 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
+import {
+  apiAuthFetch,
+  getApiBaseUrl,
+  parseApiError,
+  extractPageItems,
+  extractPage,
+  type PagedResult,
+} from './http';
 import type { AddressDto, PhotoDto } from './service-providers';
 import type { ReviewDto } from './reviews';
 import { DiscountType } from './service-discounts';
@@ -224,7 +231,7 @@ export type GetServicesParams = {
   perPage?: number;
 };
 
-export async function getServices(params?: GetServicesParams): Promise<ServiceDto[]> {
+async function fetchServices(params?: GetServicesParams): Promise<unknown> {
   const query = new URLSearchParams();
   if (params?.serviceProviderId !== undefined)
     query.set('ServiceProviderId', String(params.serviceProviderId));
@@ -247,8 +254,18 @@ export async function getServices(params?: GetServicesParams): Promise<ServiceDt
     throw new Error(await parseApiError(response, 'Failed to load services.', 'getServices'));
   }
 
-  const raw = await response.json();
-  return extractPageItems<ServiceDto>(raw);
+  return response.json();
+}
+
+export async function getServices(params?: GetServicesParams): Promise<ServiceDto[]> {
+  return extractPageItems<ServiceDto>(await fetchServices(params));
+}
+
+/** One page of services, with the counts needed to fetch the next — for `usePagedList`. */
+export async function getServicesPage(
+  params?: GetServicesParams
+): Promise<PagedResult<ServiceDto>> {
+  return extractPage<ServiceDto>(await fetchServices(params));
 }
 
 export async function getService(id: number): Promise<ServiceDto> {

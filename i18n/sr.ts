@@ -37,6 +37,8 @@ const sr: TranslationDict = {
     somethingWentWrong: 'Došlo je do greške. Pokušajte ponovo.',
     noResults: 'Nema rezultata',
     all: 'Sve',
+    loadMore: 'Učitaj još',
+    showingOf: 'Prikazano {loaded} od {total}',
   },
   tabs: {
     home: 'Početna',

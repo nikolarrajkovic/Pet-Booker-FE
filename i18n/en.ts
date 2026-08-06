@@ -41,6 +41,8 @@ const en = {
     somethingWentWrong: 'Something went wrong. Please try again.',
     noResults: 'No results found',
     all: 'All',
+    loadMore: 'Load more',
+    showingOf: 'Showing {loaded} of {total}',
   },
   tabs: {
     home: 'Home',

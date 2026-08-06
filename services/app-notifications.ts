@@ -1,4 +1,11 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
+import {
+  apiAuthFetch,
+  getApiBaseUrl,
+  parseApiError,
+  extractPageItems,
+  extractPage,
+  type PagedResult,
+} from './http';
 
 // NotificationType (swagger enum, NOT exposed via /enums — synced with the
 // backend's Domain.NotificationType 2026-07). Drives the per-row icon in the inbox.
@@ -56,10 +63,7 @@ function buildQuery(params?: GetAppNotificationsParams): URLSearchParams {
   return query;
 }
 
-/** Returns the user's in-app notifications (newest first as served by the API). */
-export async function getAppNotifications(
-  params?: GetAppNotificationsParams
-): Promise<AppNotificationDto[]> {
+async function fetchNotifications(params?: GetAppNotificationsParams): Promise<unknown> {
   const url = `${getApiBaseUrl()}/api/app-notifications?${buildQuery(params).toString()}`;
   const response = await apiAuthFetch(url, { method: 'GET' });
 
@@ -68,9 +72,25 @@ export async function getAppNotifications(
       await parseApiError(response, 'Failed to load notifications.', 'getAppNotifications')
     );
   }
+  return response.json();
+}
 
-  const raw = await response.json();
-  return extractPageItems<AppNotificationDto>(raw);
+/** Returns the user's in-app notifications (newest first as served by the API). */
+export async function getAppNotifications(
+  params?: GetAppNotificationsParams
+): Promise<AppNotificationDto[]> {
+  return extractPageItems<AppNotificationDto>(await fetchNotifications(params));
+}
+
+/**
+ * One page of notifications, with the counts needed to fetch the next — for `usePagedList`.
+ * A notification feed grows without limit, so the un-paged variant above only ever shows the
+ * newest page.
+ */
+export async function getAppNotificationsPage(
+  params?: GetAppNotificationsParams
+): Promise<PagedResult<AppNotificationDto>> {
+  return extractPage<AppNotificationDto>(await fetchNotifications(params));
 }
 
 /** Cheap unread-count probe — reads the pagination wrapper's totalItems. */
