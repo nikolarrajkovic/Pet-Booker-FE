@@ -4,7 +4,8 @@ A sweep of the codebase for hardcoded values — mock/placeholder data that shou
 from the API, hardcoded config that should be env/constants, sample display strings,
 brand-name inconsistencies, and colors that bypass the theme system.
 
-Generated 2026-06-27. Line numbers are approximate and may drift as the code changes.
+Generated 2026-06-27. Re-verified against the running app 2026-08-06 (see
+[`E2E_MANUAL_TESTING.md`](E2E_MANUAL_TESTING.md)). Line numbers are approximate and may drift.
 
 Legend:
 - 🔴 **Data** — fake/mock/placeholder data shown to users; should be API-driven or removed.
@@ -14,10 +15,51 @@ Legend:
 
 ---
 
+## ✅ The currency symbol — RESOLVED 2026-08-06
+
+**Was:** every price rendered with a hardcoded `$`, ignoring the `currency` the API stamps on each
+DTO. At the default RSD that showed **`$100`** for 100 dinars; with the display currency set to EUR
+the backend correctly returned `0.13 EUR` and the app rendered **`$0.13`**.
+
+> *Correction to an earlier version of this note:* it claimed no money helper existed. One did —
+> `formatMoney` in `services/bookings.ts`, already used by the booking/stats screens. The real
+> problem was narrower and more insidious: a helper that existed, was half-adopted, and was buried
+> in a booking-specific module where the next person (and a grep for `formatCurrency`) would miss it
+> and hardcode a `$` instead. **17** render sites had, across 12 files.
+
+**Now:** `services/money.ts` is the single home for `formatMoney` / `roundMoney` /
+`asSupportedCurrency` / `SUPPORTED_CURRENCIES` / `BASE_CURRENCY`. Every price render goes through
+`formatMoney(amount, currency)`, fed by the `currency` / `priceCurrency` the response carried.
+
+Rules to keep it that way:
+
+- **Never hardcode a currency symbol**, in TSX *or* in an i18n string. Three `i18n` templates had a
+  `$` baked in (`'${value} Off — {name}'`) — including the Serbian and Russian ones, which never
+  wanted a dollar sign at all. Templates now take an already-formatted amount.
+- **Always pass the currency** from the DTO that carried the amount. `ServiceDto.currency`,
+  `ServiceDiscountDto.currency`, `BookingReadDto.priceCurrency`, `BookingQuote.priceCurrency`, the
+  stats DTOs' `currency`. `formatMoney` falls back to `BASE_CURRENCY` (RSD), not a display default.
+- **Do not re-export it** from another module. It is deliberately importable from exactly one path.
+- Only money is formatted this way — ratings, counts, distances and durations are not.
+
+Two known exceptions, both deliberate and commented in place:
+
+- `search-screen/components/MapView.web.tsx` price **pin** shows the bare number — it is a 40px
+  circle and "1200 RSD" does not fit; the info card that opens on tap carries the currency.
+- The promotion amount **input** adornment shows `BASE_CURRENCY`, because that is the currency the
+  provider's typed amount will be stored in.
+
+Still hardcoded and *not* covered by this: `$` in static marketing copy (e.g. `become-partner-screen`
+"$2K Avg Monthly Earnings") and the mock promotion analytics below — those are fabricated numbers,
+listed further down as mock data rather than currency bugs.
+
+---
+
 ## 🔴 Mock / placeholder DATA (should be API-driven or removed)
 
-### `screens/my-schedule-screen/utils/mockScheduleData.ts`
-- **L25–119** — `mockScheduleData`: a full month of fake bookings (provider names "Happy Paws Walking", pet names, "Central Park"/"Golden Gate Park" locations, fixed `2026-04-*` dates). Used as a **fallback** whenever live data isn't injected via `setLiveScheduleData()` — so any code path that reads the schedule before/without loading real bookings shows fake appointments.
+### ✅ `screens/my-schedule-screen/utils/scheduleData.ts` — RESOLVED 2026-08-06
+- **Was** `mockScheduleData.ts`: a full month of fake bookings ("Happy Paws Walking", "Central Park", fixed `2026-04-*` dates) used as the **fallback** whenever live data wasn't injected — so a failed bookings fetch, or the moment before the first one resolved, showed a provider appointments that did not exist.
+- **Now**: the fabricated map is deleted (668 → ~180 lines), `scheduleSource()` falls back to `{}`, and the file is renamed to `scheduleData.ts` since it no longer holds any mock data. `MyScheduleScreen` gained loading and **inline error** states (per the error-handling convention — a load failure is an inline view, not a toast), so an empty calendar is never confused with a failed one.
 
 ### `screens/promotions-screen/containers/PromotionsScreen.tsx`
 - **L53–86** — `PERFORMANCE_STATS`: hardcoded "Performance Overview" tiles ("2" Active Promotions, "20" Bookings from Promos, "$88" Total Spent, "$4.38" Cost per Booking). Pure mock — not derived from any data.
@@ -135,7 +177,7 @@ icon-background accent swatches (`#EEF2FF`, `#FEF3C7`, etc.) which CLAUDE.md tol
 - `screens/promotions-screen/containers/PromotionsScreen.tsx` **L187**, and most `color="#00C870"` icon usages app-wide.
 
 **2. Color *data* defined as local constants instead of in the theme/Tailwind config:**
-- `screens/my-schedule-screen/utils/mockScheduleData.ts` **L122–126** — `SERVICE_TYPE_COLORS` (walking/grooming/sitting palettes); **L200, L218** — inline workload thresholds (`#86EFAC`/`#FDE047`/`#FCA5A5`).
+- `screens/my-schedule-screen/utils/scheduleData.ts` — `SERVICE_TYPE_COLORS` (walking/grooming/sitting palettes); **L200, L218** — inline workload thresholds (`#86EFAC`/`#FDE047`/`#FCA5A5`).
 - `screens/admin-dashboard-screen/containers/AdminDashboardScreen.tsx` **L34–40** — `TYPE_COLORS` per ServiceProviderType.
 
 > Note: an exhaustive per-line list of all 724 hex occurrences is omitted as noise; the
@@ -148,7 +190,7 @@ icon-background accent swatches (`#EEF2FF`, `#FEF3C7`, etc.) which CLAUDE.md tol
 
 | File | Type | What |
 |---|---|---|
-| `screens/my-schedule-screen/utils/mockScheduleData.ts` | 🔴 Data | Full mock schedule fallback |
+| ~~`screens/my-schedule-screen/utils/mockScheduleData.ts`~~ | ✅ | Mock schedule fallback deleted; file is now `scheduleData.ts` |
 | `screens/promotions-screen/containers/PromotionAnalyticsScreen.tsx` | 🔴 Data | Entire screen is mock |
 | `screens/promotions-screen/containers/PromotionsScreen.tsx` | 🔴 Data | Mock performance stats |
 | `screens/account-screen/containers/AccountScreen.tsx` | 🔴 Data | Mock saved card |

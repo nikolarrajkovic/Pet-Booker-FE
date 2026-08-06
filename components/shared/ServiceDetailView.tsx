@@ -3,6 +3,7 @@ import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
+import { formatMoney } from '../../services/money';
 
 interface ServiceDetailViewProps {
   service: {
@@ -10,6 +11,8 @@ interface ServiceDetailViewProps {
     type: string;
     description: string;
     price: number;
+    /** Currency `price` and the add-on amounts are in (from ServiceDto.currency). */
+    currency?: string | null;
     images?: string[];
     isNew?: boolean;
     rating?: number;
@@ -97,7 +100,9 @@ export default function ServiceDetailView({
         <View className={`mt-6 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'} rounded-2xl p-4`}>
           <Text className={`text-lg font-semibold ${textColor} mb-2`}>{t('shared.pricing')}</Text>
           <View className="flex-row items-baseline">
-            <Text className="text-3xl font-bold text-brand-600">${service.price || 0}</Text>
+            <Text className="text-3xl font-bold text-brand-600">
+              {formatMoney(service.price || 0, service.currency)}
+            </Text>
             <Text className={`${subtextColor} ml-2`}>{t('shared.startingFrom')}</Text>
           </View>
         </View>
@@ -125,7 +130,7 @@ export default function ServiceDetailView({
                       <Text className="font-semibold text-brand-600">
                         {service.additionalServices.pickup === 0
                           ? t('shared.includedFree')
-                          : `$${service.additionalServices.pickup}`}
+                          : formatMoney(service.additionalServices.pickup, service.currency)}
                       </Text>
                     </View>
                   )}
@@ -144,7 +149,7 @@ export default function ServiceDetailView({
                       <Text className="font-semibold text-brand-600">
                         {service.additionalServices.dropOff === 0
                           ? t('shared.includedFree')
-                          : `$${service.additionalServices.dropOff}`}
+                          : formatMoney(service.additionalServices.dropOff, service.currency)}
                       </Text>
                     </View>
                   )}

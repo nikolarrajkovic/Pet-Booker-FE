@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getServicesForDate, ServiceItem, ScheduleMode } from '../utils/mockScheduleData';
+import { getServicesForDate, ServiceItem, ScheduleMode } from '../utils/scheduleData';
 import { themeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { DAY_KEYS, MONTH_KEYS } from '../../../i18n';

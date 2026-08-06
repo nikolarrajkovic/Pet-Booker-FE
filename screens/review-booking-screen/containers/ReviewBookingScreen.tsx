@@ -360,6 +360,7 @@ export default function ReviewBookingScreen() {
           discount={discount}
           addons={addonLines}
           total={grandTotal}
+          currency={service.currency}
         />
 
         <PaymentMethodSelector

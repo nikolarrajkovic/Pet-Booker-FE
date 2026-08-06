@@ -22,6 +22,7 @@ import {
   effectiveOptionPrice,
 } from '../../../services/services';
 import { ReviewDto } from '../../../services/reviews';
+import { formatMoney } from '../../../services/money';
 import { resolveImageUrl, ApprovalStatus } from '../../../services/service-providers';
 import {
   getEnabledServiceAddons,
@@ -295,9 +296,13 @@ export default function ServiceDetailScreen() {
             </View>
 
             <View className="mt-4 flex-row items-baseline">
-              <Text className="text-3xl font-bold text-brand-600">${effective}</Text>
+              <Text className="text-3xl font-bold text-brand-600">
+                {formatMoney(effective, svc.currency)}
+              </Text>
               {hasDiscount ? (
-                <Text className={`${subtextColor} ml-2 line-through`}>${base}</Text>
+                <Text className={`${subtextColor} ml-2 line-through`}>
+                  {formatMoney(base, svc.currency)}
+                </Text>
               ) : null}
               <Text className={`${subtextColor} ml-2`}>{t('serviceDetail.startingFrom')}</Text>
             </View>
@@ -369,7 +374,9 @@ export default function ServiceDetailScreen() {
                           ${option.price}
                         </Text>
                       )}
-                      <Text className="font-semibold text-brand-600">${optionEffective}</Text>
+                      <Text className="font-semibold text-brand-600">
+                        {formatMoney(optionEffective, svc.currency)}
+                      </Text>
                     </View>
                   </View>
                 );
@@ -405,8 +412,8 @@ export default function ServiceDetailScreen() {
                     </View>
                   </View>
                   <Text className="font-semibold text-brand-600">
-                    {addonPriceLabel(t, addon)
-                      ? `+${addonPriceLabel(t, addon)}`
+                    {addonPriceLabel(t, addon, svc.currency)
+                      ? `+${addonPriceLabel(t, addon, svc.currency)}`
                       : t('addons.included')}
                   </Text>
                 </View>

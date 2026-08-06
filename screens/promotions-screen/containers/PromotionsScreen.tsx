@@ -11,6 +11,7 @@ import { PromotionCard } from '../components';
 import type { Promotion } from '../components';
 import { getServices } from '../../../services/services';
 import { getErrorMessage } from '../../../services/http';
+import { formatMoney } from '../../../services/money';
 import {
   getServiceDiscounts,
   updateServiceDiscount,
@@ -42,7 +43,7 @@ function discountToPromotion(
     type: 'offer',
     title: isPercent
       ? t('promotions.percentOffTitle', { value, name: serviceName })
-      : t('promotions.fixedOffTitle', { value, name: serviceName }),
+      : t('promotions.fixedOffTitle', { value: formatMoney(value, d.currency), name: serviceName }),
     description: serviceName,
     dateRange: [fmtDate(d.applyFrom), fmtDate(d.applyTo)].filter(Boolean).join(' - '),
     status: d.isEnabled ? 'active' : 'paused',

@@ -86,6 +86,8 @@ export interface UiService {
   pricingTiers: PricingTier[];
   additionalServices: AdditionalServiceEntry[];
   workingHours: WorkingHours;
+  /** Currency the tier/add-on amounts are in — from ServiceDto.currency, never assumed. */
+  currency?: string | null;
 }
 
 export const DEFAULT_WORKING_HOURS: WorkingHours = {
@@ -368,6 +370,7 @@ export function serviceDtoToUi(dto: ServiceDto): UiService {
     additionalServices: (dto.additionalServices ?? []).map(additionalServiceToEntry),
     // Real per-day working hours from the service's schedules (S2 now wired).
     workingHours: schedulesToWorkingHours(dto.schedules),
+    currency: dto.currency,
   };
 }
 

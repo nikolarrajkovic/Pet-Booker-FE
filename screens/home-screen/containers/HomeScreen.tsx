@@ -66,10 +66,12 @@ function pickActiveDiscount(discounts: ServiceDiscountDto[]): ServiceDiscountDto
   return active ?? enabled[0];
 }
 
-/** "3% OFF" / "$5 OFF" for a discount (Percent uses percentAmount, Fixed uses amount). */
+/** "3% OFF" / "€5 OFF" for a discount (Percent uses percentAmount, Fixed uses amount). */
 function discountLabel(d: ServiceDiscountDto): string {
   const value = d.type === DiscountType.Fixed ? d.amount : (d.percentAmount ?? d.amount);
-  return formatOfferAmount(d.type, value);
+  // percentAmount is passed through so it can override a mislabelled Fixed row — see
+  // formatOfferAmount. Currency only matters for the Fixed branch.
+  return formatOfferAmount(d.type, value, d.currency, d.percentAmount);
 }
 
 /** Flattens a ServiceDto from a home endpoint into a card item. */
@@ -228,6 +230,7 @@ export default function HomeScreen() {
                     rating={item.rating}
                     reviews={item.reviews}
                     price={item.price}
+                    currency={item.dto.currency}
                     badge={badge}
                     dealAmount={item.dealAmount}
                     onPress={() => handleServicePress(item)}

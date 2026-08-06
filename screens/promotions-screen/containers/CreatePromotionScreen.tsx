@@ -17,6 +17,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import DatePicker from '../../../components/shared/DatePicker';
 import { getServices, ServiceDto } from '../../../services/services';
+import { BASE_CURRENCY, formatMoney } from '../../../services/money';
 import { getErrorMessage } from '../../../services/http';
 import { createServiceDiscount, DiscountType } from '../../../services/service-discounts';
 
@@ -189,7 +190,9 @@ export default function CreatePromotionScreen() {
                     </Text>
                     {s.pricing?.basePrice != null && (
                       <Text className={`text-xs ${subtextColor} mt-0.5`}>
-                        {t('promotions.basePrice', { price: s.pricing.basePrice })}
+                        {t('promotions.basePrice', {
+                          price: formatMoney(s.pricing.basePrice, s.currency),
+                        })}
                       </Text>
                     )}
                   </View>
@@ -244,7 +247,9 @@ export default function CreatePromotionScreen() {
         </Text>
         <View
           className={`${inputBg} border ${borderColor} mb-5 flex-row items-center rounded-xl px-4`}>
-          {!isPercent && <Text className={`text-sm font-semibold ${subtextColor} mr-1`}>$</Text>}
+          {!isPercent && (
+            <Text className={`text-sm font-semibold ${subtextColor} mr-1`}>{BASE_CURRENCY}</Text>
+          )}
           <TextInput
             className={`flex-1 py-3.5 text-sm ${textColor}`}
             value={amount}

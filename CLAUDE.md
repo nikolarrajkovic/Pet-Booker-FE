@@ -556,9 +556,21 @@ Genuinely bespoke colors stay inline (sourced from the hook's `isDarkMode`): e.g
 - Always use `uploadFilesBulk()` for multiple files — more efficient than individual uploads
 - Upload files before creating the entity (pet, service, etc.)
 
+### Money & currency
+- **Always render money through `formatMoney(amount, currency)` from `services/money.ts`.** Never hardcode a currency symbol — not in TSX, and **not in an i18n string** (three translations had a `$` baked into the template). `services/money.ts` is the only import path: don't re-export it from another module, or it becomes unfindable again.
+- **Always pass the currency the response carried** — `ServiceDto.currency`, `ServiceDiscountDto.currency`, `BookingReadDto.priceCurrency`, `BookingQuote.priceCurrency`, the stats DTOs' `currency`. The backend stores RSD and converts every money field to the caller's `PreferredCurrency`, so that field is what the number actually is. `formatMoney` falls back to `BASE_CURRENCY` (RSD), never a display default.
+- Only **money** converts. Ratings, counts, distances, durations and percentages are never currency-formatted.
+- **Never compute a booking's price client-side.** `POST /api/bookings/quote` runs the same code that charges the booking and returns per-leg distances, itemized add-on lines, totals and deposit — use it for previews and render what the create call returns.
+- Discounts: `DiscountType` is `0=Percent, 1=Fixed`, but `PercentAmount` **takes precedence over `Type`/`Amount`** server-side — prefer `percentAmount` when it is present, whatever `type` says.
+
 ### Payments
 - Payment method selection in ReviewBookingScreen is UI only — no gateway integrated yet
 - Real payment processing is planned for a future date
+
+### Testing
+- There is no automated test suite here — `npx tsc --noEmit` is the only gate.
+- Manual regression walkthrough: [`E2E_MANUAL_TESTING.md`](E2E_MANUAL_TESTING.md), organised by role, with a *Known-broken* list so verified bugs are not re-filed.
+- Run the backend suite first so an API fault is not mistaken for a UI one: `PetBookerBackend/scripts/e2e-all.ps1` (index: `PetBookerBackend/docs/e2e-testing-overview.md`).
 
 ---
 

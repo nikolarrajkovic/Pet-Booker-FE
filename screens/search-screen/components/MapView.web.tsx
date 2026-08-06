@@ -3,6 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useLocale } from '../../../context/LocaleContext';
 import { loadGoogleMaps } from '../../../services/google-maps';
 import type { ServiceSearchItem } from './ListView';
+import { formatMoney } from '../../../services/money';
 
 interface LocationData {
   latitude: number;
@@ -26,13 +27,15 @@ const MAP_DECLUTTER_STYLE = [
   { featureType: 'transit', stylers: [{ visibility: 'off' }] },
 ];
 
-// Green price-pill marker icon ($ amount inside a circle) as an SVG data URI —
-// the classic-Marker equivalent of the old AdvancedMarkerElement div.
+// Green price-pill marker icon as an SVG data URI — the classic-Marker equivalent of the old
+// AdvancedMarkerElement div. Deliberately the bare amount with no currency: the pin is a 40px
+// circle and a formatted "1200 RSD" would not fit. The info card that opens on tap carries the
+// currency (see below) — which is better than the hardcoded "$" this used to draw on RSD prices.
 function pricePinSvg(price: number): string {
   return (
     '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">' +
     '<circle cx="20" cy="20" r="18" fill="#00C870" stroke="white" stroke-width="2"/>' +
-    `<text x="20" y="24" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">$${price}</text>` +
+    `<text x="20" y="24" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">${price}</text>` +
     '</svg>'
   );
 }
@@ -115,7 +118,7 @@ function buildInfoCard(s: ServiceSearchItem, isDarkMode: boolean, onView: () => 
   row.appendChild(rating);
 
   const price = document.createElement('div');
-  price.textContent = `$${s.price}`;
+  price.textContent = formatMoney(s.price, s.dto.currency);
   Object.assign(price.style, { color: '#00C870', fontSize: '16px', fontWeight: '700' });
   row.appendChild(price);
 
