@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { useLocale } from '../../../context/LocaleContext';
+import { formatMoney } from '../../../services/money';
 
 // Aggregated distance-pricing components behind a location add-on's total,
 // summed across appointments (see ReviewBookingScreen). Present only for
@@ -48,14 +49,15 @@ interface PriceBreakdownProps {
   discount?: DiscountLine | null;
   addons: AddonLine[];
   total: number;
+  /** Currency the amounts are in, from the booking/quote that produced them. */
+  currency?: string | null;
 }
 
-// Trim float artifacts from price subtraction (e.g. 9.999999 → 10) for display.
-const money = (n: number) => Math.round(n * 100) / 100;
 // Distance to at most 2 decimals, no trailing zeros (3.4 km, 1 km, 2.42 km).
 const km2 = (n: number) => String(Math.round(n * 100) / 100);
 
 export default function PriceBreakdown({
+  currency,
   isDarkMode,
   textColor,
   subtextColor,
@@ -73,19 +75,19 @@ export default function PriceBreakdown({
       </Text>
       <View className="mb-3 flex-row justify-between">
         <Text className={`text-sm ${subtextColor}`}>{t('reviewBooking.serviceLine')}</Text>
-        <Text className={`text-sm ${textColor}`}>${money(serviceTotal)}</Text>
+        <Text className={`text-sm ${textColor}`}>{formatMoney(serviceTotal, currency)}</Text>
       </View>
       {discount && discount.amount > 0 && (
         <View className="mb-3 flex-row justify-between">
           <Text className="text-sm text-brand-600">{discount.label}</Text>
-          <Text className="text-sm text-brand-600">−${money(discount.amount)}</Text>
+          <Text className="text-sm text-brand-600">−{formatMoney(discount.amount, currency)}</Text>
         </View>
       )}
       {addons.map((addon) => (
         <View key={addon.name} className="mb-3">
           <View className="flex-row justify-between">
             <Text className={`text-sm ${subtextColor}`}>{addon.name}</Text>
-            <Text className={`text-sm ${textColor}`}>${money(addon.price)}</Text>
+            <Text className={`text-sm ${textColor}`}>{formatMoney(addon.price, currency)}</Text>
           </View>
           {/* Distance-pricing sub-lines: start fee + per-km charge − free-km credit. */}
           {addon.breakdown && (
@@ -95,18 +97,20 @@ export default function PriceBreakdown({
                   {t('reviewBooking.addonStartFee')}
                   {addon.breakdown.count > 1 ? ` (×${addon.breakdown.count})` : ''}
                 </Text>
-                <Text className={`text-xs ${subtextColor}`}>${money(addon.breakdown.baseFee)}</Text>
+                <Text className={`text-xs ${subtextColor}`}>
+                  {formatMoney(addon.breakdown.baseFee, currency)}
+                </Text>
               </View>
               {addon.breakdown.distanceCharge > 0 && (
                 <View className="mb-1 flex-row justify-between">
                   <Text className={`text-xs ${subtextColor} flex-1 pr-2`}>
                     {t('reviewBooking.addonDistance', {
                       km: km2(addon.breakdown.distanceKm),
-                      rate: `$${money(addon.breakdown.perKmFee)}`,
+                      rate: formatMoney(addon.breakdown.perKmFee, currency),
                     })}
                   </Text>
                   <Text className={`text-xs ${subtextColor}`}>
-                    ${money(addon.breakdown.distanceCharge)}
+                    {formatMoney(addon.breakdown.distanceCharge, currency)}
                   </Text>
                 </View>
               )}
@@ -116,7 +120,7 @@ export default function PriceBreakdown({
       ))}
       <View className={`border-t ${borderColor} mt-3 flex-row justify-between pt-3`}>
         <Text className={`text-base font-bold ${textColor}`}>{t('reviewBooking.total')}</Text>
-        <Text className="text-2xl font-bold text-brand-600">${money(total)}</Text>
+        <Text className="text-2xl font-bold text-brand-600">{formatMoney(total, currency)}</Text>
       </View>
     </View>
   );

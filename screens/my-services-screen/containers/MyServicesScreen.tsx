@@ -18,6 +18,7 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { getServices, deleteService, ServiceDto } from '../../../services/services';
 import { getErrorMessage } from '../../../services/http';
 import { serviceDtoToUi, UiService } from '../serviceModel';
+import { formatMoney } from '../../../services/money';
 import { providerTypeValue } from '../../../services/service-providers';
 import { AdditionalServiceChargeType } from '../../../services/service-addons';
 
@@ -278,7 +279,10 @@ function ServiceListCard({
           <View className="flex-row flex-wrap" style={{ gap: 4 }}>
             {service.pricingTiers.map((tier, i) => (
               <Text key={i} className={`text-sm ${textColor}`}>
-                {tier.duration}: <Text className="font-semibold text-brand-500">${tier.price}</Text>
+                {tier.duration}:{' '}
+                <Text className="font-semibold text-brand-500">
+                  {formatMoney(Number(tier.price), service.currency)}
+                </Text>
                 {i < service.pricingTiers.length - 1 ? (
                   <Text className={subtextColor}>{'  \u2022'}</Text>
                 ) : null}
@@ -303,10 +307,10 @@ function ServiceListCard({
                         its base fee with a "+" to signal the per-km part. */}
                     {svc.chargeType === AdditionalServiceChargeType.PerDistance
                       ? parseFloat(svc.baseFee ?? '') > 0
-                        ? ` $${svc.baseFee}+`
+                        ? ` ${formatMoney(Number(svc.baseFee), service.currency)}+`
                         : ''
                       : parseFloat(svc.price) > 0
-                        ? ` $${svc.price}`
+                        ? ` ${formatMoney(Number(svc.price), service.currency)}`
                         : ''}
                   </Text>
                 </View>

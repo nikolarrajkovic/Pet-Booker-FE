@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import type { Partner, PartnerStatus, ServiceHistoryItem } from '../components';
+import { formatMoney } from '../../../services/money';
 import {
   getServiceProvider,
   extractProviderDocuments,
@@ -429,7 +430,7 @@ export default function PartnerDetailsScreen() {
             <View style={{ width: 1, backgroundColor: dividerColor }} />
             <View style={{ flex: 1, alignItems: 'center', paddingVertical: 16 }}>
               <Text style={{ color: textColor, fontSize: 20, fontWeight: '800' }}>
-                ${partner.startingPrice}
+                {formatMoney(partner.startingPrice)}
               </Text>
               <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2 }}>
                 Starting Price

@@ -3,7 +3,7 @@ import { Modal, View, Text, TouchableOpacity, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
-import { SUPPORTED_CURRENCIES, type SupportedCurrency } from '../../services/bookings';
+import { SUPPORTED_CURRENCIES, type SupportedCurrency } from '../../services/money';
 
 type Props = {
   visible: boolean;

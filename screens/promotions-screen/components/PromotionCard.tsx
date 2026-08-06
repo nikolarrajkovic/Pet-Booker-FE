@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useLocale } from '../../../context/LocaleContext';
+import { formatMoney } from '../../../services/money';
 
 export type PromotionStatus = 'active' | 'paused' | 'scheduled' | 'ended';
 export type PromotionType = 'boost' | 'featured' | 'offer' | 'ad';
@@ -29,18 +30,30 @@ export interface Promotion {
   discountId?: number;
   serviceId?: number;
   discountType?: number; // DiscountType: 0=Percent, 1=Fixed
+  // Set on a percentage discount. Authoritative over discountType — see formatOfferAmount.
+  percentAmount?: number | null;
+  currency?: string | null; // currency a Fixed discount's amount is in
   applyFrom?: string; // ISO
   applyTo?: string | null; // ISO
 }
 
 // DiscountType: 0=Percent, 1=Fixed (mirrors services/service-discounts DiscountType).
-// Renders an offer's headline — "$10 OFF" for fixed, "20% OFF" for percent.
+// Renders an offer's headline — "€10 OFF" for fixed, "20% OFF" for percent.
+//
+// `percentAmount` wins over `discountType` when it is set, mirroring
+// Domain.ServicePricing.ApplyDiscount ("PercentAmount takes precedence over Type/Amount"). The API
+// now rejects rows where the two disagree, but rows written before that validation landed are still
+// in the database — a Fixed-labelled row carrying a percentAmount really does bill as a percentage,
+// and reading `discountType` alone rendered those as "$0 OFF" on services that were 15% off.
 export function formatOfferAmount(
   discountType: number | undefined,
-  value: number | undefined
+  value: number | undefined,
+  currency?: string | null,
+  percentAmount?: number | null
 ): string {
+  if (percentAmount != null) return `${percentAmount}% OFF`;
   const v = value ?? 0;
-  return discountType === 1 ? `$${v} OFF` : `${v}% OFF`;
+  return discountType === 1 ? `${formatMoney(v, currency)} OFF` : `${v}% OFF`;
 }
 
 interface PromotionCardProps {
@@ -177,7 +190,9 @@ export default function PromotionCard({
             <Text className="text-xl font-bold text-green-600">
               {formatOfferAmount(
                 promotion.discountType,
-                promotion.discountValue ?? promotion.discountPercent
+                promotion.discountValue ?? promotion.discountPercent,
+                promotion.currency,
+                promotion.percentAmount
               )}
             </Text>
             <Text className={`text-xs ${subtextColor} mt-0.5`}>

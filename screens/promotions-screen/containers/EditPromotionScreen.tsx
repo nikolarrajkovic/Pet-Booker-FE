@@ -22,6 +22,7 @@ import {
   DiscountType,
 } from '../../../services/service-discounts';
 import { getErrorMessage } from '../../../services/http';
+import { BASE_CURRENCY, formatMoney } from '../../../services/money';
 
 // Labels are translation keys, resolved with t() at render.
 const TYPE_META: Record<
@@ -342,7 +343,10 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
             </View>
             {promotion.budgetSpent !== undefined && (
               <Text className={`text-xs ${subtextColor} mb-5`}>
-                {t('promotions.spentOfBudget', { spent: promotion.budgetSpent, budget })}
+                {t('promotions.spentOfBudget', {
+                  spent: formatMoney(promotion.budgetSpent, promotion.currency),
+                  budget: formatMoney(Number(budget), promotion.currency),
+                })}
               </Text>
             )}
             {promotion.budgetSpent === undefined && <View className="mb-5" />}
@@ -396,7 +400,9 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
             <View
               className={`${inputBg} border ${borderColor} mb-5 flex-row items-center rounded-xl px-4`}>
               {!isPercent && (
-                <Text className={`text-sm font-semibold ${subtextColor} mr-1`}>$</Text>
+                <Text className={`text-sm font-semibold ${subtextColor} mr-1`}>
+                  {BASE_CURRENCY}
+                </Text>
               )}
               <TextInput
                 className={`flex-1 py-3.5 text-sm ${textColor}`}

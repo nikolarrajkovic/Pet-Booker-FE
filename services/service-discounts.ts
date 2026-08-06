@@ -12,6 +12,9 @@ export type ServiceDiscountDto = {
   applyTo?: string | null; // ISO date-time, optional (open-ended)
   isEnabled: boolean;
   percentAmount?: number | null; // percent value when type === Percent
+  // Currency a Fixed discount's `amount` is expressed in (percent discounts are currency-free).
+  // Read-only: the server converts to the caller's display currency and stamps what it used.
+  currency?: string | null;
 };
 
 export type GetServiceDiscountsParams = {

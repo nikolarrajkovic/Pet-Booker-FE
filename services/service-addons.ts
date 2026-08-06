@@ -1,3 +1,4 @@
+import { formatMoney } from './money';
 // Helpers for a service's "Additional Services" — the optional extras a provider offers.
 //
 // These used to be a fixed catalog of three (Pickup / Drop-off / Special Needs Care), each
@@ -72,16 +73,18 @@ export function requiredAddressesFor(addons: AdditionalServiceDto[]): {
  */
 export function addonPriceLabel(
   t: (key: any, params?: Record<string, string | number>) => string,
-  addon: AdditionalServiceDto
+  addon: AdditionalServiceDto,
+  /** Currency the addon amounts are in — from the parent ServiceDto.currency. */
+  currency?: string | null
 ): string | null {
   const parts: string[] = [];
   if (isPerDistance(addon)) {
     const baseFee = addon.distancePrice?.baseFee ?? 0;
     const perKmFee = addon.distancePrice?.perKmFee ?? 0;
-    if (baseFee > 0) parts.push(`$${baseFee}`);
-    if (perKmFee > 0) parts.push(t('addons.perKm', { amount: `$${perKmFee}` }));
+    if (baseFee > 0) parts.push(formatMoney(baseFee, currency));
+    if (perKmFee > 0) parts.push(t('addons.perKm', { amount: formatMoney(perKmFee, currency) }));
   } else if ((addon.price ?? 0) > 0) {
-    parts.push(`$${addon.price}`);
+    parts.push(formatMoney(addon.price ?? 0, currency));
   }
   return parts.length ? parts.join(' + ') : null;
 }

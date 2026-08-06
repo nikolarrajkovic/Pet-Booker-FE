@@ -109,6 +109,15 @@ export type AdditionalServiceDto = {
 export type ServiceDto = {
   id?: number | null;
   serviceProviderId: number;
+  /**
+   * Read-only: the currency EVERY money field on this DTO is expressed in — `pricing.basePrice`,
+   * `price`, the pricing options, the discounts and the add-on amounts.
+   *
+   * Amounts are stored in RSD and converted server-side to the caller's `preferredCurrency`, so
+   * this is what the numbers actually are — always render through `formatMoney(amount, currency)`
+   * rather than assuming a symbol.
+   */
+  currency?: string | null;
   // Read-only slim provider embed on the service GET (see ServiceProviderInfoDto).
   serviceProvider?: ServiceProviderInfoDto | null;
   name?: string | null;

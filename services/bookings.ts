@@ -242,25 +242,12 @@ export function formatBookingDate(d: Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-// Currencies with a well-known symbol render as "€52"; anything else falls back
-// to "52 RSD". The server stamps a booking's priceCurrency from its provider
-// (Currency, default EUR) — a client-sent value is ignored — so `null` (older
-// rows) formats as EUR, matching the backend payment fallback.
-const CURRENCY_SYMBOLS: Record<string, string> = { EUR: '€', USD: '$', GBP: '£', RUB: '₽' };
-
-// Currencies a user may pick as their display preference (mirrors the backend's
-// Domain.PaymentCurrency.Supported). Payments are always made in RSD for now —
-// the preference is stored for future multi-currency display, no conversion yet.
-export const SUPPORTED_CURRENCIES = ['RSD', 'EUR', 'USD'] as const;
-export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
-
-export function formatMoney(amount: number, currency?: string | null): string {
-  const code = (currency ?? 'EUR').toUpperCase();
-  const symbol = CURRENCY_SYMBOLS[code];
-  // Cap at 2 decimals (trailing zeros trimmed): 35.41666 → 35.42, 30 → 30.
-  const value = Number.isFinite(amount) ? Math.round(amount * 100) / 100 : amount;
-  return symbol ? `${symbol}${value}` : `${value} ${code}`;
-}
+// Money formatting lives in ./money — it is not a booking concern (services, stats, discounts and
+// promotions all format prices too), and burying it here made it easy to miss and re-invent.
+//
+// Deliberately NOT re-exported from here: a re-export makes `bookings` a second, equally valid
+// import path for the same symbol, which is how it got hard to find in the first place — and it
+// puts money formatting behind this module's initialization. Import from './money' directly.
 
 function firstPhoto(entity?: NestedEntity | null): string {
   const photos = entity?.photos ?? [];

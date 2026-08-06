@@ -12,7 +12,7 @@ import LanguagePicker from '../../../components/shared/LanguagePicker';
 import CurrencyPicker from '../../../components/shared/CurrencyPicker';
 import { LANGUAGES } from '../../../i18n';
 import { getErrorMessage } from '../../../services/http';
-import { SUPPORTED_CURRENCIES, type SupportedCurrency } from '../../../services/bookings';
+import { SUPPORTED_CURRENCIES, type SupportedCurrency } from '../../../services/money';
 import {
   getNotificationSettings,
   saveNotificationSettings,

@@ -28,6 +28,7 @@ import {
   formatBookingDate,
   type BookingAdditionalServiceReadDto,
 } from '../../../services/bookings';
+import { formatMoney } from '../../../services/money';
 import {
   getEnabledServiceAddons,
   addonPriceLabel,
@@ -460,6 +461,11 @@ export default function BookServiceScreen() {
 
   const quote = quoteState.quote;
 
+  // What the amounts on this screen are denominated in. The quote is authoritative once it lands
+  // (it is the server's own pricing, already converted to the caller's display currency); until
+  // then the service DTO's own stamp is the best available. Never assume a symbol.
+  const displayCurrency = quote?.priceCurrency ?? selectedService.currency;
+
   /** The server's charge for one selected extra, or null until the quote lands. */
   const quotedAddonLine = (addon: AdditionalServiceDto): BookingAdditionalServiceReadDto | null =>
     quote?.additionalServices.find((l) => l.additionalServiceId === addon.id) ?? null;
@@ -485,9 +491,7 @@ export default function BookServiceScreen() {
       );
     }
     if (quoteState.failed) {
-      return (
-        <Text className={`text-xs ${subtextColor} mt-2`}>{t('bookService.quoteFailed')}</Text>
-      );
+      return <Text className={`text-xs ${subtextColor} mt-2`}>{t('bookService.quoteFailed')}</Text>;
     }
 
     const line = quotedAddonLine(addon);
@@ -504,7 +508,7 @@ export default function BookServiceScreen() {
       <Text className="mt-2 text-xs font-medium text-brand-600">
         {t('bookService.distanceSurcharge', {
           km: km1(line.distanceKm),
-          price: `$${money(line.price)}`,
+          price: formatMoney(line.price, displayCurrency),
         })}
       </Text>
     );
@@ -532,10 +536,10 @@ export default function BookServiceScreen() {
       id: Date.now(),
       service: {
         id: selectedService.id ?? 0,
-        name: selectedService.name ?? "Service",
+        name: selectedService.name ?? 'Service',
         price: money(quote ? quote.basePrice - quote.discountAmount : currentServicePrice()),
       },
-      pet: { id: selectedPet, name: pet?.name ?? "Pet", image: pet?.image ?? "" },
+      pet: { id: selectedPet, name: pet?.name ?? 'Pet', image: pet?.image ?? '' },
       // Freeze the SERVER's priced lines. Each already carries the name, the amount, and (for a
       // per-distance extra) the fees and that leg's distance — so Review itemizes the charge
       // without recomputing it, and what is shown is what will be billed.
@@ -658,13 +662,17 @@ export default function BookServiceScreen() {
                 <Text className="text-xl font-bold text-brand-600">
                   {pricingOptions.length > 0
                     ? selectedOption
-                      ? `$${money(effectiveOptionPrice(selectedService, selectedOption))}`
-                      : `${t('bookService.priceFrom')} $${money(
+                      ? formatMoney(
+                          effectiveOptionPrice(selectedService, selectedOption),
+                          displayCurrency
+                        )
+                      : `${t('bookService.priceFrom')} ${formatMoney(
                           Math.min(
                             ...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o))
-                          )
+                          ),
+                          displayCurrency
                         )}`
-                    : `$${money(servicePrice(selectedService))}`}
+                    : formatMoney(servicePrice(selectedService), displayCurrency)}
                 </Text>
               </View>
             </View>
@@ -705,11 +713,11 @@ export default function BookServiceScreen() {
                         <View className="ml-4 items-end">
                           {effective < option.price && (
                             <Text className={`text-xs ${subtextColor} line-through`}>
-                              ${money(option.price)}
+                              {formatMoney(option.price, displayCurrency)}
                             </Text>
                           )}
                           <Text className="text-lg font-bold text-brand-600">
-                            ${money(effective)}
+                            {formatMoney(effective, displayCurrency)}
                           </Text>
                         </View>
                       </View>
@@ -758,8 +766,8 @@ export default function BookServiceScreen() {
                       </View>
                       <Text className="ml-4 text-lg font-bold text-brand-600">
                         {line
-                          ? `$${money(line.price)}`
-                          : (addonPriceLabel(t, addon) ?? t('addons.included'))}
+                          ? formatMoney(line.price, displayCurrency)
+                          : (addonPriceLabel(t, addon, displayCurrency) ?? t('addons.included'))}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -1009,7 +1017,9 @@ export default function BookServiceScreen() {
                       )}
                     </View>
                     <View className="ml-2 items-end">
-                      <Text className="text-lg font-bold text-brand-600">${apt.total}</Text>
+                      <Text className="text-lg font-bold text-brand-600">
+                        {formatMoney(apt.total, displayCurrency)}
+                      </Text>
                       <TouchableOpacity onPress={() => removeAppointment(apt.id)} className="mt-2">
                         <Ionicons
                           name="close"
@@ -1032,6 +1042,7 @@ export default function BookServiceScreen() {
               isDarkMode={isDarkMode}
               textColor={textColor}
               subtextColor={subtextColor}
+              currency={displayCurrency}
             />
           )}
 
@@ -1042,7 +1053,9 @@ export default function BookServiceScreen() {
               <Text className={`text-base font-semibold ${textColor}`}>
                 {t('bookService.total')}
               </Text>
-              <Text className="text-2xl font-bold text-brand-600">${currentTotal()}</Text>
+              <Text className="text-2xl font-bold text-brand-600">
+                {formatMoney(currentTotal(), displayCurrency)}
+              </Text>
             </View>
           )}
         </ScrollView>

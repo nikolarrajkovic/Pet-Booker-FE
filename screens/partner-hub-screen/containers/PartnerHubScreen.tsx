@@ -13,8 +13,8 @@ import {
   BookingState,
   BookingStatusType,
   formatBookingDate,
-  formatMoney,
 } from '../../../services/bookings';
+import { formatMoney } from '../../../services/money';
 import {
   getProviderOverviewStats,
   getProviderEarnings,

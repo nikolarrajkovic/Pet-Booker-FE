@@ -16,6 +16,7 @@ import { getServices, ServiceDto } from '../../../services/services';
 import { getReviews, ReviewDto } from '../../../services/reviews';
 import { ApprovalStatus } from '../../../services/service-providers';
 import { getErrorMessage } from '../../../services/http';
+import { formatMoney } from '../../../services/money';
 import type { ProviderViewModel } from '../../../services/service-providers';
 
 type ProviderDetailRouteParams = {
@@ -70,6 +71,9 @@ export default function ProviderDetailScreen() {
   // Prefer the effective price (after any applied discount) the API returns
   const servicePrice = (s: ServiceDto) => s.price ?? s.pricing?.basePrice ?? 0;
   const startingPrice = services.length ? Math.min(...services.map(servicePrice)) : provider.price;
+  // All of a provider's services are priced in the same currency (the server converts every amount
+  // to the caller's display currency), so the first service's stamp speaks for the "from" price.
+  const providerCurrency = services[0]?.currency;
   const address = provider.address
     ? [provider.address.line1, provider.address.city, provider.address.state]
         .filter(Boolean)
@@ -141,7 +145,9 @@ export default function ProviderDetailScreen() {
           <Text className={`text-lg font-semibold ${textColor} mb-1`}>Pricing</Text>
           {startingPrice > 0 ? (
             <View className="flex-row items-baseline">
-              <Text className="text-3xl font-bold text-brand-600">${startingPrice}</Text>
+              <Text className="text-3xl font-bold text-brand-600">
+                {formatMoney(startingPrice, providerCurrency)}
+              </Text>
               <Text className={`${subtextColor} ml-2`}>starting from</Text>
             </View>
           ) : (

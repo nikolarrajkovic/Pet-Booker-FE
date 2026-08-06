@@ -1,9 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { useLocale } from '../../../context/LocaleContext';
-
-/** Round to at most 2 decimals for display (trims float-sum artifacts). */
-const money = (n: number) => Math.round(n * 100) / 100;
+import { formatMoney } from '../../../services/money';
 
 interface Appointment {
   id: number;
@@ -19,6 +17,8 @@ interface BookingSummaryProps {
   isDarkMode: boolean;
   textColor: string;
   subtextColor: string;
+  /** Currency the amounts are in, from the quote/service that produced them. */
+  currency?: string | null;
 }
 
 export default function BookingSummary({
@@ -27,6 +27,7 @@ export default function BookingSummary({
   isDarkMode,
   textColor,
   subtextColor,
+  currency,
 }: BookingSummaryProps) {
   const { t } = useLocale();
   return (
@@ -45,13 +46,18 @@ export default function BookingSummary({
           </View>
           <View className="mt-1 flex-row justify-between">
             <Text className={`text-sm ${subtextColor}`}>{apt.service.name}</Text>
-            <Text className={`text-sm ${textColor}`}>${money(apt.service.price)}</Text>
+            <Text className={`text-sm ${textColor}`}>
+              {formatMoney(apt.service.price, currency)}
+            </Text>
           </View>
           {apt.addons.length > 0 && (
             <View className="mt-1 flex-row justify-between">
               <Text className={`text-xs ${subtextColor}`}>{t('bookService.addonsLabel')}</Text>
               <Text className={`text-xs ${subtextColor}`}>
-                ${money(apt.addons.reduce((sum: number, a: any) => sum + a.price, 0))}
+                {formatMoney(
+                  apt.addons.reduce((sum: number, a: any) => sum + a.price, 0),
+                  currency
+                )}
               </Text>
             </View>
           )}
@@ -60,7 +66,9 @@ export default function BookingSummary({
       <View
         className={`border-t ${isDarkMode ? 'border-gray-700' : 'border-brand-200'} mt-2 flex-row justify-between pt-3`}>
         <Text className={`text-base font-bold ${textColor}`}>{t('bookService.totalColon')}</Text>
-        <Text className="text-2xl font-bold text-brand-600">${money(grandTotal)}</Text>
+        <Text className="text-2xl font-bold text-brand-600">
+          {formatMoney(grandTotal, currency)}
+        </Text>
       </View>
     </View>
   );

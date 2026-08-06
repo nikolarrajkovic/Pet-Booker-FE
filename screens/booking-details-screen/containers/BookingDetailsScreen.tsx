@@ -10,9 +10,9 @@ import { useReviewModal } from '../../../hooks/useReviewModal';
 import {
   getBooking,
   bookingToViewModel,
-  formatMoney,
   BookingDto,
 } from '../../../services/bookings';
+import { formatMoney } from '../../../services/money';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
 

@@ -4,6 +4,22 @@ A running registry of **UI features that have no backend support** and are there
 mocked / kept as local-only state in the app. Each entry notes where the gap is, what
 the UI does today, and what the backend would need to fully support it.
 
+> **Backend defects** (as opposed to missing features) are tracked on the backend side, in
+> `PetBookerBackend/docs/e2e-testing-overview.md` → *Open gaps*, and asserted by
+> `PetBookerBackend/scripts/e2e-all.ps1`. The ones that change what this app should do are
+> mirrored below as **X1–X4**. Manual FE walkthrough: [`E2E_MANUAL_TESTING.md`](E2E_MANUAL_TESTING.md).
+
+## Cross-cutting backend defects affecting the FE
+
+Found in the live audit on 2026-08-06; each is asserted by a backend check script.
+
+| # | Issue | Effect on the app | Backend gap |
+|---|---|---|---|
+| X1 | ✅ **Resolved backend-side (2026-08-06).** A booking's `basePrice`/`discountAmount` used to be taken from the client (and stored **0** if omitted). They are now **ignored on write** and derived server-side from the booked service or its pricing option; `adjust-price` remains the only override, and it is provider-only. | **FE action still outstanding:** the app posts prices it computed itself. Those fields are now inert, so nothing breaks — but they are dead weight and misleading. `BookServiceScreen`/`ReviewBookingScreen` should **stop sending** `basePrice`/`discountAmount`/`totalPrice` and render what the API returns. Use `POST /api/bookings/quote` for the pre-confirm preview: it runs the same calculator the create does, so the quoted total is by construction the charged total. If a screen ever shows a different number from the create response, the FE is now the bug. | G1 |
+| X2 | ✅ **Resolved backend-side (2026-08-06).** `ServiceDiscount` now enforces type/amount agreement: a `Percent` discount must carry a `percentAmount` in `(0, 100]`, a `Fixed` one must carry `amount > 0` and **no** `percentAmount`, and `applyTo` must be after `applyFrom` — on the standalone CRUD **and** the nested `PUT /api/services` write. Sending the same figure in `amount` alongside `percentAmount` for a percentage is still fine, so **the app's current payload keeps working unchanged**. | ✅ **FE side done too (2026-08-06).** `formatOfferAmount` now prefers `percentAmount` when present, mirroring `ServicePricing.ApplyDiscount`'s precedence rule — so the legacy rows still in the database (labelled Fixed, carrying a percent) render as the percentage they actually bill. The live `$0 OFF` badges now read **15% OFF**. Client-side validation in CreatePromotion/EditPromotion (0 < percent ≤ 100, fixed > 0, end after start) is optional polish — the API rejects these with a 422 that `parseApiError` surfaces. | G2 |
+| X3 | ✅ **Resolved backend-side (2026-08-06).** `PerPage` is now capped at **200** (default 10), `?Paginate=false` returns one *unwrapped* page bounded by the same cap rather than the whole table, and non-positive `Page`/`PerPage` clamp instead of returning 500. | **Nothing breaks today** — every service pins `PerPage` at 20–50, well under the cap, and the app never sends `Paginate`. **FE action still outstanding, and now unavoidable:** the app never requests page 2, so **any list past the first page is silently invisible**, and `PerPage` can no longer be raised past 200 to paper over it. Lists need real paging (`onEndReached` / load-more) driving `Page`, using `totalPages`/`totalItems` from the response wrapper. Affects bookings, services, reviews, notifications, provider search — anywhere `extractPageItems` is used. | G3, G4 |
+| X4 | ✅ **Resolved backend-side (2026-08-06).** `GET /api/pets` is now scoped to the caller (the `OwnerUserId` filter is overwritten with your own id), and `GET /api/pets/{id}` is gated to admin / the owner / **a provider with a booking for that pet** — 404 otherwise. | **No FE change needed.** `getPets(currentUser.id)` already asks only for its own pets, and `LiveSessionScreen`'s `getPet(b.petId)` still works in partner mode because the provider has a booking for it. Note for future work: a pet list is no longer a way to look up someone else's pet — read pet details from the booking's nested `pet` include, or by id as a party to the booking. | G5 |
+
 > Convention: when you wire a screen to the API and hit a field the API can't store,
 > **keep the UI**, mock/derive the value, and add a row here. Search the code for
 > `BACKEND-GAP:` comments — each one points back to an entry in this file.

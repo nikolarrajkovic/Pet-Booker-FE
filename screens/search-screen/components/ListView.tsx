@@ -3,6 +3,7 @@ import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { ServiceDto } from '../../../services/services';
+import { formatMoney } from '../../../services/money';
 
 export interface ServiceSearchItem {
   id: number;
@@ -105,7 +106,9 @@ export default function ListView({
                 ) : null}
               </View>
 
-              <Text className="mt-1 font-semibold text-brand-600">from ${item.price}</Text>
+              <Text className="mt-1 font-semibold text-brand-600">
+                from {formatMoney(item.price, item.dto.currency)}
+              </Text>
             </View>
           </TouchableOpacity>
         ))}
