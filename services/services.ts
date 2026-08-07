@@ -8,7 +8,7 @@ import {
 } from './http';
 import type { AddressDto, PhotoDto } from './service-providers';
 import type { ReviewDto } from './reviews';
-import { DiscountType } from './service-discounts';
+import { DiscountType, type ServiceDiscountDto } from './service-discounts';
 
 // Slim owning-provider embed on the service GET (ServiceProviderInfoReadDto) —
 // name/avatar/address/rating/verified, enough for ServiceDetail's provider card
@@ -198,6 +198,12 @@ export type ServiceDto = {
   reviewCount?: number; // number of reviews backing `rating`
   reviews?: ReviewDto[]; // embedded reviews (may include all statuses — public screens still filter by approvalStatus)
   upcomingBookings?: ServiceBookedSlotReadDto[]; // booked slots for availability
+  // Every discount configured on the service, live or not — the raw rows behind the resolved
+  // `appliedDiscountType`/`appliedDiscountAmount` above. Prefer those two for DISPLAY (the server
+  // has already decided which promotion is active); read this when you need the configuration
+  // itself, e.g. the partner's promotions list. Present on the service list and detail responses
+  // and on the Home rails, so a screen showing a partner's offers never needs a second request.
+  discounts?: ServiceDiscountDto[];
 };
 
 /**

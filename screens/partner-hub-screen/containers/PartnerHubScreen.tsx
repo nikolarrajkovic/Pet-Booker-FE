@@ -23,7 +23,6 @@ import {
   ActivityEntry,
 } from '../../../services/stats';
 import { getServices } from '../../../services/services';
-import { getServiceDiscounts } from '../../../services/service-discounts';
 import TabBar from '../../../components/shared/TabBar';
 
 // ─── Formatting / time helpers ───────────────────────────────────────────────
@@ -165,16 +164,16 @@ function toActivity(t: TFn, e: ActivityEntry, index: number): ActivityItem {
   }
 }
 
-/** Counts a partner's enabled discounts across all their services. */
+/**
+ * Counts a partner's enabled discounts across all their services.
+ *
+ * One request, not 1 + N: the service list already embeds each service's `discounts[]`, so the
+ * per-service fetch this used to fan out was asking the server to repeat what it had just sent.
+ */
 async function countActivePromos(providerId: number): Promise<number> {
   try {
     const services = await getServices({ serviceProviderId: providerId });
-    const lists = await Promise.all(
-      services.map((s) =>
-        s.id != null ? getServiceDiscounts({ serviceId: s.id }) : Promise.resolve([])
-      )
-    );
-    return lists.flat().filter((d) => d.isEnabled).length;
+    return services.flatMap((s) => s.discounts ?? []).filter((d) => d.isEnabled).length;
   } catch {
     return 0;
   }

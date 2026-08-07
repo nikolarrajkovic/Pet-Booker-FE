@@ -36,10 +36,15 @@ import {
 import { PetSpecies } from '../../../services/pets';
 
 // The booker reads everything about ONE specific service here, then taps
-// "Book Now" to proceed. The service arrives as a route param (carrying
-// serviceProviderId) from Home/Search; both list endpoints return a leaner
-// ServiceDto, so we re-fetch the full record on mount for the full picture.
-type ServiceDetailRouteParams = { service: ServiceDto };
+// "Book Now" to proceed.
+//
+// Two ways in, because this screen is also the app's one deep-linkable page:
+//   * from Home/Search, carrying the whole `service` — renders immediately, then
+//     re-fetches the full record (the rails return a leaner shape).
+//   * from the URL `/services/:serviceId`, carrying only an id — nothing to render
+//     until the fetch lands, so it shows a spinner first.
+// Either way the mount fetch is the same call, so the id-only path costs nothing extra.
+type ServiceDetailRouteParams = { service?: ServiceDto; serviceId?: number };
 
 // Prefer the effective price (after any applied discount) the API returns.
 const servicePrice = (s: ServiceDto) => s.price ?? s.pricing?.basePrice ?? 0;
@@ -60,7 +65,9 @@ const speciesKeys = (flags?: number): string[] => {
 export default function ServiceDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: ServiceDetailRouteParams }, 'params'>>();
-  const { service } = route.params;
+  const { service, serviceId } = route.params ?? {};
+  // The id is what identifies the screen; a passed `service` is just a head start on rendering.
+  const id = service?.id ?? serviceId ?? null;
   const { width: screenWidth } = useWindowDimensions();
   const {
     isDarkMode,
@@ -72,23 +79,27 @@ export default function ServiceDetailScreen() {
   } = useThemeColors();
   const { t, tEnum } = useLocale();
 
-  const [selectedService, setSelectedService] = useState<ServiceDto>(service);
+  const [selectedService, setSelectedService] = useState<ServiceDto | null>(service ?? null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setIsLoading(true);
+      setLoadFailed(false);
       try {
         // One fetch: the full service GET embeds details/schedules/pricing plus
         // the slim provider (name/photos/address/rating/verified) and the
-        // service's reviews. Fails soft — the lean route-param service still
-        // renders (without provider/reviews) if the fetch dies.
-        const fullService =
-          service.id != null ? await getService(service.id).catch(() => null) : null;
+        // service's reviews. Fails soft when we were handed a service — the lean
+        // route-param one still renders (without provider/reviews).
+        const fullService = id != null ? await getService(id).catch(() => null) : null;
         if (cancelled) return;
         if (fullService) setSelectedService(fullService);
+        // Arrived by URL with nothing to fall back on: an unknown or unapproved id
+        // is a dead link, so say so rather than rendering an empty page.
+        else if (!service) setLoadFailed(true);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -96,7 +107,22 @@ export default function ServiceDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [service.id]);
+  }, [id]);
+
+  // Deep-linked and still fetching: there is genuinely nothing to draw yet.
+  if (!selectedService) {
+    return (
+      <ScreenLayout>
+        <View className="flex-1 items-center justify-center p-8">
+          {isLoading && !loadFailed ? (
+            <ActivityIndicator size="large" color="#00A85A" />
+          ) : (
+            <Text className={`text-center ${subtextColor}`}>{t('serviceDetail.notFound')}</Text>
+          )}
+        </View>
+      </ScreenLayout>
+    );
+  }
 
   const svc = selectedService;
   const provider: ServiceProviderInfoDto | null = svc.serviceProvider ?? null;

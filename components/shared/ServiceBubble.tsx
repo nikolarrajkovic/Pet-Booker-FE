@@ -11,7 +11,15 @@ type Props = {
 
 export const ServiceBubble = ({ label, bg = 'bg-brand-500', onPress, icon }: Props) => {
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.9} className="items-center">
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.9}
+      // The icon carries no text, so without a label the whole pill announces as an unnamed
+      // button; `accessible` collapses the icon + caption into that one control.
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessible
+      className="items-center">
       <View className={`h-24 w-24 items-center justify-center rounded-full ${bg} shadow-lg`}>
         {icon ?? <MaterialCommunityIcons name="dog-side" size={28} color="white" />}
       </View>
