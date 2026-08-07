@@ -15,6 +15,14 @@ type Props = {
   style?: ViewStyle;
   disabled?: boolean;
   activeOpacity?: number;
+  /**
+   * What a screen reader announces. Defaults to `text`, which covers most buttons — pass it
+   * explicitly for an ICON-ONLY button, where there is no text to fall back to and the control
+   * would otherwise be announced as an unlabelled button.
+   */
+  accessibilityLabel?: string;
+  /** Longer explanation of what happens on activation, when the label alone is ambiguous. */
+  accessibilityHint?: string;
 };
 
 const variantStyles: Record<ButtonVariant, string> = {
@@ -42,6 +50,8 @@ export default function Button({
   style,
   disabled = false,
   activeOpacity = 0.7,
+  accessibilityLabel,
+  accessibilityHint,
 }: Props) {
   const variantClass = variantStyles[variant];
   const textColorClass = textColorMap[variant];
@@ -76,6 +86,13 @@ export default function Button({
       onPress={onPress}
       disabled={isDisabled}
       activeOpacity={activeOpacity}
+      // A TouchableOpacity renders as a plain <div> on web with no role and no name, so every
+      // button in the app was invisible to assistive tech and unreachable by keyboard. `role`
+      // makes it a button; the label falls back to the visible text so callers get this for free.
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? text}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: isDisabled }}
       style={style}
       className={`items-center justify-center rounded-xl px-4 py-3 ${variantClass} ${
         isDisabled ? 'opacity-50' : ''

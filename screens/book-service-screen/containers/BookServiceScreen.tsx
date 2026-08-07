@@ -85,6 +85,16 @@ type Appointment = {
 // defines options, else this 1h default (classic free-range services).
 const SLOT_DURATION_MS = 60 * 60 * 1000;
 
+// Local date-only key, "YYYY-MM-DD" — how the availability endpoint takes its from/to params and
+// how its `days[]` come back. Built from the local calendar fields rather than toISOString(),
+// which would shift the date across midnight for anyone east or west of UTC.
+const dateKey = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** "YYYY-MM" — the cache key for one fetched month of availability. */
+const monthKeyOf = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
 // "HH:mm:ss" (or "HH:mm") → minutes since midnight, rounded to the nearest
 // minute. Rounding lets the 23:59:59 end-of-day sentinel (= 24:00) read back as
 // 1440 so a window ending at midnight still yields its final 23:00–24:00 slot.
@@ -171,9 +181,14 @@ export default function BookServiceScreen() {
   const [selectedPet, setSelectedPet] = useState<number | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
-  // Bookable windows for the selected date, fetched from the service's
-  // availability endpoint (server-derived, with remaining capacity per window).
-  const [availWindows, setAvailWindows] = useState<AvailabilityWindowDto[]>([]);
+  // Server-derived bookable windows (with remaining capacity), keyed by "YYYY-MM-DD".
+  //
+  // Fetched a MONTH at a time rather than a day at a time. The endpoint accepts a range of up to
+  // 31 days, so a whole calendar month is one request — where picking through a month used to cost
+  // one request per tap. It also means the calendar can grey out days that are genuinely
+  // unbookable (see `bookableDates`) instead of making the user discover them one tap at a time.
+  const [availByDate, setAvailByDate] = useState<Record<string, AvailabilityWindowDto[]>>({});
+  const [loadedMonths, setLoadedMonths] = useState<Record<string, true>>({});
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
   const petToListItem = useCallback(
@@ -191,13 +206,17 @@ export default function BookServiceScreen() {
     (async () => {
       setIsLoading(true);
       try {
-        // Fetch the user's pets and the FULL service (with its working-hours
-        // schedules + details) in parallel. The list DTO we were navigated with
-        // omits schedules, so without this re-fetch the slot picker would be
-        // empty for every day. Service fetch fails soft → keep the lean DTO.
+        // This screen needs the service's working-hours `schedules` and its `details`. Every
+        // screen that navigates here now hands over a read DTO that already carries both —
+        // ServiceDetail passes the service it just fetched, and the service list and Home rails
+        // both embed them — so re-fetching by id would be asking for a payload we already hold.
+        // The fetch is kept as a fallback for a caller that passes a leaner shape; it fails soft,
+        // in which case the DTO we were navigated with stands.
+        const needsFullService =
+          service.id != null && (service.schedules == null || service.details == null);
         const [petList, fullService] = await Promise.all([
           currentUser?.id ? getPets(currentUser.id) : Promise.resolve([]),
-          service.id != null ? getService(service.id).catch(() => null) : Promise.resolve(null),
+          needsFullService ? getService(service.id!).catch(() => null) : Promise.resolve(null),
         ]);
         if (cancelled) return;
         if (fullService) setSelectedService(fullService);
@@ -243,31 +262,44 @@ export default function BookServiceScreen() {
     }, [currentUser?.id, petToListItem])
   );
 
-  // For the chosen day, fetch the service's bookable windows from the
-  // availability endpoint. This is the ONLY source of slot availability — the
-  // server already factors in the provider's bookings (per-window
-  // remainingCapacity), so we no longer query the bookings API here.
+  // Fetch the availability for the whole month a date belongs to, once. This is the ONLY source
+  // of slot availability — the server already factors in the provider's bookings (per-window
+  // remainingCapacity), so we never query the bookings API here.
+  //
+  // The month the user is most likely to pick from is loaded up front so the calendar opens with
+  // its unbookable days already greyed out, rather than looking uniformly available until tapped.
+  const monthToLoad = useMemo(
+    () => monthKeyOf(selectedDate ?? new Date()),
+    [selectedDate]
+  );
+
   useEffect(() => {
-    if (!selectedDate || serviceId == null) {
-      setAvailWindows([]);
-      return;
-    }
+    if (serviceId == null || loadedMonths[monthToLoad]) return;
+
     let cancelled = false;
     (async () => {
       setIsLoadingSlots(true);
       try {
-        const dayStart = new Date(selectedDate);
-        dayStart.setHours(0, 0, 0, 0);
-        // Date-only key ("YYYY-MM-DD", local) — the availability endpoint rejects
-        // full ISO datetimes.
-        const dayKey = formatBookingDate(dayStart).slice(0, 10);
-        const availability = await getServiceAvailability(serviceId, dayKey, dayKey);
-        if (!cancelled) setAvailWindows(availability?.days?.[0]?.windows ?? []);
-      } catch (e) {
-        if (!cancelled) {
-          setAvailWindows([]); // no windows → no slots
-          showError(getErrorMessage(e, t('bookService.slotsLoadError')));
+        const [year, month] = monthToLoad.split('-').map(Number);
+        const first = new Date(year, month - 1, 1);
+        const last = new Date(year, month, 0); // day 0 of the next month = last of this one
+        // Date-only keys ("YYYY-MM-DD", local). A calendar month is at most 31 days, which is
+        // exactly the range cap the endpoint enforces.
+        const availability = await getServiceAvailability(
+          serviceId,
+          dateKey(first),
+          dateKey(last)
+        );
+        if (cancelled) return;
+        const byDate: Record<string, AvailabilityWindowDto[]> = {};
+        for (const day of availability?.days ?? []) {
+          // `date` comes back date-only, but slice defensively in case it ever carries a time.
+          byDate[String(day.date).slice(0, 10)] = day.windows ?? [];
         }
+        setAvailByDate((prev) => ({ ...prev, ...byDate }));
+        setLoadedMonths((prev) => ({ ...prev, [monthToLoad]: true }));
+      } catch (e) {
+        if (!cancelled) showError(getErrorMessage(e, t('bookService.slotsLoadError')));
       } finally {
         if (!cancelled) setIsLoadingSlots(false);
       }
@@ -275,16 +307,43 @@ export default function BookServiceScreen() {
     return () => {
       cancelled = true;
     };
-  }, [selectedDate, serviceId]);
+  }, [serviceId, monthToLoad, loadedMonths]);
 
-  // Weekdays the service has working hours for (from its schedules). JS getDay()
-  // (0=Sun…6=Sat) matches the schedule's .NET DayOfWeek numbering. Cheap weekly
-  // pattern used only to gray out the calendar; the actual per-date slots come
-  // from the availability endpoint once a day is picked.
+  // Re-fetch from scratch if the service changes underneath us.
+  useEffect(() => {
+    setAvailByDate({});
+    setLoadedMonths({});
+  }, [serviceId]);
+
+  const availWindows = useMemo(
+    () => (selectedDate ? (availByDate[dateKey(selectedDate)] ?? []) : []),
+    [selectedDate, availByDate]
+  );
+
+  // Which dates the calendar should let the user pick.
+  //
+  // Prefers real availability — a day the server reported no windows for is not bookable, whether
+  // that is because the provider doesn't work that weekday or because the day is fully booked.
+  // Until the month has loaded, fall back to the service's weekly schedule pattern (JS getDay(),
+  // 0=Sun…6=Sat, matches the schedule's .NET DayOfWeek) so the calendar isn't briefly wide open.
   const scheduledDays = useMemo(
     () => new Set((selectedService?.schedules ?? []).map((s) => s.day)),
     [selectedService]
   );
+
+  const isDateBookable = useCallback(
+    (d: Date) => {
+      const key = dateKey(d);
+      if (loadedMonths[monthKeyOf(d)]) return (availByDate[key]?.length ?? 0) > 0;
+      return scheduledDays.size === 0 || scheduledDays.has(d.getDay());
+    },
+    [availByDate, loadedMonths, scheduledDays]
+  );
+
+  // A service with no working hours at all is unbookable outright. Saying so once is far kinder
+  // than letting the booker tap through a calendar where every day reports "not available".
+  const hasNoWorkingHours =
+    selectedService != null && (selectedService.schedules?.length ?? 0) === 0;
 
   // Build bookable slots for the selected date from the availability endpoint's
   // window(s) for that date. Slot length AND stride follow the chosen pricing
@@ -864,34 +923,45 @@ export default function BookServiceScreen() {
                 {t('bookService.chooseDateTime')}
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={() => setShowDatePicker((v) => !v)}
-              className={`mb-3 rounded-2xl border p-4 ${borderColor} ${cardBg} flex-row items-center justify-between`}>
-              <View className="flex-row items-center">
-                <Ionicons name="calendar-outline" size={20} color="#00C870" />
-                <Text className={`ml-3 ${selectedDate ? textColor : subtextColor}`}>
-                  {selectedDate
-                    ? `${t(DAY_SHORT_KEYS[selectedDate.getDay()])}, ${t(MONTH_KEYS[selectedDate.getMonth()])} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`
-                    : t('bookService.selectDate')}
-                </Text>
+            {/* A service with no working hours at all can never be booked. Say so once, here,
+                instead of opening a calendar in which every single day reports "not available". */}
+            {hasNoWorkingHours ? (
+              <View className={`mb-3 rounded-2xl border p-4 ${borderColor} ${cardBg}`}>
+                <View className="flex-row items-center">
+                  <Ionicons name="information-circle-outline" size={20} color="#F59E0B" />
+                  <Text className={`ml-3 flex-1 ${subtextColor}`}>
+                    {t('bookService.noWorkingHours')}
+                  </Text>
+                </View>
               </View>
-              <Ionicons
-                name={showDatePicker ? 'chevron-up' : 'chevron-down'}
-                size={18}
-                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-              />
-            </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={() => setShowDatePicker((v) => !v)}
+                className={`mb-3 rounded-2xl border p-4 ${borderColor} ${cardBg} flex-row items-center justify-between`}>
+                <View className="flex-row items-center">
+                  <Ionicons name="calendar-outline" size={20} color="#00C870" />
+                  <Text className={`ml-3 ${selectedDate ? textColor : subtextColor}`}>
+                    {selectedDate
+                      ? `${t(DAY_SHORT_KEYS[selectedDate.getDay()])}, ${t(MONTH_KEYS[selectedDate.getMonth()])} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`
+                      : t('bookService.selectDate')}
+                  </Text>
+                </View>
+                <Ionicons
+                  name={showDatePicker ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                />
+              </TouchableOpacity>
+            )}
             {showDatePicker && (
               <DatePicker
                 value={selectedDate ?? new Date()}
                 minDate={new Date()}
                 isDarkMode={isDarkMode}
-                // Gray out weekdays the service isn't scheduled for. Only applied
-                // when the service has any schedule, so services without working
-                // hours configured still show a normal (if empty-slot) calendar.
-                isDateEnabled={
-                  scheduledDays.size > 0 ? (d) => scheduledDays.has(d.getDay()) : undefined
-                }
+                // Grey out days that are genuinely unbookable — no schedule window, or fully
+                // booked — using the month of availability already fetched, falling back to the
+                // weekly schedule pattern until it lands.
+                isDateEnabled={isDateBookable}
                 onChange={(date) => {
                   if (date) {
                     setSelectedDate(new Date(date));

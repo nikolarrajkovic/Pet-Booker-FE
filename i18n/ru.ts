@@ -264,6 +264,9 @@ const ru: TranslationDict = {
     rights: '© 2025 Все права защищены',
   },
   home: {
+    a11yBrowseCategory: 'Посмотреть услуги: {category}',
+    a11yNotifications: 'Уведомления',
+    a11yNotificationsUnread: 'Уведомления, непрочитанных: {count}',
     tagline: 'Найдите идеальный уход для вашего питомца',
     recentlyBooked: 'Недавно забронировано',
     nearYou: 'Рядом с вами',
@@ -277,6 +280,9 @@ const ru: TranslationDict = {
   card: {
     popular: 'Популярное',
     deal: 'Скидка',
+    a11yPriceFrom: 'от {price}',
+    a11yRating: 'оценка {rating} из 5 на основе {reviews} отзывов',
+    a11yNoReviews: 'отзывов пока нет',
   },
   search: {
     allServices: 'Все услуги',
@@ -401,6 +407,7 @@ const ru: TranslationDict = {
     perKm: '{amount}/км',
   },
   serviceDetail: {
+    notFound: 'Эта услуга больше недоступна.',
     title: 'Детали услуги',
     subtitle: 'Ознакомьтесь перед бронированием',
     reviewSingular: 'отзыв',
@@ -461,6 +468,8 @@ const ru: TranslationDict = {
     dropoffLocation: 'Место возврата',
     petsLoadError: 'Не удалось загрузить питомцев. Попробуйте снова.',
     slotsLoadError: 'Не удалось загрузить доступное время. Попробуйте снова.',
+    noWorkingHours:
+      'Для этой услуги ещё не задано рабочее время, поэтому её нельзя забронировать. Выберите другую услугу или попробуйте позже.',
     priceFrom: 'от',
     selectPetHint: 'Выберите одного или нескольких питомцев',
     availableTimes: 'Доступное время',

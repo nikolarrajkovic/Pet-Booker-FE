@@ -13,7 +13,6 @@ import { getServices } from '../../../services/services';
 import { getErrorMessage } from '../../../services/http';
 import { formatMoney } from '../../../services/money';
 import {
-  getServiceDiscounts,
   updateServiceDiscount,
   ServiceDiscountDto,
   DiscountType,
@@ -122,15 +121,13 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
         setOffers([]);
         return;
       }
+      // One request, not 1 + N. Each service in the list already carries its own `discounts[]`,
+      // so fanning out a fetch per service was re-asking for data already in hand — and it grew
+      // linearly with a partner's catalogue.
       const services = await getServices({ serviceProviderId: providerId });
       const nameById = new Map(services.map((s) => [s.id, s.name ?? t('promotions.service')]));
-      const lists = await Promise.all(
-        services.map((s) =>
-          s.id != null ? getServiceDiscounts({ serviceId: s.id }) : Promise.resolve([])
-        )
-      );
-      const mapped = lists
-        .flat()
+      const mapped = services
+        .flatMap((s) => s.discounts ?? [])
         .map((d) =>
           discountToPromotion(t, d, nameById.get(d.serviceId) ?? t('promotions.service'))
         );
