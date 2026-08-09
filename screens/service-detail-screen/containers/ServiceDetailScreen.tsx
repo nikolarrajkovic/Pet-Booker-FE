@@ -13,6 +13,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import {
@@ -20,6 +21,7 @@ import {
   ServiceDto,
   ServiceProviderInfoDto,
   effectiveOptionPrice,
+  serviceCurrency,
 } from '../../../services/services';
 import { ReviewDto } from '../../../services/reviews';
 import { resolveImageUrl, ApprovalStatus } from '../../../services/service-providers';
@@ -144,6 +146,9 @@ export default function ServiceDetailScreen() {
   const base = cheapestOption ? cheapestOption.price : (svc.pricing?.basePrice ?? 0);
   const effective = cheapestOption ? effectiveOptionPrice(svc, cheapestOption) : servicePrice(svc);
   const hasDiscount = base > 0 && effective < base;
+
+  // Prices belong to the service's provider, so they render in the service's currency.
+  const { money } = useCurrency(serviceCurrency(svc));
 
   const addons = getEnabledServiceAddons(svc);
   const workingHours = schedulesToWorkingHours(svc.schedules);
@@ -295,9 +300,9 @@ export default function ServiceDetailScreen() {
             </View>
 
             <View className="mt-4 flex-row items-baseline">
-              <Text className="text-3xl font-bold text-brand-600">${effective}</Text>
+              <Text className="text-3xl font-bold text-brand-600">{money(effective)}</Text>
               {hasDiscount ? (
-                <Text className={`${subtextColor} ml-2 line-through`}>${base}</Text>
+                <Text className={`${subtextColor} ml-2 line-through`}>{money(base)}</Text>
               ) : null}
               <Text className={`${subtextColor} ml-2`}>{t('serviceDetail.startingFrom')}</Text>
             </View>
@@ -366,10 +371,10 @@ export default function ServiceDetailScreen() {
                     <View className="items-end">
                       {optionEffective < option.price && (
                         <Text className={`text-xs ${subtextColor} line-through`}>
-                          ${option.price}
+                          {money(option.price)}
                         </Text>
                       )}
-                      <Text className="font-semibold text-brand-600">${optionEffective}</Text>
+                      <Text className="font-semibold text-brand-600">{money(optionEffective)}</Text>
                     </View>
                   </View>
                 );
@@ -405,8 +410,8 @@ export default function ServiceDetailScreen() {
                     </View>
                   </View>
                   <Text className="font-semibold text-brand-600">
-                    {addonPriceLabel(t, addon)
-                      ? `+${addonPriceLabel(t, addon)}`
+                    {addonPriceLabel(t, addon, serviceCurrency(svc))
+                      ? `+${addonPriceLabel(t, addon, serviceCurrency(svc))}`
                       : t('addons.included')}
                   </Text>
                 </View>

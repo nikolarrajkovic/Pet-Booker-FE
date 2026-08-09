@@ -4,6 +4,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 
@@ -42,6 +43,9 @@ export default function PromotionAnalyticsScreen({ route }: PromotionAnalyticsSc
   const navigation = useNavigation();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
+  // The figures on this screen are still mock (BACKEND_GAPS PR1–PR4), but they render in
+  // the partner's currency rather than a hardcoded "$".
+  const { money } = useCurrency();
 
   const promotion = route?.params?.promotion;
   const title = route?.params?.promotionTitle ?? promotion?.title ?? 'Spring Boost - Dog Walking';
@@ -186,9 +190,9 @@ export default function PromotionAnalyticsScreen({ route }: PromotionAnalyticsSc
             {t('promotions.costAnalysis')}
           </Text>
           {[
-            { label: t('promotions.totalSpent'), value: '$87.50', valueColor: textColor },
-            { label: t('promotions.costPerClick'), value: '$0.56', valueColor: textColor },
-            { label: t('promotions.costPerBooking'), value: '$7.29', valueColor: textColor },
+            { label: t('promotions.totalSpent'), value: money(87.5), valueColor: textColor },
+            { label: t('promotions.costPerClick'), value: money(0.56), valueColor: textColor },
+            { label: t('promotions.costPerBooking'), value: money(7.29), valueColor: textColor },
           ].map((row) => (
             <View
               key={row.label}
@@ -199,11 +203,11 @@ export default function PromotionAnalyticsScreen({ route }: PromotionAnalyticsSc
           ))}
           <View className={`flex-row justify-between border-b py-3 ${borderColor}`}>
             <Text className={`text-sm ${subtextColor}`}>{t('promotions.estimatedRevenue')}</Text>
-            <Text className="text-sm font-semibold text-green-600">$600.00</Text>
+            <Text className="text-sm font-semibold text-green-600">{money(600)}</Text>
           </View>
           <View className="flex-row justify-between pt-3">
             <Text className={`text-sm font-bold ${textColor}`}>{t('promotions.netProfit')}</Text>
-            <Text className="text-sm font-bold text-green-600">+$512.50</Text>
+            <Text className="text-sm font-bold text-green-600">+{money(512.5)}</Text>
           </View>
         </View>
 

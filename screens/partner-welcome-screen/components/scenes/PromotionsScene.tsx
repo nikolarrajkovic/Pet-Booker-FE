@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useFloatY, usePopIn, useSlideInRight, useTwinkle } from './sceneAnim';
+import { formatMoney } from '../../../../services/currency';
 
 const GREEN = '#22C55E';
 
@@ -69,8 +70,8 @@ export default function PromotionsScene() {
         <Animated.View style={[styles.row, styles.rowOrange, row0]}>
           <View style={[styles.dot, { backgroundColor: '#fb923c' }]} />
           <Text style={styles.name}>Dog Grooming</Text>
-          <Text style={styles.strike}>$45</Text>
-          <Text style={styles.bold}>$36</Text>
+          <Text style={styles.strike}>{formatMoney(45)}</Text>
+          <Text style={styles.bold}>{formatMoney(36)}</Text>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>20% OFF</Text>
           </View>
@@ -79,10 +80,10 @@ export default function PromotionsScene() {
         <Animated.View style={[styles.row, styles.rowGreen, row1]}>
           <View style={[styles.dot, { backgroundColor: GREEN }]} />
           <Text style={styles.name}>Dog Walking</Text>
-          <Text style={styles.strike}>$25</Text>
-          <Text style={styles.bold}>$20</Text>
+          <Text style={styles.strike}>{formatMoney(25)}</Text>
+          <Text style={styles.bold}>{formatMoney(20)}</Text>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>$5 OFF</Text>
+            <Text style={styles.badgeText}>{formatMoney(5)} OFF</Text>
           </View>
         </Animated.View>
 

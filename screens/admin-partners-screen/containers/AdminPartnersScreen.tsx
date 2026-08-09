@@ -57,6 +57,7 @@ function providerToPartner(dto: ServiceProviderDto): Partner {
     address,
     bio: '',
     startingPrice: 0,
+    currency: dto.currency,
     avgRating: rating,
     documents: {
       profilePhoto: !!profilePhoto?.src,

@@ -20,6 +20,7 @@ import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import TimePicker, { formatTime24 } from '../../../components/shared/TimePicker';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import CurrencyInput from '../../../components/shared/CurrencyInput';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { useLocation } from '../../../hooks/useLocation';
 import { addressLabel } from '../../../services/geocoding';
@@ -30,6 +31,7 @@ import {
   updateService,
   deleteService,
   ServiceDto,
+  serviceCurrency,
 } from '../../../services/services';
 import { getErrorMessage } from '../../../services/http';
 import { providerTypeValue } from '../../../services/service-providers';
@@ -43,6 +45,8 @@ import {
   ServiceImageInput,
   AdditionalServiceEntry,
   newAdditionalServiceEntry,
+  entryToAdditionalServices,
+  additionalServiceTitle,
   workingHoursToSchedules,
   pricingTiersToOptions,
   resolveServiceAddressForSave,
@@ -111,6 +115,10 @@ export default function AddEditServiceScreen() {
   const existingService: ExistingService | undefined = params?.serviceDto
     ? serviceDtoToUi(params.serviceDto)
     : undefined;
+  // Amounts entered here are in the service's own currency (server-assigned from the
+  // provider). A brand-new service has none yet, so the price fields fall back to the
+  // partner's display preference.
+  const currencyCode = serviceCurrency(params?.serviceDto);
 
   const {
     isDarkMode,
@@ -213,9 +221,13 @@ export default function AddEditServiceScreen() {
 
   const updateAdditionalServiceField = (
     index: number,
-    field: 'name' | 'price' | 'baseFee' | 'perKmFee' | 'freeDistanceKm' | 'maxDistanceKm',
+    field: 'price' | 'baseFee' | 'perKmFee' | 'freeDistanceKm' | 'maxDistanceKm',
     value: string
   ) => patchAdditionalService(index, { [field]: value } as Partial<AdditionalServiceEntry>);
+
+  /** Previews what the customer will see on their bill, instead of asking the provider for it. */
+  const extraTitle = (entry: AdditionalServiceEntry): string =>
+    additionalServiceTitle(t, entry, serviceName);
 
   /**
    * Switching how an extra bills clears the other mode's price fields. The API validates that
@@ -340,16 +352,18 @@ export default function AddEditServiceScreen() {
       description,
       price: parseFloat(pricingTiers[0]?.price) || 0,
       duration: pricingTiers[0]?.duration || '',
-      // Preview shows the offered extras by name + headline price. A per-distance one has no
-      // single number until a trip is known, so its base fee stands in.
+      // Preview shows the offered extras by name + headline price. Built through the real save
+      // mapper so it matches what will persist — including a round trip showing as two rows. A
+      // per-distance one has no single number until a trip is known, so its base fee stands in.
       additionalServices: additionalServices
-        .filter((s) => s.enabled && s.name.trim())
-        .map((s) => ({
-          name: s.name,
+        .filter((s) => s.enabled)
+        .flatMap((s) => entryToAdditionalServices(s, serviceName))
+        .map((a) => ({
+          name: a.name,
           price:
-            s.chargeType === AdditionalServiceChargeType.PerDistance
-              ? parseFloat(s.baseFee ?? '') || 0
-              : parseFloat(s.price) || 0,
+            a.chargeType === AdditionalServiceChargeType.PerDistance
+              ? (a.distancePrice?.baseFee ?? 0)
+              : (a.price ?? 0),
         })),
       workingHours,
       isNew: !isEdit,
@@ -649,21 +663,18 @@ export default function AddEditServiceScreen() {
               </TouchableOpacity>
 
               {/* Price input — flex-1 fills remaining space before Remove */}
-              <View className={`${inputBg} flex-1 flex-row items-center rounded-xl px-3 py-3`}>
-                <Text className={subtextColor}>$</Text>
-                <TextInput
-                  placeholder="25"
-                  placeholderTextColor={placeholderColor}
-                  className={`${inputText} ml-1 flex-1 text-sm`}
-                  style={{ padding: 0, outlineStyle: 'none' } as any}
-                  value={tier.price}
-                  onChangeText={(value) => updatePricingTier(index, 'price', value)}
-                  keyboardType="numeric"
-                  selectionColor="#00C870"
-                  cursorColor="#00C870"
-                  maxLength={5}
-                />
-              </View>
+              <CurrencyInput
+                currency={currencyCode}
+                containerClassName={`${inputBg} flex-1 rounded-xl px-3 py-3`}
+                inputClassName={`${inputText} text-sm`}
+                affixClassName={subtextColor}
+                placeholder="25"
+                placeholderTextColor={placeholderColor}
+                style={{ padding: 0, outlineStyle: 'none' } as any}
+                value={tier.price}
+                onChangeText={(value) => updatePricingTier(index, 'price', value)}
+                maxLength={5}
+              />
 
               {/* Remove — fixed width so it always sits at the right edge */}
               {pricingTiers.length > 1 ? (
@@ -742,16 +753,13 @@ export default function AddEditServiceScreen() {
               <View
                 key={service.id ?? `new-${index}`}
                 className={`${inputBg} mb-3 rounded-xl border-2 border-brand-300 p-4`}>
-                {/* Name + remove */}
+                {/* Derived title + remove. The provider doesn't name an extra — a per-distance
+                    one is named for its journey and a flat one takes the service's name — so this
+                    previews what the customer will see on their bill instead of asking for it. */}
                 <View className="mb-3 flex-row items-center justify-between">
-                  <TextInput
-                    placeholder={t('addEditService.extraNamePlaceholder')}
-                    placeholderTextColor={placeholderColor}
-                    className={`${inputText} mr-2 flex-1 font-medium`}
-                    style={{ minWidth: 0 } as any}
-                    value={service.name}
-                    onChangeText={(value) => updateAdditionalServiceField(index, 'name', value)}
-                  />
+                  <Text className={`${inputText} mr-2 flex-1 font-medium`} numberOfLines={1}>
+                    {extraTitle(service)}
+                  </Text>
                   <TouchableOpacity
                     onPress={() => removeAdditionalService(index)}
                     accessibilityLabel={t('addEditService.removeExtra')}>
@@ -781,7 +789,10 @@ export default function AddEditServiceScreen() {
                 </Text>
                 <View className="mb-3 flex-row gap-2">
                   {[
-                    { value: AdditionalServiceChargeType.Flat, label: t('addEditService.chargeFlat') },
+                    {
+                      value: AdditionalServiceChargeType.Flat,
+                      label: t('addEditService.chargeFlat'),
+                    },
                     {
                       value: AdditionalServiceChargeType.PerDistance,
                       label: t('addEditService.chargePerDistance'),
@@ -811,20 +822,16 @@ export default function AddEditServiceScreen() {
                     <Text className={`${subtextColor} mb-2 text-sm`}>
                       {t('addEditService.priceFreeHint')}
                     </Text>
-                    <View
-                      className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
-                      <Text className={subtextColor}>$</Text>
-                      <TextInput
-                        placeholder="0"
-                        placeholderTextColor={placeholderColor}
-                        className={`${inputText} ml-2 flex-1`}
-                        value={service.price}
-                        onChangeText={(value) =>
-                          updateAdditionalServiceField(index, 'price', value)
-                        }
-                        keyboardType="numeric"
-                      />
-                    </View>
+                    <CurrencyInput
+                      currency={currencyCode}
+                      containerClassName={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} rounded-xl px-4 py-3`}
+                      inputClassName={inputText}
+                      affixClassName={subtextColor}
+                      placeholder="0"
+                      placeholderTextColor={placeholderColor}
+                      value={service.price}
+                      onChangeText={(value) => updateAdditionalServiceField(index, 'price', value)}
+                    />
                   </>
                 )}
 
@@ -868,20 +875,18 @@ export default function AddEditServiceScreen() {
                     <Text className={`${subtextColor} mb-2 text-sm`}>
                       {t('addEditService.baseFeeHint')}
                     </Text>
-                    <View
-                      className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} mb-3 flex-row items-center rounded-xl px-4 py-3`}>
-                      <Text className={subtextColor}>$</Text>
-                      <TextInput
-                        placeholder="0"
-                        placeholderTextColor={placeholderColor}
-                        className={`${inputText} ml-2 flex-1`}
-                        value={service.baseFee}
-                        onChangeText={(value) =>
-                          updateAdditionalServiceField(index, 'baseFee', value)
-                        }
-                        keyboardType="numeric"
-                      />
-                    </View>
+                    <CurrencyInput
+                      currency={currencyCode}
+                      containerClassName={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} mb-3 rounded-xl px-4 py-3`}
+                      inputClassName={inputText}
+                      affixClassName={subtextColor}
+                      placeholder="0"
+                      placeholderTextColor={placeholderColor}
+                      value={service.baseFee}
+                      onChangeText={(value) =>
+                        updateAdditionalServiceField(index, 'baseFee', value)
+                      }
+                    />
 
                     <Text className={`${subtextColor} mb-2 text-sm`}>
                       {t('addEditService.distancePricingHint')}
@@ -891,69 +896,67 @@ export default function AddEditServiceScreen() {
                     <Text className={`${textColor} mb-1 text-sm font-medium`}>
                       {t('addEditService.perKmFee')}
                     </Text>
-                    <View
-                      className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} mb-3 flex-row items-center rounded-xl px-4 py-3`}>
-                      <Text className={subtextColor}>$</Text>
-                      <TextInput
-                        placeholder="0"
-                        placeholderTextColor={placeholderColor}
-                        className={`${inputText} ml-2 flex-1`}
-                        value={service.perKmFee}
-                        onChangeText={(value) =>
-                          updateAdditionalServiceField(index, 'perKmFee', value)
-                        }
-                        keyboardType="numeric"
-                      />
-                    </View>
+                    <CurrencyInput
+                      currency={currencyCode}
+                      containerClassName={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} mb-3 rounded-xl px-4 py-3`}
+                      inputClassName={inputText}
+                      affixClassName={subtextColor}
+                      placeholder="0"
+                      placeholderTextColor={placeholderColor}
+                      value={service.perKmFee}
+                      onChangeText={(value) =>
+                        updateAdditionalServiceField(index, 'perKmFee', value)
+                      }
+                    />
 
-                      {/* Free distance + Max distance side by side */}
-                      <View className="flex-row gap-3">
-                        <View className="flex-1">
-                          <Text className={`${textColor} mb-1 text-sm font-medium`}>
-                            {t('addEditService.freeDistance')}
-                          </Text>
-                          <View
-                            className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
-                            <TextInput
-                              placeholder="0"
-                              placeholderTextColor={placeholderColor}
-                              className={`${inputText} flex-1`}
-                              // minWidth:0 lets the input shrink within its
-                              // flex-1 column so the "km" suffix stays inside the
-                              // box on web (without it the input keeps its content
-                              // width and pushes "km" past the card edge).
-                              style={{ minWidth: 0 } as any}
-                              value={service.freeDistanceKm}
-                              onChangeText={(value) =>
-                                updateAdditionalServiceField(index, 'freeDistanceKm', value)
-                              }
-                              keyboardType="numeric"
-                            />
-                            <Text className={`${subtextColor} ml-1`}>{t('addEditService.km')}</Text>
-                          </View>
-                        </View>
-                        <View className="flex-1">
-                          <Text className={`${textColor} mb-1 text-sm font-medium`}>
-                            {t('addEditService.maxDistance')}
-                          </Text>
-                          <View
-                            className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
-                            <TextInput
-                              placeholder="∞"
-                              placeholderTextColor={placeholderColor}
-                              className={`${inputText} flex-1`}
-                              // See freeDistanceKm above — minWidth:0 keeps "km" inside the box.
-                              style={{ minWidth: 0 } as any}
-                              value={service.maxDistanceKm}
-                              onChangeText={(value) =>
-                                updateAdditionalServiceField(index, 'maxDistanceKm', value)
-                              }
-                              keyboardType="numeric"
-                            />
-                            <Text className={`${subtextColor} ml-1`}>{t('addEditService.km')}</Text>
-                          </View>
+                    {/* Free distance + Max distance side by side */}
+                    <View className="flex-row gap-3">
+                      <View className="flex-1">
+                        <Text className={`${textColor} mb-1 text-sm font-medium`}>
+                          {t('addEditService.freeDistance')}
+                        </Text>
+                        <View
+                          className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
+                          <TextInput
+                            placeholder="0"
+                            placeholderTextColor={placeholderColor}
+                            className={`${inputText} flex-1`}
+                            // minWidth:0 lets the input shrink within its
+                            // flex-1 column so the "km" suffix stays inside the
+                            // box on web (without it the input keeps its content
+                            // width and pushes "km" past the card edge).
+                            style={{ minWidth: 0 } as any}
+                            value={service.freeDistanceKm}
+                            onChangeText={(value) =>
+                              updateAdditionalServiceField(index, 'freeDistanceKm', value)
+                            }
+                            keyboardType="numeric"
+                          />
+                          <Text className={`${subtextColor} ml-1`}>{t('addEditService.km')}</Text>
                         </View>
                       </View>
+                      <View className="flex-1">
+                        <Text className={`${textColor} mb-1 text-sm font-medium`}>
+                          {t('addEditService.maxDistance')}
+                        </Text>
+                        <View
+                          className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
+                          <TextInput
+                            placeholder="∞"
+                            placeholderTextColor={placeholderColor}
+                            className={`${inputText} flex-1`}
+                            // See freeDistanceKm above — minWidth:0 keeps "km" inside the box.
+                            style={{ minWidth: 0 } as any}
+                            value={service.maxDistanceKm}
+                            onChangeText={(value) =>
+                              updateAdditionalServiceField(index, 'maxDistanceKm', value)
+                            }
+                            keyboardType="numeric"
+                          />
+                          <Text className={`${subtextColor} ml-1`}>{t('addEditService.km')}</Text>
+                        </View>
+                      </View>
+                    </View>
                   </View>
                 )}
               </View>

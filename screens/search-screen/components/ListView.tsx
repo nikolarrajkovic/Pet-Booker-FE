@@ -2,7 +2,9 @@ import React from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { ServiceDto } from '../../../services/services';
+import { ServiceDto, serviceCurrency } from '../../../services/services';
+import { formatMoney } from '../../../services/currency';
+import { useLocale } from '../../../context/LocaleContext';
 
 export interface ServiceSearchItem {
   id: number;
@@ -41,6 +43,7 @@ export default function ListView({
   badge,
 }: ListViewProps) {
   const navigation = useNavigation();
+  const { t } = useLocale();
 
   return (
     <ScrollView className="flex-1">
@@ -105,7 +108,10 @@ export default function ListView({
                 ) : null}
               </View>
 
-              <Text className="mt-1 font-semibold text-brand-600">from ${item.price}</Text>
+              {/* Each service prices in its own provider's currency, so format per item. */}
+              <Text className="mt-1 font-semibold text-brand-600">
+                {t('bookService.priceFrom')} {formatMoney(item.price, serviceCurrency(item.dto))}
+              </Text>
             </View>
           </TouchableOpacity>
         ))}

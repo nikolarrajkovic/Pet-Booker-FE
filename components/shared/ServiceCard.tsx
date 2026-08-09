@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
+import { formatMoney } from '../../services/currency';
 
 type ServiceCardProps = {
   image: string;
@@ -12,8 +13,10 @@ type ServiceCardProps = {
   reviews: number;
   distance?: string;
   price: number;
+  /** The service's currency; omit to fall back to the user's display preference. */
+  currency?: string | null;
   badge?: 'popular' | 'deal';
-  /** Formatted discount (e.g. "3% OFF" / "$5 OFF") — shown on the deal badge. */
+  /** Formatted discount (e.g. "3% OFF" / "5 € OFF") — shown on the deal badge. */
   dealAmount?: string;
   onPress: () => void;
 };
@@ -26,6 +29,7 @@ export default function ServiceCard({
   reviews,
   distance,
   price,
+  currency,
   badge,
   dealAmount,
   onPress,
@@ -52,7 +56,7 @@ export default function ServiceCard({
         {/* Price Badge */}
         {price > 0 && (
           <View className="absolute right-2 top-2 rounded-full bg-brand-500 px-3 py-1">
-            <Text className="text-xs font-bold text-white">${price}+</Text>
+            <Text className="text-xs font-bold text-white">{formatMoney(price, currency)}+</Text>
           </View>
         )}
 

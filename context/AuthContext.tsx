@@ -4,6 +4,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { loginWithEmailPassword, getMe, logout as logoutApi, CurrentUser } from '../services/auth';
 import { saveTokens, getAccessToken, clearTokens } from '../services/token-storage';
 import { registerSessionExpiredHandler } from '../services/http';
+import { registerDisplayCurrency, DEFAULT_CURRENCY } from '../services/currency';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -59,6 +60,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
     checkAuthStatus();
   }, []);
+
+  // Mirror the user's display-currency preference into services/currency so that pure
+  // formatting code can reach it. Only amounts the API doesn't stamp with a currency of
+  // their own fall back to this; signing out returns it to the app default.
+  useEffect(() => {
+    registerDisplayCurrency(currentUser?.preferredCurrency ?? DEFAULT_CURRENCY);
+  }, [currentUser?.preferredCurrency]);
 
   // Register a handler so http.ts can trigger sign-out when a token refresh fails,
   // without creating a circular import between services and context.

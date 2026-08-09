@@ -3,13 +3,15 @@ import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'rea
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useCurrency } from '../../../hooks/useCurrency';
+import { formatMoney } from '../../../services/currency';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PromotionCard } from '../components';
 import type { Promotion } from '../components';
-import { getServices } from '../../../services/services';
+import { getServices, serviceCurrency } from '../../../services/services';
 import { getErrorMessage } from '../../../services/http';
 import {
   getServiceDiscounts,
@@ -32,7 +34,8 @@ const fmtDate = (iso?: string | null) =>
 function discountToPromotion(
   t: (key: any, params?: Record<string, string | number>) => string,
   d: ServiceDiscountDto,
-  serviceName: string
+  serviceName: string,
+  currency?: string | null
 ): Promotion {
   const isPercent = d.type === DiscountType.Percent;
   // Percent reads from percentAmount (fallback amount); fixed reads the flat amount.
@@ -42,7 +45,8 @@ function discountToPromotion(
     type: 'offer',
     title: isPercent
       ? t('promotions.percentOffTitle', { value, name: serviceName })
-      : t('promotions.fixedOffTitle', { value, name: serviceName }),
+      : // A fixed discount is money — the title takes it already formatted, symbol and all.
+        t('promotions.fixedOffTitle', { value: formatMoney(value, currency), name: serviceName }),
     description: serviceName,
     dateRange: [fmtDate(d.applyFrom), fmtDate(d.applyTo)].filter(Boolean).join(' - '),
     status: d.isEnabled ? 'active' : 'paused',
@@ -55,10 +59,13 @@ function discountToPromotion(
     discountType: d.type,
     applyFrom: d.applyFrom,
     applyTo: d.applyTo ?? null,
+    currency: currency ?? undefined,
   };
 }
 
 // Labels are translation keys, resolved with t() at render.
+// Mock figures (BACKEND_GAPS PR1-PR4). `money: true` means `value` is an AMOUNT and gets
+// formatted in the viewer's currency at render, not a pre-baked "$88" string.
 const PERFORMANCE_STATS = [
   {
     icon: 'trending-up',
@@ -81,7 +88,8 @@ const PERFORMANCE_STATS = [
     iconLib: 'ionicons',
     bg: 'bg-purple-100',
     color: '#9333EA',
-    value: '$88',
+    value: 88,
+    money: true,
     labelKey: 'promotions.totalSpent',
   },
   {
@@ -89,7 +97,8 @@ const PERFORMANCE_STATS = [
     iconLib: 'material',
     bg: 'bg-orange-100',
     color: '#EA580C',
-    value: '$4.38',
+    value: 4.38,
+    money: true,
     labelKey: 'promotions.costPerBooking',
   },
 ];
@@ -104,6 +113,7 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { showError } = useToast();
   const { t } = useLocale();
+  const { money } = useCurrency();
   const viewAll = route?.params?.viewAll ?? false;
 
   const [offers, setOffers] = useState<Promotion[]>([]);
@@ -123,6 +133,7 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
       }
       const services = await getServices({ serviceProviderId: providerId });
       const nameById = new Map(services.map((s) => [s.id, s.name ?? t('promotions.service')]));
+      const currencyById = new Map(services.map((s) => [s.id, serviceCurrency(s)]));
       const lists = await Promise.all(
         services.map((s) =>
           s.id != null ? getServiceDiscounts({ serviceId: s.id }) : Promise.resolve([])
@@ -131,7 +142,12 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
       const mapped = lists
         .flat()
         .map((d) =>
-          discountToPromotion(t, d, nameById.get(d.serviceId) ?? t('promotions.service'))
+          discountToPromotion(
+            t,
+            d,
+            nameById.get(d.serviceId) ?? t('promotions.service'),
+            currencyById.get(d.serviceId)
+          )
         );
       setOffers(mapped);
     } catch (e) {
@@ -230,7 +246,9 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
                       />
                     )}
                   </View>
-                  <Text className={`text-xl font-bold ${textColor}`}>{stat.value}</Text>
+                  <Text className={`text-xl font-bold ${textColor}`}>
+                    {'money' in stat && stat.money ? money(stat.value as number) : stat.value}
+                  </Text>
                   <Text className={`text-xs ${subtextColor} mt-0.5`}>
                     {t(stat.labelKey as any)}
                   </Text>

@@ -3,6 +3,7 @@ import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator } fr
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocation } from '../../../hooks/useLocation';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -20,6 +21,7 @@ import {
   getServiceAvailability,
   AvailabilityWindowDto,
   effectiveOptionPrice,
+  serviceCurrency,
 } from '../../../services/services';
 import { getPets, PetResponse } from '../../../services/pets';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
@@ -98,7 +100,11 @@ const hmsToMinutes = (t?: string | null): number => {
 const overlaps = (aFrom: number, aTo: number, bFrom: number, bTo: number) =>
   aFrom < bTo && aTo > bFrom;
 
-/** Round to at most 2 decimals for display (trims per-km float artifacts). */
+/**
+ * Round to at most 2 decimals (trims per-km float artifacts). This is the NUMERIC value
+ * carried on an appointment and handed to ReviewBooking — for anything rendered on screen
+ * use `fmt` below, which adds the currency on its conventional side.
+ */
 const money = (n: number) => Math.round(n * 100) / 100;
 
 /** The current server quote for the in-progress selection, plus its request state. */
@@ -460,6 +466,10 @@ export default function BookServiceScreen() {
 
   const quote = quoteState.quote;
 
+  // Every amount on this screen is priced by the server, so render it in the currency the
+  // server stamped on the quote; before the quote lands, the service's own code.
+  const { money: fmt } = useCurrency(quote?.priceCurrency ?? serviceCurrency(selectedService));
+
   /** The server's charge for one selected extra, or null until the quote lands. */
   const quotedAddonLine = (addon: AdditionalServiceDto): BookingAdditionalServiceReadDto | null =>
     quote?.additionalServices.find((l) => l.additionalServiceId === addon.id) ?? null;
@@ -485,9 +495,7 @@ export default function BookServiceScreen() {
       );
     }
     if (quoteState.failed) {
-      return (
-        <Text className={`text-xs ${subtextColor} mt-2`}>{t('bookService.quoteFailed')}</Text>
-      );
+      return <Text className={`text-xs ${subtextColor} mt-2`}>{t('bookService.quoteFailed')}</Text>;
     }
 
     const line = quotedAddonLine(addon);
@@ -504,7 +512,7 @@ export default function BookServiceScreen() {
       <Text className="mt-2 text-xs font-medium text-brand-600">
         {t('bookService.distanceSurcharge', {
           km: km1(line.distanceKm),
-          price: `$${money(line.price)}`,
+          price: fmt(line.price),
         })}
       </Text>
     );
@@ -532,10 +540,10 @@ export default function BookServiceScreen() {
       id: Date.now(),
       service: {
         id: selectedService.id ?? 0,
-        name: selectedService.name ?? "Service",
+        name: selectedService.name ?? 'Service',
         price: money(quote ? quote.basePrice - quote.discountAmount : currentServicePrice()),
       },
-      pet: { id: selectedPet, name: pet?.name ?? "Pet", image: pet?.image ?? "" },
+      pet: { id: selectedPet, name: pet?.name ?? 'Pet', image: pet?.image ?? '' },
       // Freeze the SERVER's priced lines. Each already carries the name, the amount, and (for a
       // per-distance extra) the fees and that leg's distance — so Review itemizes the charge
       // without recomputing it, and what is shown is what will be billed.
@@ -658,13 +666,13 @@ export default function BookServiceScreen() {
                 <Text className="text-xl font-bold text-brand-600">
                   {pricingOptions.length > 0
                     ? selectedOption
-                      ? `$${money(effectiveOptionPrice(selectedService, selectedOption))}`
-                      : `${t('bookService.priceFrom')} $${money(
+                      ? fmt(effectiveOptionPrice(selectedService, selectedOption))
+                      : `${t('bookService.priceFrom')} ${fmt(
                           Math.min(
                             ...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o))
                           )
                         )}`
-                    : `$${money(servicePrice(selectedService))}`}
+                    : fmt(servicePrice(selectedService))}
                 </Text>
               </View>
             </View>
@@ -705,12 +713,10 @@ export default function BookServiceScreen() {
                         <View className="ml-4 items-end">
                           {effective < option.price && (
                             <Text className={`text-xs ${subtextColor} line-through`}>
-                              ${money(option.price)}
+                              {fmt(option.price)}
                             </Text>
                           )}
-                          <Text className="text-lg font-bold text-brand-600">
-                            ${money(effective)}
-                          </Text>
+                          <Text className="text-lg font-bold text-brand-600">{fmt(effective)}</Text>
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -758,8 +764,9 @@ export default function BookServiceScreen() {
                       </View>
                       <Text className="ml-4 text-lg font-bold text-brand-600">
                         {line
-                          ? `$${money(line.price)}`
-                          : (addonPriceLabel(t, addon) ?? t('addons.included'))}
+                          ? fmt(line.price)
+                          : (addonPriceLabel(t, addon, serviceCurrency(selectedService)) ??
+                            t('addons.included'))}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -1009,7 +1016,7 @@ export default function BookServiceScreen() {
                       )}
                     </View>
                     <View className="ml-2 items-end">
-                      <Text className="text-lg font-bold text-brand-600">${apt.total}</Text>
+                      <Text className="text-lg font-bold text-brand-600">{fmt(apt.total)}</Text>
                       <TouchableOpacity onPress={() => removeAppointment(apt.id)} className="mt-2">
                         <Ionicons
                           name="close"
@@ -1032,6 +1039,7 @@ export default function BookServiceScreen() {
               isDarkMode={isDarkMode}
               textColor={textColor}
               subtextColor={subtextColor}
+              currency={quote?.priceCurrency ?? serviceCurrency(selectedService)}
             />
           )}
 
@@ -1042,7 +1050,7 @@ export default function BookServiceScreen() {
               <Text className={`text-base font-semibold ${textColor}`}>
                 {t('bookService.total')}
               </Text>
-              <Text className="text-2xl font-bold text-brand-600">${currentTotal()}</Text>
+              <Text className="text-2xl font-bold text-brand-600">{fmt(currentTotal())}</Text>
             </View>
           )}
         </ScrollView>

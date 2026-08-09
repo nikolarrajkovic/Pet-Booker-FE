@@ -27,8 +27,9 @@ export interface PricingTier {
 }
 
 /**
- * One row in the form's "Additional Services" editor. The provider names their own extras now —
- * this is no longer three fixed rows driven by a hardcoded catalog.
+ * One row in the form's "Additional Services" editor — an open list the provider adds to, no
+ * longer three fixed rows from a hardcoded catalog. They configure how it bills; the name is
+ * derived on save, so there's no name field.
  *
  * `chargeType` decides which price fields matter, and the API rejects a mismatch: a PerDistance
  * extra needs `baseFee`/`perKmFee` and a `distanceLeg`, a Flat one needs `price` and neither of
@@ -40,7 +41,8 @@ export interface AdditionalServiceEntry {
   // The service write upserts by id, so keeping it is what stops an edit from churning the row
   // (and orphaning the bookings whose bill lines reference it).
   id?: number | null;
-  name: string;
+  // No `name`: the provider doesn't author one. It's derived on save — see
+  // `entryToAdditionalServices` — so the editor has one less field to get wrong.
   description?: string;
   /** AdditionalServiceChargeType: 0 = Flat, 1 = PerDistance. */
   chargeType: number;
@@ -57,10 +59,9 @@ export interface AdditionalServiceEntry {
   enabled: boolean;
 }
 
-/** A blank row for the "add an extra" button — flat by default, the simpler of the two. */
+/** A blank row for the "add additional service" button — flat by default, the simpler of the two. */
 export function newAdditionalServiceEntry(): AdditionalServiceEntry {
   return {
-    name: '',
     chargeType: AdditionalServiceChargeType.Flat,
     price: '',
     enabled: true,
@@ -98,8 +99,9 @@ export const DEFAULT_WORKING_HOURS: WorkingHours = {
   Sunday: { enabled: false, startTime: '08:00', endTime: '18:00' },
 };
 
-// There is no add-on name catalog any more — a provider types their own. The charge-type and
-// leg enums are re-exported so the form can build its pickers without importing the service layer.
+// The charge-type and leg enums are re-exported so the form can build its pickers without
+// importing the service layer. Extra NAMES aren't a catalog and aren't typed either — see
+// entryToAdditionalServices for how they're derived.
 export { AdditionalServiceChargeType, DistanceLeg } from '../../services/service-addons';
 
 /** Options for the "how does this bill?" picker in the add-on editor. */
@@ -126,12 +128,11 @@ const numOrNull = (v?: string): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-/** DTO → form row. */
+/** DTO → form row. The stored `name` is dropped: it's re-derived on save. */
 export function additionalServiceToEntry(dto: AdditionalServiceDto): AdditionalServiceEntry {
   const perDistance = isPerDistance(dto);
   return {
     id: dto.id ?? undefined,
-    name: dto.name ?? '',
     description: dto.description ?? '',
     chargeType: dto.chargeType ?? AdditionalServiceChargeType.Flat,
     price: perDistance ? '' : String(dto.price ?? 0),
@@ -147,33 +148,111 @@ export function additionalServiceToEntry(dto: AdditionalServiceDto): AdditionalS
 }
 
 /**
- * Form row → DTO. Sends only the fields the row's charge type allows, because the API validates
- * that they agree: a PerDistance entry carrying a bare `price` (or a Flat one carrying a
- * `distancePrice`) is a 422. `id` is preserved so the service write updates the row in place.
+ * Wire names for the two journeys. These are DATA, not display copy — they travel to the API,
+ * are frozen onto a booking's bill lines, and come back as backend free text, so they stay
+ * English exactly like the day/duration keys elsewhere in this file. The editor renders its own
+ * translated titles (see `addEditService.legTitle*`) and never shows these.
  */
-export function entryToAdditionalService(entry: AdditionalServiceEntry): AdditionalServiceDto {
-  const base: AdditionalServiceDto = {
-    id: entry.id ?? undefined,
-    name: entry.name.trim(),
+const ADDON_NAME_BY_LEG: Record<number, string> = {
+  [DistanceLeg.Pickup]: 'Pickup',
+  [DistanceLeg.DropOff]: 'Drop-off',
+};
+
+/** Falls back when a flat extra is configured before the service itself has been named. */
+const UNNAMED_SERVICE_ADDON = 'Additional service';
+
+/**
+ * Form row → DTO(s). Returns an ARRAY because one row can produce two extras: a round trip is
+ * stored as a Pickup and a Drop-off sharing the same fees, since the API prices each leg against
+ * its own measured distance and a booking's collection and return can differ in length.
+ *
+ * The provider no longer names an extra. A per-distance one is named for the journey it performs
+ * and a flat one takes the service's own name, which keeps every bill line self-explaining without
+ * a field to fill in. Only the fields the row's charge type allows are sent — a PerDistance entry
+ * carrying a bare `price`, or a Flat one carrying a `distancePrice`, is a 422.
+ *
+ * `id` is preserved so the write updates the row in place rather than churning it (and orphaning
+ * the bookings whose bill lines reference it). On a split only the first leg can inherit it — the
+ * second is necessarily a new row.
+ */
+export function entryToAdditionalServices(
+  entry: AdditionalServiceEntry,
+  serviceName: string
+): AdditionalServiceDto[] {
+  const base = {
     description: entry.description?.trim() || null,
     chargeType: entry.chargeType,
     isActive: entry.enabled,
   };
 
   if (entry.chargeType !== AdditionalServiceChargeType.PerDistance) {
-    return { ...base, price: parseFloat(entry.price) || 0 };
+    return [
+      {
+        ...base,
+        id: entry.id ?? undefined,
+        name: serviceName.trim() || UNNAMED_SERVICE_ADDON,
+        price: parseFloat(entry.price) || 0,
+      },
+    ];
   }
 
-  return {
-    ...base,
-    distanceLeg: entry.distanceLeg ?? DistanceLeg.Pickup,
-    distancePrice: {
-      baseFee: parseFloat(entry.baseFee ?? '') || 0,
-      perKmFee: parseFloat(entry.perKmFee ?? '') || 0,
-      freeDistanceKm: numOrNull(entry.freeDistanceKm),
-      maxDistanceKm: numOrNull(entry.maxDistanceKm),
-    },
+  const distancePrice = {
+    baseFee: parseFloat(entry.baseFee ?? '') || 0,
+    perKmFee: parseFloat(entry.perKmFee ?? '') || 0,
+    freeDistanceKm: numOrNull(entry.freeDistanceKm),
+    maxDistanceKm: numOrNull(entry.maxDistanceKm),
   };
+  const leg = entry.distanceLeg ?? DistanceLeg.Pickup;
+  const legs = leg === DistanceLeg.RoundTrip ? [DistanceLeg.Pickup, DistanceLeg.DropOff] : [leg];
+
+  return legs.map((each, i) => ({
+    ...base,
+    id: i === 0 ? (entry.id ?? undefined) : undefined,
+    name: ADDON_NAME_BY_LEG[each],
+    distanceLeg: each,
+    // A fresh object per leg: they're independent rows server-side and must not alias.
+    distancePrice: { ...distancePrice },
+  }));
+}
+
+/**
+ * On-screen title for an extra, mirroring the wire-name derivation above so the editor, the
+ * service card and the preview all agree with what actually gets saved. Translated, unlike the
+ * wire names — those are data. A round trip reads as both legs, since that's what saving creates.
+ */
+export function additionalServiceTitle(
+  t: (key: any, params?: Record<string, string | number>) => string,
+  entry: Pick<AdditionalServiceEntry, 'chargeType' | 'distanceLeg'>,
+  serviceName: string
+): string {
+  if (entry.chargeType !== AdditionalServiceChargeType.PerDistance) {
+    return serviceName.trim() || t('addEditService.extraUnnamedService');
+  }
+  switch (entry.distanceLeg) {
+    case DistanceLeg.DropOff:
+      return t('addEditService.legTitleDropOff');
+    case DistanceLeg.RoundTrip:
+      return t('addEditService.legTitleRoundTrip');
+    default:
+      return t('addEditService.legTitlePickup');
+  }
+}
+
+/**
+ * Keeps every extra on a service distinctly named.
+ *
+ * Necessary because names are derived now, so collisions are easy to produce without noticing —
+ * two flat extras both take the service's name, and a Pickup extra alongside a round trip both
+ * yield "Pickup". A duplicate is not just cosmetic: ReviewBookingScreen keys its price breakdown
+ * by name, so two same-named lines would silently merge into one on the customer's bill.
+ */
+function ensureUniqueNames(addons: AdditionalServiceDto[]): AdditionalServiceDto[] {
+  const seen = new Map<string, number>();
+  return addons.map((addon) => {
+    const count = (seen.get(addon.name) ?? 0) + 1;
+    seen.set(addon.name, count);
+    return count === 1 ? addon : { ...addon, name: `${addon.name} ${count}` };
+  });
 }
 
 // --- Pricing tiers <-> service pricing options ----------------------------
@@ -521,14 +600,21 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
 
   // The extras go over as one array, which the server treats as the desired FULL set: rows keep
   // their id and are updated in place, id-less rows are created, and anything the form dropped is
-  // removed. Unnamed rows are skipped rather than sent as a 422.
-  const additionalServices = form.additionalServices
-    .filter((e) => e.name.trim().length > 0)
-    .map(entryToAdditionalService);
+  // removed. `flatMap` because a round-trip row expands into a Pickup and a Drop-off. Nothing is
+  // filtered out any more — every row is nameable by derivation, so none can be silently lost.
+  const additionalServices = ensureUniqueNames(
+    form.additionalServices.flatMap((e) => entryToAdditionalServices(e, form.serviceName))
+  );
 
   return {
     id: form.id ?? 0,
     serviceProviderId: form.serviceProviderId,
+    // Declares which currency the amounts above are in. The form was prefilled from
+    // `original`, which the server had already converted into the viewer's display
+    // currency, so echoing that code back is what keeps an unchanged save a no-op.
+    // Left undefined on create — `createService` falls back to the display preference,
+    // which is what the price inputs were labelled with. See declaredWriteCurrency.
+    currency: original?.currency ?? undefined,
     name: form.serviceName,
     description: form.description,
     type: providerTypeValue(form.serviceType) ?? 0,

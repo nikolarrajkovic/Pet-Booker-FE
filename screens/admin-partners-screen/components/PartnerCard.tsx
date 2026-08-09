@@ -31,6 +31,8 @@ export type Partner = {
   address: string;
   bio: string;
   startingPrice: number;
+  /** The provider's own currency (ServiceProviderDto.currency) — all their amounts are in it. */
+  currency?: string | null;
   avgRating: number;
   documents: {
     profilePhoto: boolean;

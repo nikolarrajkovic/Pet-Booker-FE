@@ -12,7 +12,11 @@ import LanguagePicker from '../../../components/shared/LanguagePicker';
 import CurrencyPicker from '../../../components/shared/CurrencyPicker';
 import { LANGUAGES } from '../../../i18n';
 import { getErrorMessage } from '../../../services/http';
-import { SUPPORTED_CURRENCIES, type SupportedCurrency } from '../../../services/bookings';
+import {
+  asSupportedCurrency,
+  registerDisplayCurrency,
+  type SupportedCurrency,
+} from '../../../services/currency';
 import {
   getNotificationSettings,
   saveNotificationSettings,
@@ -20,18 +24,11 @@ import {
   type UserNotificationSettingsDto,
 } from '../../../services/notifications';
 
-function asSupportedCurrency(code?: string | null): SupportedCurrency {
-  const upper = (code ?? 'RSD').toUpperCase();
-  return (SUPPORTED_CURRENCIES as readonly string[]).includes(upper)
-    ? (upper as SupportedCurrency)
-    : 'RSD';
-}
-
 export default function SettingsScreen() {
   const navigation = useNavigation();
   const { toggleDarkMode } = useTheme();
   const { t, language, setLanguage } = useLocale();
-  const { currentUser } = useAuth();
+  const { currentUser, refreshUser } = useAuth();
   const { showError } = useToast();
   const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor } = useThemeColors();
   const sectionTextColor = textColor;
@@ -57,7 +54,11 @@ export default function SettingsScreen() {
       .then((record) => {
         if (cancelled || !record) return;
         setSettingsRecord(record);
-        setCurrency(asSupportedCurrency(record.preferredCurrency));
+        const stored = asSupportedCurrency(record.preferredCurrency);
+        setCurrency(stored);
+        // The stored record is more authoritative than /auth/me's copy — make every
+        // unstamped amount in the app format in it right away.
+        registerDisplayCurrency(stored);
       })
       .catch(() => {}); // no record / fetch failure: keep the /auth/me value
     return () => {
@@ -71,6 +72,7 @@ export default function SettingsScreen() {
     if (!userId || code === currency) return;
     const previous = currency;
     setCurrency(code);
+    registerDisplayCurrency(code);
     // Round-trip the loaded record so the other settings (incl. preferredLanguage) survive
     // the save; a fresh record seeds preferredLanguage from the active app language.
     const base = settingsRecord ?? {
@@ -79,9 +81,15 @@ export default function SettingsScreen() {
     };
     const next = { ...base, preferredCurrency: code };
     saveNotificationSettings(next)
-      .then((saved) => setSettingsRecord({ ...next, id: saved.id ?? next.id }))
+      .then((saved) => {
+        setSettingsRecord({ ...next, id: saved.id ?? next.id });
+        // /auth/me carries the preference too, and useCurrency() reads it from there —
+        // re-fetch so screens already mounted re-render in the new currency.
+        return refreshUser().catch(() => {}); // display-only; the save itself succeeded
+      })
       .catch((e) => {
         setCurrency(previous);
+        registerDisplayCurrency(previous);
         showError(getErrorMessage(e, t('common.somethingWentWrong')));
       });
   };

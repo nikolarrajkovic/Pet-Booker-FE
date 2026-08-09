@@ -13,7 +13,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getErrorMessage } from '../../../services/http';
-import { ServiceDto } from '../../../services/services';
+import { ServiceDto, serviceCurrency } from '../../../services/services';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
 import { useNotifications } from '../../../context/NotificationsContext';
 import {
@@ -66,10 +66,10 @@ function pickActiveDiscount(discounts: ServiceDiscountDto[]): ServiceDiscountDto
   return active ?? enabled[0];
 }
 
-/** "3% OFF" / "$5 OFF" for a discount (Percent uses percentAmount, Fixed uses amount). */
-function discountLabel(d: ServiceDiscountDto): string {
+/** "3% OFF" / "5 € OFF" for a discount (Percent uses percentAmount, Fixed uses amount). */
+function discountLabel(d: ServiceDiscountDto, currency?: string | null): string {
   const value = d.type === DiscountType.Fixed ? d.amount : (d.percentAmount ?? d.amount);
-  return formatOfferAmount(d.type, value);
+  return formatOfferAmount(d.type, value, currency);
 }
 
 /** Flattens a ServiceDto from a home endpoint into a card item. */
@@ -139,7 +139,7 @@ export default function HomeScreen() {
         const discounts = val(discountsR);
         const deals = toItems(val(saleR)).map((item) => {
           const d = pickActiveDiscount(discounts.filter((x) => x.serviceId === item.id));
-          return d ? { ...item, dealAmount: discountLabel(d) } : item;
+          return d ? { ...item, dealAmount: discountLabel(d, serviceCurrency(item.dto)) } : item;
         });
         setMostPopular(toItems(val(popularR)));
         setSpecialDeals(deals);
@@ -228,6 +228,7 @@ export default function HomeScreen() {
                     rating={item.rating}
                     reviews={item.reviews}
                     price={item.price}
+                    currency={serviceCurrency(item.dto)}
                     badge={badge}
                     dealAmount={item.dealAmount}
                     onPress={() => handleServicePress(item)}

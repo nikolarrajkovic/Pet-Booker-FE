@@ -3,6 +3,7 @@ import { ScrollView, Text, View, TouchableOpacity, Animated } from 'react-native
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { BenefitCard, HowItWorksStep, TestimonialCard } from '../components';
@@ -71,6 +72,7 @@ export default function BecomePartnerScreen() {
     borderColor,
   } = useThemeColors();
   const { t } = useLocale();
+  const { wrap } = useCurrency();
   const scrollY = useRef(new Animated.Value(0)).current;
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
@@ -101,7 +103,9 @@ export default function BecomePartnerScreen() {
             </View>
             <View className="w-px bg-gray-200" />
             <View className="items-center">
-              <Text className="text-2xl font-bold text-brand-600">$2K</Text>
+              {/* Marketing figure — abbreviated, so the symbol is attached rather than
+                  formatted from an amount. Still follows the currency's placement. */}
+              <Text className="text-2xl font-bold text-brand-600">{wrap('2K')}</Text>
               <Text className={`text-xs ${subtextColor} mt-1`}>
                 {t('becomePartner.statAvgMonthly')}
               </Text>

@@ -9,6 +9,7 @@
 // Pricing is NOT mirrored here on purpose. A per-distance extra's real charge depends on a road
 // distance only the server can measure, so the booking flow asks POST /api/bookings/quote
 // (services/booking-quote.ts) instead of computing an estimate.
+import { formatMoney } from './currency';
 import {
   AdditionalServiceChargeType,
   DistanceLeg,
@@ -66,22 +67,27 @@ export function requiredAddressesFor(addons: AdditionalServiceDto[]): {
 }
 
 /**
- * Price label for an extra in a selection list, BEFORE any distance is known — "$5 + $2/km" for
- * a per-distance extra, "$5" for a flat one, null when free (the caller shows its own
+ * Price label for an extra in a selection list, BEFORE any distance is known — "5 € + 2 €/km"
+ * for a per-distance extra, "5 €" for a flat one, null when free (the caller shows its own
  * "Included" text). The actual amount comes from the quote once addresses are chosen.
+ *
+ * `currency` is the owning service's code; omit it and the amounts render in the user's
+ * display preference.
  */
 export function addonPriceLabel(
   t: (key: any, params?: Record<string, string | number>) => string,
-  addon: AdditionalServiceDto
+  addon: AdditionalServiceDto,
+  currency?: string | null
 ): string | null {
   const parts: string[] = [];
+  const money = (amount: number) => formatMoney(amount, currency);
   if (isPerDistance(addon)) {
     const baseFee = addon.distancePrice?.baseFee ?? 0;
     const perKmFee = addon.distancePrice?.perKmFee ?? 0;
-    if (baseFee > 0) parts.push(`$${baseFee}`);
-    if (perKmFee > 0) parts.push(t('addons.perKm', { amount: `$${perKmFee}` }));
+    if (baseFee > 0) parts.push(money(baseFee));
+    if (perKmFee > 0) parts.push(t('addons.perKm', { amount: money(perKmFee) }));
   } else if ((addon.price ?? 0) > 0) {
-    parts.push(`$${addon.price}`);
+    parts.push(money(addon.price as number));
   }
   return parts.length ? parts.join(' + ') : null;
 }

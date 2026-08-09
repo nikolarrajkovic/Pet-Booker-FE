@@ -3,7 +3,7 @@ import { Modal, View, Text, TouchableOpacity, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
-import { SUPPORTED_CURRENCIES, type SupportedCurrency } from '../../services/bookings';
+import { SUPPORTED_CURRENCIES, formatMoney, type SupportedCurrency } from '../../services/currency';
 
 type Props = {
   visible: boolean;
@@ -79,6 +79,10 @@ export default function CurrencyPicker({ visible, current, onSelect, onClose }: 
                 }}>
                 <Text style={{ color: hex.text }} className="flex-1 text-base font-semibold">
                   {t(`currencies.${code.toLowerCase()}` as any)}
+                </Text>
+                {/* Sample of how prices will read — symbol side differs per currency */}
+                <Text style={{ color: hex.subtext }} className="mr-3 text-sm">
+                  {formatMoney(1200, code)}
                 </Text>
                 {active ? <Ionicons name="checkmark-circle" size={22} color="#00C870" /> : null}
               </TouchableOpacity>

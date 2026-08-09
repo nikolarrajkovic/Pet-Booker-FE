@@ -54,6 +54,7 @@ GET also returns read-only `rating`,
 | S5 | MyServices card | **Bookings count** ("342 bookings") | **Mocked (0).** Not exposed per-service. | A per-service bookings/transactions count. |
 | S7 | AddEditService – "Service Location" | **PUT with a NEW inline address 500s** | **Worked around (verified live 2026-07-19).** POST accepts an inline address (`id: 0` → created + linked) and PUT accepts the service's existing address id (in-place update), but a PUT whose `address` is new (id 0 / no id) returns 500 whether or not the service already has one. FE workaround: `createAddress()` (POST `/api/addresses`, needs non-empty `state`) first, then PUT with the returned real-id row — see `resolveServiceAddressForSave` in `serviceModel.ts`. | Let the service PUT create/replace the address inline, like the create path and the user PUT already do. |
 | S6 | HomeScreen rows | **Hide services of unapproved providers** | **Now backend-controlled.** Home rows come from dedicated endpoints (`/api/home/most-popular|on-sale|recently-booked|near-me`), so what shows is whatever those endpoints return — the FE no longer joins/filters. Approval filtering (if desired) belongs in those endpoints. | Ensure the `/api/home/*` endpoints exclude services of Pending/Declined providers. |
+| S8 | Home / Search / ServiceDetail / BookService — every service price | **No `currency` on the service** | ✅ **Resolved (verified live 2026-08-05).** `GET /api/services/{id}` now returns a top-level `currency`, and it names the code the amounts were **converted into**: the API converts every read into the caller's `preferredCurrency` (storage stays RSD). `serviceCurrency(svc)` picks it up unchanged; the lean `/api/home/*` rails still omit it and fall back to the display preference, which now resolves to the same code anyway. **The write side is the part that bites:** a payload without `currency` is read as RSD, so a form filled from a EUR read and saved unchanged stored `0`. Handled FE-side by `declaredWriteCurrency` — see CLAUDE.md "Money & Currency". | Nothing further. |
 
 ## Service Provider (`/api/service-providers`)
 
@@ -61,6 +62,13 @@ GET also returns read-only `rating`,
 |---|---|---|---|---|
 | P2 | ApplicationReview | Applicant **email / phone / bio / experience / availability** | **Partially resolved (2026-06).** `contactEmail` is on the provider DTO now (sent at apply time, shown in admin review). Phone/bio are reachable via the nested `providerProfile` (`bio`/`phone`) but read back null for application-created providers; experience/availability are still not carried. | The remaining fields populated/surfaced on the provider/application DTO. |
 | P3 | ProviderDetail "About" | **Provider about / bio text** | **Mocked** (generated from name + type). The `providerProfile.bio` field exists but is null for applications. | The bio/about field populated on the provider. |
+
+## Statistics (`/api/stats/*`)
+
+| # | UI location | Field / feature | Status | What the backend needs |
+|---|---|---|---|---|
+| ST1 | AdminDashboard — revenue tiles | **`currency` is a fixed EUR default, not derived from the data** | **Open (verified live 2026-07-30).** Setting the only provider's `currency` to `RSD` made `/api/stats/provider/overview?serviceProviderId=1` report `"RSD"` immediately, but `/api/stats/admin/overview` kept returning `"EUR"` — so the admin (platform-wide) group uses a hardcoded default rather than reading from the data it aggregates. The admin tiles therefore render `€` no matter how providers are configured. Not a FE issue: `formatMoney` renders whatever code the endpoint reports. | Derive the admin group's `currency` from the aggregated rows (or from a single configured platform currency that matches the providers). Note a platform-wide total is only meaningful if all providers share a currency — otherwise the aggregate needs per-currency buckets. |
+| ST2 | (no consumer yet) | **`/api/stats/user/overview` returns `currency: null`** | **Handled FE-side.** Verified live: `?userId=3` → `"currency": null`. `formatMoney` falls back to the viewer's display preference, so nothing renders a wrong symbol. No screen consumes the user stats group yet. | Stamp the user group's `currency` like the provider group does. |
 
 ## Bookings (`/api/bookings`)
 

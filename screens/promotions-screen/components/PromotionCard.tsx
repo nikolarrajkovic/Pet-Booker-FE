@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useLocale } from '../../../context/LocaleContext';
+import { formatMoney } from '../../../services/currency';
 
 export type PromotionStatus = 'active' | 'paused' | 'scheduled' | 'ended';
 export type PromotionType = 'boost' | 'featured' | 'offer' | 'ad';
@@ -31,16 +32,20 @@ export interface Promotion {
   discountType?: number; // DiscountType: 0=Percent, 1=Fixed
   applyFrom?: string; // ISO
   applyTo?: string | null; // ISO
+  /** Currency of the discounted service; omit to use the partner's display preference. */
+  currency?: string | null;
 }
 
 // DiscountType: 0=Percent, 1=Fixed (mirrors services/service-discounts DiscountType).
-// Renders an offer's headline — "$10 OFF" for fixed, "20% OFF" for percent.
+// Renders an offer's headline — "10 € OFF" for fixed, "20% OFF" for percent. A fixed
+// discount is money, so it takes the discounted service's currency; a percentage is not.
 export function formatOfferAmount(
   discountType: number | undefined,
-  value: number | undefined
+  value: number | undefined,
+  currency?: string | null
 ): string {
   const v = value ?? 0;
-  return discountType === 1 ? `$${v} OFF` : `${v}% OFF`;
+  return discountType === 1 ? `${formatMoney(v, currency)} OFF` : `${v}% OFF`;
 }
 
 interface PromotionCardProps {
@@ -131,7 +136,8 @@ export default function PromotionCard({
           <View className="mb-1 flex-row justify-between">
             <Text className={`text-xs font-medium ${subtextColor}`}>{t('promotions.budget')}</Text>
             <Text className={`text-xs font-semibold ${textColor}`}>
-              ${promotion.budgetSpent?.toFixed(2)} / ${promotion.budgetTotal}
+              {formatMoney(promotion.budgetSpent ?? 0, promotion.currency)} /{' '}
+              {formatMoney(promotion.budgetTotal, promotion.currency)}
             </Text>
           </View>
           <View
@@ -177,7 +183,8 @@ export default function PromotionCard({
             <Text className="text-xl font-bold text-green-600">
               {formatOfferAmount(
                 promotion.discountType,
-                promotion.discountValue ?? promotion.discountPercent
+                promotion.discountValue ?? promotion.discountPercent,
+                promotion.currency
               )}
             </Text>
             <Text className={`text-xs ${subtextColor} mt-0.5`}>

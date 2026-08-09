@@ -15,9 +15,15 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
-import { getServices, deleteService, ServiceDto } from '../../../services/services';
+import {
+  getServices,
+  deleteService,
+  ServiceDto,
+  serviceCurrency,
+} from '../../../services/services';
 import { getErrorMessage } from '../../../services/http';
-import { serviceDtoToUi, UiService } from '../serviceModel';
+import { formatMoney } from '../../../services/currency';
+import { serviceDtoToUi, UiService, additionalServiceTitle } from '../serviceModel';
 import { providerTypeValue } from '../../../services/service-providers';
 import { AdditionalServiceChargeType } from '../../../services/service-addons';
 
@@ -166,6 +172,7 @@ export default function MyServicesScreen() {
                 <ServiceListCard
                   key={ui.id}
                   service={ui}
+                  currency={serviceCurrency(dto)}
                   isDarkMode={isDarkMode}
                   onEdit={() => handleEdit(dto)}
                   onDelete={() => handleDelete(ui.id)}
@@ -181,11 +188,14 @@ export default function MyServicesScreen() {
 
 function ServiceListCard({
   service,
+  currency,
   isDarkMode,
   onEdit,
   onDelete,
 }: {
   service: UiService;
+  /** The service's own currency; omit to use the partner's display preference. */
+  currency?: string | null;
   isDarkMode: boolean;
   onEdit: () => void;
   onDelete: () => void;
@@ -197,6 +207,8 @@ function ServiceListCard({
   // `service.type` is the English enum label (a form data key) — localize display only.
   const typeValue = providerTypeValue(service.type);
   const typeLabel = typeValue != null ? tEnum('serviceProviderType', typeValue) : service.type;
+  // UiService keeps prices as the raw strings the form edits, so parse before formatting.
+  const money = (raw: string | undefined) => formatMoney(parseFloat(raw ?? '') || 0, currency);
   // Extra names are free text the provider typed — nothing to localize, show as-is.
 
   return (
@@ -278,7 +290,8 @@ function ServiceListCard({
           <View className="flex-row flex-wrap" style={{ gap: 4 }}>
             {service.pricingTiers.map((tier, i) => (
               <Text key={i} className={`text-sm ${textColor}`}>
-                {tier.duration}: <Text className="font-semibold text-brand-500">${tier.price}</Text>
+                {tier.duration}:{' '}
+                <Text className="font-semibold text-brand-500">{money(tier.price)}</Text>
                 {i < service.pricingTiers.length - 1 ? (
                   <Text className={subtextColor}>{'  \u2022'}</Text>
                 ) : null}
@@ -298,15 +311,15 @@ function ServiceListCard({
                 <View key={i} className={`flex-row items-center ${pricingBg} rounded-lg px-2 py-1`}>
                   <Ionicons name={addonIcon(svc.chargeType) as any} size={13} color="#6B7280" />
                   <Text className={`text-xs ${subtextColor} ml-1`}>
-                    {svc.name}
+                    {additionalServiceTitle(t, svc, service.name)}
                     {/* A per-distance extra has no single price until a trip is known, so show
                         its base fee with a "+" to signal the per-km part. */}
                     {svc.chargeType === AdditionalServiceChargeType.PerDistance
                       ? parseFloat(svc.baseFee ?? '') > 0
-                        ? ` $${svc.baseFee}+`
+                        ? ` ${money(svc.baseFee)}+`
                         : ''
                       : parseFloat(svc.price) > 0
-                        ? ` $${svc.price}`
+                        ? ` ${money(svc.price)}`
                         : ''}
                   </Text>
                 </View>

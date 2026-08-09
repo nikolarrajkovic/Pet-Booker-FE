@@ -1,5 +1,6 @@
 import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
 import { ServicePricingOptionDto } from './services';
+import { declaredWriteCurrency } from './currency';
 
 // Duration/price variants of a service ("30 minutes / $20", "1 hour / $35").
 // The same shape is embedded on the service GET as `service.pricingOptions[]`,
@@ -7,6 +8,15 @@ import { ServicePricingOptionDto } from './services';
 // persist the AddEditService "Pricing & Duration" tiers. Ownership is enforced
 // server-side (a provider can only manage options on their own services).
 export type { ServicePricingOptionDto };
+
+/**
+ * Declares the currency `price` is entered in. Unlike the options nested on a service
+ * write (where the aggregate root's currency governs), this standalone CRUD carries its
+ * own — and omitting it means RSD, which would rescale a tier the partner typed in EUR.
+ */
+function withDeclaredCurrency(option: ServicePricingOptionDto): ServicePricingOptionDto {
+  return { ...option, currency: declaredWriteCurrency(option.currency) };
+}
 
 export async function getServicePricingOptions(
   serviceId: number
@@ -33,7 +43,7 @@ export async function createServicePricingOption(
   const url = `${getApiBaseUrl()}/api/service-pricing-options`;
   const response = await apiAuthFetch(url, {
     method: 'POST',
-    body: JSON.stringify(option),
+    body: JSON.stringify(withDeclaredCurrency(option)),
   });
 
   if (!response.ok) {
@@ -52,7 +62,7 @@ export async function updateServicePricingOption(
   const url = `${getApiBaseUrl()}/api/service-pricing-options/${id}`;
   const response = await apiAuthFetch(url, {
     method: 'PUT',
-    body: JSON.stringify({ ...option, id }),
+    body: JSON.stringify({ ...withDeclaredCurrency(option), id }),
   });
 
   if (!response.ok) {

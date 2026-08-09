@@ -12,7 +12,8 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
-import { getServices, ServiceDto } from '../../../services/services';
+import { getServices, ServiceDto, serviceCurrency } from '../../../services/services';
+import { formatMoney } from '../../../services/currency';
 import { getReviews, ReviewDto } from '../../../services/reviews';
 import { ApprovalStatus } from '../../../services/service-providers';
 import { getErrorMessage } from '../../../services/http';
@@ -141,7 +142,9 @@ export default function ProviderDetailScreen() {
           <Text className={`text-lg font-semibold ${textColor} mb-1`}>Pricing</Text>
           {startingPrice > 0 ? (
             <View className="flex-row items-baseline">
-              <Text className="text-3xl font-bold text-brand-600">${startingPrice}</Text>
+              <Text className="text-3xl font-bold text-brand-600">
+                {formatMoney(startingPrice)}
+              </Text>
               <Text className={`${subtextColor} ml-2`}>starting from</Text>
             </View>
           ) : (
@@ -213,7 +216,7 @@ export default function ProviderDetailScreen() {
                       </View>
                       <View className="items-end">
                         <Text className="text-base font-bold text-brand-600">
-                          ${servicePrice(svc)}
+                          {formatMoney(servicePrice(svc), serviceCurrency(svc))}
                         </Text>
                         <View className="mt-2 flex-row items-center rounded-full bg-brand-500 px-4 py-1.5">
                           <Ionicons name="calendar-outline" size={13} color="white" />
