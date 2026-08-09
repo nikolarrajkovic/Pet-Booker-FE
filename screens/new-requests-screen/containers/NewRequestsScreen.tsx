@@ -28,7 +28,7 @@ import {
   BookingState,
   BookingStatusType,
 } from '../../../services/bookings';
-import { formatMoney } from '../../../services/money';
+import { formatMoney } from '../../../services/currency';
 
 // Translate function shape shared by the helpers below (labels follow the
 // active language; the container passes its useLocale().t down).

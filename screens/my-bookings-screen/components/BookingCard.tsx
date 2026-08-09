@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { BookingStatusLabel } from '../../../services/bookings';
-import { formatMoney } from '../../../services/money';
+import { formatMoney } from '../../../services/currency';
 
 interface Booking {
   id: number;

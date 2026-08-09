@@ -1,4 +1,5 @@
 import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
+import { declaredWriteCurrency } from './currency';
 
 // DiscountType enum (verified /enums): 0=Percent, 1=Fixed
 export const DiscountType = { Percent: 0, Fixed: 1 } as const;
@@ -12,10 +13,21 @@ export type ServiceDiscountDto = {
   applyTo?: string | null; // ISO date-time, optional (open-ended)
   isEnabled: boolean;
   percentAmount?: number | null; // percent value when type === Percent
-  // Currency a Fixed discount's `amount` is expressed in (percent discounts are currency-free).
-  // Read-only: the server converts to the caller's display currency and stamps what it used.
+  /**
+   * Currency a Fixed discount's `amount` is expressed in — a Percent one is currency-free
+   * and the server leaves its amount alone.
+   *
+   * Read: what the server converted the amount to, stamped with the code it used.
+   * Write: what the amount is DECLARED to be (stamped below — omitting it would mean RSD
+   * and silently rescale a discount the partner typed in EUR).
+   */
   currency?: string | null;
 };
+
+/** See `declaredWriteCurrency` — a Fixed discount's amount is money and must say so. */
+function withDeclaredCurrency(discount: ServiceDiscountDto): ServiceDiscountDto {
+  return { ...discount, currency: declaredWriteCurrency(discount.currency) };
+}
 
 export type GetServiceDiscountsParams = {
   serviceId?: number;
@@ -52,7 +64,7 @@ export async function createServiceDiscount(
   const url = `${getApiBaseUrl()}/api/service-discounts`;
   const response = await apiAuthFetch(url, {
     method: 'POST',
-    body: JSON.stringify({ id: 0, ...discount }),
+    body: JSON.stringify({ id: 0, ...withDeclaredCurrency(discount) }),
   });
 
   if (!response.ok) {
@@ -71,7 +83,7 @@ export async function updateServiceDiscount(
   const url = `${getApiBaseUrl()}/api/service-discounts/${id}`;
   const response = await apiAuthFetch(url, {
     method: 'PUT',
-    body: JSON.stringify({ ...discount, id }),
+    body: JSON.stringify({ ...withDeclaredCurrency(discount), id }),
   });
 
   if (!response.ok) {

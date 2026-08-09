@@ -16,8 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
+import { formatMoney } from '../../../services/currency';
 import type { Partner, PartnerStatus, ServiceHistoryItem } from '../components';
-import { formatMoney } from '../../../services/money';
 import {
   getServiceProvider,
   extractProviderDocuments,
@@ -430,7 +430,7 @@ export default function PartnerDetailsScreen() {
             <View style={{ width: 1, backgroundColor: dividerColor }} />
             <View style={{ flex: 1, alignItems: 'center', paddingVertical: 16 }}>
               <Text style={{ color: textColor, fontSize: 20, fontWeight: '800' }}>
-                {formatMoney(partner.startingPrice)}
+                {formatMoney(partner.startingPrice, partner.currency)}
               </Text>
               <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2 }}>
                 Starting Price
@@ -677,6 +677,7 @@ export default function PartnerDetailsScreen() {
                 <ServiceHistoryCard
                   key={item.id}
                   item={item}
+                  currency={partner.currency}
                   cardBg={cardBg}
                   textColor={textColor}
                   subTextColor={subTextColor}
@@ -1053,12 +1054,15 @@ function EmptyDoc({ text, subTextColor }: { text: string; subTextColor: string }
 
 function ServiceHistoryCard({
   item,
+  currency,
   cardBg,
   textColor,
   subTextColor,
   borderColor,
 }: {
   item: ServiceHistoryItem;
+  /** The partner's currency — every amount in their history is in it. */
+  currency?: string | null;
   cardBg: string;
   textColor: string;
   subTextColor: string;
@@ -1085,7 +1089,9 @@ function ServiceHistoryCard({
         <Text style={{ color: subTextColor, fontSize: 11 }}>
           {item.id} • {item.date}
         </Text>
-        <Text style={{ color: textColor, fontSize: 14, fontWeight: '700' }}>$ {item.price}</Text>
+        <Text style={{ color: textColor, fontSize: 14, fontWeight: '700' }}>
+          {formatMoney(item.price, currency)}
+        </Text>
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View>

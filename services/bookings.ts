@@ -242,12 +242,12 @@ export function formatBookingDate(d: Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-// Money formatting lives in ./money — it is not a booking concern (services, stats, discounts and
-// promotions all format prices too), and burying it here made it easy to miss and re-invent.
+// Money formatting lives in ./currency — it is not a booking concern (services, stats, discounts
+// and promotions all format prices too), and burying it here made it easy to miss and re-invent.
 //
 // Deliberately NOT re-exported from here: a re-export makes `bookings` a second, equally valid
 // import path for the same symbol, which is how it got hard to find in the first place — and it
-// puts money formatting behind this module's initialization. Import from './money' directly.
+// puts money formatting behind this module's initialization. Import from './currency' directly.
 
 function firstPhoto(entity?: NestedEntity | null): string {
   const photos = entity?.photos ?? [];

@@ -407,15 +407,10 @@ const en = {
     fish: 'Fish',
     snakes: 'Snakes',
   },
-  // Display names for SERVICE_ADDON_DEFS — keyed by addon id (the catalog `name`
-  // stays English: it's the lookup/round-trip key in findServiceAddon).
+  // An extra's NAME and DESCRIPTION are provider-authored free text and are shown as
+  // stored, like any other backend copy — the fixed Pickup/Drop-off/Special-Needs catalog
+  // that used to be named here is gone. Only the surrounding labels are translated.
   addons: {
-    pickup: 'Pickup',
-    pickupDesc: "We'll pick up your pet from your location",
-    dropoff: 'Drop-off',
-    dropoffDesc: "We'll drop off your pet after the service",
-    specialNeeds: 'Special Needs Care',
-    specialNeedsDesc: 'Extra care and attention for pets with special needs',
     included: 'Included',
     perKm: '{amount}/km',
   },
@@ -1150,8 +1145,13 @@ const en = {
     maxCapacityHint: 'How many pets can you care for at the same time?',
     additionalServicesOffered: 'Additional Services Offered',
     additionalServicesHint: 'Optional extras a customer can add to a booking (enter 0 for free)',
-    addExtra: 'Add an extra',
-    extraNamePlaceholder: 'Name (e.g. Pickup, Nail trim)',
+    addExtra: 'Add additional service',
+    // Row titles. An extra isn't named by the provider — a per-distance one is titled by the
+    // journey it performs, a flat one by the service itself.
+    legTitlePickup: 'Pickup',
+    legTitleDropOff: 'Drop-off',
+    legTitleRoundTrip: 'Round trip (pickup + drop-off)',
+    extraUnnamedService: 'Additional service',
     extraNoneYet: 'No extras yet — customers will only see the service itself.',
     chargeFlat: 'Flat fee',
     chargePerDistance: 'Per distance',

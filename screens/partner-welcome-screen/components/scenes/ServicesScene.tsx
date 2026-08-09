@@ -4,17 +4,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useFloatY, useSlideInRight } from './sceneAnim';
+import { formatMoney } from '../../../../services/currency';
 
+// Illustration-only sample rows. Prices are AMOUNTS, formatted at render in the viewer's
+// currency — a partner charging in RSD should not see a mocked-up "$45".
 const SERVICES = [
-  { name: 'Dog Grooming', price: '$45', color: '#a855f7', bg: '#faf5ff' },
-  { name: 'Dog Walking', price: '$25', color: '#22C55E', bg: '#f0fdf4' },
-  { name: 'Pet Sitting', price: '$60', color: '#eab308', bg: '#fefce8' },
+  { name: 'Dog Grooming', price: 45, color: '#a855f7', bg: '#faf5ff' },
+  { name: 'Dog Walking', price: 25, color: '#22C55E', bg: '#f0fdf4' },
+  { name: 'Pet Sitting', price: 60, color: '#eab308', bg: '#fefce8' },
 ];
 
 /**
  * Slide 4 illustration — "Set Up Your Services".
  * A "My Services" card whose rows slide in staggered, a snipping scissors badge,
- * and a floating "$25 / session" pill.
+ * and a floating "25 / session" price pill.
  */
 export default function ServicesScene() {
   const rows = [useSlideInRight(150), useSlideInRight(280), useSlideInRight(410)];
@@ -49,7 +52,7 @@ export default function ServicesScene() {
           <Animated.View key={s.name} style={[styles.row, { backgroundColor: s.bg }, rows[i]]}>
             <View style={[styles.dot, { backgroundColor: s.color }]} />
             <Text style={styles.rowName}>{s.name}</Text>
-            <Text style={[styles.rowPrice, { color: s.color }]}>{s.price}</Text>
+            <Text style={[styles.rowPrice, { color: s.color }]}>{formatMoney(s.price)}</Text>
           </Animated.View>
         ))}
         <View style={styles.divider} />
@@ -70,7 +73,7 @@ export default function ServicesScene() {
       <Animated.View
         style={[styles.pill, { transform: [{ translateY: pillY }] }]}
         pointerEvents="none">
-        <Text style={styles.pillText}>$25 / session</Text>
+        <Text style={styles.pillText}>{formatMoney(25)} / session</Text>
       </Animated.View>
     </LinearGradient>
   );

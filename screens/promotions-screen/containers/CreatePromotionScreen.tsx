@@ -11,13 +11,14 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useCurrency } from '../../../hooks/useCurrency';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import DatePicker from '../../../components/shared/DatePicker';
-import { getServices, ServiceDto } from '../../../services/services';
-import { BASE_CURRENCY, formatMoney } from '../../../services/money';
+import { getServices, ServiceDto, serviceCurrency } from '../../../services/services';
+import { formatMoney } from '../../../services/currency';
 import { getErrorMessage } from '../../../services/http';
 import { createServiceDiscount, DiscountType } from '../../../services/service-discounts';
 
@@ -47,6 +48,9 @@ export default function CreatePromotionScreen() {
 
   const providerId = currentUser?.serviceProviderId || null;
   const isPercent = discountType === DiscountType.Percent;
+  // A fixed discount is money in the discounted service's currency; a percentage isn't money.
+  const selectedServiceCurrency = serviceCurrency(services.find((s) => s.id === serviceId));
+  const { prefix: currencyPrefix, suffix: currencySuffix } = useCurrency(selectedServiceCurrency);
 
   useEffect(() => {
     let cancelled = false;
@@ -191,7 +195,7 @@ export default function CreatePromotionScreen() {
                     {s.pricing?.basePrice != null && (
                       <Text className={`text-xs ${subtextColor} mt-0.5`}>
                         {t('promotions.basePrice', {
-                          price: formatMoney(s.pricing.basePrice, s.currency),
+                          price: formatMoney(s.pricing.basePrice, serviceCurrency(s)),
                         })}
                       </Text>
                     )}
@@ -247,11 +251,16 @@ export default function CreatePromotionScreen() {
         </Text>
         <View
           className={`${inputBg} border ${borderColor} mb-5 flex-row items-center rounded-xl px-4`}>
-          {!isPercent && (
-            <Text className={`text-sm font-semibold ${subtextColor} mr-1`}>{BASE_CURRENCY}</Text>
-          )}
+          {/* The currency sits on whichever side its convention calls for; a percentage
+              keeps its own trailing "%". */}
+          {!isPercent && currencyPrefix ? (
+            <Text className={`text-sm font-semibold ${subtextColor} mr-1`}>{currencyPrefix}</Text>
+          ) : null}
           <TextInput
             className={`flex-1 py-3.5 text-sm ${textColor}`}
+            // See CurrencyInput: an <input> won't shrink below its intrinsic width in a
+            // flex row without this, pushing the affix outside the box on web.
+            style={{ minWidth: 0 }}
             value={amount}
             onChangeText={setAmount}
             keyboardType="numeric"
@@ -259,6 +268,9 @@ export default function CreatePromotionScreen() {
             placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
           />
           {isPercent && <Text className={`text-sm font-semibold ${subtextColor}`}>%</Text>}
+          {!isPercent && currencySuffix ? (
+            <Text className={`text-sm font-semibold ${subtextColor}`}>{currencySuffix}</Text>
+          ) : null}
         </View>
 
         {/* Date range */}

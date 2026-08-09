@@ -13,7 +13,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getErrorMessage } from '../../../services/http';
-import { ServiceDto } from '../../../services/services';
+import { ServiceDto, serviceCurrency } from '../../../services/services';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
 import { useNotifications } from '../../../context/NotificationsContext';
 import { DiscountType } from '../../../services/service-discounts';
@@ -68,7 +68,7 @@ function dealLabel(svc: ServiceDto): string | undefined {
   return formatOfferAmount(
     svc.appliedDiscountType ?? undefined,
     amount,
-    svc.currency,
+    serviceCurrency(svc),
     isPercent ? amount : undefined
   );
 }
@@ -228,7 +228,7 @@ export default function HomeScreen() {
                     rating={item.rating}
                     reviews={item.reviews}
                     price={item.price}
-                    currency={item.dto.currency}
+                    currency={serviceCurrency(item.dto)}
                     badge={badge}
                     dealAmount={item.dealAmount}
                     onPress={() => handleServicePress(item)}

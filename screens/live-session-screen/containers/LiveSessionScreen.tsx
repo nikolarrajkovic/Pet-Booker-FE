@@ -452,17 +452,6 @@ export default function LiveSessionScreen() {
   const selectedAddonKey: AddOnItem['key'] | null =
     mapTarget && mapTarget.key !== 'me' ? mapTarget.key : null;
 
-  const toggleAddOn = (key: AddOnItem['key']) => {
-    if (!dto) return;
-    const id = dto.id!;
-    setCompletedById((prev) => {
-      const cur = prev[id] ?? { pickup: false, dropoff: false };
-      if (key === 'pickup') return { ...prev, [id]: { ...cur, pickup: !cur.pickup } };
-      if (key === 'dropoff') return { ...prev, [id]: { ...cur, dropoff: !cur.dropoff } };
-      return prev;
-    });
-  };
-
   // The map's start point, in preference order: the freshest GPS fix → the
   // one-shot GPS seed → the service's address. The address tail means a denied
   // location permission degrades the map to a fixed origin rather than killing
@@ -494,6 +483,23 @@ export default function LiveSessionScreen() {
     },
     [addOns, t, showInfo, showError]
   );
+
+  const toggleAddOn = (key: AddOnItem['key']) => {
+    if (!dto) return;
+    if (key !== 'pickup' && key !== 'dropoff') return;
+    const id = dto.id!;
+    const next: Completion = { ...completion, [key]: !completion[key] };
+    setCompletedById((prev) => ({ ...prev, [id]: next }));
+
+    // Finishing the pickup means the next journey is the drop-off — re-point the
+    // map at it right away so the partner doesn't have to hunt for "Show on map"
+    // mid-drive. Only when there is a drop-off leg still to do, and only if the
+    // map isn't already routed there.
+    if (key === 'pickup' && next.pickup && !next.dropoff && mapTarget?.key !== 'dropoff') {
+      const dropoff = addOns.find((a) => a.key === 'dropoff' && a.address);
+      if (dropoff) void selectAddon('dropoff');
+    }
+  };
 
   // Hand off to the device's maps app for turn-by-turn (origin = current location).
   const openExternalNav = () => {

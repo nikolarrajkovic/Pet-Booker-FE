@@ -14,7 +14,7 @@ import {
   BookingStatusType,
   formatBookingDate,
 } from '../../../services/bookings';
-import { formatMoney } from '../../../services/money';
+import { formatMoney } from '../../../services/currency';
 import {
   getProviderOverviewStats,
   getProviderEarnings,

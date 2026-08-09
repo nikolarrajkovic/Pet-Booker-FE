@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useLocale } from '../../../context/LocaleContext';
 import { loadGoogleMaps } from '../../../services/google-maps';
+import { formatMoney } from '../../../services/currency';
+import { serviceCurrency } from '../../../services/services';
 import type { ServiceSearchItem } from './ListView';
-import { formatMoney } from '../../../services/money';
 
 interface LocationData {
   latitude: number;
@@ -27,17 +28,26 @@ const MAP_DECLUTTER_STYLE = [
   { featureType: 'transit', stylers: [{ visibility: 'off' }] },
 ];
 
-// Green price-pill marker icon as an SVG data URI — the classic-Marker equivalent of the old
-// AdvancedMarkerElement div. Deliberately the bare amount with no currency: the pin is a 40px
-// circle and a formatted "1200 RSD" would not fit. The info card that opens on tap carries the
-// currency (see below) — which is better than the hardcoded "$" this used to draw on RSD prices.
-function pricePinSvg(price: number): string {
-  return (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">' +
-    '<circle cx="20" cy="20" r="18" fill="#00C870" stroke="white" stroke-width="2"/>' +
-    `<text x="20" y="24" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">${price}</text>` +
-    '</svg>'
-  );
+const escapeXml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// Green price-pill marker icon as an SVG data URI — the classic-Marker equivalent of the
+// old AdvancedMarkerElement div. It's a WIDTH-FITTED pill rather than a fixed circle: a
+// formatted price carries its currency ("1200 RSD", "52 €"), which a 40px circle clipped.
+function pricePinSvg(label: string): { svg: string; width: number; height: number } {
+  const text = escapeXml(label);
+  const height = 30;
+  // ~6.6px per character at font-size 11 bold, plus padding; never narrower than a circle.
+  const width = Math.max(40, Math.round(label.length * 6.6) + 16);
+  return {
+    width,
+    height,
+    svg:
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+      `<rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="${(height - 2) / 2}" fill="#00C870" stroke="white" stroke-width="2"/>` +
+      `<text x="${width / 2}" y="${height / 2 + 4}" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">${text}</text>` +
+      '</svg>',
+  };
 }
 
 const USER_DOT_SVG =
@@ -118,7 +128,7 @@ function buildInfoCard(s: ServiceSearchItem, isDarkMode: boolean, onView: () => 
   row.appendChild(rating);
 
   const price = document.createElement('div');
-  price.textContent = formatMoney(s.price, s.dto.currency);
+  price.textContent = formatMoney(s.price, serviceCurrency(s.dto));
   Object.assign(price.style, { color: '#00C870', fontSize: '16px', fontWeight: '700' });
   row.appendChild(price);
 
@@ -163,10 +173,10 @@ export default function MapViewComponent({
           styles: MAP_DECLUTTER_STYLE,
         });
 
-        const svgIcon = (svg: string, size: number) => ({
+        const svgIcon = (svg: string, width: number, height: number = width) => ({
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
-          scaledSize: new maps.Size(size, size),
-          anchor: new maps.Point(size / 2, size / 2),
+          scaledSize: new maps.Size(width, height),
+          anchor: new maps.Point(width / 2, height / 2),
         });
 
         // User location dot
@@ -183,10 +193,11 @@ export default function MapViewComponent({
         services
           .filter((s) => s.latitude != null && s.longitude != null)
           .forEach((s) => {
+            const pin = pricePinSvg(formatMoney(s.price, serviceCurrency(s.dto)));
             const marker = new maps.Marker({
               map,
               position: { lat: s.latitude!, lng: s.longitude! },
-              icon: svgIcon(pricePinSvg(s.price), 40),
+              icon: svgIcon(pin.svg, pin.width, pin.height),
             });
             marker.addListener('click', () => {
               const card = buildInfoCard(s, isDarkMode, () =>

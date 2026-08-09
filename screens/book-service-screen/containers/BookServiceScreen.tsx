@@ -3,6 +3,7 @@ import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator } fr
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocation } from '../../../hooks/useLocation';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -20,6 +21,7 @@ import {
   getServiceAvailability,
   AvailabilityWindowDto,
   effectiveOptionPrice,
+  serviceCurrency,
 } from '../../../services/services';
 import { getPets, PetResponse } from '../../../services/pets';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
@@ -28,7 +30,6 @@ import {
   formatBookingDate,
   type BookingAdditionalServiceReadDto,
 } from '../../../services/bookings';
-import { formatMoney } from '../../../services/money';
 import {
   getEnabledServiceAddons,
   addonPriceLabel,
@@ -109,7 +110,11 @@ const hmsToMinutes = (t?: string | null): number => {
 const overlaps = (aFrom: number, aTo: number, bFrom: number, bTo: number) =>
   aFrom < bTo && aTo > bFrom;
 
-/** Round to at most 2 decimals for display (trims per-km float artifacts). */
+/**
+ * Round to at most 2 decimals (trims per-km float artifacts). This is the NUMERIC value
+ * carried on an appointment and handed to ReviewBooking — for anything rendered on screen
+ * use `fmt` below, which adds the currency on its conventional side.
+ */
 const money = (n: number) => Math.round(n * 100) / 100;
 
 /** The current server quote for the in-progress selection, plus its request state. */
@@ -268,10 +273,7 @@ export default function BookServiceScreen() {
   //
   // The month the user is most likely to pick from is loaded up front so the calendar opens with
   // its unbookable days already greyed out, rather than looking uniformly available until tapped.
-  const monthToLoad = useMemo(
-    () => monthKeyOf(selectedDate ?? new Date()),
-    [selectedDate]
-  );
+  const monthToLoad = useMemo(() => monthKeyOf(selectedDate ?? new Date()), [selectedDate]);
 
   useEffect(() => {
     if (serviceId == null || loadedMonths[monthToLoad]) return;
@@ -285,11 +287,7 @@ export default function BookServiceScreen() {
         const last = new Date(year, month, 0); // day 0 of the next month = last of this one
         // Date-only keys ("YYYY-MM-DD", local). A calendar month is at most 31 days, which is
         // exactly the range cap the endpoint enforces.
-        const availability = await getServiceAvailability(
-          serviceId,
-          dateKey(first),
-          dateKey(last)
-        );
+        const availability = await getServiceAvailability(serviceId, dateKey(first), dateKey(last));
         if (cancelled) return;
         const byDate: Record<string, AvailabilityWindowDto[]> = {};
         for (const day of availability?.days ?? []) {
@@ -523,7 +521,8 @@ export default function BookServiceScreen() {
   // What the amounts on this screen are denominated in. The quote is authoritative once it lands
   // (it is the server's own pricing, already converted to the caller's display currency); until
   // then the service DTO's own stamp is the best available. Never assume a symbol.
-  const displayCurrency = quote?.priceCurrency ?? selectedService.currency;
+  const displayCurrency = quote?.priceCurrency ?? serviceCurrency(selectedService);
+  const { money: fmt } = useCurrency(displayCurrency);
 
   /** The server's charge for one selected extra, or null until the quote lands. */
   const quotedAddonLine = (addon: AdditionalServiceDto): BookingAdditionalServiceReadDto | null =>
@@ -567,7 +566,7 @@ export default function BookServiceScreen() {
       <Text className="mt-2 text-xs font-medium text-brand-600">
         {t('bookService.distanceSurcharge', {
           km: km1(line.distanceKm),
-          price: formatMoney(line.price, displayCurrency),
+          price: fmt(line.price),
         })}
       </Text>
     );
@@ -721,17 +720,13 @@ export default function BookServiceScreen() {
                 <Text className="text-xl font-bold text-brand-600">
                   {pricingOptions.length > 0
                     ? selectedOption
-                      ? formatMoney(
-                          effectiveOptionPrice(selectedService, selectedOption),
-                          displayCurrency
-                        )
-                      : `${t('bookService.priceFrom')} ${formatMoney(
+                      ? fmt(effectiveOptionPrice(selectedService, selectedOption))
+                      : `${t('bookService.priceFrom')} ${fmt(
                           Math.min(
                             ...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o))
-                          ),
-                          displayCurrency
+                          )
                         )}`
-                    : formatMoney(servicePrice(selectedService), displayCurrency)}
+                    : fmt(servicePrice(selectedService))}
                 </Text>
               </View>
             </View>
@@ -772,12 +767,10 @@ export default function BookServiceScreen() {
                         <View className="ml-4 items-end">
                           {effective < option.price && (
                             <Text className={`text-xs ${subtextColor} line-through`}>
-                              {formatMoney(option.price, displayCurrency)}
+                              {fmt(option.price)}
                             </Text>
                           )}
-                          <Text className="text-lg font-bold text-brand-600">
-                            {formatMoney(effective, displayCurrency)}
-                          </Text>
+                          <Text className="text-lg font-bold text-brand-600">{fmt(effective)}</Text>
                         </View>
                       </View>
                     </TouchableOpacity>
@@ -825,7 +818,7 @@ export default function BookServiceScreen() {
                       </View>
                       <Text className="ml-4 text-lg font-bold text-brand-600">
                         {line
-                          ? formatMoney(line.price, displayCurrency)
+                          ? fmt(line.price)
                           : (addonPriceLabel(t, addon, displayCurrency) ?? t('addons.included'))}
                       </Text>
                     </View>
@@ -1087,9 +1080,7 @@ export default function BookServiceScreen() {
                       )}
                     </View>
                     <View className="ml-2 items-end">
-                      <Text className="text-lg font-bold text-brand-600">
-                        {formatMoney(apt.total, displayCurrency)}
-                      </Text>
+                      <Text className="text-lg font-bold text-brand-600">{fmt(apt.total)}</Text>
                       <TouchableOpacity onPress={() => removeAppointment(apt.id)} className="mt-2">
                         <Ionicons
                           name="close"
@@ -1123,9 +1114,7 @@ export default function BookServiceScreen() {
               <Text className={`text-base font-semibold ${textColor}`}>
                 {t('bookService.total')}
               </Text>
-              <Text className="text-2xl font-bold text-brand-600">
-                {formatMoney(currentTotal(), displayCurrency)}
-              </Text>
+              <Text className="text-2xl font-bold text-brand-600">{fmt(currentTotal())}</Text>
             </View>
           )}
         </ScrollView>

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
-import { formatMoney } from '../../../services/money';
+import { formatMoney } from '../../../services/currency';
 
 export type RequestStatus = 'new' | 'accepted' | 'declined';
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { useLocale } from '../../../context/LocaleContext';
-import { formatMoney } from '../../../services/money';
+import { formatMoney } from '../../../services/currency';
 
 // Aggregated distance-pricing components behind a location add-on's total,
 // summed across appointments (see ReviewBookingScreen). Present only for
@@ -68,6 +68,8 @@ export default function PriceBreakdown({
   total,
 }: PriceBreakdownProps) {
   const { t } = useLocale();
+  // Also trims float artifacts from price subtraction (e.g. 9.999999 → "10").
+  const money = (n: number) => formatMoney(n, currency);
   return (
     <View className={`border-t px-6 py-5 ${borderColor}`}>
       <Text className={`text-base font-semibold ${textColor} mb-4`}>
@@ -75,19 +77,19 @@ export default function PriceBreakdown({
       </Text>
       <View className="mb-3 flex-row justify-between">
         <Text className={`text-sm ${subtextColor}`}>{t('reviewBooking.serviceLine')}</Text>
-        <Text className={`text-sm ${textColor}`}>{formatMoney(serviceTotal, currency)}</Text>
+        <Text className={`text-sm ${textColor}`}>{money(serviceTotal)}</Text>
       </View>
       {discount && discount.amount > 0 && (
         <View className="mb-3 flex-row justify-between">
           <Text className="text-sm text-brand-600">{discount.label}</Text>
-          <Text className="text-sm text-brand-600">−{formatMoney(discount.amount, currency)}</Text>
+          <Text className="text-sm text-brand-600">−{money(discount.amount)}</Text>
         </View>
       )}
       {addons.map((addon) => (
         <View key={addon.name} className="mb-3">
           <View className="flex-row justify-between">
             <Text className={`text-sm ${subtextColor}`}>{addon.name}</Text>
-            <Text className={`text-sm ${textColor}`}>{formatMoney(addon.price, currency)}</Text>
+            <Text className={`text-sm ${textColor}`}>{money(addon.price)}</Text>
           </View>
           {/* Distance-pricing sub-lines: start fee + per-km charge − free-km credit. */}
           {addon.breakdown && (
@@ -97,20 +99,18 @@ export default function PriceBreakdown({
                   {t('reviewBooking.addonStartFee')}
                   {addon.breakdown.count > 1 ? ` (×${addon.breakdown.count})` : ''}
                 </Text>
-                <Text className={`text-xs ${subtextColor}`}>
-                  {formatMoney(addon.breakdown.baseFee, currency)}
-                </Text>
+                <Text className={`text-xs ${subtextColor}`}>{money(addon.breakdown.baseFee)}</Text>
               </View>
               {addon.breakdown.distanceCharge > 0 && (
                 <View className="mb-1 flex-row justify-between">
                   <Text className={`text-xs ${subtextColor} flex-1 pr-2`}>
                     {t('reviewBooking.addonDistance', {
                       km: km2(addon.breakdown.distanceKm),
-                      rate: formatMoney(addon.breakdown.perKmFee, currency),
+                      rate: money(addon.breakdown.perKmFee),
                     })}
                   </Text>
                   <Text className={`text-xs ${subtextColor}`}>
-                    {formatMoney(addon.breakdown.distanceCharge, currency)}
+                    {money(addon.breakdown.distanceCharge)}
                   </Text>
                 </View>
               )}
@@ -120,7 +120,7 @@ export default function PriceBreakdown({
       ))}
       <View className={`border-t ${borderColor} mt-3 flex-row justify-between pt-3`}>
         <Text className={`text-base font-bold ${textColor}`}>{t('reviewBooking.total')}</Text>
-        <Text className="text-2xl font-bold text-brand-600">{formatMoney(total, currency)}</Text>
+        <Text className="text-2xl font-bold text-brand-600">{money(total)}</Text>
       </View>
     </View>
   );

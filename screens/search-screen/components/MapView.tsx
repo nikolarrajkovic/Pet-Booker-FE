@@ -3,8 +3,9 @@ import { View, Text, TouchableOpacity, Image } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { formatMoney } from '../../../services/currency';
+import { serviceCurrency } from '../../../services/services';
 import type { ServiceSearchItem } from './ListView';
-import { formatMoney } from '../../../services/money';
 
 interface LocationData {
   latitude: number;
@@ -98,7 +99,7 @@ export default function MapViewComponent({
                     className={`text-xs font-bold ${
                       selected?.id === item.id ? 'text-white' : 'text-gray-900'
                     }`}>
-                    ${item.price}
+                    {formatMoney(item.price, serviceCurrency(item.dto))}
                   </Text>
                 </View>
               </View>
@@ -141,7 +142,7 @@ export default function MapViewComponent({
           </View>
           <View className="ml-2 items-end">
             <Text className="text-base font-bold text-brand-500">
-              {formatMoney(selected.price, selected.dto.currency)}
+              {formatMoney(selected.price, serviceCurrency(selected.dto))}
             </Text>
             <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
           </View>

@@ -16,7 +16,7 @@ import TabBar from '../../../components/shared/TabBar';
 import { getAdminOverviewStats, getAdminRevenueByServiceType } from '../../../services/stats';
 import { getServiceProviders, ApprovalStatus } from '../../../services/service-providers';
 import { getReviews } from '../../../services/reviews';
-import { formatMoney } from '../../../services/money';
+import { formatMoney } from '../../../services/currency';
 import { getErrorMessage } from '../../../services/http';
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useCurrency } from '../../../hooks/useCurrency';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
@@ -22,7 +23,6 @@ import {
   DiscountType,
 } from '../../../services/service-discounts';
 import { getErrorMessage } from '../../../services/http';
-import { BASE_CURRENCY, formatMoney } from '../../../services/money';
 
 // Labels are translation keys, resolved with t() at render.
 const TYPE_META: Record<
@@ -100,6 +100,9 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
   const { t } = useLocale();
 
   const promotion = route?.params?.promotion ?? FALLBACK;
+  // Offer amounts are in the discounted service's currency; the mock budget figures fall
+  // back to the partner's display preference.
+  const { money, prefix: currencyPrefix, suffix: currencySuffix } = useCurrency(promotion.currency);
   const meta = TYPE_META[promotion.type];
   const statusStyle = STATUS_STYLES[promotion.status];
   const isScheduled = promotion.status === 'scheduled';
@@ -344,8 +347,8 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
             {promotion.budgetSpent !== undefined && (
               <Text className={`text-xs ${subtextColor} mb-5`}>
                 {t('promotions.spentOfBudget', {
-                  spent: formatMoney(promotion.budgetSpent, promotion.currency),
-                  budget: formatMoney(Number(budget), promotion.currency),
+                  spent: money(promotion.budgetSpent),
+                  budget: money(parseFloat(budget) || 0),
                 })}
               </Text>
             )}
@@ -399,19 +402,27 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
             </Text>
             <View
               className={`${inputBg} border ${borderColor} mb-5 flex-row items-center rounded-xl px-4`}>
-              {!isPercent && (
+              {/* The currency sits on whichever side its convention calls for; a percentage
+                  keeps its own trailing "%". */}
+              {!isPercent && currencyPrefix ? (
                 <Text className={`text-sm font-semibold ${subtextColor} mr-1`}>
-                  {BASE_CURRENCY}
+                  {currencyPrefix}
                 </Text>
-              )}
+              ) : null}
               <TextInput
                 className={`flex-1 py-3.5 text-sm ${textColor}`}
+                // See CurrencyInput: an <input> won't shrink below its intrinsic width in a
+                // flex row without this, pushing the affix outside the box on web.
+                style={{ minWidth: 0 }}
                 value={discount}
                 onChangeText={setDiscount}
                 keyboardType="numeric"
                 placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
               />
               {isPercent && <Text className={`text-sm font-semibold ${subtextColor}`}>%</Text>}
+              {!isPercent && currencySuffix ? (
+                <Text className={`text-sm font-semibold ${subtextColor}`}>{currencySuffix}</Text>
+              ) : null}
             </View>
           </>
         )}

@@ -7,12 +7,8 @@ import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ReviewModal from '../../../components/shared/ReviewModal';
 import { useReviewModal } from '../../../hooks/useReviewModal';
-import {
-  getBooking,
-  bookingToViewModel,
-  BookingDto,
-} from '../../../services/bookings';
-import { formatMoney } from '../../../services/money';
+import { getBooking, bookingToViewModel, BookingDto } from '../../../services/bookings';
+import { formatMoney } from '../../../services/currency';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
 

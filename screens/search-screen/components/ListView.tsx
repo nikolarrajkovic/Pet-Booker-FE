@@ -2,8 +2,9 @@ import React from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { ServiceDto } from '../../../services/services';
-import { formatMoney } from '../../../services/money';
+import { ServiceDto, serviceCurrency } from '../../../services/services';
+import { formatMoney } from '../../../services/currency';
+import { useLocale } from '../../../context/LocaleContext';
 import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 
 export interface ServiceSearchItem {
@@ -55,6 +56,7 @@ export default function ListView({
   paging,
 }: ListViewProps) {
   const navigation = useNavigation();
+  const { t } = useLocale();
 
   return (
     <ScrollView
@@ -122,8 +124,9 @@ export default function ListView({
                 ) : null}
               </View>
 
+              {/* Each service prices in its own provider's currency, so format per item. */}
               <Text className="mt-1 font-semibold text-brand-600">
-                from {formatMoney(item.price, item.dto.currency)}
+                {t('bookService.priceFrom')} {formatMoney(item.price, serviceCurrency(item.dto))}
               </Text>
             </View>
           </TouchableOpacity>

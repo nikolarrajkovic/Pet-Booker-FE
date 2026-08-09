@@ -22,7 +22,7 @@ import { PriceBreakdown, PaymentMethodSelector, AddonLine } from '../components'
 import type { BookingAdditionalServiceReadDto } from '../../../services/bookings';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
-import { ServiceDto } from '../../../services/services';
+import { ServiceDto, serviceCurrency } from '../../../services/services';
 import { DiscountType } from '../../../services/service-discounts';
 import { createBooking, parseBookingDate, PaymentType } from '../../../services/bookings';
 import {
@@ -51,10 +51,11 @@ type Appointment = {
   pricingOptionBase?: number;
   pickupAddress?: AddressDto;
   leaveOverAddress?: AddressDto;
-  includeSpecialNeeds?: boolean;
-  // Service↔pickup/drop-off distance (km) for the per-km surcharge — sent to the
-  // server, which applies it to both the pickup and drop-off add-ons.
-  distanceKm?: number;
+  // The road distance the SERVER measured for each leg when it quoted this appointment,
+  // in km. Display only — the booking create never sends a distance back, because a
+  // client-supplied one would override the measurement that sets the price.
+  pickupDistanceKm?: number | null;
+  leaveOverDistanceKm?: number | null;
 };
 
 type ReviewBookingRouteParams = {
@@ -360,7 +361,7 @@ export default function ReviewBookingScreen() {
           discount={discount}
           addons={addonLines}
           total={grandTotal}
-          currency={service.currency}
+          currency={serviceCurrency(service)}
         />
 
         <PaymentMethodSelector

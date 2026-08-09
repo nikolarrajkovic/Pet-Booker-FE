@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Modal, ScrollView, StatusBar } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useThemeColors } from '../hooks/useThemeColors';
+import { useCurrency } from '../hooks/useCurrency';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEnums } from '../context/EnumsContext';
 import { useLocale } from '../context/LocaleContext';
@@ -49,6 +50,7 @@ export default function FilterModal({
   const insets = useSafeAreaInsets();
   const { enums } = useEnums();
   const { t, tEnum } = useLocale();
+  const { money } = useCurrency();
 
   const [filters, setFilters] = useState<FilterState>(currentFilters);
 
@@ -199,8 +201,9 @@ export default function FilterModal({
                 <Text className={`text-base font-semibold ${textColor}`}>
                   {t('shared.priceRange')}
                 </Text>
+                {/* A filter bound isn't one provider's price, so it uses the user's currency. */}
                 <Text className="text-sm font-medium text-brand-600">
-                  ${filters.priceRange[0]} - ${filters.priceRange[1]}
+                  {money(filters.priceRange[0])} - {money(filters.priceRange[1])}
                 </Text>
               </View>
               <Slider

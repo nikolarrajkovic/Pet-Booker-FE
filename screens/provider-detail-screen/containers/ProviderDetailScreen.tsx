@@ -12,11 +12,11 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
-import { getServices, ServiceDto } from '../../../services/services';
+import { getServices, ServiceDto, serviceCurrency } from '../../../services/services';
+import { formatMoney } from '../../../services/currency';
 import { getReviews, ReviewDto } from '../../../services/reviews';
 import { ApprovalStatus } from '../../../services/service-providers';
 import { getErrorMessage } from '../../../services/http';
-import { formatMoney } from '../../../services/money';
 import type { ProviderViewModel } from '../../../services/service-providers';
 
 type ProviderDetailRouteParams = {
@@ -219,7 +219,7 @@ export default function ProviderDetailScreen() {
                       </View>
                       <View className="items-end">
                         <Text className="text-base font-bold text-brand-600">
-                          ${servicePrice(svc)}
+                          {formatMoney(servicePrice(svc), serviceCurrency(svc))}
                         </Text>
                         <View className="mt-2 flex-row items-center rounded-full bg-brand-500 px-4 py-1.5">
                           <Ionicons name="calendar-outline" size={13} color="white" />

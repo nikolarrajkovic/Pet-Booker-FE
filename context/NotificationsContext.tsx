@@ -83,7 +83,12 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     connection.on(NOTIFICATION_RECEIVED, (notification: AppNotificationDto) => {
       if (cancelled) return;
       if (!notification.isRead) setUnreadCount((count) => count + 1);
-      if (notification.title) showInfo(notification.title);
+      // Prefer the message over the title: the title is a bare category label
+      // ("Booking declined") while the message carries the detail that makes the
+      // push actionable — the provider's decline reason, the service, the date.
+      // Both arrive already localized in the recipient's language.
+      const text = notification.message?.trim() || notification.title;
+      if (text) showInfo(text);
       listenersRef.current.forEach((listener) => listener(notification));
     });
     // Pushes sent while we were offline are lost — the REST count self-heals.

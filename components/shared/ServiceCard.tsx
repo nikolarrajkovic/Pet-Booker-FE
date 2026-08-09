@@ -3,7 +3,7 @@ import { View, Text, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
-import { formatMoney } from '../../services/money';
+import { formatMoney } from '../../services/currency';
 
 type ServiceCardProps = {
   image: string;
@@ -13,10 +13,13 @@ type ServiceCardProps = {
   reviews: number;
   distance?: string;
   price: number;
-  /** Currency the `price` is in, from the DTO that carried it (`ServiceDto.currency`). */
+  /**
+   * Currency the `price` is in, from the DTO that carried it (`ServiceDto.currency`).
+   * Omit to fall back to the user's display preference.
+   */
   currency?: string | null;
   badge?: 'popular' | 'deal';
-  /** Formatted discount (e.g. "3% OFF" / "€5 OFF") — shown on the deal badge. */
+  /** Formatted discount (e.g. "3% OFF" / "5 € OFF") — shown on the deal badge. */
   dealAmount?: string;
   onPress: () => void;
 };

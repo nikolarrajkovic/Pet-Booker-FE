@@ -6,6 +6,7 @@ import {
   extractPage,
   type PagedResult,
 } from './http';
+import { declaredWriteCurrency } from './currency';
 import type { AddressDto, PhotoDto } from './service-providers';
 import type { ReviewDto } from './reviews';
 import { DiscountType, type ServiceDiscountDto } from './service-discounts';
@@ -21,6 +22,8 @@ export type ServiceProviderInfoDto = {
   ratingAvg?: number | null;
   address?: AddressDto | null;
   photos?: PhotoDto[];
+  /** See `ServiceDto.currency` — the full provider GET has this, the slim embed does not (yet). */
+  currency?: string | null;
 };
 
 // One already-booked slot embedded on the service read DTO (ServiceReadDto.
@@ -55,6 +58,12 @@ export type ServicePricingOptionDto = {
   description?: string | null;
   durationMinutes: number;
   price: number;
+  /**
+   * Currency `price` is in — read: what the server converted it to; write (standalone
+   * CRUD only): what it's declared as. Stamped by service-pricing-options.ts. Nested on
+   * a service write the root's currency governs and this is ignored.
+   */
+  currency?: string | null;
 };
 
 // Per-weight-bracket food pricing (PetWeightBracket: 0=Small, 1=Medium, 2=Large)
@@ -117,12 +126,22 @@ export type ServiceDto = {
   id?: number | null;
   serviceProviderId: number;
   /**
-   * Read-only: the currency EVERY money field on this DTO is expressed in — `pricing.basePrice`,
-   * `price`, the pricing options, the discounts and the add-on amounts.
+   * The currency EVERY money field on this aggregate is expressed in — `pricing.basePrice`,
+   * `price`, the pricing options, the discounts and the add-on amounts. It means different
+   * things by direction (BACKEND_GAPS S8 resolved; verified live 2026-08-05).
    *
-   * Amounts are stored in RSD and converted server-side to the caller's `preferredCurrency`, so
-   * this is what the numbers actually are — always render through `formatMoney(amount, currency)`
-   * rather than assuming a symbol.
+   * READ: what the server converted the amounts INTO, which is the caller's
+   * `preferredCurrency`, not some property of the service (storage is always RSD). A EUR
+   * viewer and an RSD viewer get different numbers off the same row — so always render
+   * through `formatMoney(amount, currency)` rather than assuming a symbol.
+   *
+   * WRITE: what the amounts in this payload are DECLARED to be, which the server converts
+   * from before storing. Omitting it means RSD — so a form filled from a EUR read must
+   * say `currency: "EUR"` or its prices get rescaled. `createService`/`updateService`
+   * stamp it for you (see `declaredWriteCurrency`); don't rely on callers remembering.
+   *
+   * The root governs the whole aggregate: nested `additionalServices`, `pricingOptions`
+   * and `discounts` are converted with it and must NOT declare their own.
    */
   currency?: string | null;
   // Read-only slim provider embed on the service GET (see ServiceProviderInfoDto).
@@ -223,6 +242,18 @@ export function effectiveOptionPrice(svc: ServiceDto, option: ServicePricingOpti
   return Math.max(0, option.price - amount);
 }
 
+/**
+ * The currency a service's amounts are in, or `undefined` when the record doesn't say.
+ *
+ * Use this instead of reading `svc.currency` directly: the currency belongs to the
+ * provider, and the API may expose it on either the service or its provider embed.
+ * `undefined` is a valid answer — `formatMoney` then falls back to the viewer's display
+ * preference, which is all the app can honestly claim (see BACKEND_GAPS S8).
+ */
+export function serviceCurrency(svc?: ServiceDto | null): string | undefined {
+  return svc?.currency ?? svc?.serviceProvider?.currency ?? undefined;
+}
+
 export type GetServicesParams = {
   serviceProviderId?: number;
   name?: string;
@@ -285,11 +316,21 @@ export async function getService(id: number): Promise<ServiceDto> {
   return response.json();
 }
 
+/**
+ * Declares which currency the payload's amounts are in, so the server converts them to
+ * storage instead of assuming RSD. Stamped here rather than at the call sites: every
+ * money field on the aggregate is affected, and a forgotten declaration doesn't fail —
+ * it silently rescales the provider's prices. See `declaredWriteCurrency`.
+ */
+function withDeclaredCurrency<T extends { currency?: string | null }>(service: T): T {
+  return { ...service, currency: declaredWriteCurrency(service.currency) };
+}
+
 export async function createService(service: Omit<ServiceDto, 'id'>): Promise<ServiceDto> {
   const url = `${getApiBaseUrl()}/api/services`;
   const response = await apiAuthFetch(url, {
     method: 'POST',
-    body: JSON.stringify(service),
+    body: JSON.stringify(withDeclaredCurrency(service)),
   });
 
   if (!response.ok) {
@@ -303,7 +344,7 @@ export async function updateService(id: number, service: ServiceDto): Promise<Se
   const url = `${getApiBaseUrl()}/api/services/${id}`;
   const response = await apiAuthFetch(url, {
     method: 'PUT',
-    body: JSON.stringify(service),
+    body: JSON.stringify(withDeclaredCurrency(service)),
   });
 
   if (!response.ok) {

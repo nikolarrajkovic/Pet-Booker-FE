@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useLocale } from '../../../context/LocaleContext';
-import { formatMoney } from '../../../services/money';
+import { formatMoney } from '../../../services/currency';
 
 export type PromotionStatus = 'active' | 'paused' | 'scheduled' | 'ended';
 export type PromotionType = 'boost' | 'featured' | 'offer' | 'ad';
@@ -32,19 +32,24 @@ export interface Promotion {
   discountType?: number; // DiscountType: 0=Percent, 1=Fixed
   // Set on a percentage discount. Authoritative over discountType — see formatOfferAmount.
   percentAmount?: number | null;
-  currency?: string | null; // currency a Fixed discount's amount is in
+  /**
+   * Currency a Fixed discount's amount is in (i.e. the discounted service's).
+   * Omit to use the partner's display preference.
+   */
+  currency?: string | null;
   applyFrom?: string; // ISO
   applyTo?: string | null; // ISO
 }
 
 // DiscountType: 0=Percent, 1=Fixed (mirrors services/service-discounts DiscountType).
-// Renders an offer's headline — "€10 OFF" for fixed, "20% OFF" for percent.
+// Renders an offer's headline — "10 € OFF" for fixed, "20% OFF" for percent. A fixed
+// discount is money, so it takes the discounted service's currency; a percentage is not.
 //
 // `percentAmount` wins over `discountType` when it is set, mirroring
 // Domain.ServicePricing.ApplyDiscount ("PercentAmount takes precedence over Type/Amount"). The API
 // now rejects rows where the two disagree, but rows written before that validation landed are still
 // in the database — a Fixed-labelled row carrying a percentAmount really does bill as a percentage,
-// and reading `discountType` alone rendered those as "$0 OFF" on services that were 15% off.
+// and reading `discountType` alone rendered those as "0 RSD OFF" on services that were 15% off.
 export function formatOfferAmount(
   discountType: number | undefined,
   value: number | undefined,
@@ -144,7 +149,8 @@ export default function PromotionCard({
           <View className="mb-1 flex-row justify-between">
             <Text className={`text-xs font-medium ${subtextColor}`}>{t('promotions.budget')}</Text>
             <Text className={`text-xs font-semibold ${textColor}`}>
-              ${promotion.budgetSpent?.toFixed(2)} / ${promotion.budgetTotal}
+              {formatMoney(promotion.budgetSpent ?? 0, promotion.currency)} /{' '}
+              {formatMoney(promotion.budgetTotal, promotion.currency)}
             </Text>
           </View>
           <View
