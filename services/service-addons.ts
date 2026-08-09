@@ -77,6 +77,7 @@ export function requiredAddressesFor(addons: AdditionalServiceDto[]): {
 export function addonPriceLabel(
   t: (key: any, params?: Record<string, string | number>) => string,
   addon: AdditionalServiceDto,
+  /** Currency the addon amounts are in — from the parent ServiceDto.currency. */
   currency?: string | null
 ): string | null {
   const parts: string[] = [];
@@ -87,7 +88,7 @@ export function addonPriceLabel(
     if (baseFee > 0) parts.push(money(baseFee));
     if (perKmFee > 0) parts.push(t('addons.perKm', { amount: money(perKmFee) }));
   } else if ((addon.price ?? 0) > 0) {
-    parts.push(money(addon.price as number));
+    parts.push(money(addon.price ?? 0));
   }
   return parts.length ? parts.join(' + ') : null;
 }

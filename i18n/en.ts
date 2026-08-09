@@ -41,6 +41,8 @@ const en = {
     somethingWentWrong: 'Something went wrong. Please try again.',
     noResults: 'No results found',
     all: 'All',
+    loadMore: 'Load more',
+    showingOf: 'Showing {loaded} of {total}',
   },
   tabs: {
     home: 'Home',
@@ -266,6 +268,10 @@ const en = {
     rights: '© 2025 All rights reserved',
   },
   home: {
+    // Screen-reader only.
+    a11yBrowseCategory: 'Browse {category} services',
+    a11yNotifications: 'Notifications',
+    a11yNotificationsUnread: 'Notifications, {count} unread',
     tagline: 'Find the perfect care for your pet',
     recentlyBooked: 'Recently Booked',
     nearYou: 'Near You',
@@ -279,6 +285,11 @@ const en = {
   card: {
     popular: 'Popular',
     deal: 'Deal',
+    // Screen-reader only: a service card composes these into one sentence rather than letting
+    // each scattered Text be announced on its own.
+    a11yPriceFrom: 'from {price}',
+    a11yRating: 'rated {rating} out of 5 from {reviews} reviews',
+    a11yNoReviews: 'no reviews yet',
   },
   search: {
     allServices: 'All Services',
@@ -404,6 +415,9 @@ const en = {
     perKm: '{amount}/km',
   },
   serviceDetail: {
+    // Shown when a /services/:id link points at a service that no longer exists, was
+    // deactivated, or belongs to a provider that isn't approved.
+    notFound: "This service isn't available any more.",
     title: 'Service Details',
     subtitle: 'Review before booking',
     reviewSingular: 'review',
@@ -466,6 +480,8 @@ const en = {
     dropoffLocation: 'Drop-off location',
     petsLoadError: 'Could not load your pets. Please try again.',
     slotsLoadError: 'Could not load available times. Please try again.',
+    noWorkingHours:
+      "This service hasn't set any working hours yet, so it can't be booked. Try another service, or check back later.",
     priceFrom: 'from',
     selectPetHint: 'Select one or more pets',
     availableTimes: 'Available Times',

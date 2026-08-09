@@ -24,7 +24,10 @@ interface ServiceDetailViewProps {
   isDarkMode: boolean;
   showBookButton?: boolean;
   onBookPress?: () => void;
-  /** The service's currency; omit to fall back to the viewer's display preference. */
+  /**
+   * Currency `service.price` and the add-on amounts are in (from `ServiceDto.currency`).
+   * Omit to fall back to the viewer's display preference.
+   */
   currency?: string | null;
 }
 

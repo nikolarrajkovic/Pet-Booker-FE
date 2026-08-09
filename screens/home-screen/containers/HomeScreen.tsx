@@ -16,11 +16,7 @@ import { getErrorMessage } from '../../../services/http';
 import { ServiceDto, serviceCurrency } from '../../../services/services';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
 import { useNotifications } from '../../../context/NotificationsContext';
-import {
-  getServiceDiscounts,
-  ServiceDiscountDto,
-  DiscountType,
-} from '../../../services/service-discounts';
+import { DiscountType } from '../../../services/service-discounts';
 import { formatOfferAmount } from '../../../screens/promotions-screen/components';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600';
@@ -53,23 +49,28 @@ type ServiceItem = {
   dto: ServiceDto; // the real service record — carries serviceProviderId for booking
 };
 
-/** Picks the discount to display for a service: the enabled one whose apply
- *  window covers now, else any enabled one. */
-function pickActiveDiscount(discounts: ServiceDiscountDto[]): ServiceDiscountDto | undefined {
-  const enabled = discounts.filter((d) => d.isEnabled);
-  const now = Date.now();
-  const active = enabled.find((d) => {
-    const from = d.applyFrom ? new Date(d.applyFrom).getTime() : -Infinity;
-    const to = d.applyTo ? new Date(d.applyTo).getTime() : Infinity;
-    return from <= now && now <= to;
-  });
-  return active ?? enabled[0];
-}
-
-/** "3% OFF" / "5 € OFF" for a discount (Percent uses percentAmount, Fixed uses amount). */
-function discountLabel(d: ServiceDiscountDto, currency?: string | null): string {
-  const value = d.type === DiscountType.Fixed ? d.amount : (d.percentAmount ?? d.amount);
-  return formatOfferAmount(d.type, value, currency);
+/**
+ * "25% OFF" / "€5 OFF" for a service's currently-active promotion.
+ *
+ * The server resolves which of a service's discounts is live (window + enabled) and reports the
+ * outcome as `appliedDiscountType`/`appliedDiscountAmount`, so the rail row already says what the
+ * badge should read. This used to be worked out client-side from a separate fetch of the whole
+ * discount table — which was both an extra request per Home load and quietly wrong, because that
+ * fetch was capped at one page: once the system held more than 100 discounts, services whose row
+ * fell off page one silently lost their badge.
+ */
+function dealLabel(svc: ServiceDto): string | undefined {
+  const amount = svc.appliedDiscountAmount;
+  if (amount == null) return undefined;
+  // formatOfferAmount takes percentAmount separately so it can win over a mislabelled row; for a
+  // percent promotion the applied amount IS the percentage.
+  const isPercent = svc.appliedDiscountType === DiscountType.Percent;
+  return formatOfferAmount(
+    svc.appliedDiscountType ?? undefined,
+    amount,
+    serviceCurrency(svc),
+    isPercent ? amount : undefined
+  );
 }
 
 /** Flattens a ServiceDto from a home endpoint into a card item. */
@@ -123,8 +124,9 @@ export default function HomeScreen() {
         // Each Home row is its own backend endpoint. Settle each independently so
         // one failing section doesn't blank the whole page — but if EVERY content
         // row fails, surface a single inline error instead of a misleading
-        // "No services found". Discounts are fetched once and matched to the
-        // Special Deals services to show each deal's amount.
+        // "No services found". Each rail row already carries its own applied
+        // discount, rating, image and post-discount price, so there is nothing
+        // else to fetch to render a card.
         const val = <T,>(r: PromiseSettledResult<T[]>): T[] =>
           r.status === 'fulfilled' ? r.value : [];
         const results = await Promise.allSettled([
@@ -132,14 +134,12 @@ export default function HomeScreen() {
           getOnSale(),
           getRecentlyBooked(),
           getNearMe({ lat: latitude, lng: longitude }),
-          getServiceDiscounts({ perPage: 100 }),
         ]);
         if (cancelled) return;
-        const [popularR, saleR, recentR, nearR, discountsR] = results;
-        const discounts = val(discountsR);
+        const [popularR, saleR, recentR, nearR] = results;
         const deals = toItems(val(saleR)).map((item) => {
-          const d = pickActiveDiscount(discounts.filter((x) => x.serviceId === item.id));
-          return d ? { ...item, dealAmount: discountLabel(d, serviceCurrency(item.dto)) } : item;
+          const amount = dealLabel(item.dto);
+          return amount ? { ...item, dealAmount: amount } : item;
         });
         setMostPopular(toItems(val(popularR)));
         setSpecialDeals(deals);
@@ -234,7 +234,14 @@ export default function HomeScreen() {
                     onPress={() => handleServicePress(item)}
                   />
                 ))}
-            {!isLoading && <SeeMoreCard onPress={() => handleSeeAll(category)} />}
+            {!isLoading && (
+              // Named after the row it ends — every rail has one of these, and four identical
+              // "See more" buttons on a screen are indistinguishable without it.
+              <SeeMoreCard
+                onPress={() => handleSeeAll(category)}
+                accessibilityLabel={`${t('common.seeMore')}: ${title}`}
+              />
+            )}
           </View>
         </ScrollView>
       </View>
@@ -261,6 +268,15 @@ export default function HomeScreen() {
             </View>
             <TouchableOpacity
               className="p-2"
+              // Icon-only, and the unread count is rendered as a bare badge — without this the
+              // control announces as an unnamed button and the count is never read at all.
+              accessibilityRole="button"
+              accessibilityLabel={
+                unreadCount > 0
+                  ? t('home.a11yNotificationsUnread', { count: unreadCount })
+                  : t('home.a11yNotifications')
+              }
+              accessible
               onPress={() => (navigation as any).navigate('Notifications')}>
               <Ionicons name="notifications-outline" size={22} color="white" />
               {unreadCount > 0 && (
@@ -284,19 +300,25 @@ export default function HomeScreen() {
         {/* Service Type Pills */}
         <View className="px-6 py-4">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-2 flex-row">
-            {SERVICE_TYPES.map((service, index) => (
-              <TouchableOpacity
-                key={service.id}
-                onPress={() => handleServiceTypePress(service.label)}
-                className={`mx-2 flex-row items-center rounded-full px-6 py-3 ${
-                  index === 0 ? 'bg-blue-500' : index === 1 ? 'bg-purple-500' : 'bg-brand-500'
-                }`}>
-                <Ionicons name={service.icon as any} size={18} color="white" />
-                <Text className="ml-2 font-semibold text-white">
-                  {tEnum('serviceProviderType', service.value, service.label)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {SERVICE_TYPES.map((service, index) => {
+              const typeLabel = tEnum('serviceProviderType', service.value, service.label);
+              return (
+                <TouchableOpacity
+                  key={service.id}
+                  onPress={() => handleServiceTypePress(service.label)}
+                  // The pill reads as a category name but acts as a filter, so the label says
+                  // what tapping it does; `accessible` folds the icon and caption into one control.
+                  accessibilityRole="button"
+                  accessibilityLabel={t('home.a11yBrowseCategory', { category: typeLabel })}
+                  accessible
+                  className={`mx-2 flex-row items-center rounded-full px-6 py-3 ${
+                    index === 0 ? 'bg-blue-500' : index === 1 ? 'bg-purple-500' : 'bg-brand-500'
+                  }`}>
+                  <Ionicons name={service.icon as any} size={18} color="white" />
+                  <Text className="ml-2 font-semibold text-white">{typeLabel}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
 

@@ -1,11 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
-import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
 import DayView from '../components/DayView';
@@ -16,7 +15,7 @@ import {
   buildScheduleFromBookings,
   setLiveScheduleData,
   clearLiveScheduleData,
-} from '../utils/mockScheduleData';
+} from '../utils/scheduleData';
 import { getBookings } from '../../../services/bookings';
 
 type ViewType = 'day' | 'week' | 'month';
@@ -26,11 +25,12 @@ export default function MyScheduleScreen() {
   const route = useRoute();
   const { currentUser } = useAuth();
   const { isDarkMode, bgColor: contentBg } = useThemeColors();
-  const { showError } = useToast();
   const { t } = useLocale();
   const [selectedView, setSelectedView] = useState<ViewType>('day');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [, setDataVersion] = useState(0); // bumped after live data loads to re-render the views
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Determine mode from navigation params; default to 'partner' for backward compat
   const mode: ScheduleMode = (route.params as any)?.mode ?? 'partner';
@@ -39,6 +39,8 @@ export default function MyScheduleScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
+      setIsLoading(true);
+      setError(null);
       (async () => {
         try {
           let bookings;
@@ -52,7 +54,11 @@ export default function MyScheduleScreen() {
           setLiveScheduleData(buildScheduleFromBookings(bookings, mode));
           setDataVersion((v) => v + 1);
         } catch (e) {
-          if (!cancelled) showError(getErrorMessage(e, t('schedule.loadFailed')));
+          // Inline, not a toast: this is a fetch-on-mount failure, and the calendar behind it is
+          // now EMPTY rather than filled with invented appointments — so the screen has to say why.
+          if (!cancelled) setError(getErrorMessage(e, t('schedule.loadFailed')));
+        } finally {
+          if (!cancelled) setIsLoading(false);
         }
       })();
       return () => {
@@ -120,31 +126,51 @@ export default function MyScheduleScreen() {
 
         {/* View Content */}
         <ScrollView className="flex-1">
-          {selectedView === 'day' && (
-            <DayView
-              selectedDate={selectedDate}
-              isDarkMode={isDarkMode}
-              onDateChange={handleDateChange}
-              mode={mode}
-            />
-          )}
-          {selectedView === 'week' && (
-            <WeekView
-              selectedDate={selectedDate}
-              isDarkMode={isDarkMode}
-              onDateSelect={handleDateSelect}
-              onDateChange={handleDateChange}
-              mode={mode}
-            />
-          )}
-          {selectedView === 'month' && (
-            <MonthView
-              selectedDate={selectedDate}
-              isDarkMode={isDarkMode}
-              onDateSelect={handleDateSelect}
-              onDateChange={handleDateChange}
-              mode={mode}
-            />
+          {isLoading ? (
+            <View className="items-center justify-center py-16">
+              <ActivityIndicator size="large" color="#00C870" />
+            </View>
+          ) : error ? (
+            <View className="items-center justify-center py-16">
+              <Ionicons
+                name="alert-circle-outline"
+                size={56}
+                color={isDarkMode ? '#6B7280' : '#9CA3AF'}
+              />
+              <Text
+                className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-4 px-8 text-center`}>
+                {error}
+              </Text>
+            </View>
+          ) : (
+            <>
+              {selectedView === 'day' && (
+                <DayView
+                  selectedDate={selectedDate}
+                  isDarkMode={isDarkMode}
+                  onDateChange={handleDateChange}
+                  mode={mode}
+                />
+              )}
+              {selectedView === 'week' && (
+                <WeekView
+                  selectedDate={selectedDate}
+                  isDarkMode={isDarkMode}
+                  onDateSelect={handleDateSelect}
+                  onDateChange={handleDateChange}
+                  mode={mode}
+                />
+              )}
+              {selectedView === 'month' && (
+                <MonthView
+                  selectedDate={selectedDate}
+                  isDarkMode={isDarkMode}
+                  onDateSelect={handleDateSelect}
+                  onDateChange={handleDateChange}
+                  mode={mode}
+                />
+              )}
+            </>
           )}
         </ScrollView>
       </View>

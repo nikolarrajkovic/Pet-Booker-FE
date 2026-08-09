@@ -1,8 +1,15 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
+import {
+  apiAuthFetch,
+  getApiBaseUrl,
+  parseApiError,
+  extractPageItems,
+  extractPage,
+  type PagedResult,
+} from './http';
 import { declaredWriteCurrency } from './currency';
 import type { AddressDto, PhotoDto } from './service-providers';
 import type { ReviewDto } from './reviews';
-import { DiscountType } from './service-discounts';
+import { DiscountType, type ServiceDiscountDto } from './service-discounts';
 
 // Slim owning-provider embed on the service GET (ServiceProviderInfoReadDto) —
 // name/avatar/address/rating/verified, enough for ServiceDetail's provider card
@@ -118,15 +125,15 @@ export type AdditionalServiceDto = {
 export type ServiceDto = {
   id?: number | null;
   serviceProviderId: number;
-  // Read-only slim provider embed on the service GET (see ServiceProviderInfoDto).
-  serviceProvider?: ServiceProviderInfoDto | null;
   /**
-   * The currency this aggregate's amounts are in — and it means different things by
-   * direction (BACKEND_GAPS S8 resolved; verified live 2026-08-05 on GET /api/services/1).
+   * The currency EVERY money field on this aggregate is expressed in — `pricing.basePrice`,
+   * `price`, the pricing options, the discounts and the add-on amounts. It means different
+   * things by direction (BACKEND_GAPS S8 resolved; verified live 2026-08-05).
    *
-   * READ: what the server converted the amounts INTO, which is the caller's display
-   * preference, not some property of the service (storage is always RSD). A EUR viewer
-   * and an RSD viewer get different numbers off the same row.
+   * READ: what the server converted the amounts INTO, which is the caller's
+   * `preferredCurrency`, not some property of the service (storage is always RSD). A EUR
+   * viewer and an RSD viewer get different numbers off the same row — so always render
+   * through `formatMoney(amount, currency)` rather than assuming a symbol.
    *
    * WRITE: what the amounts in this payload are DECLARED to be, which the server converts
    * from before storing. Omitting it means RSD — so a form filled from a EUR read must
@@ -137,6 +144,8 @@ export type ServiceDto = {
    * and `discounts` are converted with it and must NOT declare their own.
    */
   currency?: string | null;
+  // Read-only slim provider embed on the service GET (see ServiceProviderInfoDto).
+  serviceProvider?: ServiceProviderInfoDto | null;
   name?: string | null;
   // Long description — the write field (GET also mirrors it as `about`).
   description?: string | null;
@@ -208,6 +217,12 @@ export type ServiceDto = {
   reviewCount?: number; // number of reviews backing `rating`
   reviews?: ReviewDto[]; // embedded reviews (may include all statuses — public screens still filter by approvalStatus)
   upcomingBookings?: ServiceBookedSlotReadDto[]; // booked slots for availability
+  // Every discount configured on the service, live or not — the raw rows behind the resolved
+  // `appliedDiscountType`/`appliedDiscountAmount` above. Prefer those two for DISPLAY (the server
+  // has already decided which promotion is active); read this when you need the configuration
+  // itself, e.g. the partner's promotions list. Present on the service list and detail responses
+  // and on the Home rails, so a screen showing a partner's offers never needs a second request.
+  discounts?: ServiceDiscountDto[];
 };
 
 /**
@@ -253,7 +268,7 @@ export type GetServicesParams = {
   perPage?: number;
 };
 
-export async function getServices(params?: GetServicesParams): Promise<ServiceDto[]> {
+async function fetchServices(params?: GetServicesParams): Promise<unknown> {
   const query = new URLSearchParams();
   if (params?.serviceProviderId !== undefined)
     query.set('ServiceProviderId', String(params.serviceProviderId));
@@ -276,8 +291,18 @@ export async function getServices(params?: GetServicesParams): Promise<ServiceDt
     throw new Error(await parseApiError(response, 'Failed to load services.', 'getServices'));
   }
 
-  const raw = await response.json();
-  return extractPageItems<ServiceDto>(raw);
+  return response.json();
+}
+
+export async function getServices(params?: GetServicesParams): Promise<ServiceDto[]> {
+  return extractPageItems<ServiceDto>(await fetchServices(params));
+}
+
+/** One page of services, with the counts needed to fetch the next — for `usePagedList`. */
+export async function getServicesPage(
+  params?: GetServicesParams
+): Promise<PagedResult<ServiceDto>> {
+  return extractPage<ServiceDto>(await fetchServices(params));
 }
 
 export async function getService(id: number): Promise<ServiceDto> {

@@ -5,7 +5,7 @@ import {
   getDayColorPressed,
   getMonthStats,
   ScheduleMode,
-} from '../utils/mockScheduleData';
+} from '../utils/scheduleData';
 import { themeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { DAY_SHORT_KEYS, MONTH_KEYS } from '../../../i18n';

@@ -242,16 +242,12 @@ export function formatBookingDate(d: Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-// Money rendering lives in ./currency — symbol AND its conventional side ("$52" but
-// "52 €" / "52 RSD"). Re-exported here because most screens already import
-// formatMoney from this module. A booking's priceCurrency is server-stamped from its
-// provider; a booking with none falls back to the user's display preference.
-export {
-  formatMoney,
-  formatAmount,
-  SUPPORTED_CURRENCIES,
-  type SupportedCurrency,
-} from './currency';
+// Money formatting lives in ./currency — it is not a booking concern (services, stats, discounts
+// and promotions all format prices too), and burying it here made it easy to miss and re-invent.
+//
+// Deliberately NOT re-exported from here: a re-export makes `bookings` a second, equally valid
+// import path for the same symbol, which is how it got hard to find in the first place — and it
+// puts money formatting behind this module's initialization. Import from './currency' directly.
 
 function firstPhoto(entity?: NestedEntity | null): string {
   const photos = entity?.photos ?? [];

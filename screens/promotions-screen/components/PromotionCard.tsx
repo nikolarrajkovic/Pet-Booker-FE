@@ -30,20 +30,33 @@ export interface Promotion {
   discountId?: number;
   serviceId?: number;
   discountType?: number; // DiscountType: 0=Percent, 1=Fixed
+  // Set on a percentage discount. Authoritative over discountType — see formatOfferAmount.
+  percentAmount?: number | null;
+  /**
+   * Currency a Fixed discount's amount is in (i.e. the discounted service's).
+   * Omit to use the partner's display preference.
+   */
+  currency?: string | null;
   applyFrom?: string; // ISO
   applyTo?: string | null; // ISO
-  /** Currency of the discounted service; omit to use the partner's display preference. */
-  currency?: string | null;
 }
 
 // DiscountType: 0=Percent, 1=Fixed (mirrors services/service-discounts DiscountType).
 // Renders an offer's headline — "10 € OFF" for fixed, "20% OFF" for percent. A fixed
 // discount is money, so it takes the discounted service's currency; a percentage is not.
+//
+// `percentAmount` wins over `discountType` when it is set, mirroring
+// Domain.ServicePricing.ApplyDiscount ("PercentAmount takes precedence over Type/Amount"). The API
+// now rejects rows where the two disagree, but rows written before that validation landed are still
+// in the database — a Fixed-labelled row carrying a percentAmount really does bill as a percentage,
+// and reading `discountType` alone rendered those as "0 RSD OFF" on services that were 15% off.
 export function formatOfferAmount(
   discountType: number | undefined,
   value: number | undefined,
-  currency?: string | null
+  currency?: string | null,
+  percentAmount?: number | null
 ): string {
+  if (percentAmount != null) return `${percentAmount}% OFF`;
   const v = value ?? 0;
   return discountType === 1 ? `${formatMoney(v, currency)} OFF` : `${v}% OFF`;
 }
@@ -184,7 +197,8 @@ export default function PromotionCard({
               {formatOfferAmount(
                 promotion.discountType,
                 promotion.discountValue ?? promotion.discountPercent,
-                promotion.currency
+                promotion.currency,
+                promotion.percentAmount
               )}
             </Text>
             <Text className={`text-xs ${subtextColor} mt-0.5`}>

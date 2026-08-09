@@ -37,6 +37,8 @@ const sr: TranslationDict = {
     somethingWentWrong: 'Došlo je do greške. Pokušajte ponovo.',
     noResults: 'Nema rezultata',
     all: 'Sve',
+    loadMore: 'Učitaj još',
+    showingOf: 'Prikazano {loaded} od {total}',
   },
   tabs: {
     home: 'Početna',
@@ -261,6 +263,9 @@ const sr: TranslationDict = {
     rights: '© 2025 Sva prava zadržana',
   },
   home: {
+    a11yBrowseCategory: 'Pregledajte usluge: {category}',
+    a11yNotifications: 'Obaveštenja',
+    a11yNotificationsUnread: 'Obaveštenja, nepročitanih: {count}',
     tagline: 'Pronađite savršenu negu za vašeg ljubimca',
     recentlyBooked: 'Nedavno rezervisano',
     nearYou: 'U blizini',
@@ -274,6 +279,9 @@ const sr: TranslationDict = {
   card: {
     popular: 'Popularno',
     deal: 'Popust',
+    a11yPriceFrom: 'od {price}',
+    a11yRating: 'ocena {rating} od 5, na osnovu {reviews} recenzija',
+    a11yNoReviews: 'još nema recenzija',
   },
   search: {
     allServices: 'Sve usluge',
@@ -392,6 +400,7 @@ const sr: TranslationDict = {
     perKm: '{amount}/km',
   },
   serviceDetail: {
+    notFound: 'Ova usluga više nije dostupna.',
     title: 'Detalji usluge',
     subtitle: 'Pregledajte pre rezervacije',
     reviewSingular: 'recenzija',
@@ -452,6 +461,8 @@ const sr: TranslationDict = {
     dropoffLocation: 'Lokacija dostave',
     petsLoadError: 'Učitavanje ljubimaca nije uspelo. Pokušajte ponovo.',
     slotsLoadError: 'Učitavanje termina nije uspelo. Pokušajte ponovo.',
+    noWorkingHours:
+      'Ova usluga još nema podešeno radno vreme, pa se ne može rezervisati. Probajte drugu uslugu ili pokušajte kasnije.',
     priceFrom: 'od',
     selectPetHint: 'Izaberite jednog ili više ljubimaca',
     availableTimes: 'Dostupni termini',

@@ -10,8 +10,9 @@ import { useLocation } from '../../../hooks/useLocation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { ListView, MapViewComponent } from '../components';
 import type { ServiceSearchItem } from '../components/ListView';
-import { getServices, ServiceDto } from '../../../services/services';
-import { getErrorMessage } from '../../../services/http';
+import { getServicesPage, ServiceDto } from '../../../services/services';
+import type { PagedResult } from '../../../services/http';
+import { usePagedList } from '../../../hooks/usePagedList';
 import { forwardGeocode, GeoPoint } from '../../../services/geocoding';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
 import { resolveImageUrl, providerTypeValue } from '../../../services/service-providers';
@@ -62,6 +63,9 @@ const CATEGORY_CONFIG: Record<
   },
 };
 
+// One screenful plus headroom on a phone; the rest pages in on scroll.
+const PAGE_SIZE = 25;
+
 // Flattens a ServiceDto (from getServices OR a Home endpoint) into a card item.
 // The type-derived label is localized by the caller (via tEnum); here `service`
 // holds only backend free-text (basicServiceName) so it's never left in English.
@@ -105,9 +109,6 @@ export default function SearchScreen() {
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [allServices, setAllServices] = useState<ServiceSearchItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>(() => {
     const v = serviceTypeParamToValue(serviceType);
     return {
@@ -127,6 +128,50 @@ export default function SearchScreen() {
       serviceTypes: v != null ? [v] : [],
     }));
   }, [serviceType]);
+
+  const { latitude, longitude } = location;
+
+  // The catalogue pages; a Home "See More" rail is a fixed take, so it reports one complete page
+  // and the footer stays hidden.
+  const fetchPage = useCallback(
+    async (page: number): Promise<PagedResult<ServiceDto>> => {
+      if (categoryConfig) {
+        const dtos = await categoryConfig.load(latitude, longitude);
+        return {
+          items: dtos,
+          totalItems: dtos.length,
+          totalPages: 1,
+          currentPage: 1,
+          itemsPerPage: dtos.length,
+          hasMore: false,
+        };
+      }
+      return getServicesPage({ isActive: true, page, perPage: PAGE_SIZE });
+    },
+    [categoryConfig, latitude, longitude]
+  );
+  const {
+    items: serviceDtos,
+    isLoading,
+    isLoadingMore,
+    error: loadError,
+    totalItems,
+    hasMore,
+    loadMore,
+  } = usePagedList<ServiceDto>(fetchPage, { errorFallback: t('search.loadError') });
+
+  // DTO -> card item. Kept out of the fetch so a re-render doesn't refetch.
+  const allServices: ServiceSearchItem[] = useMemo(
+    () =>
+      serviceDtos.flatMap((svc) => {
+        const item = toSearchItem(svc);
+        if (!item) return [];
+        if (!item.service && svc.type != null)
+          item.service = tEnum('serviceProviderType', svc.type);
+        return [item];
+      }),
+    [serviceDtos, tEnum]
+  );
 
   // Add-on filter chips derived from the loaded services. Extras are provider-named free text,
   // so there is no catalog to enumerate — the options are whatever is on offer. Deduped
@@ -162,45 +207,6 @@ export default function SearchScreen() {
     );
     prevMaxPrice.current = maxPrice;
   }, [maxPrice]);
-
-  const { latitude, longitude } = location;
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-
-      const load = async () => {
-        setIsLoading(true);
-        setLoadError(null);
-        try {
-          // Search is service-centric — list bookable services, not providers.
-          // From a Home "See More" the list is scoped to that Home row's
-          // endpoint; otherwise it's the full active-service catalog.
-          const dtos = categoryConfig
-            ? await categoryConfig.load(latitude, longitude)
-            : await getServices({ isActive: true, perPage: 100 });
-          if (cancelled) return;
-          setAllServices(
-            dtos.flatMap((svc) => {
-              const item = toSearchItem(svc);
-              if (!item) return [];
-              if (!item.service && svc.type != null)
-                item.service = tEnum('serviceProviderType', svc.type);
-              return [item];
-            })
-          );
-        } catch (e) {
-          if (!cancelled) setLoadError(getErrorMessage(e, t('search.loadError')));
-        } finally {
-          if (!cancelled) setIsLoading(false);
-        }
-      };
-
-      load();
-      return () => {
-        cancelled = true;
-      };
-    }, [categoryConfig, latitude, longitude])
-  );
 
   // Lazily resolve pin coordinates when the map view opens: services whose
   // address has no geo coords yet are forward-geocoded from the address text,
@@ -356,6 +362,7 @@ export default function SearchScreen() {
           cardBg={cardBg}
           borderColor={borderColor}
           badge={categoryConfig?.badge}
+          paging={{ total: totalItems, hasMore, isLoadingMore, onLoadMore: loadMore }}
         />
       ) : (
         // The TabBar overlays the bottom of the content area (absolute bottom-0),

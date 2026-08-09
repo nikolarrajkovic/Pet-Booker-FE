@@ -33,9 +33,22 @@ const CURRENCY_FORMATS: Record<string, CurrencyFormat> = {
   RUB: { symbol: '₽', position: 'suffix', space: true },
 };
 
-/** Currencies a user may pick as their display preference (mirrors the backend's PaymentCurrency). */
+/**
+ * Currencies a user may pick as their display preference — mirrors the backend's
+ * `Application.Abstractions.PaymentCurrency.Supported`.
+ */
 export const SUPPORTED_CURRENCIES = ['RSD', 'EUR', 'USD'] as const;
 export type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number];
+
+/**
+ * The currency amounts are STORED and CHARGED in — the backend's `PaymentCurrency.Code`.
+ *
+ * Distinct from {@link DEFAULT_CURRENCY} even though both are RSD today: this one is a
+ * fact about the backend (what a typed amount becomes once stored), the other is a
+ * display fallback. Show this where the UI is stating what will be charged rather than
+ * rendering a converted read — e.g. the promotion amount input.
+ */
+export const BASE_CURRENCY: SupportedCurrency = 'RSD';
 
 /** Used when neither the data nor the user's preference names a currency. */
 export const DEFAULT_CURRENCY = 'RSD';
@@ -123,7 +136,12 @@ export function currencyAffix(code?: string | null): {
 /** Rounds to at most 2 decimals and drops trailing zeros: 35.41666 → "35.42", 30 → "30". */
 export function formatAmount(amount: number): string {
   if (!Number.isFinite(amount)) return String(amount);
-  return String(Math.round(amount * 100) / 100);
+  return String(roundMoney(amount));
+}
+
+/** Rounds to 2 decimals without formatting — for arithmetic, not display. */
+export function roundMoney(amount: number): number {
+  return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : amount;
 }
 
 /**
@@ -134,6 +152,15 @@ export function formatAmount(amount: number): string {
  * Pass the currency that came with the amount (`booking.priceCurrency`,
  * `service.currency`, a stats block's `currency`). Omit it only for amounts the API
  * doesn't stamp — those fall back to the user's display preference.
+ *
+ * On that fallback: an earlier version of this helper fell back to {@link BASE_CURRENCY}
+ * instead, reasoning that an unlabelled amount is a raw stored value and stored values
+ * are RSD. That holds for a value the app computed itself, but not for the common case —
+ * the lean `/api/home/*` rails omit `currency` on amounts the server has already
+ * converted into the caller's preference, so an RSD fallback labels a converted EUR
+ * number "RSD". The two choices only diverge when the preference is not RSD, and there
+ * the display preference is the one that matches what the server actually sent. Use
+ * {@link BASE_CURRENCY} explicitly where the UI means "what this will be charged as".
  */
 export function formatMoney(amount: number, currency?: string | null): string {
   return withCurrency(formatAmount(amount), currency);

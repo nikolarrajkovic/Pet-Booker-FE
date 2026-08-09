@@ -49,7 +49,7 @@ interface PriceBreakdownProps {
   discount?: DiscountLine | null;
   addons: AddonLine[];
   total: number;
-  /** The booked service's currency; omit to fall back to the user's display preference. */
+  /** Currency the amounts are in, from the booking/quote that produced them. */
   currency?: string | null;
 }
 
@@ -57,6 +57,7 @@ interface PriceBreakdownProps {
 const km2 = (n: number) => String(Math.round(n * 100) / 100);
 
 export default function PriceBreakdown({
+  currency,
   isDarkMode,
   textColor,
   subtextColor,
@@ -65,7 +66,6 @@ export default function PriceBreakdown({
   discount,
   addons,
   total,
-  currency,
 }: PriceBreakdownProps) {
   const { t } = useLocale();
   // Also trims float artifacts from price subtraction (e.g. 9.999999 → "10").

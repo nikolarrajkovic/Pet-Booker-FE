@@ -57,6 +57,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationsProvider } from './context/NotificationsContext';
 import { EnumsProvider } from './context/EnumsContext';
 import LanguagePicker from './components/shared/LanguagePicker';
+import { linking } from './navigation/linking';
 import { hasSeenPartnerWelcome, markPartnerWelcomeSeen } from './services/onboarding';
 import { Ionicons } from '@expo/vector-icons';
 import { enableScreens } from 'react-native-screens';
@@ -107,7 +108,26 @@ function AppContent() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <NavigationContainer ref={navigationRef} onReady={() => setNavReady(true)}>
+      <NavigationContainer
+        ref={navigationRef}
+        onReady={() => setNavReady(true)}
+        // Gives each screen its own URL on web (and petbooker:// deep links on native). Without
+        // it every screen shared `/`, so browser Back left the app rather than going back a
+        // screen. See navigation/linking.ts for which screens are mapped and why some are not.
+        linking={linking}
+        // Rendered while the initial URL is resolved. It is the same spinner the auth restore
+        // uses, so a cold load on a deep link doesn't flash a different-looking screen.
+        fallback={
+          <View
+            style={{
+              flex: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+              backgroundColor: isDarkMode ? '#0f1621' : '#ffffff',
+            }}>
+            <ActivityIndicator size="large" color="#00A85A" />
+          </View>
+        }>
         <Stack.Navigator
           screenOptions={{
             headerShown: false,

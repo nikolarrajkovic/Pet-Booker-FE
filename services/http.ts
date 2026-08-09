@@ -108,6 +108,57 @@ export function extractPageItems<T>(raw: unknown): T[] {
   return [];
 }
 
+/**
+ * One page of a list endpoint, with the counts needed to page through the rest.
+ *
+ * Mirrors the backend's `PaginationWrapper`. `extractPageItems` above throws this metadata away,
+ * which is why every list in the app used to stop at its first page with no way to reach the
+ * rest — and why raising `PerPage` looked like a fix. The API now caps `PerPage` at 200, so
+ * paging is the only way to see a long list.
+ */
+export interface PagedResult<T> {
+  items: T[];
+  /** Total rows matching the query, across all pages. */
+  totalItems: number;
+  totalPages: number;
+  /** 1-based. */
+  currentPage: number;
+  itemsPerPage: number;
+  /** Whether another page exists after `currentPage`. */
+  hasMore: boolean;
+}
+
+/**
+ * Reads a list response as a page. Tolerates an endpoint that returns a bare array (or one whose
+ * wrapper is missing counts) by reporting a single complete page — so a caller can page uniformly
+ * without knowing which shape it is getting.
+ */
+export function extractPage<T>(raw: unknown): PagedResult<T> {
+  const items = extractPageItems<T>(raw);
+  const obj = (Array.isArray(raw) ? {} : (raw as Record<string, unknown>)) ?? {};
+
+  const num = (v: unknown, fallback: number) =>
+    typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+
+  const currentPage = num(obj.currentPage, 1);
+  const itemsPerPage = num(obj.itemsPerPage, items.length);
+  const totalItems = num(obj.totalItems, items.length);
+  // Derive rather than trust: a wrapper missing totalPages still pages correctly.
+  const totalPages = num(
+    obj.totalPages,
+    itemsPerPage > 0 ? Math.ceil(totalItems / itemsPerPage) : 1
+  );
+
+  return {
+    items,
+    totalItems,
+    totalPages,
+    currentPage,
+    itemsPerPage,
+    hasMore: currentPage < totalPages,
+  };
+}
+
 export async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
   if (__DEV__) {
     console.log('[API Request]', init?.method ?? 'GET', url, init?.body ?? '');

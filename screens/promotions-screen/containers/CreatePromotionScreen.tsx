@@ -18,8 +18,8 @@ import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import DatePicker from '../../../components/shared/DatePicker';
 import { getServices, ServiceDto, serviceCurrency } from '../../../services/services';
-import { getErrorMessage } from '../../../services/http';
 import { formatMoney } from '../../../services/currency';
+import { getErrorMessage } from '../../../services/http';
 import { createServiceDiscount, DiscountType } from '../../../services/service-discounts';
 
 const fmtDate = (d: Date | null) =>

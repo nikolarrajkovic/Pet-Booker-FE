@@ -13,7 +13,10 @@ type ServiceCardProps = {
   reviews: number;
   distance?: string;
   price: number;
-  /** The service's currency; omit to fall back to the user's display preference. */
+  /**
+   * Currency the `price` is in, from the DTO that carried it (`ServiceDto.currency`).
+   * Omit to fall back to the user's display preference.
+   */
   currency?: string | null;
   badge?: 'popular' | 'deal';
   /** Formatted discount (e.g. "3% OFF" / "5 € OFF") — shown on the deal badge. */
@@ -37,13 +40,41 @@ export default function ServiceCard({
   const { cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
 
+  // A card is one control, but its content is a dozen scattered Texts and icons — read out
+  // individually they arrive as "Boarding / Sitter / star / 4.5 / (12)", which is noise. Composing
+  // one sentence here, and marking the subtree as a single element, makes the card announce the
+  // same thing a sighted user takes from it at a glance.
+  const label = [
+    name,
+    service,
+    price > 0 ? t('card.a11yPriceFrom', { price: formatMoney(price, currency) }) : null,
+    reviews > 0
+      ? t('card.a11yRating', { rating: rating.toFixed(1), reviews })
+      : t('card.a11yNoReviews'),
+    badge === 'deal' ? (dealAmount ?? t('card.deal')) : null,
+    badge === 'popular' ? t('card.popular') : null,
+    distance,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
   return (
     <TouchableOpacity
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessible
       className={`${cardBg} overflow-hidden rounded-2xl border ${borderColor}`}
       style={{ width: 200 }}>
       <View className="relative">
-        <Image source={{ uri: image }} className="h-32 w-full" resizeMode="cover" />
+        {/* Decorative: the card's own label already names the service. */}
+        <Image
+          source={{ uri: image }}
+          accessibilityRole="none"
+          alt=""
+          className="h-32 w-full"
+          resizeMode="cover"
+        />
 
         {/* Distance Badge */}
         {distance && (

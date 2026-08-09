@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ServiceDto, serviceCurrency } from '../../../services/services';
 import { formatMoney } from '../../../services/currency';
 import { useLocale } from '../../../context/LocaleContext';
+import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 
 export interface ServiceSearchItem {
   id: number;
@@ -31,6 +32,17 @@ interface ListViewProps {
   // When the list is scoped to a Home category (Most Popular / Special Deals),
   // every card carries the same banner the Home cards show.
   badge?: 'popular' | 'deal';
+  /**
+   * Paging, when the caller's list is paged. Omit for a complete list (a Home rail) and no
+   * footer renders. The next page loads as the user nears the bottom — phone-first — with the
+   * footer's button as the manual fallback.
+   */
+  paging?: {
+    total: number;
+    hasMore: boolean;
+    isLoadingMore: boolean;
+    onLoadMore: () => void;
+  };
 }
 
 export default function ListView({
@@ -41,12 +53,16 @@ export default function ListView({
   cardBg,
   borderColor,
   badge,
+  paging,
 }: ListViewProps) {
   const navigation = useNavigation();
   const { t } = useLocale();
 
   return (
-    <ScrollView className="flex-1">
+    <ScrollView
+      className="flex-1"
+      scrollEventThrottle={16}
+      onScroll={paging ? (e) => (isNearBottom(e) ? paging.onLoadMore() : undefined) : undefined}>
       <View className="px-6 pt-8">
         <Text className={`text-sm ${subtextColor} mb-4`}>{services.length} services found</Text>
 
@@ -116,6 +132,16 @@ export default function ListView({
           </TouchableOpacity>
         ))}
       </View>
+
+      {paging && services.length > 0 && (
+        <LoadMoreFooter
+          loaded={services.length}
+          total={paging.total}
+          hasMore={paging.hasMore}
+          isLoadingMore={paging.isLoadingMore}
+          onLoadMore={paging.onLoadMore}
+        />
+      )}
 
       {/* Bottom spacing */}
       <View className="h-24" />

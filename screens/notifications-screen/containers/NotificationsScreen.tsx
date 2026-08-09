@@ -16,9 +16,11 @@ import { useNotifications } from '../../../context/NotificationsContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ReviewModal from '../../../components/shared/ReviewModal';
 import { useReviewModal } from '../../../hooks/useReviewModal';
+import { usePagedList } from '../../../hooks/usePagedList';
+import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import { NotificationItem } from '../components';
 import {
-  getAppNotifications,
+  getAppNotificationsPage,
   markNotificationRead,
   markAllNotificationsRead,
   notificationBookingId,
@@ -27,6 +29,10 @@ import {
 } from '../../../services/app-notifications';
 import { getBooking } from '../../../services/bookings';
 
+// One screenful plus headroom. Small enough that the first page is fast on a phone, large enough
+// that most users never need a second.
+const PAGE_SIZE = 25;
+
 export default function NotificationsScreen() {
   const navigation = useNavigation();
   const { currentUser } = useAuth();
@@ -34,12 +40,32 @@ export default function NotificationsScreen() {
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
 
-  const [notifications, setNotifications] = useState<AppNotificationDto[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  // The inbox grows without limit, so it pages: PAGE_SIZE rows at a time, appended as you scroll.
+  const userId = currentUser?.id;
+  const fetchPage = useCallback(
+    (page: number) => getAppNotificationsPage({ userId, page, perPage: PAGE_SIZE }),
+    [userId]
+  );
+  const {
+    items: notifications,
+    setItems: setNotifications,
+    isLoading,
+    isLoadingMore,
+    error,
+    totalItems,
+    hasMore,
+    loadMore,
+    reload,
+  } = usePagedList<AppNotificationDto>(fetchPage, {
+    enabled: userId != null,
+    errorFallback: t('notifications.loadFailed'),
+  });
   // The "leave a review" modal (shared hook owns the createReview submit).
   const review = useReviewModal();
+  // Guards the auto-open review to one run per load cycle (not per appended page).
+  const autoReviewRunRef = useRef(false);
   // `useReviewModal` returns a fresh object every render, but its `open` fn is
   // memoized/stable. Pin it to a local so callbacks can depend on the stable fn
   // instead of the whole object — depending on `review` would churn the
@@ -63,7 +89,9 @@ export default function NotificationsScreen() {
         .catch(() => {})
         .finally(refreshUnreadCount);
     },
-    [refreshUnreadCount]
+    // setNotifications is usePagedList's state setter — stable, but ESLint can't see through the
+    // hook boundary, so it's declared.
+    [refreshUnreadCount, setNotifications]
   );
 
   // Live inbox: prepend NotificationReceived pushes while this screen is mounted
@@ -73,7 +101,7 @@ export default function NotificationsScreen() {
       subscribe((n) => {
         setNotifications((prev) => (prev.some((x) => x.id === n.id) ? prev : [n, ...prev]));
       }),
-    [subscribe]
+    [subscribe, setNotifications]
   );
 
   // Resolve the booking behind a "Service completed" notification and open the
@@ -123,27 +151,21 @@ export default function NotificationsScreen() {
   );
 
   const load = useCallback(
-    async (silent = false) => {
-      const userId = currentUser?.id;
-      if (!userId) {
-        setIsLoading(false);
-        return;
-      }
-      if (!silent) setIsLoading(true);
-      setError(null);
-      try {
-        const items = await getAppNotifications({ userId, perPage: 100 });
-        setNotifications(items);
-        void maybeAutoOpenReview(items);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : t('notifications.loadFailed'));
-      } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
-      }
+    (silent = false) => {
+      if (!silent) autoReviewRunRef.current = false;
+      reload();
     },
-    [currentUser?.id, maybeAutoOpenReview, t]
+    [reload]
   );
+
+  // Auto-open the review modal only for the FIRST page of a load — never for a page appended by
+  // scrolling, or an old "Service completed" would pop a modal mid-scroll.
+  useEffect(() => {
+    if (isLoading || error || autoReviewRunRef.current) return;
+    autoReviewRunRef.current = true;
+    setIsRefreshing(false);
+    void maybeAutoOpenReview(notifications);
+  }, [isLoading, error, notifications, maybeAutoOpenReview]);
 
   useFocusEffect(
     useCallback(() => {
@@ -225,6 +247,12 @@ export default function NotificationsScreen() {
             className="flex-1"
             contentContainerStyle={{ padding: 16, paddingBottom: 40, flexGrow: 1 }}
             showsVerticalScrollIndicator={false}
+            // Phone-first: the next page loads as you approach the bottom. loadMore() is a no-op
+            // while a page is in flight, so the repeated scroll events are harmless.
+            scrollEventThrottle={16}
+            onScroll={(e) => {
+              if (isNearBottom(e)) loadMore();
+            }}
             refreshControl={
               <RefreshControl
                 refreshing={isRefreshing}
@@ -272,6 +300,15 @@ export default function NotificationsScreen() {
                   onPress={() => handlePress(n)}
                 />
               ))
+            )}
+            {!error && notifications.length > 0 && (
+              <LoadMoreFooter
+                loaded={notifications.length}
+                total={totalItems}
+                hasMore={hasMore}
+                isLoadingMore={isLoadingMore}
+                onLoadMore={loadMore}
+              />
             )}
           </ScrollView>
         )}

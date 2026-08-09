@@ -17,7 +17,7 @@ interface BookingSummaryProps {
   isDarkMode: boolean;
   textColor: string;
   subtextColor: string;
-  /** The booked service's currency; omit to fall back to the user's display preference. */
+  /** Currency the amounts are in, from the quote/service that produced them. */
   currency?: string | null;
 }
 

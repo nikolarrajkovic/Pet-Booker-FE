@@ -14,9 +14,12 @@ export type ServiceDiscountDto = {
   isEnabled: boolean;
   percentAmount?: number | null; // percent value when type === Percent
   /**
-   * Currency `amount` is in, and only a Fixed discount's amount is money — the server
-   * leaves a Percent one alone. Read: what it was converted to; write: what it's
-   * declared as (stamped below; omitting it would mean RSD).
+   * Currency a Fixed discount's `amount` is expressed in — a Percent one is currency-free
+   * and the server leaves its amount alone.
+   *
+   * Read: what the server converted the amount to, stamped with the code it used.
+   * Write: what the amount is DECLARED to be (stamped below — omitting it would mean RSD
+   * and silently rescale a discount the partner typed in EUR).
    */
   currency?: string | null;
 };
