@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 interface PetPhotoUploaderProps {
   photos: string[];
   isDarkMode: boolean;
@@ -47,7 +48,7 @@ export default function PetPhotoUploader({
                 source={{ uri: photo }}
                 className="h-24 w-full rounded-xl"
                 style={
-                  index === selectedIndex ? { borderWidth: 2, borderColor: '#00C870' } : undefined
+                  index === selectedIndex ? { borderWidth: 2, borderColor: BRAND_GREEN } : undefined
                 }
               />
             </TouchableOpacity>

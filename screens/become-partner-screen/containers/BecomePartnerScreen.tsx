@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
@@ -16,7 +16,7 @@ const benefits = [
     iconType: 'ionicons',
     titleKey: 'becomePartner.benefit1Title',
     descKey: 'becomePartner.benefit1Desc',
-    color: '#00C870',
+    color: BRAND_GREEN,
     bgColor: '#E6F9F0',
   },
   {

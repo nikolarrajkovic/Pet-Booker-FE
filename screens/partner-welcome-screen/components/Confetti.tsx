@@ -9,7 +9,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-const COLORS = ['#00C870', '#2CE07F', '#F59E0B', '#6366F1', '#EF4444', '#EC4899', '#3B82F6'];
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
+const COLORS = [BRAND_GREEN, '#2CE07F', '#F59E0B', '#6366F1', '#EF4444', '#EC4899', '#3B82F6'];
 
 type PieceProps = {
   startX: number;

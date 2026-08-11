@@ -1,4 +1,4 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError } from './http';
+import { apiJson, type QueryValue } from './http';
 import type { ReviewDto } from './reviews';
 
 /**
@@ -130,20 +130,12 @@ export type ActivityEntry = {
   occurredAt: string;
 };
 
-async function getStats<T>(path: string, params?: Record<string, number | undefined>): Promise<T> {
-  const query = new URLSearchParams();
-  for (const [k, v] of Object.entries(params ?? {})) {
-    if (v !== undefined && v !== null) query.set(k, String(v));
-  }
-  const qs = query.toString();
-  const url = `${getApiBaseUrl()}/api/stats/${path}${qs ? `?${qs}` : ''}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to load statistics.', `stats/${path}`));
-  }
-
-  return response.json();
+function getStats<T>(path: string, query?: Record<string, QueryValue>): Promise<T> {
+  return apiJson<T>(`/api/stats/${path}`, {
+    query,
+    fallback: 'Failed to load statistics.',
+    context: `stats/${path}`,
+  });
 }
 
 // ─── Admin (Admin role required) ────────────────────────────────────────────

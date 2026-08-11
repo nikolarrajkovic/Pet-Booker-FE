@@ -1,4 +1,4 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
+import { apiJson, apiList } from './http';
 
 export type UserNotificationSettingsDto = {
   id?: number | null;
@@ -46,48 +46,27 @@ export function defaultNotificationSettings(userId: number): UserNotificationSet
 export async function getNotificationSettings(
   userId: number
 ): Promise<UserNotificationSettingsDto | null> {
-  const url = `${getApiBaseUrl()}/api/user-notification-settings?UserId=${userId}&Page=1&PerPage=1`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(
-        response,
-        'Failed to load notification settings.',
-        'getNotificationSettings'
-      )
-    );
-  }
-
-  const raw = await response.json();
-  return extractPageItems<UserNotificationSettingsDto>(raw)[0] ?? null;
+  const items = await apiList<UserNotificationSettingsDto>('/api/user-notification-settings', {
+    query: { UserId: userId, Page: 1, PerPage: 1 },
+    fallback: 'Failed to load notification settings.',
+    context: 'getNotificationSettings',
+  });
+  return items[0] ?? null;
 }
 
 /** Creates (no id) or updates (with id) the user's notification settings. */
-export async function saveNotificationSettings(
+export function saveNotificationSettings(
   settings: UserNotificationSettingsDto
 ): Promise<UserNotificationSettingsDto> {
-  const base = getApiBaseUrl();
   const isUpdate = settings.id != null && settings.id > 0;
-  const url = isUpdate
-    ? `${base}/api/user-notification-settings/${settings.id}`
-    : `${base}/api/user-notification-settings`;
-  const body = isUpdate ? settings : { ...settings, id: 0 };
 
-  const response = await apiAuthFetch(url, {
-    method: isUpdate ? 'PUT' : 'POST',
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(
-        response,
-        'Failed to save notification settings.',
-        'saveNotificationSettings'
-      )
-    );
-  }
-
-  return response.json();
+  return apiJson<UserNotificationSettingsDto>(
+    isUpdate ? `/api/user-notification-settings/${settings.id}` : '/api/user-notification-settings',
+    {
+      method: isUpdate ? 'PUT' : 'POST',
+      body: isUpdate ? settings : { ...settings, id: 0 },
+      fallback: 'Failed to save notification settings.',
+      context: 'saveNotificationSettings',
+    }
+  );
 }

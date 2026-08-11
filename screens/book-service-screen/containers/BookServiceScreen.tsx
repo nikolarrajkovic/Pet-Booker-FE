@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocation } from '../../../hooks/useLocation';
 import { useAuth } from '../../../context/AuthContext';
@@ -541,7 +541,7 @@ export default function BookServiceScreen() {
     if (quoteState.loading) {
       return (
         <View className="mt-2 flex-row items-center">
-          <ActivityIndicator size="small" color="#00C870" />
+          <ActivityIndicator size="small" color={BRAND_GREEN} />
           <Text className={`text-xs ${subtextColor} ml-2`}>
             {t('bookService.distanceEstimating')}
           </Text>
@@ -681,7 +681,7 @@ export default function BookServiceScreen() {
       }>
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
-          <ActivityIndicator size="large" color="#00C870" />
+          <ActivityIndicator size="large" color={BRAND_GREEN} />
         </View>
       ) : (
         <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
@@ -836,7 +836,7 @@ export default function BookServiceScreen() {
                 <TouchableOpacity
                   onPress={() => setPickerFor('pickup')}
                   className={`rounded-2xl border px-4 py-3 ${borderColor} ${cardBg} flex-row items-center`}>
-                  <Ionicons name="location-outline" size={20} color="#00C870" />
+                  <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
                   <Text
                     className={`ml-3 flex-1 ${pickupAddr ? textColor : subtextColor}`}
                     numberOfLines={2}>
@@ -859,7 +859,7 @@ export default function BookServiceScreen() {
                   <TouchableOpacity
                     onPress={() => setPickupAddr(dropoffAddr)}
                     className="mt-2 flex-row items-center self-start">
-                    <Ionicons name="copy-outline" size={14} color="#00C870" />
+                    <Ionicons name="copy-outline" size={14} color={BRAND_GREEN} />
                     <Text className="ml-1.5 text-sm font-medium text-brand-600">
                       {t('bookService.sameAsDropoff')}
                     </Text>
@@ -875,7 +875,7 @@ export default function BookServiceScreen() {
                 <TouchableOpacity
                   onPress={() => setPickerFor('dropoff')}
                   className={`rounded-2xl border px-4 py-3 ${borderColor} ${cardBg} flex-row items-center`}>
-                  <Ionicons name="location-outline" size={20} color="#00C870" />
+                  <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
                   <Text
                     className={`ml-3 flex-1 ${dropoffAddr ? textColor : subtextColor}`}
                     numberOfLines={2}>
@@ -898,7 +898,7 @@ export default function BookServiceScreen() {
                   <TouchableOpacity
                     onPress={() => setDropoffAddr(pickupAddr)}
                     className="mt-2 flex-row items-center self-start">
-                    <Ionicons name="copy-outline" size={14} color="#00C870" />
+                    <Ionicons name="copy-outline" size={14} color={BRAND_GREEN} />
                     <Text className="ml-1.5 text-sm font-medium text-brand-600">
                       {t('bookService.sameAsPickup')}
                     </Text>
@@ -932,7 +932,7 @@ export default function BookServiceScreen() {
                 onPress={() => setShowDatePicker((v) => !v)}
                 className={`mb-3 rounded-2xl border p-4 ${borderColor} ${cardBg} flex-row items-center justify-between`}>
                 <View className="flex-row items-center">
-                  <Ionicons name="calendar-outline" size={20} color="#00C870" />
+                  <Ionicons name="calendar-outline" size={20} color={BRAND_GREEN} />
                   <Text className={`ml-3 ${selectedDate ? textColor : subtextColor}`}>
                     {selectedDate
                       ? `${t(DAY_SHORT_KEYS[selectedDate.getDay()])}, ${t(MONTH_KEYS[selectedDate.getMonth()])} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`

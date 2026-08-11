@@ -1,4 +1,4 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError } from './http';
+import { apiJson } from './http';
 
 /**
  * Live GPS tracking wire types + REST fallback for a booking's location stream.
@@ -58,12 +58,9 @@ export type LocationPingInput = {
  * Latest position + trail for a booking's tracking session (active session if one
  * is open, else the most recent ended one). Owner / provider / admin only.
  */
-export async function getLiveLocation(bookingId: number): Promise<LiveLocationDto> {
-  const response = await apiAuthFetch(`${getApiBaseUrl()}/api/bookings/${bookingId}/live-location`);
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Could not load the live location.', 'getLiveLocation')
-    );
-  }
-  return (await response.json()) as LiveLocationDto;
+export function getLiveLocation(bookingId: number): Promise<LiveLocationDto> {
+  return apiJson<LiveLocationDto>(`/api/bookings/${bookingId}/live-location`, {
+    fallback: 'Could not load the live location.',
+    context: 'getLiveLocation',
+  });
 }

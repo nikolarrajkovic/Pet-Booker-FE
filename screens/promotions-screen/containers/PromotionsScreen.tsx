@@ -1,16 +1,16 @@
 import React, { useState, useCallback } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useThemeColors } from '../../../hooks/useThemeColors';
-import { useCurrency } from '../../../hooks/useCurrency';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { formatMoney } from '../../../services/currency';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import ListState from '../../../components/shared/ListState';
 import { PromotionCard } from '../components';
-import type { Promotion } from '../components';
+import type { Promotion, PromotionStatus } from '../components';
 import { getServices, serviceCurrency } from '../../../services/services';
 import { getErrorMessage } from '../../../services/http';
 import {
@@ -48,7 +48,7 @@ function discountToPromotion(
         t('promotions.fixedOffTitle', { value: formatMoney(value, currency), name: serviceName }),
     description: serviceName,
     dateRange: [fmtDate(d.applyFrom), fmtDate(d.applyTo)].filter(Boolean).join(' - '),
-    status: d.isEnabled ? 'active' : 'paused',
+    status: offerStatus(d.isEnabled, d.applyFrom, d.applyTo),
     discountValue: value,
     discountPercent: isPercent ? value : undefined,
     offerNote: isPercent ? t('promotions.percentNote') : t('promotions.fixedNote'),
@@ -62,45 +62,94 @@ function discountToPromotion(
   };
 }
 
-// Labels are translation keys, resolved with t() at render.
-// Mock figures (BACKEND_GAPS PR1-PR4). `money: true` means `value` is an AMOUNT and gets
-// formatted in the viewer's currency at render, not a pre-baked "$88" string.
-const PERFORMANCE_STATS = [
-  {
-    icon: 'trending-up',
-    iconLib: 'ionicons',
-    bg: 'bg-green-100',
-    color: '#16A34A',
-    value: '2',
-    labelKey: 'promotions.statActive',
-  },
-  {
-    icon: 'people-outline',
-    iconLib: 'ionicons',
-    bg: 'bg-blue-100',
-    color: '#2563EB',
-    value: '20',
-    labelKey: 'promotions.statBookings',
-  },
-  {
-    icon: 'cash-outline',
-    iconLib: 'ionicons',
-    bg: 'bg-purple-100',
-    color: '#9333EA',
-    value: 88,
-    money: true,
-    labelKey: 'promotions.totalSpent',
-  },
-  {
-    icon: 'bullseye',
-    iconLib: 'material',
-    bg: 'bg-orange-100',
-    color: '#EA580C',
-    value: 4.38,
-    money: true,
-    labelKey: 'promotions.costPerBooking',
-  },
-];
+/**
+ * Where an offer sits in its own date window.
+ *
+ * `isEnabled` alone can't answer this: an enabled discount that starts next week is not running,
+ * and one whose window closed is not either — both used to render a green "Active" badge. The
+ * card has always had `scheduled` and `ended` styles + labels; nothing ever produced them.
+ *
+ * Single source of truth for the badge AND the count tiles, so the two can't contradict each
+ * other on the same screen.
+ */
+function offerStatus(
+  isEnabled: boolean,
+  applyFrom?: string | null,
+  applyTo?: string | null,
+  now: number = Date.now()
+): PromotionStatus {
+  const ms = (iso?: string | null) => {
+    if (!iso) return null;
+    const t = new Date(iso).getTime();
+    return Number.isNaN(t) ? null : t;
+  };
+  const to = ms(applyTo);
+  const from = ms(applyFrom);
+
+  // An expired window wins over everything — a paused-and-expired offer is simply over.
+  if (to != null && to < now) return 'ended';
+  if (!isEnabled) return 'paused';
+  if (from != null && from > now) return 'scheduled';
+  return 'active';
+}
+
+/**
+ * Performance tiles, counted from the offers already on screen.
+ *
+ * These used to be four hardcoded figures ("2 Active", "20 Bookings from Promos", "88 Total
+ * Spent", "4.38 Cost per Booking") rendered directly above the real list — so a partner with no
+ * promotions at all read "2 Active Promotions" sitting on top of "No promotions yet". Invented
+ * numbers next to a real empty state are worse than no numbers, and the three spend/attribution
+ * ones have nothing behind them (BACKEND_GAPS PR1–PR4: promo-attributed bookings and spend are
+ * not tracked anywhere).
+ *
+ * So the tiles now report only what the loaded discounts actually say — where each offer sits in
+ * its own date window — which is the question a partner opens this screen to answer.
+ */
+function performanceStats(offers: Promotion[]) {
+  // Each offer already carries the status `offerStatus` assigned it, so the tiles are just a
+  // tally of the badges the user can see — they cannot drift from the cards below.
+  const count = (s: PromotionStatus) => offers.filter((p) => p.status === s).length;
+  const active = count('active');
+  const scheduled = count('scheduled');
+  const paused = count('paused');
+  const ended = count('ended');
+
+  return [
+    {
+      icon: 'trending-up',
+      iconLib: 'ionicons',
+      bg: 'bg-green-100',
+      color: '#16A34A',
+      value: active,
+      labelKey: 'promotions.statActive',
+    },
+    {
+      icon: 'time-outline',
+      iconLib: 'ionicons',
+      bg: 'bg-blue-100',
+      color: '#2563EB',
+      value: scheduled,
+      labelKey: 'promotions.statScheduled',
+    },
+    {
+      icon: 'pause-circle-outline',
+      iconLib: 'ionicons',
+      bg: 'bg-orange-100',
+      color: '#EA580C',
+      value: paused,
+      labelKey: 'promotions.statPaused',
+    },
+    {
+      icon: 'checkmark-done-outline',
+      iconLib: 'ionicons',
+      bg: 'bg-purple-100',
+      color: '#9333EA',
+      value: ended,
+      labelKey: 'promotions.statEnded',
+    },
+  ];
+}
 
 interface PromotionsScreenProps {
   route?: { params?: { viewAll?: boolean } };
@@ -112,7 +161,6 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { showError } = useToast();
   const { t } = useLocale();
-  const { money } = useCurrency();
   const viewAll = route?.params?.viewAll ?? false;
 
   const [offers, setOffers] = useState<Promotion[]>([]);
@@ -209,7 +257,7 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
           onPress={() => (navigation as any).navigate('CreatePromotion')}
           activeOpacity={0.8}
           className="flex-row items-center rounded-full bg-white px-4 py-2">
-          <Ionicons name="add" size={16} color="#00C870" />
+          <Ionicons name="add" size={16} color={BRAND_GREEN} />
           <Text className="ml-1 text-sm font-semibold text-brand-600">
             {t('promotions.newButton')}
           </Text>
@@ -226,26 +274,16 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
               {t('promotions.performanceOverview')}
             </Text>
             <View className="flex-row flex-wrap gap-3">
-              {PERFORMANCE_STATS.map((stat) => (
+              {performanceStats(offers).map((stat) => (
                 <View
                   key={stat.labelKey}
                   className={`${cardBg} rounded-2xl border p-4 ${borderColor} flex-1`}
                   style={{ minWidth: '45%' }}>
                   <View
                     className={`h-9 w-9 rounded-xl ${stat.bg} mb-3 items-center justify-center`}>
-                    {stat.iconLib === 'ionicons' ? (
-                      <Ionicons name={stat.icon as any} size={18} color={stat.color} />
-                    ) : (
-                      <MaterialCommunityIcons
-                        name={stat.icon as any}
-                        size={18}
-                        color={stat.color}
-                      />
-                    )}
+                    <Ionicons name={stat.icon as any} size={18} color={stat.color} />
                   </View>
-                  <Text className={`text-xl font-bold ${textColor}`}>
-                    {'money' in stat && stat.money ? money(stat.value as number) : stat.value}
-                  </Text>
+                  <Text className={`text-xl font-bold ${textColor}`}>{stat.value}</Text>
                   <Text className={`text-xs ${subtextColor} mt-0.5`}>
                     {t(stat.labelKey as any)}
                   </Text>
@@ -271,23 +309,12 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
           )}
         </View>
 
-        {isLoading ? (
-          <View className="items-center justify-center py-16">
-            <ActivityIndicator size="large" color="#00C870" />
-          </View>
-        ) : offers.length === 0 ? (
-          <View className="items-center justify-center py-16">
-            <Ionicons
-              name="megaphone-outline"
-              size={64}
-              color={isDarkMode ? '#4B5563' : '#D1D5DB'}
-            />
-            <Text className={`${subtextColor} mt-4 text-center text-base`}>
-              {t('promotions.noPromotions')}
-            </Text>
-          </View>
-        ) : (
-          offers.map((promo) => (
+        <ListState
+          isLoading={isLoading}
+          isEmpty={offers.length === 0}
+          emptyIcon="megaphone-outline"
+          emptyMessage={t('promotions.noPromotions')}>
+          {offers.map((promo) => (
             <PromotionCard
               key={promo.id}
               promotion={promo}
@@ -299,15 +326,15 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
               onPause={handlePause}
               onStart={handleStart}
             />
-          ))
-        )}
+          ))}
+        </ListState>
 
         {/* Boost Your Earnings banner — only on main view */}
         {!viewAll && (
           <View
             className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-green-50'} mt-2 flex-row items-center rounded-2xl p-5`}>
             <View className="mr-4 h-10 w-10 items-center justify-center rounded-xl bg-brand-100">
-              <Ionicons name="trending-up" size={20} color="#00C870" />
+              <Ionicons name="trending-up" size={20} color={BRAND_GREEN} />
             </View>
             <View className="flex-1">
               <Text className={`text-sm font-bold ${textColor} mb-0.5`}>

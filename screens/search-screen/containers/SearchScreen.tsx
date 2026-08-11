@@ -7,7 +7,7 @@ import Button from '../../../components/shared/Button';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import FilterModal, { FilterState } from '../../../components/FilterModal';
 import { useLocation } from '../../../hooks/useLocation';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { ListView, MapViewComponent } from '../components';
 import type { ServiceSearchItem } from '../components/ListView';
 import { getServicesPage, ServiceDto } from '../../../services/services';
@@ -200,12 +200,19 @@ export default function SearchScreen() {
   // never silently filters out the priciest services).
   const prevMaxPrice = useRef(DEFAULT_MAX_PRICE);
   useEffect(() => {
+    // Read the old ceiling into a local BEFORE advancing the ref. A `setState`
+    // updater is invoked lazily during the next render, not at call time — so
+    // mutating the ref first and reading `prevMaxPrice.current` inside the
+    // updater compared the new ceiling against itself, the guard never matched,
+    // and the range stayed pinned at DEFAULT_MAX_PRICE. Any service priced above
+    // it was then silently filtered out of a search the user never narrowed.
+    const previousCeiling = prevMaxPrice.current;
+    prevMaxPrice.current = maxPrice;
     setFilters((prev) =>
-      prev.priceRange[1] === prevMaxPrice.current
+      prev.priceRange[1] === previousCeiling
         ? { ...prev, priceRange: [prev.priceRange[0], maxPrice] }
         : prev
     );
-    prevMaxPrice.current = maxPrice;
   }, [maxPrice]);
 
   // Lazily resolve pin coordinates when the map view opens: services whose
@@ -320,7 +327,11 @@ export default function SearchScreen() {
               text={t('search.listView')}
               onPress={() => setViewMode('list')}
               icon={
-                <Ionicons name="list" size={18} color={viewMode === 'list' ? '#00C870' : 'white'} />
+                <Ionicons
+                  name="list"
+                  size={18}
+                  color={viewMode === 'list' ? BRAND_GREEN : 'white'}
+                />
               }
               variant={viewMode === 'list' ? 'outline' : 'primary'}
               className={viewMode === 'list' ? 'border-2 border-brand-600 bg-white' : ''}
@@ -331,7 +342,7 @@ export default function SearchScreen() {
               text={t('search.mapView')}
               onPress={() => setViewMode('map')}
               icon={
-                <Ionicons name="map" size={18} color={viewMode === 'map' ? '#00C870' : 'white'} />
+                <Ionicons name="map" size={18} color={viewMode === 'map' ? BRAND_GREEN : 'white'} />
               }
               variant={viewMode === 'map' ? 'outline' : 'primary'}
               className={viewMode === 'map' ? 'border-2 border-brand-600 bg-white' : ''}
@@ -341,7 +352,7 @@ export default function SearchScreen() {
       }>
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
-          <ActivityIndicator size="large" color="#00C870" />
+          <ActivityIndicator size="large" color={BRAND_GREEN} />
           <Text className={`mt-4 text-sm ${subtextColor}`}>{t('search.findingServices')}</Text>
         </View>
       ) : loadError ? (

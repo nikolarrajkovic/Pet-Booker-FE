@@ -11,7 +11,7 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 
 type ReviewModalProps = {
@@ -35,10 +35,21 @@ const RATING_LABEL_KEYS = [
 ];
 
 /**
- * Centered modal for rating a completed service: 1–5 stars + an optional comment.
- * Presentational — the parent owns the API call (passes `submitting`) and decides
- * what booking/provider the review belongs to. Reusable from any "leave a review"
- * entry point (notifications, booking details, etc.).
+ * The API's minimum length for a review comment — `POST /api/reviews` rejects anything
+ * shorter (422 "The explanation must be at least 10 characters long."), and rejects an
+ * empty/absent one outright ("An explanation of your experience is required.").
+ *
+ * The modal used to present the comment as optional, so a star-only review — the most
+ * natural way to use it — was submitted and bounced with a validation message the user had
+ * no field to act on. Enforcing it here turns that into a disabled button and a hint.
+ */
+const MIN_COMMENT_LENGTH = 10;
+
+/**
+ * Centered modal for rating a completed service: 1–5 stars + a required comment
+ * (see MIN_COMMENT_LENGTH). Presentational — the parent owns the API call (passes
+ * `submitting`) and decides what booking/provider the review belongs to. Reusable from any
+ * "leave a review" entry point (notifications, booking details, etc.).
  */
 export default function ReviewModal({
   visible,
@@ -60,7 +71,11 @@ export default function ReviewModal({
     }
   }, [visible]);
 
-  const canSubmit = rating > 0 && !submitting;
+  const trimmedComment = comment.trim();
+  const commentTooShort = trimmedComment.length < MIN_COMMENT_LENGTH;
+  // Only nag once they've started typing — an untouched field showing an error reads as a failure.
+  const showCommentHint = trimmedComment.length > 0 && commentTooShort;
+  const canSubmit = rating > 0 && !commentTooShort && !submitting;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -95,7 +110,7 @@ export default function ReviewModal({
             {/* Header icon */}
             <View className="items-center">
               <View className="mb-3 h-16 w-16 items-center justify-center rounded-full bg-brand-50">
-                <Ionicons name="checkmark-done" size={32} color="#00C870" />
+                <Ionicons name="checkmark-done" size={32} color={BRAND_GREEN} />
               </View>
               <Text style={{ color: hex.text }} className="text-xl font-bold">
                 {t('reviewModal.rateYourExperience')}
@@ -144,17 +159,22 @@ export default function ReviewModal({
                 minHeight: 96,
                 borderRadius: 14,
                 borderWidth: 1,
-                borderColor: hex.border,
+                borderColor: showCommentHint ? '#EF4444' : hex.border,
                 backgroundColor: hex.inputBg,
                 color: hex.text,
                 padding: 12,
                 fontSize: 14,
               }}
             />
+            {showCommentHint ? (
+              <Text style={{ color: '#EF4444' }} className="mt-1.5 text-xs">
+                {t('reviewModal.commentTooShort', { min: MIN_COMMENT_LENGTH })}
+              </Text>
+            ) : null}
 
             {/* Submit */}
             <TouchableOpacity
-              onPress={() => canSubmit && onSubmit(rating, comment)}
+              onPress={() => canSubmit && onSubmit(rating, trimmedComment)}
               disabled={!canSubmit}
               activeOpacity={0.85}
               className="mt-5 flex-row items-center justify-center rounded-2xl bg-brand-500 py-4"

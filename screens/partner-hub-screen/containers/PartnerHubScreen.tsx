@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-na
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -108,7 +108,7 @@ function toActivity(t: TFn, e: ActivityEntry, index: number): ActivityItem {
         time,
         icon: 'calendar-outline',
         iconBg: '#E8F5EF',
-        iconColor: '#00C870',
+        iconColor: BRAND_GREEN,
       };
     case BookingStatusType.ServiceConfirmedByProvider:
       return {
@@ -118,7 +118,7 @@ function toActivity(t: TFn, e: ActivityEntry, index: number): ActivityItem {
         time,
         icon: 'checkmark-circle-outline',
         iconBg: '#E8F5EF',
-        iconColor: '#00C870',
+        iconColor: BRAND_GREEN,
       };
     case BookingStatusType.ServiceStarted:
       return {
@@ -159,7 +159,7 @@ function toActivity(t: TFn, e: ActivityEntry, index: number): ActivityItem {
         time,
         icon: 'calendar-outline',
         iconBg: '#E8F5EF',
-        iconColor: '#00C870',
+        iconColor: BRAND_GREEN,
       };
   }
 }
@@ -174,6 +174,28 @@ async function countActivePromos(providerId: number): Promise<number> {
   try {
     const services = await getServices({ serviceProviderId: providerId });
     return services.flatMap((s) => s.discounts ?? []).filter((d) => d.isEnabled).length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Counts the requests actually waiting on the partner — the ones NewRequests will show.
+ *
+ * NOT `overview.pendingRequests`: that figure is an activity roll-up, not the live queue, and
+ * it disagrees with the queue (verified live 2026-08-10 — it reported 2 for a provider whose
+ * bookings included zero in `ServiceRequestedByUser`). The badge is a promise about what the
+ * next screen contains, so it has to be counted the same way NewRequests counts it. This is the
+ * same correction AdminDashboard already applies to `/admin/banner` — see `services/stats.ts`.
+ */
+async function countPendingRequests(providerId: number): Promise<number> {
+  try {
+    const bookings = await getBookings({
+      serviceProviderId: providerId,
+      currentStatus: BookingStatusType.ServiceRequestedByUser,
+      perPage: 100,
+    });
+    return bookings.filter((b) => b.state !== BookingState.Cancelled).length;
   } catch {
     return 0;
   }
@@ -287,17 +309,19 @@ export default function PartnerHubScreen() {
           // (GET /api/stats/provider/*), which counts over ALL of the partner's
           // bookings — the old client-side roll-up summed only the first page.
           let statsError: unknown = null;
-          const [overview, earnings, activity, todayCount, activePromos] = await Promise.all([
-            getProviderOverviewStats(providerId).catch((e) => {
-              statsError = e;
-              return null;
-            }),
-            // Two buckets is all the month-over-month delta needs.
-            getProviderEarnings(providerId, 2).catch(() => []),
-            getProviderRecentActivity(providerId, 4).catch(() => [] as ActivityEntry[]),
-            countToday(providerId),
-            countActivePromos(providerId),
-          ]);
+          const [overview, earnings, activity, todayCount, pendingRequests, activePromos] =
+            await Promise.all([
+              getProviderOverviewStats(providerId).catch((e) => {
+                statsError = e;
+                return null;
+              }),
+              // Two buckets is all the month-over-month delta needs.
+              getProviderEarnings(providerId, 2).catch(() => []),
+              getProviderRecentActivity(providerId, 4).catch(() => [] as ActivityEntry[]),
+              countToday(providerId),
+              countPendingRequests(providerId),
+              countActivePromos(providerId),
+            ]);
           if (!cancelled) {
             setHub({
               revenueThisMonth: overview?.totalEarningsThisMonth ?? 0,
@@ -308,7 +332,7 @@ export default function PartnerHubScreen() {
               // 0 reviews reads as "no rating yet", not a 0-star average.
               rating: overview && overview.totalReviews > 0 ? overview.averageRating : null,
               todayCount,
-              newRequests: overview?.pendingRequests ?? 0,
+              newRequests: pendingRequests,
               activePromos,
               hasLiveSession: (overview?.inProgressAppointments ?? 0) > 0,
               recent: activity.map((e, i) => toActivity(t, e, i)),
@@ -383,11 +407,11 @@ export default function PartnerHubScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#00C870' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{
-          backgroundColor: '#00C870',
+          backgroundColor: BRAND_GREEN,
           paddingHorizontal: 20,
           paddingTop: insets.top > 0 ? 8 : 16,
           paddingBottom: 24,
@@ -750,7 +774,7 @@ export default function PartnerHubScreen() {
                   {t('partnerHub.growthTipText')}
                 </Text>
                 <TouchableOpacity onPress={() => (navigation as any).navigate('Profile')}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#00C870' }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: BRAND_GREEN }}>
                     {t('partnerHub.completeProfile')}
                   </Text>
                 </TouchableOpacity>

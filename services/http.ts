@@ -113,8 +113,10 @@ export function extractPageItems<T>(raw: unknown): T[] {
  *
  * Mirrors the backend's `PaginationWrapper`. `extractPageItems` above throws this metadata away,
  * which is why every list in the app used to stop at its first page with no way to reach the
- * rest — and why raising `PerPage` looked like a fix. The API now caps `PerPage` at 200, so
- * paging is the only way to see a long list.
+ * rest — and why raising `PerPage` looked like a fix. **The API caps `PerPage` at 200** (verified
+ * live 2026-08-10: `PerPage=500` comes back `itemsPerPage: 200`), and `Paginate=false` only drops
+ * the wrapper — it still returns at most one 200-row page, and a non-positive `Page`/`PerPage` is
+ * normalised rather than rejected. So paging is the only way to see a long list.
  */
 export interface PagedResult<T> {
   items: T[];
@@ -229,4 +231,133 @@ export async function apiAuthFetch(url: string, init?: RequestInit): Promise<Res
   headers['Authorization'] = `Bearer ${token}`;
 
   return apiFetch(url, { ...init, headers });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Request helpers
+//
+// Every service function used to repeat the same six steps by hand: build the
+// URL from `getApiBaseUrl()`, assemble a query string, call `apiAuthFetch`,
+// check `response.ok`, throw `parseApiError(...)`, then unwrap the body. That
+// boilerplate was ~90 copies of the same `if (!response.ok)` block, and each
+// copy was a chance to forget the error context tag or the pagination unwrap.
+//
+// Use these instead of hand-rolling a `fetch` sequence. They compose the same
+// primitives above, so behaviour (auth refresh, Accept-Language, dev logging,
+// error resolution order) is identical — there is just one copy of it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A value that can appear in a query string. */
+export type QueryValue = string | number | boolean | null | undefined;
+
+/**
+ * Builds a query string from a plain object, skipping keys that carry no value.
+ *
+ * `undefined`, `null` and `''` are omitted; `false` and `0` are kept, because
+ * they are meaningful filter values (`IsActive=false`, `Page=0`). This matches
+ * what the hand-written builders did with their mix of `!== undefined` and
+ * truthiness checks.
+ *
+ * Keys are sent exactly as written — the API binds PascalCase parameter names,
+ * and an unknown one binds to nothing rather than erroring, so a typo silently
+ * returns unfiltered results. Check names against `/swagger/v1/swagger.json`.
+ *
+ * @returns The encoded query string WITHOUT a leading `?` (empty when nothing is set).
+ */
+export function buildQuery(params: Record<string, QueryValue>): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue;
+    query.set(key, String(value));
+  }
+  return query.toString();
+}
+
+export interface ApiRequestOptions {
+  /** HTTP method. Defaults to `GET`. */
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  /** Query parameters — assembled with `buildQuery`, so empty values drop out. */
+  query?: Record<string, QueryValue>;
+  /**
+   * Request body. A `FormData` instance is passed through untouched (the runtime
+   * must set the multipart boundary); anything else is JSON-stringified.
+   */
+  body?: unknown;
+  /** Message shown when the response carries nothing more specific. */
+  fallback: string;
+  /** Tag for the dev console log, e.g. `'getReviews'`. */
+  context: string;
+  /** Set for endpoints that take no Bearer token (the public `/auth/*` routes). */
+  isPublic?: boolean;
+}
+
+/**
+ * Performs a request against the API and returns the raw `Response`, throwing a
+ * human-readable `Error` if the status is not ok. Prefer the typed wrappers
+ * below (`apiJson` / `apiList` / `apiPage` / `apiVoid`) — reach for this only
+ * when you need the `Response` itself (headers, streaming, a custom parse).
+ *
+ * @param path - API path beginning with a slash, e.g. `/api/reviews`.
+ */
+export async function apiRequest(path: string, options: ApiRequestOptions): Promise<Response> {
+  const { method = 'GET', query, body, fallback, context, isPublic = false } = options;
+
+  const queryString = query ? buildQuery(query) : '';
+  const url = `${getApiBaseUrl()}${path}${queryString ? `?${queryString}` : ''}`;
+
+  const isFormData = body instanceof FormData;
+
+  const init: RequestInit = { method };
+  if (body !== undefined) {
+    init.body = isFormData ? (body as FormData) : JSON.stringify(body);
+  }
+
+  // `apiAuthFetch` sets the JSON headers itself; `apiFetch` does not, so a public
+  // POST must declare them here or ASP.NET rejects the body with a 415. FormData
+  // is left alone either way — the runtime sets its multipart boundary.
+  if (isPublic && body !== undefined && !isFormData) {
+    init.headers = { Accept: 'application/json', 'Content-Type': 'application/json' };
+  }
+
+  const response = await (isPublic ? apiFetch(url, init) : apiAuthFetch(url, init));
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, fallback, context));
+  }
+
+  return response;
+}
+
+/** Request expecting a JSON object in the response body. */
+export async function apiJson<T>(path: string, options: ApiRequestOptions): Promise<T> {
+  const response = await apiRequest(path, options);
+  return (await response.json()) as T;
+}
+
+/**
+ * Request expecting a list response — returns just the items, unwrapping the
+ * pagination envelope via `extractPageItems`.
+ */
+export async function apiList<T>(path: string, options: ApiRequestOptions): Promise<T[]> {
+  return extractPageItems<T>(await apiJson<unknown>(path, options));
+}
+
+/**
+ * Request expecting a list response — returns one page with the counts needed to
+ * fetch the next (for `usePagedList`).
+ */
+export async function apiPage<T>(
+  path: string,
+  options: ApiRequestOptions
+): Promise<PagedResult<T>> {
+  return extractPage<T>(await apiJson<unknown>(path, options));
+}
+
+/**
+ * Request whose response body is irrelevant (`DELETE`, the `/admin/*` approve and
+ * decline actions, the booking lifecycle transitions). The body is never read, so
+ * this is safe against a `204 No Content` — calling `.json()` on one would throw.
+ */
+export async function apiVoid(path: string, options: ApiRequestOptions): Promise<void> {
+  await apiRequest(path, options);
 }

@@ -4,6 +4,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 export type RequestStatus = 'new' | 'accepted' | 'declined';
 
 export interface ServiceRequest {
@@ -135,15 +136,25 @@ export default function RequestCard({
         <Text className={`text-base font-bold ${textColor} mb-2`}>{request.serviceName}</Text>
 
         <View className="mb-1.5 flex-row items-center">
-          <Ionicons name="calendar-outline" size={14} color="#00C870" style={{ marginRight: 6 }} />
+          <Ionicons
+            name="calendar-outline"
+            size={14}
+            color={BRAND_GREEN}
+            style={{ marginRight: 6 }}
+          />
           <Text className={`text-sm ${subtextColor}`}>{request.serviceDate}</Text>
         </View>
         <View className="mb-1.5 flex-row items-center">
-          <Ionicons name="time-outline" size={14} color="#00C870" style={{ marginRight: 6 }} />
+          <Ionicons name="time-outline" size={14} color={BRAND_GREEN} style={{ marginRight: 6 }} />
           <Text className={`text-sm ${subtextColor}`}>{request.serviceTime}</Text>
         </View>
         <View className="flex-row items-center">
-          <Ionicons name="location-outline" size={14} color="#00C870" style={{ marginRight: 6 }} />
+          <Ionicons
+            name="location-outline"
+            size={14}
+            color={BRAND_GREEN}
+            style={{ marginRight: 6 }}
+          />
           <Text className={`text-sm ${subtextColor}`}>{request.serviceLocation}</Text>
         </View>
       </View>

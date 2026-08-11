@@ -5,7 +5,7 @@ import { GeoPoint } from '../../../services/geocoding';
 import { haversineKm } from '../../../services/distance';
 import { fetchRoutePath } from '../../../services/route-path';
 import { loadGoogleMaps, DEV_MAP_ID } from '../../../services/google-maps';
-import { themeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, themeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 
 export type LiveDirectionsMapProps = {
@@ -125,7 +125,7 @@ export default function LiveDirectionsMap({
         polylineRef.current = new maps.Polyline({
           map,
           path: [],
-          strokeColor: '#00C870',
+          strokeColor: BRAND_GREEN,
           strokeWeight: 4,
         });
         setMapReady(true);
@@ -156,7 +156,7 @@ export default function LiveDirectionsMap({
     const pos = { lat: destination.latitude, lng: destination.longitude };
     if (!destMarkerRef.current) {
       const pin = new maps.marker.PinElement({
-        background: '#00C870',
+        background: BRAND_GREEN,
         borderColor: '#00A85A',
         glyphColor: '#ffffff',
       });
@@ -272,7 +272,7 @@ export default function LiveDirectionsMap({
             </>
           ) : (
             <>
-              <ActivityIndicator size="small" color="#00C870" />
+              <ActivityIndicator size="small" color={BRAND_GREEN} />
               <Text style={{ color: hex.text, marginLeft: 8, fontSize: 12 }}>
                 {waitingLabel || t('liveSession.locatingYou')}
               </Text>

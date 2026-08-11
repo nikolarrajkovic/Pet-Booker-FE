@@ -2,7 +2,7 @@ import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useAuth } from '../../context/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
 import type { TranslationKey } from '../../i18n';
@@ -69,7 +69,11 @@ export default function TabBar() {
               accessibilityLabel={t(tab.labelKey)}
               accessibilityState={{ selected: isSelected }}
               onPress={() => (navigation as any).navigate(tab.route, tab.params)}>
-              <Ionicons name={tab.icon} size={24} color={isSelected ? '#00C870' : inactiveColor} />
+              <Ionicons
+                name={tab.icon}
+                size={24}
+                color={isSelected ? BRAND_GREEN : inactiveColor}
+              />
               <Text
                 className={`mt-1 text-xs ${isSelected ? 'font-semibold text-brand-500' : inactiveTextColor}`}>
                 {t(tab.labelKey)}

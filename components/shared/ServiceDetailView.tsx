@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { themeColors } from '../../hooks/useThemeColors';
+import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import { formatMoney } from '../../services/currency';
 
@@ -72,7 +72,7 @@ export default function ServiceDetailView({
             {service.rating && (
               <>
                 <View className="flex-row items-center rounded-lg bg-brand-50 px-2 py-1">
-                  <Ionicons name="star" size={16} color="#00C870" />
+                  <Ionicons name="star" size={16} color={BRAND_GREEN} />
                   <Text className="ml-1 font-semibold text-brand-700">
                     {service.rating.toFixed(1)}
                   </Text>
@@ -124,7 +124,7 @@ export default function ServiceDetailView({
                       className={`flex-row items-center justify-between rounded-xl p-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-green-50'}`}>
                       <View className="flex-1 flex-row items-center">
                         <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-100">
-                          <Ionicons name="car-outline" size={20} color="#00C870" />
+                          <Ionicons name="car-outline" size={20} color={BRAND_GREEN} />
                         </View>
                         <Text className={`font-medium ${textColor}`}>
                           {t('shared.petPickupAvailable')}
@@ -143,7 +143,7 @@ export default function ServiceDetailView({
                       className={`flex-row items-center justify-between rounded-xl p-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-green-50'} mt-2`}>
                       <View className="flex-1 flex-row items-center">
                         <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-100">
-                          <Ionicons name="home-outline" size={20} color="#00C870" />
+                          <Ionicons name="home-outline" size={20} color={BRAND_GREEN} />
                         </View>
                         <Text className={`font-medium ${textColor}`}>
                           {t('shared.petDropoffAvailable')}
@@ -166,7 +166,7 @@ export default function ServiceDetailView({
           <View
             className={`${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'} items-center rounded-2xl p-4`}>
             <View className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-brand-100">
-              <Ionicons name="location" size={24} color="#00C870" />
+              <Ionicons name="location" size={24} color={BRAND_GREEN} />
             </View>
             <Text className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'} font-medium`}>
               San Francisco, CA
@@ -186,7 +186,7 @@ export default function ServiceDetailView({
             style={
               onBookPress
                 ? {
-                    shadowColor: '#00C870',
+                    shadowColor: BRAND_GREEN,
                     shadowOffset: { width: 0, height: 4 },
                     shadowOpacity: 0.3,
                     shadowRadius: 8,

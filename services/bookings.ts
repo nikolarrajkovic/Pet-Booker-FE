@@ -1,4 +1,4 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
+import { apiJson, apiList, apiVoid } from './http';
 import { resolveImageUrl, AddressDto } from './service-providers';
 import type { ServicePricingOptionDto } from './services';
 
@@ -314,39 +314,32 @@ export type GetBookingsParams = {
 };
 
 export async function getBookings(params?: GetBookingsParams): Promise<BookingDto[]> {
-  const query = new URLSearchParams();
-  if (params?.userId !== undefined) query.set('UserId', String(params.userId));
-  if (params?.serviceProviderId !== undefined)
-    query.set('ServiceProviderId', String(params.serviceProviderId));
-  if (params?.serviceId !== undefined) query.set('ServiceId', String(params.serviceId));
-  if (params?.petId !== undefined) query.set('PetId', String(params.petId));
-  if (params?.state !== undefined) query.set('State', String(params.state));
-  if (params?.currentStatus !== undefined) query.set('CurrentStatus', String(params.currentStatus));
-  if (params?.bookingFrom) query.set('BookingFrom', params.bookingFrom);
-  if (params?.bookingTo) query.set('BookingTo', params.bookingTo);
-  query.set('Page', String(params?.page ?? 1));
-  query.set('PerPage', String(params?.perPage ?? 50));
-
-  const url = `${getApiBaseUrl()}/api/bookings?${query.toString()}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to load bookings.', 'getBookings'));
-  }
-
-  const raw = await response.json();
-  return extractPageItems<BookingDto>(raw).map(withResolvedAddresses);
+  const items = await apiList<BookingDto>('/api/bookings', {
+    query: {
+      UserId: params?.userId,
+      ServiceProviderId: params?.serviceProviderId,
+      ServiceId: params?.serviceId,
+      PetId: params?.petId,
+      State: params?.state,
+      CurrentStatus: params?.currentStatus,
+      BookingFrom: params?.bookingFrom,
+      BookingTo: params?.bookingTo,
+      Page: params?.page ?? 1,
+      PerPage: params?.perPage ?? 50,
+    },
+    fallback: 'Failed to load bookings.',
+    context: 'getBookings',
+  });
+  return items.map(withResolvedAddresses);
 }
 
 export async function getBooking(id: number): Promise<BookingDto> {
-  const url = `${getApiBaseUrl()}/api/bookings/${id}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to load booking.', 'getBooking'));
-  }
-
-  return withResolvedAddresses(await response.json());
+  return withResolvedAddresses(
+    await apiJson<BookingDto>(`/api/bookings/${id}`, {
+      fallback: 'Failed to load booking.',
+      context: 'getBooking',
+    })
+  );
 }
 
 export type CreateBookingInput = {
@@ -357,12 +350,23 @@ export type CreateBookingInput = {
   paymentMethodId: number; // REQUIRED — see API note below
   bookingFrom: string; // ISO date-time
   bookingTo: string; // ISO date-time
+  /**
+   * IGNORED SERVER-SIDE (since 2026-08-06) — kept because the quote returns them and the
+   * booking read carries them back, so the flow reads more honestly sending what it was
+   * quoted than sending nothing.
+   *
+   * The server derives base/discount from the booked service (or the chosen pricing option)
+   * on create, and `totalPrice` is computed from them plus the add-on lines; only a
+   * provider's `POST /bookings/{id}/adjust-price` can override a price afterwards. Before
+   * that fix the client's numbers were trusted whenever the service had no live promotion,
+   * so a 100 RSD service could be booked for 1 — the reason not to reintroduce a code path
+   * that "corrects" a price here.
+   */
   basePrice: number;
   discountAmount?: number;
   totalPrice: number;
   // The chosen pricing option — REQUIRED when the service defines
-  // pricingOptions. The server derives bookingTo/basePrice from the option
-  // (the values sent above are then ignored server-side).
+  // pricingOptions. The server derives bookingTo/basePrice from the option.
   pricingOptionId?: number;
   paymentType?: number; // defaults to Card
   // NOTE: there is deliberately no priceCurrency input — the server stamps it
@@ -452,17 +456,14 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
     };
   }
 
-  const url = `${getApiBaseUrl()}/api/bookings`;
-  const response = await apiAuthFetch(url, {
-    method: 'POST',
-    body: JSON.stringify(round2Payload(body)),
-  });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to create booking.', 'createBooking'));
-  }
-
-  return withResolvedAddresses(await response.json());
+  return withResolvedAddresses(
+    await apiJson<BookingDto>('/api/bookings', {
+      method: 'POST',
+      body: round2Payload(body),
+      fallback: 'Failed to create booking.',
+      context: 'createBooking',
+    })
+  );
 }
 
 /**
@@ -512,23 +513,48 @@ function toWritableBooking(b: BookingDto): BookingDto {
  * endpoints instead (confirmBooking / declineBooking / startBookingService /
  * endBookingService / cancelBooking). Kept only for non-lifecycle scalar edits.
  */
-export async function setBookingStatus(
-  booking: BookingDto,
-  currentStatus: number
-): Promise<BookingDto> {
-  const url = `${getApiBaseUrl()}/api/bookings/${booking.id}`;
+export function setBookingStatus(booking: BookingDto, currentStatus: number): Promise<BookingDto> {
   const body: BookingDto = { ...toWritableBooking(booking), currentStatus };
 
-  const response = await apiAuthFetch(url, {
+  return apiJson<BookingDto>(`/api/bookings/${booking.id}`, {
     method: 'PUT',
-    body: JSON.stringify(round2Payload(body)),
+    body: round2Payload(body),
+    fallback: 'Failed to update booking.',
+    context: 'setBookingStatus',
   });
+}
 
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to update booking.', 'setBookingStatus'));
-  }
+/**
+ * Normalises a cancel/decline reason to something the API will accept: the field
+ * is required and must be ≥10 characters (null → 400, 1–9 chars → 422), so a
+ * blank or too-short reason falls back to a valid generic one.
+ */
+function ensureCancelReason(reason: string | null | undefined, fallback: string): string {
+  const trimmed = (reason ?? '').trim();
+  return trimmed.length >= 10 ? trimmed : fallback;
+}
 
-  return response.json();
+/**
+ * POSTs one of the dedicated lifecycle transitions under `/bookings/{id}/…`.
+ *
+ * These endpoints all share a shape — id in the path, an optional `{ reason }`
+ * body, the updated booking back — so they run through here rather than
+ * repeating the request five times. Note the path has NO `/api` prefix, unlike
+ * the CRUD routes above.
+ */
+function bookingTransition(
+  id: number | null | undefined,
+  action: string,
+  fallback: string,
+  context: string,
+  reason?: string
+): Promise<BookingDto> {
+  return apiJson<BookingDto>(`/bookings/${id}/${action}`, {
+    method: 'POST',
+    body: reason === undefined ? undefined : { reason },
+    fallback,
+    context,
+  });
 }
 
 /**
@@ -537,17 +563,13 @@ export async function setBookingStatus(
  * ServiceStarted, currentStatus = 3), mirroring confirm/decline rather than the
  * generic status PUT.
  */
-export async function startBookingService(booking: BookingDto): Promise<BookingDto> {
-  const url = `${getApiBaseUrl()}/bookings/${booking.id}/start-service`;
-  const response = await apiAuthFetch(url, { method: 'POST' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to start service.', 'startBookingService')
-    );
-  }
-
-  return response.json();
+export function startBookingService(booking: BookingDto): Promise<BookingDto> {
+  return bookingTransition(
+    booking.id,
+    'start-service',
+    'Failed to start service.',
+    'startBookingService'
+  );
 }
 
 /**
@@ -557,17 +579,13 @@ export async function startBookingService(booking: BookingDto): Promise<BookingD
  * can 500 on the completion email for an invalid recipient (the seed `admin`,
  * BACKEND_GAPS B4); LiveSession still re-fetches on error as a guard.
  */
-export async function endBookingService(booking: BookingDto): Promise<BookingDto> {
-  const url = `${getApiBaseUrl()}/bookings/${booking.id}/complete-service`;
-  const response = await apiAuthFetch(url, { method: 'POST' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to complete service.', 'endBookingService')
-    );
-  }
-
-  return response.json();
+export function endBookingService(booking: BookingDto): Promise<BookingDto> {
+  return bookingTransition(
+    booking.id,
+    'complete-service',
+    'Failed to complete service.',
+    'endBookingService'
+  );
 }
 
 /**
@@ -578,15 +596,8 @@ export async function endBookingService(booking: BookingDto): Promise<BookingDto
  * ServiceRequestedByUser can be decided on."). Unlike the setBookingStatus PUT,
  * this does not 500 on recipients with invalid emails (BACKEND_GAPS B4).
  */
-export async function confirmBooking(id: number): Promise<BookingDto> {
-  const url = `${getApiBaseUrl()}/bookings/${id}/confirm`;
-  const response = await apiAuthFetch(url, { method: 'POST' });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to accept booking.', 'confirmBooking'));
-  }
-
-  return response.json();
+export function confirmBooking(id: number): Promise<BookingDto> {
+  return bookingTransition(id, 'confirm', 'Failed to accept booking.', 'confirmBooking');
 }
 
 /**
@@ -596,22 +607,16 @@ export async function confirmBooking(id: number): Promise<BookingDto> {
  * ServiceRequestedByUser bookings can be declined; use cancelBooking() to
  * cancel an already-accepted booking.
  */
-export async function declineBooking(id: number, reason?: string): Promise<BookingDto> {
-  // The decline body's `reason` is required and must be ≥10 chars server-side
-  // (null → 400, 1–9 chars → 422). Fall back to a valid generic reason.
-  const trimmed = (reason ?? '').trim();
-  const finalReason = trimmed.length >= 10 ? trimmed : 'Declined by the provider.';
-  const url = `${getApiBaseUrl()}/bookings/${id}/decline`;
-  const response = await apiAuthFetch(url, {
-    method: 'POST',
-    body: JSON.stringify({ reason: finalReason }),
-  });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to decline booking.', 'declineBooking'));
-  }
-
-  return response.json();
+export function declineBooking(id: number, reason?: string): Promise<BookingDto> {
+  return bookingTransition(
+    id,
+    'decline',
+    'Failed to decline booking.',
+    'declineBooking',
+    // The decline body's `reason` is required and must be ≥10 chars server-side
+    // (null → 400, 1–9 chars → 422). Fall back to a valid generic reason.
+    ensureCancelReason(reason, 'Declined by the provider.')
+  );
 }
 
 /**
@@ -621,27 +626,20 @@ export async function declineBooking(id: number, reason?: string): Promise<Booki
  * now that `state` was removed from the booking write DTO. The `reason` field is
  * required (≥10 chars, like decline) — a blank/short one falls back to a generic.
  */
-export async function cancelBooking(booking: BookingDto, reason?: string): Promise<BookingDto> {
-  const trimmed = (reason ?? booking.cancelReason ?? '').trim();
-  const finalReason = trimmed.length >= 10 ? trimmed : 'Cancelled by the user.';
-  const url = `${getApiBaseUrl()}/bookings/${booking.id}/cancel`;
-  const response = await apiAuthFetch(url, {
-    method: 'POST',
-    body: JSON.stringify({ reason: finalReason }),
-  });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to cancel booking.', 'cancelBooking'));
-  }
-
-  return response.json();
+export function cancelBooking(booking: BookingDto, reason?: string): Promise<BookingDto> {
+  return bookingTransition(
+    booking.id,
+    'cancel',
+    'Failed to cancel booking.',
+    'cancelBooking',
+    ensureCancelReason(reason ?? booking.cancelReason, 'Cancelled by the user.')
+  );
 }
 
-export async function deleteBooking(id: number): Promise<void> {
-  const url = `${getApiBaseUrl()}/api/bookings/${id}`;
-  const response = await apiAuthFetch(url, { method: 'DELETE' });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to delete booking.', 'deleteBooking'));
-  }
+export function deleteBooking(id: number): Promise<void> {
+  return apiVoid(`/api/bookings/${id}`, {
+    method: 'DELETE',
+    fallback: 'Failed to delete booking.',
+    context: 'deleteBooking',
+  });
 }

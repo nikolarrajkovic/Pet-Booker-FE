@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 interface BookingDetailsProps {
   isDarkMode: boolean;
   textColor: string;
@@ -21,7 +22,7 @@ export default function BookingDetails({
       <View className="mb-4 flex-row items-start">
         <View
           className={`h-10 w-10 ${isDarkMode ? 'bg-brand-500/20' : 'bg-brand-50'} mr-3 items-center justify-center rounded-xl`}>
-          <MaterialCommunityIcons name="calendar" size={20} color="#00C870" />
+          <MaterialCommunityIcons name="calendar" size={20} color={BRAND_GREEN} />
         </View>
         <View className="flex-1">
           <Text className={`text-sm ${subtextColor}`}>Date</Text>
@@ -31,7 +32,7 @@ export default function BookingDetails({
       <View className="mb-4 flex-row items-start">
         <View
           className={`h-10 w-10 ${isDarkMode ? 'bg-brand-500/20' : 'bg-brand-50'} mr-3 items-center justify-center rounded-xl`}>
-          <Ionicons name="time-outline" size={20} color="#00C870" />
+          <Ionicons name="time-outline" size={20} color={BRAND_GREEN} />
         </View>
         <View className="flex-1">
           <Text className={`text-sm ${subtextColor}`}>Time</Text>
@@ -41,7 +42,7 @@ export default function BookingDetails({
       <View className="flex-row items-start">
         <View
           className={`h-10 w-10 ${isDarkMode ? 'bg-brand-500/20' : 'bg-brand-50'} mr-3 items-center justify-center rounded-xl`}>
-          <MaterialCommunityIcons name="map-marker" size={20} color="#00C870" />
+          <MaterialCommunityIcons name="map-marker" size={20} color={BRAND_GREEN} />
         </View>
         <View className="flex-1">
           <Text className={`text-sm ${subtextColor}`}>Pickup</Text>

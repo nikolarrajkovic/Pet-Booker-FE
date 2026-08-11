@@ -7,6 +7,7 @@ import {
   resolveImageUrl,
   providerTypeLabel,
   providerTypeValue,
+  ServiceProviderType,
 } from '../../services/service-providers';
 import { createAddress } from '../../services/addresses';
 import { uploadFilesBulk } from '../../services/files';
@@ -575,18 +576,33 @@ export async function resolveServiceAddressForSave(
 export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): ServiceDto {
   // basePrice = the cheapest tier. Duration tiers persist separately as pricing
   // options (pricingTiersToOptions + saveServicePricingOptions); basePrice keeps
-  // the lean Home-rail DTO (which has no pricingOptions) showing a correct
-  // "from" price.
+  // any card that reads `price` alone showing a correct "from" figure.
+  //
+  // Note this payload deliberately carries no `discounts` — offers are written through
+  // /api/service-discounts (services/service-discounts.ts), which is where the coherence
+  // rules are honoured. The same validator now runs on this nested write too, so adding
+  // discounts here would mean re-implementing them.
   const tierPrices = form.pricingTiers
     .map((t) => parseFloat(t.price))
     .filter((p) => Number.isFinite(p));
   const basePrice = tierPrices.length ? Math.min(...tierPrices) : 0;
 
+  // Live tracking is server-restricted to Walker and Transporter services (422:
+  // "Live location tracking can only be enabled on Walker or Transporter services").
+  // The form has no toggle for it, so a provider switching an existing tracked Walker to,
+  // say, Groomer would round-trip `true` into an illegal combination and get a rejection
+  // about a setting they can't even see. Follow the type instead.
+  const type = providerTypeValue(form.serviceType) ?? 0;
+  const typeAllowsLiveTracking =
+    type === ServiceProviderType.Walker || type === ServiceProviderType.Transporter;
+
   const details: NonNullable<ServiceDto['details']> = {
     ...original?.details,
     // Non-nullable booleans with no UI yet — round-trip from the original so a
     // PUT doesn't reset them (default false on create).
-    supportsLiveTracking: original?.details?.supportsLiveTracking ?? false,
+    supportsLiveTracking: typeAllowsLiveTracking
+      ? (original?.details?.supportsLiveTracking ?? false)
+      : false,
     // FLAGS: 63 = all species accepted; new services default to accepting all
     acceptedSpecies: original?.details?.acceptedSpecies ?? 63,
     maxConcurrentBookings: form.maxPetCapacity ?? original?.details?.maxConcurrentBookings ?? 1,
@@ -620,7 +636,7 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
     currency: original?.currency ?? undefined,
     name: form.serviceName,
     description: form.description,
-    type: providerTypeValue(form.serviceType) ?? 0,
+    type,
     isActive: true,
     pricing,
     details,

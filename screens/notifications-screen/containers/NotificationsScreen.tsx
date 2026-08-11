@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { useNotifications } from '../../../context/NotificationsContext';
@@ -240,7 +240,7 @@ export default function NotificationsScreen() {
         }>
         {isLoading ? (
           <View className="flex-1 items-center justify-center py-20">
-            <ActivityIndicator size="large" color="#00C870" />
+            <ActivityIndicator size="large" color={BRAND_GREEN} />
           </View>
         ) : (
           <ScrollView
@@ -257,8 +257,8 @@ export default function NotificationsScreen() {
               <RefreshControl
                 refreshing={isRefreshing}
                 onRefresh={onRefresh}
-                tintColor="#00C870"
-                colors={['#00C870']}
+                tintColor={BRAND_GREEN}
+                colors={[BRAND_GREEN]}
               />
             }>
             {error ? (
@@ -278,7 +278,7 @@ export default function NotificationsScreen() {
               <View className="flex-1 items-center justify-center px-6 py-20">
                 <View
                   className={`mb-4 h-20 w-20 items-center justify-center rounded-full ${isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-50'}`}>
-                  <Ionicons name="notifications-off-outline" size={36} color="#00C870" />
+                  <Ionicons name="notifications-off-outline" size={36} color={BRAND_GREEN} />
                 </View>
                 <Text className={`text-lg font-semibold ${textColor} text-center`}>
                   {t('notifications.emptyTitle')}

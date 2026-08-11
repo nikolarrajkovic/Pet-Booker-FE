@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { getServices, ServiceDto, serviceCurrency } from '../../../services/services';
 import { formatMoney } from '../../../services/currency';
@@ -113,7 +113,7 @@ export default function ProviderDetailScreen() {
             {(avgRating > 0 || reviewCount > 0) && (
               <>
                 <View className="flex-row items-center rounded-lg bg-brand-50 px-2 py-1">
-                  <Ionicons name="star" size={16} color="#00C870" />
+                  <Ionicons name="star" size={16} color={BRAND_GREEN} />
                   <Text className="ml-1 font-semibold text-brand-700">
                     {avgRating > 0 ? avgRating.toFixed(1) : '—'}
                   </Text>
@@ -125,7 +125,7 @@ export default function ProviderDetailScreen() {
             )}
             {provider.verified && (
               <View className="flex-row items-center">
-                <Ionicons name="checkmark-circle" size={16} color="#00C870" />
+                <Ionicons name="checkmark-circle" size={16} color={BRAND_GREEN} />
                 <Text className="ml-1 text-sm text-brand-600">Verified</Text>
               </View>
             )}
@@ -170,7 +170,7 @@ export default function ProviderDetailScreen() {
           <View
             className={`${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'} items-center rounded-2xl p-4`}>
             <View className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-brand-100">
-              <Ionicons name="location" size={24} color="#00C870" />
+              <Ionicons name="location" size={24} color={BRAND_GREEN} />
             </View>
             <Text
               className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'} text-center font-medium`}>
@@ -182,7 +182,7 @@ export default function ProviderDetailScreen() {
         {/* Services or loading */}
         {isLoading ? (
           <View className="items-center py-8">
-            <ActivityIndicator color="#00C870" />
+            <ActivityIndicator color={BRAND_GREEN} />
             <Text className={`text-sm ${subtextColor} mt-2`}>Loading services...</Text>
           </View>
         ) : (

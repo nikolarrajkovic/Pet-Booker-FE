@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocation } from '../../../hooks/useLocation';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -173,7 +173,7 @@ export default function AccountScreen() {
         headerTitle={t('account.title')}
         contentBg={bgColor}>
         <View className="flex-1 items-center justify-center py-20">
-          <ActivityIndicator size="large" color="#00C870" />
+          <ActivityIndicator size="large" color={BRAND_GREEN} />
         </View>
       </ScreenLayout>
     );
@@ -308,7 +308,7 @@ export default function AccountScreen() {
             <TouchableOpacity
               onPress={() => setPickerVisible(true)}
               className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor} flex-row items-center`}>
-              <Ionicons name="location-outline" size={20} color="#00C870" />
+              <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
               <Text
                 className={`ml-3 flex-1 ${currentAddress ? inputText : subtextColor}`}
                 numberOfLines={2}>

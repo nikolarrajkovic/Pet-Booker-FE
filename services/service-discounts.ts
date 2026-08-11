@@ -1,4 +1,4 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
+import { apiJson, apiList, apiVoid } from './http';
 import { declaredWriteCurrency } from './currency';
 
 // DiscountType enum (verified /enums): 0=Percent, 1=Fixed
@@ -10,7 +10,13 @@ export type ServiceDiscountDto = {
   type: number; // DiscountType
   amount: number; // fixed amount (or generic amount)
   applyFrom: string; // ISO date-time
-  applyTo?: string | null; // ISO date-time, optional (open-ended)
+  /**
+   * ISO date-time, optional (open-ended). Must be strictly AFTER `applyFrom` — and the active
+   * window is inclusive on both ends, so a picked end DATE has to be sent as the last instant
+   * of that day (`endOfDayIso`) or the offer stops before the day it names. See
+   * `toWritableDiscount`.
+   */
+  applyTo?: string | null;
   isEnabled: boolean;
   percentAmount?: number | null; // percent value when type === Percent
   /**
@@ -24,9 +30,61 @@ export type ServiceDiscountDto = {
   currency?: string | null;
 };
 
-/** See `declaredWriteCurrency` — a Fixed discount's amount is money and must say so. */
-function withDeclaredCurrency(discount: ServiceDiscountDto): ServiceDiscountDto {
-  return { ...discount, currency: declaredWriteCurrency(discount.currency) };
+/** The last instant of `d`'s local day — what "the offer runs through this date" means. */
+function endOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+}
+
+/**
+ * A picked END DATE as the `applyTo` instant to send: the last moment of that day.
+ *
+ * The date pickers hand back midnight, and the server's active window is inclusive
+ * (`applyFrom <= now <= applyTo`) — so sending midnight ends the promotion 24h before the
+ * partner expects, and on a one-day offer makes `applyTo === applyFrom`, which the API rejects.
+ */
+export const endOfDayIso = (d: Date): string => endOfDay(d).toISOString();
+
+/**
+ * Makes a discount coherent before it goes on the wire.
+ *
+ * The API validates `Type` against the amount fields and 422s a row where they disagree
+ * (`ServiceDiscountDtoValidator`, added 2026-08-06). Three rules, all enforced here rather
+ * than at the call sites, because a row that reaches the server incoherent is a failed save
+ * for the partner and the screens had three separate copies of the mapping:
+ *
+ * - **Percent** must carry a `percentAmount` in `(0, 100]`. (It may repeat the figure in
+ *   `amount`; only a Fixed amount is treated as money and currency-converted.)
+ * - **Fixed** must carry `amount > 0` and **no** `percentAmount` — carrying one would make
+ *   the row bill as a percentage while every label read it as a flat amount.
+ * - **`applyTo` must be strictly after `applyFrom`.** The screens pick whole days, so a
+ *   one-day offer arrived as `applyTo === applyFrom` and was rejected outright. Pushing the
+ *   end to the last instant of its day is also what the partner meant: the active window is
+ *   inclusive (`applyFrom <= now <= applyTo`), so a midnight `applyTo` ended the promotion
+ *   *before* the day it names had begun.
+ *
+ * Out-of-range amounts are left alone — clamping a mistyped "150%" to 100 would silently
+ * sell something at half price. The screens validate those and say so.
+ */
+function toWritableDiscount(discount: ServiceDiscountDto): ServiceDiscountDto {
+  const isPercent = discount.type === DiscountType.Percent;
+  const percentAmount = isPercent ? (discount.percentAmount ?? discount.amount) : null;
+
+  let applyTo = discount.applyTo ?? null;
+  if (applyTo) {
+    const to = new Date(applyTo);
+    const from = new Date(discount.applyFrom);
+    if (!isNaN(to.getTime()) && !isNaN(from.getTime()) && to <= from) {
+      applyTo = endOfDay(to).toISOString();
+    }
+  }
+
+  return {
+    ...discount,
+    percentAmount,
+    applyTo,
+    // See `declaredWriteCurrency` — a Fixed discount's amount is money and must say so.
+    currency: declaredWriteCurrency(discount.currency),
+  };
 }
 
 export type GetServiceDiscountsParams = {
@@ -36,72 +94,46 @@ export type GetServiceDiscountsParams = {
   perPage?: number;
 };
 
-export async function getServiceDiscounts(
+export function getServiceDiscounts(
   params?: GetServiceDiscountsParams
 ): Promise<ServiceDiscountDto[]> {
-  const query = new URLSearchParams();
-  if (params?.serviceId !== undefined) query.set('ServiceId', String(params.serviceId));
-  if (params?.type !== undefined) query.set('Type', String(params.type));
-  query.set('Page', String(params?.page ?? 1));
-  query.set('PerPage', String(params?.perPage ?? 50));
-
-  const url = `${getApiBaseUrl()}/api/service-discounts?${query.toString()}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to load discounts.', 'getServiceDiscounts')
-    );
-  }
-
-  const raw = await response.json();
-  return extractPageItems<ServiceDiscountDto>(raw);
-}
-
-export async function createServiceDiscount(
-  discount: ServiceDiscountDto
-): Promise<ServiceDiscountDto> {
-  const url = `${getApiBaseUrl()}/api/service-discounts`;
-  const response = await apiAuthFetch(url, {
-    method: 'POST',
-    body: JSON.stringify({ id: 0, ...withDeclaredCurrency(discount) }),
+  return apiList<ServiceDiscountDto>('/api/service-discounts', {
+    query: {
+      ServiceId: params?.serviceId,
+      Type: params?.type,
+      Page: params?.page ?? 1,
+      PerPage: params?.perPage ?? 50,
+    },
+    fallback: 'Failed to load discounts.',
+    context: 'getServiceDiscounts',
   });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to create discount.', 'createServiceDiscount')
-    );
-  }
-
-  return response.json();
 }
 
-export async function updateServiceDiscount(
+export function createServiceDiscount(discount: ServiceDiscountDto): Promise<ServiceDiscountDto> {
+  return apiJson<ServiceDiscountDto>('/api/service-discounts', {
+    method: 'POST',
+    body: { id: 0, ...toWritableDiscount(discount) },
+    fallback: 'Failed to create discount.',
+    context: 'createServiceDiscount',
+  });
+}
+
+export function updateServiceDiscount(
   id: number,
   discount: ServiceDiscountDto
 ): Promise<ServiceDiscountDto> {
-  const url = `${getApiBaseUrl()}/api/service-discounts/${id}`;
-  const response = await apiAuthFetch(url, {
+  return apiJson<ServiceDiscountDto>(`/api/service-discounts/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ ...withDeclaredCurrency(discount), id }),
+    body: { ...toWritableDiscount(discount), id },
+    fallback: 'Failed to update discount.',
+    context: 'updateServiceDiscount',
   });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to update discount.', 'updateServiceDiscount')
-    );
-  }
-
-  return response.json();
 }
 
-export async function deleteServiceDiscount(id: number): Promise<void> {
-  const url = `${getApiBaseUrl()}/api/service-discounts/${id}`;
-  const response = await apiAuthFetch(url, { method: 'DELETE' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to delete discount.', 'deleteServiceDiscount')
-    );
-  }
+export function deleteServiceDiscount(id: number): Promise<void> {
+  return apiVoid(`/api/service-discounts/${id}`, {
+    method: 'DELETE',
+    fallback: 'Failed to delete discount.',
+    context: 'deleteServiceDiscount',
+  });
 }

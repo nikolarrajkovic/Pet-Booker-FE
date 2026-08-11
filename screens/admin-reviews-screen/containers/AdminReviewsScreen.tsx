@@ -5,16 +5,16 @@ import {
   View,
   TouchableOpacity,
   BackHandler,
-  ActivityIndicator,
   Modal,
   TextInput,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import ListState from '../../../components/shared/ListState';
+import FilterTabs, { moderationTabs } from '../../../components/shared/FilterTabs';
 import { ReviewModerationCard } from '../components';
 import type { ReviewModerationItem, ReviewStatus } from '../components';
 import { getReviews, ReviewDto } from '../../../services/reviews';
@@ -59,36 +59,8 @@ function reviewToItem(
 
 type FilterTab = ReviewStatus;
 
-// Labels are translation keys, resolved with t() at render.
-const TABS: {
-  key: FilterTab;
-  labelKey: string;
-  icon: any;
-  activeColor: string;
-  activeBg: string;
-}[] = [
-  {
-    key: 'pending',
-    labelKey: 'admin.statusPending',
-    icon: 'time-outline',
-    activeColor: '#A16207',
-    activeBg: '#FEF9C3',
-  },
-  {
-    key: 'approved',
-    labelKey: 'admin.statusApproved',
-    icon: 'checkmark-circle-outline',
-    activeColor: '#15803D',
-    activeBg: '#DCFCE7',
-  },
-  {
-    key: 'rejected',
-    labelKey: 'admin.statusDeclined',
-    icon: 'close-circle-outline',
-    activeColor: '#B91C1C',
-    activeBg: '#FEE2E2',
-  },
-];
+// A declined review reads "Declined" rather than the applications queue's "Rejected".
+const TABS = moderationTabs('admin.statusDeclined');
 
 export default function AdminReviewsScreen() {
   const navigation = useNavigation<any>();
@@ -217,104 +189,26 @@ export default function AdminReviewsScreen() {
       headerTitle={t('admin.reviewsTitle')}
       headerSubtitle={t('admin.reviewsSubtitle')}
       contentBg={contentBg}>
-      {/* ── Filter tabs ── */}
-      <View
-        style={{
-          flexDirection: 'row',
-          marginHorizontal: 16,
-          marginTop: 20,
-          marginBottom: 12,
-          gap: 8,
-        }}>
-        {TABS.map((tab) => {
-          const isActive = activeTab === tab.key;
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
-              activeOpacity={0.8}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: 20,
-                backgroundColor: isActive ? tab.activeBg : cardBg,
-                borderWidth: 1.5,
-                borderColor: isActive ? tab.activeColor + '55' : borderColor,
-              }}>
-              <Ionicons
-                name={tab.icon}
-                size={14}
-                color={isActive ? tab.activeColor : subTextColor}
-              />
-              <Text
-                style={{
-                  color: isActive ? tab.activeColor : subTextColor,
-                  fontSize: 13,
-                  fontWeight: '600',
-                  marginLeft: 5,
-                }}>
-                {t(tab.labelKey as any)}
-              </Text>
-              <View
-                style={{
-                  marginLeft: 5,
-                  backgroundColor: isActive ? tab.activeColor : isDarkMode ? '#374151' : '#E5E7EB',
-                  borderRadius: 8,
-                  minWidth: 18,
-                  height: 18,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingHorizontal: 4,
-                }}>
-                <Text
-                  style={{
-                    color: isActive ? 'white' : subTextColor,
-                    fontSize: 10,
-                    fontWeight: '700',
-                  }}>
-                  {counts[tab.key]}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      <FilterTabs tabs={TABS} activeKey={activeTab} onChange={setActiveTab} counts={counts} />
 
       {/* ── List ── */}
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, paddingTop: 4 }}
         showsVerticalScrollIndicator={false}>
-        {isLoading ? (
-          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
-            <ActivityIndicator size="large" color="#00C870" />
-          </View>
-        ) : loadError ? (
-          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
-            <Ionicons
-              name="alert-circle-outline"
-              size={64}
-              color={isDarkMode ? '#4B5563' : '#D1D5DB'}
-            />
-            <Text style={{ color: subTextColor, textAlign: 'center', marginTop: 16, fontSize: 15 }}>
-              {loadError}
-            </Text>
-          </View>
-        ) : filtered.length === 0 ? (
-          <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
-            <Ionicons name="star-outline" size={64} color={isDarkMode ? '#4B5563' : '#D1D5DB'} />
-            <Text style={{ color: subTextColor, textAlign: 'center', marginTop: 16, fontSize: 15 }}>
-              {activeTab === 'pending'
-                ? t('admin.noPendingReviews')
-                : activeTab === 'approved'
-                  ? t('admin.noApprovedReviews')
-                  : t('admin.noDeclinedReviews')}
-            </Text>
-          </View>
-        ) : (
-          filtered.map((review) => (
+        <ListState
+          isLoading={isLoading}
+          error={loadError}
+          isEmpty={filtered.length === 0}
+          emptyIcon="star-outline"
+          emptyMessage={
+            activeTab === 'pending'
+              ? t('admin.noPendingReviews')
+              : activeTab === 'approved'
+                ? t('admin.noApprovedReviews')
+                : t('admin.noDeclinedReviews')
+          }>
+          {filtered.map((review) => (
             <ReviewModerationCard
               key={review.id}
               review={review}
@@ -327,8 +221,8 @@ export default function AdminReviewsScreen() {
               onApprove={busyId !== null ? undefined : handleApprove}
               onDecline={busyId !== null ? undefined : handleDecline}
             />
-          ))
-        )}
+          ))}
+        </ListState>
       </ScrollView>
 
       {/* ── Decline-reason modal ── */}
@@ -361,7 +255,7 @@ export default function AdminReviewsScreen() {
                 minHeight: 80,
                 marginBottom: declineReasonTooShort ? 4 : 16,
               }}
-              selectionColor="#00C870"
+              selectionColor={BRAND_GREEN}
             />
             {declineReasonTooShort && (
               <Text style={{ color: '#EF4444', fontSize: 12, marginBottom: 12 }}>

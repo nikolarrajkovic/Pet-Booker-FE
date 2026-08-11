@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { themeColors } from '../../hooks/useThemeColors';
+import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import { getCurrentPosition, GeoPoint } from '../../services/geocoding';
 import { loadGoogleMaps, DEV_MAP_ID } from '../../services/google-maps';
@@ -114,7 +114,7 @@ export default function DirectionsModal({
                 icon: {
                   path: 'M 0,-1 0,1',
                   strokeOpacity: 1,
-                  strokeColor: '#00C870',
+                  strokeColor: BRAND_GREEN,
                   strokeWeight: 4,
                   scale: 2,
                 },
@@ -134,7 +134,7 @@ export default function DirectionsModal({
             const coords = d?.routes?.[0]?.geometry?.coordinates;
             if (coords?.length) {
               const path = coords.map((p: [number, number]) => ({ lat: p[1], lng: p[0] }));
-              new maps.Polyline({ map, path, strokeColor: '#00C870', strokeWeight: 4 });
+              new maps.Polyline({ map, path, strokeColor: BRAND_GREEN, strokeWeight: 4 });
               fit(path);
             } else {
               straight();
@@ -209,7 +209,7 @@ export default function DirectionsModal({
                 paddingVertical: 8,
                 borderRadius: 20,
               }}>
-              <ActivityIndicator size="small" color="#00C870" />
+              <ActivityIndicator size="small" color={BRAND_GREEN} />
               <Text style={{ color: hex.text, marginLeft: 8, fontSize: 13 }}>Finding route…</Text>
             </View>
           ) : null}
@@ -219,7 +219,7 @@ export default function DirectionsModal({
         <View style={{ padding: 16, backgroundColor: hex.card }}>
           {destinationLabel ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-              <Ionicons name="location" size={16} color="#00C870" />
+              <Ionicons name="location" size={16} color={BRAND_GREEN} />
               <Text
                 style={{ color: hex.text, fontSize: 14, marginLeft: 6, flex: 1 }}
                 numberOfLines={2}>
@@ -236,7 +236,7 @@ export default function DirectionsModal({
             onPress={openExternal}
             disabled={!destination}
             style={{
-              backgroundColor: '#00C870',
+              backgroundColor: BRAND_GREEN,
               paddingVertical: 16,
               borderRadius: 16,
               alignItems: 'center',

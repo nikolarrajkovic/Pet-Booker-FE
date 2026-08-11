@@ -1,11 +1,4 @@
-import {
-  apiAuthFetch,
-  getApiBaseUrl,
-  parseApiError,
-  extractPageItems,
-  extractPage,
-  type PagedResult,
-} from './http';
+import { apiList, apiPage, apiVoid, type ApiRequestOptions, type PagedResult } from './http';
 
 // NotificationType (swagger enum, NOT exposed via /enums — synced with the
 // backend's Domain.NotificationType 2026-07). Drives the per-row icon in the inbox.
@@ -53,33 +46,26 @@ export type GetAppNotificationsParams = {
   perPage?: number;
 };
 
-function buildQuery(params?: GetAppNotificationsParams): URLSearchParams {
-  const query = new URLSearchParams();
-  if (params?.userId !== undefined) query.set('UserId', String(params.userId));
-  if (params?.isRead !== undefined) query.set('IsRead', String(params.isRead));
-  if (params?.type !== undefined) query.set('Type', String(params.type));
-  query.set('Page', String(params?.page ?? 1));
-  query.set('PerPage', String(params?.perPage ?? 50));
-  return query;
-}
-
-async function fetchNotifications(params?: GetAppNotificationsParams): Promise<unknown> {
-  const url = `${getApiBaseUrl()}/api/app-notifications?${buildQuery(params).toString()}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to load notifications.', 'getAppNotifications')
-    );
-  }
-  return response.json();
+/** Shared request options for the list shapes below — one place for the filter names. */
+function notificationsRequest(params?: GetAppNotificationsParams): ApiRequestOptions {
+  return {
+    query: {
+      UserId: params?.userId,
+      IsRead: params?.isRead,
+      Type: params?.type,
+      Page: params?.page ?? 1,
+      PerPage: params?.perPage ?? 50,
+    },
+    fallback: 'Failed to load notifications.',
+    context: 'getAppNotifications',
+  };
 }
 
 /** Returns the user's in-app notifications (newest first as served by the API). */
-export async function getAppNotifications(
+export function getAppNotifications(
   params?: GetAppNotificationsParams
 ): Promise<AppNotificationDto[]> {
-  return extractPageItems<AppNotificationDto>(await fetchNotifications(params));
+  return apiList<AppNotificationDto>('/api/app-notifications', notificationsRequest(params));
 }
 
 /**
@@ -87,44 +73,35 @@ export async function getAppNotifications(
  * A notification feed grows without limit, so the un-paged variant above only ever shows the
  * newest page.
  */
-export async function getAppNotificationsPage(
+export function getAppNotificationsPage(
   params?: GetAppNotificationsParams
 ): Promise<PagedResult<AppNotificationDto>> {
-  return extractPage<AppNotificationDto>(await fetchNotifications(params));
+  return apiPage<AppNotificationDto>('/api/app-notifications', notificationsRequest(params));
 }
 
-/** Cheap unread-count probe — reads the pagination wrapper's totalItems. */
+/**
+ * Cheap unread-count probe — asks for a single row and reads the wrapper's `totalItems`
+ * rather than the page itself. `extractPage` falls back to the item count for a response
+ * with no counts, so this stays correct against a bare-array endpoint.
+ */
 export async function getUnreadNotificationCount(userId: number): Promise<number> {
-  const query = buildQuery({ userId, isRead: false, page: 1, perPage: 1 });
-  const url = `${getApiBaseUrl()}/api/app-notifications?${query.toString()}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to load unread count.', 'getUnreadNotificationCount')
-    );
-  }
-
-  const raw = await response.json();
-  return typeof raw?.totalItems === 'number'
-    ? raw.totalItems
-    : extractPageItems<AppNotificationDto>(raw).length;
+  const page = await apiPage<AppNotificationDto>('/api/app-notifications', {
+    ...notificationsRequest({ userId, isRead: false, page: 1, perPage: 1 }),
+    fallback: 'Failed to load unread count.',
+    context: 'getUnreadNotificationCount',
+  });
+  return page.totalItems;
 }
 
 // The write DTO only accepts { id, isRead } — the server stamps readAt itself
 // (verified live). Everything else is read-only.
-export async function markNotificationRead(id: number, isRead = true): Promise<void> {
-  const url = `${getApiBaseUrl()}/api/app-notifications/${id}`;
-  const response = await apiAuthFetch(url, {
+export function markNotificationRead(id: number, isRead = true): Promise<void> {
+  return apiVoid(`/api/app-notifications/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ id, isRead }),
+    body: { id, isRead },
+    fallback: 'Failed to update notification.',
+    context: 'markNotificationRead',
   });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to update notification.', 'markNotificationRead')
-    );
-  }
 }
 
 /** Marks every supplied notification read in parallel (best-effort). */

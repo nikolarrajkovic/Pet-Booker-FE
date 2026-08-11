@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Switch, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
@@ -91,7 +91,7 @@ export default function NotificationSettingsScreen() {
       contentBg={bgColor}>
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
-          <ActivityIndicator size="large" color="#00C870" />
+          <ActivityIndicator size="large" color={BRAND_GREEN} />
         </View>
       ) : (
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -230,7 +230,7 @@ export default function NotificationSettingsScreen() {
                 <Switch
                   value={s.dndEnabled}
                   onValueChange={(v) => update({ dndEnabled: v })}
-                  trackColor={{ false: isDarkMode ? '#374151' : '#d1d5db', true: '#00C870' }}
+                  trackColor={{ false: isDarkMode ? '#374151' : '#d1d5db', true: BRAND_GREEN }}
                   thumbColor="white"
                   ios_backgroundColor={isDarkMode ? '#374151' : '#d1d5db'}
                 />

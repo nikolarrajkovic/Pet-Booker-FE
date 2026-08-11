@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity, ActivityIndicator } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 export type ReviewStatus = 'pending' | 'approved' | 'rejected';
 
 export type ReviewModerationItem = {
@@ -207,7 +208,7 @@ export function ReviewModerationCard({
               justifyContent: 'center',
               paddingVertical: 11,
               borderRadius: 12,
-              backgroundColor: '#00C870',
+              backgroundColor: BRAND_GREEN,
               opacity: busy ? 0.6 : 1,
             }}>
             {busy ? (

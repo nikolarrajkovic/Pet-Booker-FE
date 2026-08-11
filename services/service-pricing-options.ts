@@ -1,4 +1,4 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
+import { apiJson, apiList, apiVoid } from './http';
 import { ServicePricingOptionDto } from './services';
 import { declaredWriteCurrency } from './currency';
 
@@ -18,79 +18,43 @@ function withDeclaredCurrency(option: ServicePricingOptionDto): ServicePricingOp
   return { ...option, currency: declaredWriteCurrency(option.currency) };
 }
 
-export async function getServicePricingOptions(
-  serviceId: number
-): Promise<ServicePricingOptionDto[]> {
-  const query = new URLSearchParams();
-  query.set('ServiceId', String(serviceId));
-  query.set('PerPage', '50');
-  const url = `${getApiBaseUrl()}/api/service-pricing-options?${query.toString()}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to load pricing options.', 'getServicePricingOptions')
-    );
-  }
-
-  const raw = await response.json();
-  return extractPageItems<ServicePricingOptionDto>(raw);
+export function getServicePricingOptions(serviceId: number): Promise<ServicePricingOptionDto[]> {
+  return apiList<ServicePricingOptionDto>('/api/service-pricing-options', {
+    query: { ServiceId: serviceId, PerPage: 50 },
+    fallback: 'Failed to load pricing options.',
+    context: 'getServicePricingOptions',
+  });
 }
 
-export async function createServicePricingOption(
+export function createServicePricingOption(
   option: ServicePricingOptionDto
 ): Promise<ServicePricingOptionDto> {
-  const url = `${getApiBaseUrl()}/api/service-pricing-options`;
-  const response = await apiAuthFetch(url, {
+  return apiJson<ServicePricingOptionDto>('/api/service-pricing-options', {
     method: 'POST',
-    body: JSON.stringify(withDeclaredCurrency(option)),
+    body: withDeclaredCurrency(option),
+    fallback: 'Failed to save pricing option.',
+    context: 'createServicePricingOption',
   });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to save pricing option.', 'createServicePricingOption')
-    );
-  }
-
-  return response.json();
 }
 
-export async function updateServicePricingOption(
+export function updateServicePricingOption(
   id: number,
   option: ServicePricingOptionDto
 ): Promise<ServicePricingOptionDto> {
-  const url = `${getApiBaseUrl()}/api/service-pricing-options/${id}`;
-  const response = await apiAuthFetch(url, {
+  return apiJson<ServicePricingOptionDto>(`/api/service-pricing-options/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ ...withDeclaredCurrency(option), id }),
+    body: { ...withDeclaredCurrency(option), id },
+    fallback: 'Failed to update pricing option.',
+    context: 'updateServicePricingOption',
   });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(
-        response,
-        'Failed to update pricing option.',
-        'updateServicePricingOption'
-      )
-    );
-  }
-
-  return response.json();
 }
 
-export async function deleteServicePricingOption(id: number): Promise<void> {
-  const url = `${getApiBaseUrl()}/api/service-pricing-options/${id}`;
-  const response = await apiAuthFetch(url, { method: 'DELETE' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(
-        response,
-        'Failed to remove pricing option.',
-        'deleteServicePricingOption'
-      )
-    );
-  }
+export function deleteServicePricingOption(id: number): Promise<void> {
+  return apiVoid(`/api/service-pricing-options/${id}`, {
+    method: 'DELETE',
+    fallback: 'Failed to remove pricing option.',
+    context: 'deleteServicePricingOption',
+  });
 }
 
 /**

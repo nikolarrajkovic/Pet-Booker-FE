@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TextInput, TextInputProps } from 'react-native';
 import { useCurrency } from '../../hooks/useCurrency';
 
+import { BRAND_GREEN } from '../../hooks/useThemeColors';
 type Props = Omit<TextInputProps, 'keyboardType'> & {
   /** The currency being entered; omit to use the user's display preference. */
   currency?: string | null;
@@ -49,8 +50,8 @@ export default function CurrencyInput({
         // like "RSD" spills out under the next sibling (the tier row's Remove button).
         style={[{ minWidth: 0 }, style]}
         keyboardType={keyboardType}
-        selectionColor="#00C870"
-        cursorColor="#00C870"
+        selectionColor={BRAND_GREEN}
+        cursorColor={BRAND_GREEN}
       />
       {suffix ? (
         <Text className={`ml-2 ${affixClassName}`} style={AFFIX_STYLE} numberOfLines={1}>

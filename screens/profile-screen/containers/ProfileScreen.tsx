@@ -3,7 +3,7 @@ import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import TabBar from '../../../components/shared/TabBar';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
@@ -19,7 +19,7 @@ const USER_MENU_ITEMS = [
     iconType: 'ionicons',
     titleKey: 'profile.account',
     subtitleKey: 'profile.accountSub',
-    color: '#00C870',
+    color: BRAND_GREEN,
   },
   {
     id: 'pets',
@@ -27,7 +27,7 @@ const USER_MENU_ITEMS = [
     iconType: 'material',
     titleKey: 'profile.pets',
     subtitleKey: 'profile.petsSub',
-    color: '#00C870',
+    color: BRAND_GREEN,
   },
   {
     id: 'bookings',
@@ -35,7 +35,7 @@ const USER_MENU_ITEMS = [
     iconType: 'ionicons',
     titleKey: 'profile.bookings',
     subtitleKey: 'profile.bookingsSub',
-    color: '#00C870',
+    color: BRAND_GREEN,
   },
   {
     id: 'schedule',
@@ -43,7 +43,7 @@ const USER_MENU_ITEMS = [
     iconType: 'ionicons',
     titleKey: 'profile.schedule',
     subtitleKey: 'profile.scheduleSub',
-    color: '#00C870',
+    color: BRAND_GREEN,
   },
   {
     id: 'notifications',
@@ -51,7 +51,7 @@ const USER_MENU_ITEMS = [
     iconType: 'ionicons',
     titleKey: 'profile.notifications',
     subtitleKey: 'profile.notificationsSub',
-    color: '#00C870',
+    color: BRAND_GREEN,
   },
   {
     id: 'notification-settings',
@@ -59,7 +59,7 @@ const USER_MENU_ITEMS = [
     iconType: 'ionicons',
     titleKey: 'profile.notificationSettings',
     subtitleKey: 'profile.notificationSettingsSub',
-    color: '#00C870',
+    color: BRAND_GREEN,
   },
   {
     id: 'settings',
@@ -67,7 +67,7 @@ const USER_MENU_ITEMS = [
     iconType: 'ionicons',
     titleKey: 'profile.settings',
     subtitleKey: 'profile.settingsSub',
-    color: '#00C870',
+    color: BRAND_GREEN,
   },
 ];
 
@@ -254,7 +254,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           <View className="mb-4 mt-6 items-center">
-            <Text className={`text-sm ${subtextColor}`}>PawCare v1.0.0</Text>
+            <Text className={`text-sm ${subtextColor}`}>{t('login.appName')} v1.0.0</Text>
             <Text className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} mt-1`}>
               {t('profile.rights')}
             </Text>

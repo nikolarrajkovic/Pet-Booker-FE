@@ -5,6 +5,7 @@ import { COUNTRIES, Country, DEFAULT_COUNTRY, detectCountry, parsePhone } from '
 import CountryFlag from './CountryFlag';
 import { useLocale } from '../../context/LocaleContext';
 
+import { BRAND_GREEN } from '../../hooks/useThemeColors';
 interface PhoneInputProps {
   /** Stored phone value (dial code + national number, e.g. "+38164 123 4567"). */
   value: string;
@@ -213,7 +214,7 @@ export default function PhoneInput({
                     <CountryFlag iso={item.iso} width={30} />
                     <Text className={`ml-3 flex-1 ${textColor}`}>{item.name}</Text>
                     <Text className={`${subtextColor} mr-2`}>{item.dialCode}</Text>
-                    {selected && <Ionicons name="checkmark" size={18} color="#00C870" />}
+                    {selected && <Ionicons name="checkmark" size={18} color={BRAND_GREEN} />}
                   </TouchableOpacity>
                 );
               }}

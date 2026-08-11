@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
-import { useThemeColors } from '../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 
 /**
@@ -56,7 +56,7 @@ export default function LoadMoreFooter({
       {isLoadingMore ? (
         // 44pt-tall box so the list doesn't jump when the spinner swaps for the button.
         <View className="h-11 justify-center">
-          <ActivityIndicator size="small" color="#00C870" />
+          <ActivityIndicator size="small" color={BRAND_GREEN} />
         </View>
       ) : hasMore ? (
         <TouchableOpacity

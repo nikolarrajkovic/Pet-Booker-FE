@@ -7,6 +7,7 @@ import { formatMoney } from '../../../services/currency';
 import { serviceCurrency } from '../../../services/services';
 import type { ServiceSearchItem } from './ListView';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 interface LocationData {
   latitude: number;
   longitude: number;
@@ -71,7 +72,7 @@ export default function MapViewComponent({
             longitude: location.longitude,
           }}
           title="You are here"
-          pinColor="#00C870"
+          pinColor={BRAND_GREEN}
         />
 
         {/* Service markers — only services with a geocoded address get a pin */}

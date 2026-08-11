@@ -1,4 +1,4 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
+import { apiJson, apiList, apiVoid, getApiBaseUrl } from './http';
 import { uploadFilesBulk } from './files';
 
 // ─── Shared DTO types ────────────────────────────────────────────────────────
@@ -135,6 +135,20 @@ export function registerServiceProviderTypeLabels(
   }
   runtimeTypeLabels = map;
 }
+
+/**
+ * ServiceProviderType — the numeric values behind {@link PROVIDER_TYPE_LABELS}, for the rules
+ * that key off a specific type rather than off its label (e.g. live tracking is only legal on
+ * Walker/Transporter services). Prefer this over writing the bare number at a call site.
+ */
+export const ServiceProviderType = {
+  Sitter: 0,
+  Walker: 1,
+  Boarder: 2,
+  PetHotel: 3,
+  Groomer: 4,
+  Transporter: 5,
+} as const;
 
 // Static fallback labels (ServiceProviderType enum: 0=Sitter, 1=Walker,
 // 2=Boarder, 3=PetHotel, 4=Groomer, 5=Transporter) — kept in sync with the enum
@@ -278,58 +292,41 @@ export type GetServiceProvidersParams = {
   perPage?: number;
 };
 
-export async function getServiceProviders(
+export function getServiceProviders(
   params?: GetServiceProvidersParams
 ): Promise<ServiceProviderDto[]> {
-  const query = new URLSearchParams();
-  if (params?.name) query.set('Name', params.name);
-  if (params?.city) query.set('City', params.city);
-  if (params?.type !== undefined) query.set('Type', String(params.type));
-  if (params?.isApproved !== undefined) query.set('IsApproved', String(params.isApproved));
-  if (params?.approvalStatus !== undefined)
-    query.set('ApprovalStatus', String(params.approvalStatus));
-  query.set('Page', String(params?.page ?? 1));
-  query.set('PerPage', String(params?.perPage ?? 50));
-
-  const url = `${getApiBaseUrl()}/api/service-providers?${query.toString()}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to load providers.', 'getServiceProviders')
-    );
-  }
-
-  const raw = await response.json();
-  return extractPageItems<ServiceProviderDto>(raw);
+  return apiList<ServiceProviderDto>('/api/service-providers', {
+    query: {
+      Name: params?.name,
+      City: params?.city,
+      Type: params?.type,
+      IsApproved: params?.isApproved,
+      ApprovalStatus: params?.approvalStatus,
+      Page: params?.page ?? 1,
+      PerPage: params?.perPage ?? 50,
+    },
+    fallback: 'Failed to load providers.',
+    context: 'getServiceProviders',
+  });
 }
 
-export async function getServiceProvider(id: number): Promise<ServiceProviderDto> {
-  const url = `${getApiBaseUrl()}/api/service-providers/${id}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to load provider.', 'getServiceProvider')
-    );
-  }
-
-  return response.json();
+export function getServiceProvider(id: number): Promise<ServiceProviderDto> {
+  return apiJson<ServiceProviderDto>(`/api/service-providers/${id}`, {
+    fallback: 'Failed to load provider.',
+    context: 'getServiceProvider',
+  });
 }
 
 // NOTE: a partner's own provider id is now exposed on /auth/me as
 // `currentUser.serviceProviderId` (P1 resolved) — read it directly instead of
 // fetching the provider list. (The old getMyProvider helper has been removed.)
 
-export async function deleteServiceProvider(id: number): Promise<void> {
-  const url = `${getApiBaseUrl()}/api/service-providers/${id}`;
-  const response = await apiAuthFetch(url, { method: 'DELETE' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to delete provider.', 'deleteServiceProvider')
-    );
-  }
+export function deleteServiceProvider(id: number): Promise<void> {
+  return apiVoid(`/api/service-providers/${id}`, {
+    method: 'DELETE',
+    fallback: 'Failed to delete provider.',
+    context: 'deleteServiceProvider',
+  });
 }
 
 /** Returns the service-type label (enum `displayName`) for a ServiceProviderType value. */
@@ -369,8 +366,6 @@ export type CreateServiceProviderPayload = {
 };
 
 export async function createServiceProvider(payload: CreateServiceProviderPayload): Promise<void> {
-  const url = `${getApiBaseUrl()}/api/service-providers`;
-
   // Build a single flat upload list, tracking where each group starts:
   // [profilePhoto?, ...petPhotos, ...governmentIdFiles, ...certificateFiles]
   const allFiles: { uri: string; fileName?: string }[] = [];
@@ -481,16 +476,10 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
     certificates,
   };
 
-  console.log('[createServiceProvider] body', JSON.stringify(body, null, 2));
-
-  const response = await apiAuthFetch(url, {
+  await apiVoid('/api/service-providers', {
     method: 'POST',
-    body: JSON.stringify(body),
+    body,
+    fallback: 'Failed to submit application.',
+    context: 'createServiceProvider',
   });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to submit application.', 'createServiceProvider')
-    );
-  }
 }

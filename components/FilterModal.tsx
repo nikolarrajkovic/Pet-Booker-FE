@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, ScrollView, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import { useThemeColors } from '../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../hooks/useThemeColors';
 import { useCurrency } from '../hooks/useCurrency';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEnums } from '../context/EnumsContext';
@@ -217,9 +217,9 @@ export default function FilterModal({
                     priceRange: [prev.priceRange[0], Math.round(value)],
                   }))
                 }
-                minimumTrackTintColor="#00C870"
+                minimumTrackTintColor={BRAND_GREEN}
                 maximumTrackTintColor={isDarkMode ? '#374151' : '#E5E7EB'}
-                thumbTintColor="#00C870"
+                thumbTintColor={BRAND_GREEN}
               />
             </View>
 

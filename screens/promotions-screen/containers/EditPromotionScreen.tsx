@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -21,6 +21,7 @@ import {
   updateServiceDiscount,
   deleteServiceDiscount,
   DiscountType,
+  endOfDayIso,
 } from '../../../services/service-discounts';
 import { getErrorMessage } from '../../../services/http';
 
@@ -32,7 +33,7 @@ const TYPE_META: Record<
   boost: {
     labelKey: 'promotions.boostListing',
     iconBg: 'bg-blue-100',
-    icon: <Ionicons name="trending-up" size={22} color="#00C870" />,
+    icon: <Ionicons name="trending-up" size={22} color={BRAND_GREEN} />,
   },
   featured: {
     labelKey: 'promotions.featuredBadge',
@@ -148,7 +149,9 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
       Alert.alert(t('promotions.invalidPctTitle'), t('promotions.invalidPctMsg'));
       return;
     }
-    if (startDate && endDate && endDate < startDate) {
+    // Compare against the start actually sent below (an unparsed start falls back to now), or a
+    // backwards window slips through and comes back as a 422 the partner can't act on.
+    if (endDate && endDate < startOfDay(startDate ?? new Date())) {
       Alert.alert(t('promotions.invalidDatesTitle'), t('promotions.invalidDatesMsg'));
       return;
     }
@@ -161,7 +164,9 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
         amount: val,
         percentAmount: isPercent ? val : null,
         applyFrom: (startDate ?? new Date()).toISOString(),
-        applyTo: endDate ? endDate.toISOString() : null,
+        // The picker hands back midnight; the offer runs through the whole day it names, and a
+        // one-day offer would otherwise land on applyTo === applyFrom, which the API rejects.
+        applyTo: endDate ? endOfDayIso(endDate) : null,
         isEnabled: promotion.status === 'active',
       });
       navigation.goBack();

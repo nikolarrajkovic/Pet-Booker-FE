@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
-import { themeColors } from '../../hooks/useThemeColors';
+import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import {
   reverseGeocodeToAddress,
@@ -135,7 +135,7 @@ export default function MapAddressPicker({
               placeholderTextColor={hex.subtext}
               style={{ flex: 1, paddingVertical: 10, paddingHorizontal: 8, color: hex.text }}
             />
-            {searching ? <ActivityIndicator color="#00C870" /> : null}
+            {searching ? <ActivityIndicator color={BRAND_GREEN} /> : null}
           </View>
         </View>
 
@@ -162,7 +162,7 @@ export default function MapAddressPicker({
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-            <Ionicons name="location" size={42} color="#00C870" style={{ marginBottom: 42 }} />
+            <Ionicons name="location" size={42} color={BRAND_GREEN} style={{ marginBottom: 42 }} />
           </View>
           <TouchableOpacity
             onPress={locateMe}
@@ -181,7 +181,7 @@ export default function MapAddressPicker({
               shadowOpacity: 0.2,
               shadowRadius: 4,
             }}>
-            <Ionicons name="locate" size={22} color="#00C870" />
+            <Ionicons name="locate" size={22} color={BRAND_GREEN} />
           </TouchableOpacity>
         </View>
 
@@ -194,7 +194,7 @@ export default function MapAddressPicker({
             onPress={confirm}
             disabled={busy}
             style={{
-              backgroundColor: '#00C870',
+              backgroundColor: BRAND_GREEN,
               paddingVertical: 16,
               borderRadius: 16,
               alignItems: 'center',

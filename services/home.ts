@@ -1,26 +1,30 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
+import { apiList, QueryValue } from './http';
 import { ServiceDto } from './services';
 
-// Home-page sections come from dedicated backend endpoints (one per row) rather
-// than slicing a single getServices list. Each returns a (leaner) ServiceDto[]:
-// `serviceProviderId`/`name`/`type`/`pricing`/`details`/`photos`/`id` +
-// `distanceFromMyLocationKm` (no precomputed rating/price/imageUrl/discount).
+// Home-page sections come from dedicated backend endpoints (one per row) rather than slicing a
+// single getServices list.
+//
+// Each returns the SAME read shape as GET /api/services (verified live 2026-08-10): the card
+// fields — `price` (post-discount), `appliedDiscountType`/`appliedDiscountAmount`, `rating`,
+// `totalRatingNumber`, `imageUrl`, `photos`, `currency` — plus `pricing`, `details`, `schedules`,
+// `pricingOptions`, `additionalServices`, `discounts` and `address`, and `distanceFromMyLocationKm`
+// on near-me. So a rail card renders from the rail alone, and BookService can be entered with the
+// rail's DTO without re-fetching the service.
+//
+// Until 2026-08-07 the rails serialized the WRITE-shaped DTO instead, so every one of those card
+// fields came back missing — a discounted service rendered its pre-discount price beside its
+// "-25% OFF" badge. The consumers already read the read-shape fields; nothing here works around it.
+//
+// Not included (populated only on the find/search paths): `reviews`/`reviewCount` and
+// `upcomingBookings`.
 const DEFAULT_TAKE = 8;
 
-async function getHomeSection(
-  path: string,
-  params: Record<string, string | number | undefined>
-): Promise<ServiceDto[]> {
-  const query = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== null) query.set(k, String(v));
-  }
-  const url = `${getApiBaseUrl()}/api/home/${path}?${query.toString()}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, `Failed to load ${path}.`, `home/${path}`));
-  }
-  return extractPageItems<ServiceDto>(await response.json());
+function getHomeSection(path: string, query: Record<string, QueryValue>): Promise<ServiceDto[]> {
+  return apiList<ServiceDto>(`/api/home/${path}`, {
+    query,
+    fallback: `Failed to load ${path}.`,
+    context: `home/${path}`,
+  });
 }
 
 /** GET /api/home/most-popular */

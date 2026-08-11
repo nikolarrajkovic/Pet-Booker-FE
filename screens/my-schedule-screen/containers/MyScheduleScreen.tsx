@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'rea
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
@@ -128,7 +128,7 @@ export default function MyScheduleScreen() {
         <ScrollView className="flex-1">
           {isLoading ? (
             <View className="items-center justify-center py-16">
-              <ActivityIndicator size="large" color="#00C870" />
+              <ActivityIndicator size="large" color={BRAND_GREEN} />
             </View>
           ) : error ? (
             <View className="items-center justify-center py-16">

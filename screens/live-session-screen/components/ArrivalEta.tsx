@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 export type ArrivalEtaProps = {
   /** Driving distance of the current route, km. Null while it resolves. */
   km: number | null;
@@ -98,9 +99,9 @@ export default function ArrivalEta({
           backgroundColor: isDarkMode ? '#243447' : '#E6FAF0',
         }}>
         {measuring ? (
-          <ActivityIndicator size="small" color="#00C870" />
+          <ActivityIndicator size="small" color={BRAND_GREEN} />
         ) : (
-          <Ionicons name="navigate" size={22} color="#00C870" />
+          <Ionicons name="navigate" size={22} color={BRAND_GREEN} />
         )}
       </View>
       <View className="flex-1">

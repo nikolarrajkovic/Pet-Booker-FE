@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GeoPoint } from '../../../services/geocoding';
 import { haversineKm } from '../../../services/distance';
 import { fetchRoutePath } from '../../../services/route-path';
-import { themeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, themeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 
 export type LiveDirectionsMapProps = {
@@ -169,13 +169,13 @@ export default function LiveDirectionsMap({
           <Polyline coordinates={trail} strokeColor="rgba(37,99,235,0.35)" strokeWidth={3} />
         ) : null}
         {route && route.length > 1 ? (
-          <Polyline coordinates={route} strokeColor="#00C870" strokeWidth={4} />
+          <Polyline coordinates={route} strokeColor={BRAND_GREEN} strokeWidth={4} />
         ) : null}
         {destination ? (
           <Marker
             coordinate={destination}
             title={destinationLabel || t('shared.destination')}
-            pinColor="#00C870"
+            pinColor={BRAND_GREEN}
           />
         ) : null}
         {origin ? (
@@ -205,7 +205,7 @@ export default function LiveDirectionsMap({
             </>
           ) : (
             <>
-              <ActivityIndicator size="small" color="#00C870" />
+              <ActivityIndicator size="small" color={BRAND_GREEN} />
               <Text style={{ color: hex.text, marginLeft: 8, fontSize: 12 }}>
                 {waitingLabel || t('liveSession.locatingYou')}
               </Text>
@@ -214,7 +214,7 @@ export default function LiveDirectionsMap({
         </View>
       ) : destination && !route ? (
         <View style={chipStyle(hex.card)}>
-          <Ionicons name="navigate-outline" size={14} color="#00C870" />
+          <Ionicons name="navigate-outline" size={14} color={BRAND_GREEN} />
           <Text style={{ color: hex.text, marginLeft: 6, fontSize: 12 }}>
             {t('liveSession.findingRoute')}
           </Text>

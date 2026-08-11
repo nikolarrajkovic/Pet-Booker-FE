@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 interface Pet {
   id: string;
   name: string;
@@ -71,7 +72,7 @@ export default function PetCard({
       </View>
       <View className="justify-start">
         <TouchableOpacity onPress={onEdit} className="mb-3">
-          <Ionicons name="pencil" size={20} color="#00C870" />
+          <Ionicons name="pencil" size={20} color={BRAND_GREEN} />
         </TouchableOpacity>
         <TouchableOpacity onPress={onDelete} disabled={isDeleting}>
           {isDeleting ? (

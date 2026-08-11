@@ -2,12 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, Text, View, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ReviewModal from '../../../components/shared/ReviewModal';
 import { useReviewModal } from '../../../hooks/useReviewModal';
-import { getBooking, bookingToViewModel, BookingDto } from '../../../services/bookings';
+import {
+  getBooking,
+  bookingToViewModel,
+  BookingDto,
+  type BookingAdditionalServiceReadDto,
+} from '../../../services/bookings';
 import { formatMoney } from '../../../services/currency';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
@@ -64,6 +69,12 @@ export default function BookingDetailsScreen() {
   const status = STATUS_STYLE[vm?.statusLabel ?? 'upcoming'] ?? STATUS_STYLE.upcoming;
   const pickup = dto?.pickupAddress;
   const dropoff = dto?.leaveOverAddress;
+  // The booking's frozen bill lines. On READ these come back enriched (name / price / baseFee /
+  // perKmFee / distanceKm); the id-only write shape has no `name`, so narrow to the read one
+  // rather than rendering "undefined" for a booking that was just submitted.
+  const addOnLines = (dto?.additionalServices ?? []).filter(
+    (line): line is BookingAdditionalServiceReadDto => 'name' in line
+  );
   const reviewRating = dto?.review?.rating ?? null;
   const isCompleted = vm?.statusLabel === 'completed';
   const petImage = resolveImageUrl(
@@ -73,7 +84,7 @@ export default function BookingDetailsScreen() {
   const Row = ({ icon, label, value }: { icon: string; label: string; value: string }) => (
     <View className={`flex-row items-center justify-between border-b py-3 ${borderColor}`}>
       <View className="mr-3 flex-1 flex-row items-center">
-        <Ionicons name={icon as any} size={18} color="#00C870" />
+        <Ionicons name={icon as any} size={18} color={BRAND_GREEN} />
         <Text className={`text-sm ${subtextColor} ml-3`}>{label}</Text>
       </View>
       <Text className={`text-sm font-semibold ${textColor} flex-1 text-right`} numberOfLines={2}>
@@ -91,7 +102,7 @@ export default function BookingDetailsScreen() {
         contentBg={bgColor}>
         {isLoading ? (
           <View className="flex-1 items-center justify-center py-20">
-            <ActivityIndicator size="large" color="#00C870" />
+            <ActivityIndicator size="large" color={BRAND_GREEN} />
           </View>
         ) : error || !dto || !vm ? (
           <View className="flex-1 items-center justify-center px-6 py-20">
@@ -211,6 +222,56 @@ export default function BookingDetailsScreen() {
                   </Text>
                 </View>
               )}
+
+              {/*
+                The extras the booking was actually charged for. Without these the screen jumped
+                straight from a base price to a total that could be several times larger with no
+                explanation — on a per-distance extra the add-ons are most of the bill. The lines
+                are the server's own, frozen when the booking was priced, so a per-distance one
+                already carries the fees and its measured distance: render them rather than
+                recomputing the surcharge formula (which must never be mirrored client-side).
+              */}
+              {addOnLines.map((line, i) => {
+                const perKmCharge = line.price - (line.baseFee ?? 0);
+                return (
+                  <View
+                    key={line.id ?? `${line.name}-${i}`}
+                    className={`border-b py-3 ${borderColor}`}>
+                    <View className="flex-row items-center justify-between">
+                      <Text className={`text-sm ${subtextColor} flex-1 pr-2`}>{line.name}</Text>
+                      <Text className={`text-sm ${textColor}`}>
+                        {formatMoney(line.price, dto.priceCurrency)}
+                      </Text>
+                    </View>
+                    {line.baseFee != null && line.distanceKm != null && (
+                      <View className={`ml-1 mt-1.5 border-l pl-3 ${borderColor}`}>
+                        <View className="mb-1 flex-row justify-between">
+                          <Text className={`text-xs ${subtextColor}`}>
+                            {t('reviewBooking.addonStartFee')}
+                          </Text>
+                          <Text className={`text-xs ${subtextColor}`}>
+                            {formatMoney(line.baseFee, dto.priceCurrency)}
+                          </Text>
+                        </View>
+                        {perKmCharge > 0 && (
+                          <View className="flex-row justify-between">
+                            <Text className={`text-xs ${subtextColor} flex-1 pr-2`}>
+                              {t('reviewBooking.addonDistance', {
+                                km: line.distanceKm.toFixed(2),
+                                rate: formatMoney(line.perKmFee ?? 0, dto.priceCurrency),
+                              })}
+                            </Text>
+                            <Text className={`text-xs ${subtextColor}`}>
+                              {formatMoney(perKmCharge, dto.priceCurrency)}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+
               <View className="flex-row items-center justify-between py-3">
                 <Text className={`text-base font-bold ${textColor}`}>
                   {t('bookingDetails.total')}

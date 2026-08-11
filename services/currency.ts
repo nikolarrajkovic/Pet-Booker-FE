@@ -155,12 +155,13 @@ export function roundMoney(amount: number): number {
  *
  * On that fallback: an earlier version of this helper fell back to {@link BASE_CURRENCY}
  * instead, reasoning that an unlabelled amount is a raw stored value and stored values
- * are RSD. That holds for a value the app computed itself, but not for the common case —
- * the lean `/api/home/*` rails omit `currency` on amounts the server has already
- * converted into the caller's preference, so an RSD fallback labels a converted EUR
- * number "RSD". The two choices only diverge when the preference is not RSD, and there
- * the display preference is the one that matches what the server actually sent. Use
- * {@link BASE_CURRENCY} explicitly where the UI means "what this will be charged as".
+ * are RSD. That holds for a value the app computed itself, but not for one the server sent:
+ * every converted amount comes back in the caller's preferred currency, so an RSD fallback
+ * would label a converted EUR number "RSD". The two choices only diverge when the preference
+ * is not RSD, and there the display preference is the one that matches what the server
+ * actually sent. Use {@link BASE_CURRENCY} explicitly where the UI means "what this will be
+ * charged as". (The `/api/home/*` rails were the case that decided this — they used to omit
+ * `currency` entirely; they now stamp it like every other service read.)
  */
 export function formatMoney(amount: number, currency?: string | null): string {
   return withCurrency(formatAmount(amount), currency);

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useLocale } from '../../../context/LocaleContext';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 export type TimeSlot = {
   id: string; // e.g. "09:00"
   label: string; // e.g. "09:00 AM"
@@ -42,7 +43,7 @@ export default function TimeSlotPicker({
       </Text>
       {isLoading ? (
         <View className="items-center py-6">
-          <ActivityIndicator color="#00C870" />
+          <ActivityIndicator color={BRAND_GREEN} />
           <Text className={`text-xs ${subtextColor} mt-2`}>
             {t('bookService.checkingAvailability')}
           </Text>

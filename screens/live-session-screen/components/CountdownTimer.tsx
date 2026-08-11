@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { parseBookingDate } from '../../../services/bookings';
 import { useLocale } from '../../../context/LocaleContext';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 type Props = {
   /** Scheduled end of the booking (ISO date-time, e.g. booking.bookingTo). */
   endTime: string;
@@ -41,7 +42,7 @@ export default function CountdownTimer({ endTime, isDarkMode }: Props) {
   const overtime = remainingMs < 0;
   const seconds = remainingMs / 1000;
 
-  const accent = overtime ? '#F97316' : '#00C870';
+  const accent = overtime ? '#F97316' : BRAND_GREEN;
   const trackBg = isDarkMode ? '#1a2332' : '#F0FDF4';
   const overtimeBg = isDarkMode ? '#3a2410' : '#FFF7ED';
 

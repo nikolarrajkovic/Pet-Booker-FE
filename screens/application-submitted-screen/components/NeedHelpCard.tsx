@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 interface NeedHelpCardProps {
   isDarkMode: boolean;
   cardBg: string;
@@ -21,14 +22,14 @@ export default function NeedHelpCard({
       <TouchableOpacity className="mb-3 flex-row items-center">
         <View
           className={`h-10 w-10 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} mr-3 items-center justify-center rounded-full`}>
-          <Ionicons name="mail-outline" size={20} color="#00C870" />
+          <Ionicons name="mail-outline" size={20} color={BRAND_GREEN} />
         </View>
         <Text className="text-sm text-brand-600">partners@pawcare.com</Text>
       </TouchableOpacity>
       <TouchableOpacity className="flex-row items-center">
         <View
           className={`h-10 w-10 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} mr-3 items-center justify-center rounded-full`}>
-          <Ionicons name="call-outline" size={20} color="#00C870" />
+          <Ionicons name="call-outline" size={20} color={BRAND_GREEN} />
         </View>
         <Text className="text-sm text-brand-600">(555) 123-4567</Text>
       </TouchableOpacity>

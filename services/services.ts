@@ -1,30 +1,15 @@
 import {
-  apiAuthFetch,
-  getApiBaseUrl,
-  parseApiError,
-  extractPageItems,
-  extractPage,
+  apiJson,
+  apiList,
+  apiPage,
+  apiVoid,
+  type ApiRequestOptions,
   type PagedResult,
 } from './http';
 import { declaredWriteCurrency } from './currency';
-import type { AddressDto, PhotoDto } from './service-providers';
+import type { AddressDto } from './service-providers';
 import type { ReviewDto } from './reviews';
 import { DiscountType, type ServiceDiscountDto } from './service-discounts';
-
-// Slim owning-provider embed on the service GET (ServiceProviderInfoReadDto) —
-// name/avatar/address/rating/verified, enough for ServiceDetail's provider card
-// without a separate getServiceProvider call. Same shape as the provider embed
-// on bookings/reviews.
-export type ServiceProviderInfoDto = {
-  id?: number | null;
-  name?: string | null;
-  isApproved?: boolean;
-  ratingAvg?: number | null;
-  address?: AddressDto | null;
-  photos?: PhotoDto[];
-  /** See `ServiceDto.currency` — the full provider GET has this, the slim embed does not (yet). */
-  currency?: string | null;
-};
 
 // One already-booked slot embedded on the service read DTO (ServiceReadDto.
 // upcomingBookings) — the provider's upcoming bookings for this service, enough
@@ -144,8 +129,10 @@ export type ServiceDto = {
    * and `discounts` are converted with it and must NOT declare their own.
    */
   currency?: string | null;
-  // Read-only slim provider embed on the service GET (see ServiceProviderInfoDto).
-  serviceProvider?: ServiceProviderInfoDto | null;
+  // NOTE: a service read carries NO provider record — only `serviceProviderId` above.
+  // (Bookings and reviews embed a slim provider; the service does not.) A screen that
+  // needs the provider's name/photo/address calls getServiceProvider(serviceProviderId)
+  // — see ServiceDetailScreen.
   name?: string | null;
   // Long description — the write field (GET also mirrors it as `about`).
   description?: string | null;
@@ -245,13 +232,12 @@ export function effectiveOptionPrice(svc: ServiceDto, option: ServicePricingOpti
 /**
  * The currency a service's amounts are in, or `undefined` when the record doesn't say.
  *
- * Use this instead of reading `svc.currency` directly: the currency belongs to the
- * provider, and the API may expose it on either the service or its provider embed.
+ * Kept as a function rather than inlining `svc.currency` so the fallback stays in one place:
  * `undefined` is a valid answer — `formatMoney` then falls back to the viewer's display
- * preference, which is all the app can honestly claim (see BACKEND_GAPS S8).
+ * preference, which is all the app can honestly claim.
  */
 export function serviceCurrency(svc?: ServiceDto | null): string | undefined {
-  return svc?.currency ?? svc?.serviceProvider?.currency ?? undefined;
+  return svc?.currency ?? undefined;
 }
 
 export type GetServicesParams = {
@@ -259,61 +245,56 @@ export type GetServicesParams = {
   name?: string;
   // ServiceProviderType filter on the service's own `type`
   type?: number;
+  /** ServiceProviderType filter on the owning PROVIDER's type (distinct from `type` above). */
+  providerType?: number;
   isActive?: boolean;
-  // Add-on availability filters (renamed server-side in the 2026-06 update).
-  supportsPickup?: boolean;
-  supportsLeaveOver?: boolean;
-  supportsSpecialNeeds?: boolean;
+  /**
+   * Add-on filters. These replaced the fixed `IsProvidingPickup`/`IsProvidingReturn`/
+   * `IsProvidingSpecialNeeds` trio when the three built-in add-ons became the open-ended
+   * `additionalServices` catalog — a catalog can't be filtered by three fixed booleans.
+   *
+   * The old names were still being sent until 2026-08-10 and were silently ignored (unknown
+   * query params bind to nothing), so a filtered search quietly returned everything.
+   */
+  hasAdditionalServices?: boolean;
+  additionalServiceName?: string;
   page?: number;
   perPage?: number;
 };
 
-async function fetchServices(params?: GetServicesParams): Promise<unknown> {
-  const query = new URLSearchParams();
-  if (params?.serviceProviderId !== undefined)
-    query.set('ServiceProviderId', String(params.serviceProviderId));
-  if (params?.name) query.set('Name', params.name);
-  if (params?.type !== undefined) query.set('Type', String(params.type));
-  if (params?.isActive !== undefined) query.set('IsActive', String(params.isActive));
-  if (params?.supportsPickup !== undefined)
-    query.set('IsProvidingPickup', String(params.supportsPickup));
-  if (params?.supportsLeaveOver !== undefined)
-    query.set('IsProvidingReturn', String(params.supportsLeaveOver));
-  if (params?.supportsSpecialNeeds !== undefined)
-    query.set('IsProvidingSpecialNeeds', String(params.supportsSpecialNeeds));
-  query.set('Page', String(params?.page ?? 1));
-  query.set('PerPage', String(params?.perPage ?? 50));
-
-  const url = `${getApiBaseUrl()}/api/services?${query.toString()}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to load services.', 'getServices'));
-  }
-
-  return response.json();
+/** Shared request options for the two list shapes below — one place for the filter names. */
+function servicesRequest(params?: GetServicesParams): ApiRequestOptions {
+  return {
+    query: {
+      ServiceProviderId: params?.serviceProviderId,
+      Name: params?.name,
+      Type: params?.type,
+      IsActive: params?.isActive,
+      ProviderType: params?.providerType,
+      HasAdditionalServices: params?.hasAdditionalServices,
+      AdditionalServiceName: params?.additionalServiceName,
+      Page: params?.page ?? 1,
+      PerPage: params?.perPage ?? 50,
+    },
+    fallback: 'Failed to load services.',
+    context: 'getServices',
+  };
 }
 
-export async function getServices(params?: GetServicesParams): Promise<ServiceDto[]> {
-  return extractPageItems<ServiceDto>(await fetchServices(params));
+export function getServices(params?: GetServicesParams): Promise<ServiceDto[]> {
+  return apiList<ServiceDto>('/api/services', servicesRequest(params));
 }
 
 /** One page of services, with the counts needed to fetch the next — for `usePagedList`. */
-export async function getServicesPage(
-  params?: GetServicesParams
-): Promise<PagedResult<ServiceDto>> {
-  return extractPage<ServiceDto>(await fetchServices(params));
+export function getServicesPage(params?: GetServicesParams): Promise<PagedResult<ServiceDto>> {
+  return apiPage<ServiceDto>('/api/services', servicesRequest(params));
 }
 
-export async function getService(id: number): Promise<ServiceDto> {
-  const url = `${getApiBaseUrl()}/api/services/${id}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to load service.', 'getService'));
-  }
-
-  return response.json();
+export function getService(id: number): Promise<ServiceDto> {
+  return apiJson<ServiceDto>(`/api/services/${id}`, {
+    fallback: 'Failed to load service.',
+    context: 'getService',
+  });
 }
 
 /**
@@ -326,41 +307,30 @@ function withDeclaredCurrency<T extends { currency?: string | null }>(service: T
   return { ...service, currency: declaredWriteCurrency(service.currency) };
 }
 
-export async function createService(service: Omit<ServiceDto, 'id'>): Promise<ServiceDto> {
-  const url = `${getApiBaseUrl()}/api/services`;
-  const response = await apiAuthFetch(url, {
+export function createService(service: Omit<ServiceDto, 'id'>): Promise<ServiceDto> {
+  return apiJson<ServiceDto>('/api/services', {
     method: 'POST',
-    body: JSON.stringify(withDeclaredCurrency(service)),
+    body: withDeclaredCurrency(service),
+    fallback: 'Failed to create service.',
+    context: 'createService',
   });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to create service.', 'createService'));
-  }
-
-  return response.json();
 }
 
-export async function updateService(id: number, service: ServiceDto): Promise<ServiceDto> {
-  const url = `${getApiBaseUrl()}/api/services/${id}`;
-  const response = await apiAuthFetch(url, {
+export function updateService(id: number, service: ServiceDto): Promise<ServiceDto> {
+  return apiJson<ServiceDto>(`/api/services/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(withDeclaredCurrency(service)),
+    body: withDeclaredCurrency(service),
+    fallback: 'Failed to update service.',
+    context: 'updateService',
   });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to update service.', 'updateService'));
-  }
-
-  return response.json();
 }
 
-export async function deleteService(id: number): Promise<void> {
-  const url = `${getApiBaseUrl()}/api/services/${id}`;
-  const response = await apiAuthFetch(url, { method: 'DELETE' });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to delete service.', 'deleteService'));
-  }
+export function deleteService(id: number): Promise<void> {
+  return apiVoid(`/api/services/${id}`, {
+    method: 'DELETE',
+    fallback: 'Failed to delete service.',
+    context: 'deleteService',
+  });
 }
 
 // One bookable window for a given day — derived server-side from the service's
@@ -382,25 +352,28 @@ export type ServiceAvailabilityDto = {
   days: ServiceAvailabilityDayDto[];
 };
 
-// GET /api/services/{id}/availability?from=&to= — schedule-driven bookable
-// windows for a date range, one entry per day. `from`/`to` MUST be date-only
-// ("YYYY-MM-DD"); full ISO datetimes are rejected. Preferred over deriving slot
-// windows from the embedded service.schedules — the server already factors in
-// the provider's bookings (per-window remainingCapacity).
-export async function getServiceAvailability(
+/**
+ * GET /api/services/{id}/availability?from=&to= — schedule-driven bookable windows for a date
+ * range, one entry per day. Preferred over deriving slot windows from the embedded
+ * `service.schedules`: the server already factors in the provider's bookings (per-window
+ * `remainingCapacity`).
+ *
+ * Contract (verified live 2026-08-10):
+ * - `from`/`to` MUST be date-only ("YYYY-MM-DD") — full ISO datetimes are rejected.
+ * - the range may span at most **31 days**, and `to` must not precede `from` (422 either way,
+ *   with `details[]` naming `To`). A calendar month is the largest useful ask and fits.
+ * - an unknown service id answers **404** (it used to be a 422 — it is a GET-by-id, not
+ *   malformed input), so a dead link reads as "not found" rather than "bad request".
+ * - readable by providers as well as bookers, so a partner screen can show its own free/busy.
+ */
+export function getServiceAvailability(
   id: number,
   from: string,
   to: string
 ): Promise<ServiceAvailabilityDto> {
-  const query = new URLSearchParams({ from, to });
-  const url = `${getApiBaseUrl()}/api/services/${id}/availability?${query.toString()}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to load availability.', 'getServiceAvailability')
-    );
-  }
-
-  return response.json();
+  return apiJson<ServiceAvailabilityDto>(`/api/services/${id}/availability`, {
+    query: { from, to },
+    fallback: 'Failed to load availability.',
+    context: 'getServiceAvailability',
+  });
 }

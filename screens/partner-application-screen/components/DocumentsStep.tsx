@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DatePicker from '../../../components/shared/DatePicker';
 import { useLocale } from '../../../context/LocaleContext';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 export type DocumentFile = { uri: string; fileName?: string };
 export type CertificateEntry = {
   uri: string;
@@ -54,7 +55,7 @@ function DocPreview({ uri, inputBg }: { uri: string; inputBg: string }) {
   if (isPdf(uri)) {
     return (
       <View className={`h-20 w-full ${inputBg} mb-3 items-center justify-center rounded-xl`}>
-        <Ionicons name="document-text" size={32} color="#00C870" />
+        <Ionicons name="document-text" size={32} color={BRAND_GREEN} />
         <Text className="mt-1 text-xs text-gray-400">PDF</Text>
       </View>
     );
@@ -91,7 +92,12 @@ export default function DocumentsStep({
       onPress={onPress}
       className={`${inputBg} flex-row items-center justify-center rounded-xl border px-4 py-3 ${borderColor}`}
       activeOpacity={0.7}>
-      <Ionicons name="cloud-upload-outline" size={18} color="#00C870" style={{ marginRight: 6 }} />
+      <Ionicons
+        name="cloud-upload-outline"
+        size={18}
+        color={BRAND_GREEN}
+        style={{ marginRight: 6 }}
+      />
       <Text className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{label}</Text>
     </TouchableOpacity>
   );
@@ -217,9 +223,9 @@ export default function DocumentsStep({
           <View className="mb-3 flex-row items-center">
             <View className={`h-10 w-10 ${inputBg} mr-3 items-center justify-center rounded-xl`}>
               {isPdf(cert.uri) ? (
-                <Ionicons name="document-text" size={20} color="#00C870" />
+                <Ionicons name="document-text" size={20} color={BRAND_GREEN} />
               ) : (
-                <Ionicons name="image-outline" size={20} color="#00C870" />
+                <Ionicons name="image-outline" size={20} color={BRAND_GREEN} />
               )}
             </View>
             <Text className={`flex-1 text-sm font-semibold ${textColor}`} numberOfLines={1}>
@@ -279,7 +285,12 @@ export default function DocumentsStep({
         onPress={() => pickDocument('certificate')}
         className={`${inputBg} border-2 border-dashed ${borderColor} mb-6 flex-row items-center justify-center rounded-2xl p-4`}
         activeOpacity={0.7}>
-        <Ionicons name="add-circle-outline" size={20} color="#00C870" style={{ marginRight: 8 }} />
+        <Ionicons
+          name="add-circle-outline"
+          size={20}
+          color={BRAND_GREEN}
+          style={{ marginRight: 8 }}
+        />
         <Text className={`text-sm font-semibold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
           {t('partnerApplication.addCertificate')}
         </Text>

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 interface NotificationToggleProps {
   icon?: string;
   title: string;
@@ -37,7 +38,7 @@ export default function NotificationToggle({
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: isDarkMode ? '#374151' : '#d1d5db', true: '#00C870' }}
+        trackColor={{ false: isDarkMode ? '#374151' : '#d1d5db', true: BRAND_GREEN }}
         thumbColor="white"
         ios_backgroundColor={isDarkMode ? '#374151' : '#d1d5db'}
       />
