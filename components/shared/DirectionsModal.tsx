@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Marker, Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
-import { themeColors } from '../../hooks/useThemeColors';
+import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import { getCurrentPosition, GeoPoint } from '../../services/geocoding';
 
@@ -173,13 +173,13 @@ export default function DirectionsModal({
               <Marker
                 coordinate={destination}
                 title={destinationLabel || t('shared.destination')}
-                pinColor="#00C870"
+                pinColor={BRAND_GREEN}
               />
               {origin ? (
                 <Marker coordinate={origin} title={t('shared.youAreHere')} pinColor="#2563EB" />
               ) : null}
               {route && route.length > 1 ? (
-                <Polyline coordinates={route} strokeColor="#00C870" strokeWidth={4} />
+                <Polyline coordinates={route} strokeColor={BRAND_GREEN} strokeWidth={4} />
               ) : null}
             </MapView>
           ) : (
@@ -207,7 +207,7 @@ export default function DirectionsModal({
                 shadowOpacity: 0.15,
                 shadowRadius: 4,
               }}>
-              <ActivityIndicator size="small" color="#00C870" />
+              <ActivityIndicator size="small" color={BRAND_GREEN} />
               <Text style={{ color: hex.text, marginLeft: 8, fontSize: 13 }}>Finding route…</Text>
             </View>
           ) : null}
@@ -217,7 +217,7 @@ export default function DirectionsModal({
         <View style={{ padding: 16, backgroundColor: hex.card }}>
           {destinationLabel ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-              <Ionicons name="location" size={16} color="#00C870" />
+              <Ionicons name="location" size={16} color={BRAND_GREEN} />
               <Text
                 style={{ color: hex.text, fontSize: 14, marginLeft: 6, flex: 1 }}
                 numberOfLines={2}>
@@ -235,7 +235,7 @@ export default function DirectionsModal({
             onPress={openExternal}
             disabled={!destination}
             style={{
-              backgroundColor: '#00C870',
+              backgroundColor: BRAND_GREEN,
               paddingVertical: 16,
               borderRadius: 16,
               alignItems: 'center',

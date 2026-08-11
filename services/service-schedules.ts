@@ -1,4 +1,4 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
+import { apiJson, apiList, apiVoid } from './http';
 import { ServiceScheduleDto } from './services';
 
 // Per-day working hours for a service. `day` is .NET DayOfWeek (0=Sun…6=Sat),
@@ -8,69 +8,41 @@ import { ServiceScheduleDto } from './services';
 // "Working Hours" section.
 export type { ServiceScheduleDto };
 
-export async function getServiceSchedules(serviceId: number): Promise<ServiceScheduleDto[]> {
-  const query = new URLSearchParams();
-  query.set('ServiceId', String(serviceId));
-  query.set('PerPage', '50');
-  const url = `${getApiBaseUrl()}/api/service-schedules?${query.toString()}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to load working hours.', 'getServiceSchedules')
-    );
-  }
-
-  const raw = await response.json();
-  return extractPageItems<ServiceScheduleDto>(raw);
-}
-
-export async function createServiceSchedule(
-  schedule: ServiceScheduleDto
-): Promise<ServiceScheduleDto> {
-  const url = `${getApiBaseUrl()}/api/service-schedules`;
-  const response = await apiAuthFetch(url, {
-    method: 'POST',
-    body: JSON.stringify(schedule),
+export function getServiceSchedules(serviceId: number): Promise<ServiceScheduleDto[]> {
+  return apiList<ServiceScheduleDto>('/api/service-schedules', {
+    query: { ServiceId: serviceId, PerPage: 50 },
+    fallback: 'Failed to load working hours.',
+    context: 'getServiceSchedules',
   });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to save working hours.', 'createServiceSchedule')
-    );
-  }
-
-  return response.json();
 }
 
-export async function updateServiceSchedule(
+export function createServiceSchedule(schedule: ServiceScheduleDto): Promise<ServiceScheduleDto> {
+  return apiJson<ServiceScheduleDto>('/api/service-schedules', {
+    method: 'POST',
+    body: schedule,
+    fallback: 'Failed to save working hours.',
+    context: 'createServiceSchedule',
+  });
+}
+
+export function updateServiceSchedule(
   id: number,
   schedule: ServiceScheduleDto
 ): Promise<ServiceScheduleDto> {
-  const url = `${getApiBaseUrl()}/api/service-schedules/${id}`;
-  const response = await apiAuthFetch(url, {
+  return apiJson<ServiceScheduleDto>(`/api/service-schedules/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ ...schedule, id }),
+    body: { ...schedule, id },
+    fallback: 'Failed to update working hours.',
+    context: 'updateServiceSchedule',
   });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to update working hours.', 'updateServiceSchedule')
-    );
-  }
-
-  return response.json();
 }
 
-export async function deleteServiceSchedule(id: number): Promise<void> {
-  const url = `${getApiBaseUrl()}/api/service-schedules/${id}`;
-  const response = await apiAuthFetch(url, { method: 'DELETE' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to remove working hours.', 'deleteServiceSchedule')
-    );
-  }
+export function deleteServiceSchedule(id: number): Promise<void> {
+  return apiVoid(`/api/service-schedules/${id}`, {
+    method: 'DELETE',
+    fallback: 'Failed to remove working hours.',
+    context: 'deleteServiceSchedule',
+  });
 }
 
 /**

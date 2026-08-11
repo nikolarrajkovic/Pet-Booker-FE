@@ -8,7 +8,7 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useLocation } from '../../../hooks/useLocation';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { resolveImageUrl } from '../../../services/service-providers';
@@ -212,7 +212,7 @@ export default function HomeScreen() {
                     className={`overflow-hidden rounded-2xl ${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}`}
                     style={{ width: 200, height: 160 }}>
                     <View className={`flex-1 items-center justify-center`}>
-                      <ActivityIndicator color="#00C870" />
+                      <ActivityIndicator color={BRAND_GREEN} />
                     </View>
                   </View>
                 ))
@@ -291,7 +291,7 @@ export default function HomeScreen() {
 
           <View className="mb-2 flex-row items-center">
             <MaterialCommunityIcons name="paw" size={24} color="white" />
-            <Text className="ml-2 text-2xl font-bold text-white">PawCare</Text>
+            <Text className="ml-2 text-2xl font-bold text-white">{t('login.appName')}</Text>
           </View>
           <Text className={`${subtitleColor} mb-8 text-sm`}>{t('home.tagline')}</Text>
         </>

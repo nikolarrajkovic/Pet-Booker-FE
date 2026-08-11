@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import TabBar from '../../../components/shared/TabBar';
@@ -155,11 +155,11 @@ export default function AdminDashboardScreen() {
   const borderColor = hex.border;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#00C870' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{
-          backgroundColor: '#00C870',
+          backgroundColor: BRAND_GREEN,
           paddingHorizontal: 20,
           paddingTop: 48,
           paddingBottom: 36,
@@ -199,8 +199,8 @@ export default function AdminDashboardScreen() {
             <StatCard
               iconName="cash-outline"
               iconBg="#E8F5EF"
-              iconColor="#00C870"
-              changeColor="#00C870"
+              iconColor={BRAND_GREEN}
+              changeColor={BRAND_GREEN}
               value={val(money(metrics.totalRevenue))}
               label={t('admin.totalRevenue')}
               cardBg={cardBg}
@@ -212,8 +212,8 @@ export default function AdminDashboardScreen() {
             <StatCard
               iconName="trending-up-outline"
               iconBg="#E8F5EF"
-              iconColor="#00C870"
-              changeColor="#00C870"
+              iconColor={BRAND_GREEN}
+              changeColor={BRAND_GREEN}
               value={val(money(metrics.revenueThisMonth))}
               label={t('admin.revenueThisMonth')}
               cardBg={cardBg}
@@ -274,13 +274,13 @@ export default function AdminDashboardScreen() {
               marginBottom: 24,
             }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <Ionicons name="bar-chart-outline" size={20} color="#00C870" />
+              <Ionicons name="bar-chart-outline" size={20} color={BRAND_GREEN} />
               <Text style={{ color: sectionTitle, fontSize: 16, fontWeight: '700', marginLeft: 8 }}>
                 {t('admin.revenueByType')}
               </Text>
             </View>
             {loading && !loaded ? (
-              <ActivityIndicator color="#00C870" style={{ paddingVertical: 12 }} />
+              <ActivityIndicator color={BRAND_GREEN} style={{ paddingVertical: 12 }} />
             ) : metrics.revenueByType.length === 0 ? (
               <Text style={{ color: subText, fontSize: 13, paddingVertical: 8 }}>
                 {t('admin.noRevenue')}
@@ -401,7 +401,7 @@ export default function AdminDashboardScreen() {
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}>
-                    <Ionicons name="people-outline" size={24} color="#00C870" />
+                    <Ionicons name="people-outline" size={24} color={BRAND_GREEN} />
                   </View>
                   {metrics.activePartners > 0 && (
                     <View
@@ -409,7 +409,7 @@ export default function AdminDashboardScreen() {
                         position: 'absolute',
                         top: -6,
                         right: -6,
-                        backgroundColor: '#00C870',
+                        backgroundColor: BRAND_GREEN,
                         borderRadius: 10,
                         paddingHorizontal: 6,
                         paddingVertical: 2,

@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 interface WhileYouWaitCardProps {
   isDarkMode: boolean;
 }
@@ -27,7 +28,7 @@ export default function WhileYouWaitCard({ isDarkMode }: WhileYouWaitCardProps) 
           <Ionicons
             name="checkmark-circle"
             size={20}
-            color="#00C870"
+            color={BRAND_GREEN}
             style={{ marginTop: 2, marginRight: 8 }}
           />
           <Text className={`flex-1 text-sm ${isDarkMode ? 'text-green-300' : 'text-green-800'}`}>

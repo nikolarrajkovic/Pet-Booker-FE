@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { themeColors } from '../../hooks/useThemeColors';
+import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import { DAY_SHORT_KEYS, MONTH_KEYS } from '../../i18n';
 
@@ -181,7 +181,7 @@ export default function DatePicker({
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: showYearPicker ? '#00C870' : isDarkMode ? '#243447' : '#F3F4F6',
+              backgroundColor: showYearPicker ? BRAND_GREEN : isDarkMode ? '#243447' : '#F3F4F6',
               borderRadius: 8,
               paddingHorizontal: 8,
               paddingVertical: 3,
@@ -230,7 +230,7 @@ export default function DatePicker({
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderRadius: 10,
-                  backgroundColor: isActive ? '#00C870' : 'transparent',
+                  backgroundColor: isActive ? BRAND_GREEN : 'transparent',
                 }}>
                 <Text
                   style={{
@@ -276,16 +276,16 @@ export default function DatePicker({
                       height: 36,
                       margin: 1,
                       borderRadius: 18,
-                      backgroundColor: selected_ ? '#00C870' : 'transparent',
+                      backgroundColor: selected_ ? BRAND_GREEN : 'transparent',
                       borderWidth: today_ && !selected_ ? 1.5 : 0,
-                      borderColor: '#00C870',
+                      borderColor: BRAND_GREEN,
                       opacity: disabled ? 0.3 : 1,
                     }}>
                     <Text
                       style={{
                         fontSize: 14,
                         fontWeight: selected_ ? '700' : '400',
-                        color: selected_ ? '#ffffff' : today_ ? '#00C870' : textColor,
+                        color: selected_ ? '#ffffff' : today_ ? BRAND_GREEN : textColor,
                       }}>
                       {day}
                     </Text>
@@ -321,7 +321,7 @@ export default function DatePicker({
             paddingVertical: 12,
             borderRadius: 12,
             alignItems: 'center',
-            backgroundColor: '#00C870',
+            backgroundColor: BRAND_GREEN,
           }}>
           <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>
             {t('shared.done')}

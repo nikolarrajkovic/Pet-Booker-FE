@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 export type PromotionStatus = 'active' | 'paused' | 'scheduled' | 'ended';
 export type PromotionType = 'boost' | 'featured' | 'offer' | 'ad';
 
@@ -81,7 +82,7 @@ const STATUS_STYLES: Record<PromotionStatus, { bg: string; text: string; labelKe
 };
 
 const TYPE_ICON: Record<PromotionType, { bg: string; icon: React.ReactNode }> = {
-  boost: { bg: 'bg-blue-100', icon: <Ionicons name="trending-up" size={20} color="#00C870" /> },
+  boost: { bg: 'bg-blue-100', icon: <Ionicons name="trending-up" size={20} color={BRAND_GREEN} /> },
   featured: { bg: 'bg-purple-100', icon: <Ionicons name="flash" size={20} color="#9333EA" /> },
   offer: {
     bg: 'bg-green-100',

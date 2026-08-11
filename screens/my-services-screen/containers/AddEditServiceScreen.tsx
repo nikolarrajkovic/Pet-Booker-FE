@@ -14,7 +14,7 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -560,7 +560,7 @@ export default function AddEditServiceScreen() {
           <TouchableOpacity
             onPress={() => setShowAddressPicker(true)}
             className={`${inputBg} flex-row items-center rounded-xl px-4 py-3`}>
-            <Ionicons name="location-outline" size={20} color="#00C870" />
+            <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
             <Text
               className={`ml-3 flex-1 ${currentAddress ? inputText : subtextColor}`}
               numberOfLines={2}>
@@ -570,7 +570,7 @@ export default function AddEditServiceScreen() {
           </TouchableOpacity>
           {profileAddress && (
             <TouchableOpacity onPress={useProfileAddress} className="mt-2 flex-row items-center">
-              <Ionicons name="home-outline" size={16} color="#00C870" />
+              <Ionicons name="home-outline" size={16} color={BRAND_GREEN} />
               <Text className="ml-2 text-sm font-semibold text-brand-500">
                 {t('addEditService.useProfileAddress')}
               </Text>
@@ -597,7 +597,7 @@ export default function AddEditServiceScreen() {
                       height: 80,
                       borderRadius: 12,
                       borderWidth: index === mainImageIndex ? 2 : 0,
-                      borderColor: '#00C870',
+                      borderColor: BRAND_GREEN,
                     }}
                     resizeMode="cover"
                   />
@@ -699,7 +699,7 @@ export default function AddEditServiceScreen() {
               borderColor: isDarkMode ? '#374151' : '#D1D5DB',
             }}>
             <View className="flex-row items-center">
-              <Ionicons name="add-circle-outline" size={20} color="#00C870" />
+              <Ionicons name="add-circle-outline" size={20} color={BRAND_GREEN} />
               <Text className="ml-2 font-semibold text-brand-500">
                 {t('addEditService.addPriceTier')}
               </Text>
@@ -716,7 +716,7 @@ export default function AddEditServiceScreen() {
             {t('addEditService.maxCapacityHint')}
           </Text>
           <View className={`${inputBg} flex-row items-center rounded-xl px-4 py-3`}>
-            <Ionicons name="paw-outline" size={18} color="#00C870" />
+            <Ionicons name="paw-outline" size={18} color={BRAND_GREEN} />
             <TextInput
               placeholder="1"
               placeholderTextColor={placeholderColor}
@@ -726,8 +726,8 @@ export default function AddEditServiceScreen() {
               onChangeText={(value) => setMaxPetCapacity(value.replace(/[^0-9]/g, ''))}
               keyboardType="numeric"
               maxLength={3}
-              selectionColor="#00C870"
-              cursorColor="#00C870"
+              selectionColor={BRAND_GREEN}
+              cursorColor={BRAND_GREEN}
             />
           </View>
         </View>
@@ -774,7 +774,7 @@ export default function AddEditServiceScreen() {
                   <Ionicons
                     name={service.enabled ? 'checkbox' : 'square-outline'}
                     size={20}
-                    color={service.enabled ? '#00C870' : isDarkMode ? '#8b9cb3' : '#6b7280'}
+                    color={service.enabled ? BRAND_GREEN : isDarkMode ? '#8b9cb3' : '#6b7280'}
                   />
                   <Text className={`${subtextColor} ml-2 text-sm`}>
                     {service.enabled
@@ -861,7 +861,7 @@ export default function AddEditServiceScreen() {
                             size={18}
                             color={
                               service.distanceLeg === opt.value
-                                ? '#00C870'
+                                ? BRAND_GREEN
                                 : isDarkMode
                                   ? '#8b9cb3'
                                   : '#6b7280'
@@ -966,7 +966,7 @@ export default function AddEditServiceScreen() {
           <TouchableOpacity
             onPress={addAdditionalService}
             className={`${cardBg} border ${borderColor} flex-row items-center justify-center rounded-xl px-4 py-3`}>
-            <Ionicons name="add" size={18} color="#00C870" />
+            <Ionicons name="add" size={18} color={BRAND_GREEN} />
             <Text className="ml-1 font-medium text-brand-500">{t('addEditService.addExtra')}</Text>
           </TouchableOpacity>
         </View>
@@ -1006,7 +1006,7 @@ export default function AddEditServiceScreen() {
                   <Switch
                     value={hours.enabled}
                     trackColor={{ false: '#D1D5DB', true: '#86EFAC' }}
-                    thumbColor={hours.enabled ? '#00C870' : '#f4f3f4'}
+                    thumbColor={hours.enabled ? BRAND_GREEN : '#f4f3f4'}
                   />
                 </View>
               </TouchableOpacity>
@@ -1105,7 +1105,7 @@ export default function AddEditServiceScreen() {
                   <View className="flex-row items-center justify-between">
                     <Text className={`text-base ${textColor}`}>{typeLabel(type)}</Text>
                     {serviceType === type && (
-                      <Ionicons name="checkmark" size={24} color="#00C870" />
+                      <Ionicons name="checkmark" size={24} color={BRAND_GREEN} />
                     )}
                   </View>
                 </TouchableOpacity>
@@ -1147,7 +1147,7 @@ export default function AddEditServiceScreen() {
                   <View className="flex-row items-center justify-between">
                     <Text className={`text-base ${textColor}`}>{option}</Text>
                     {pricingTiers[durationModalIndex]?.duration === option && (
-                      <Ionicons name="checkmark" size={24} color="#00C870" />
+                      <Ionicons name="checkmark" size={24} color={BRAND_GREEN} />
                     )}
                   </View>
                 </TouchableOpacity>

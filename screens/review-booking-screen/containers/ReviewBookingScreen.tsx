@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -277,7 +277,7 @@ export default function ReviewBookingScreen() {
                   <Ionicons
                     name="calendar-outline"
                     size={14}
-                    color="#00C870"
+                    color={BRAND_GREEN}
                     style={{ marginRight: 6 }}
                   />
                   <Text className={`text-sm ${subtextColor}`}>
@@ -288,7 +288,7 @@ export default function ReviewBookingScreen() {
                   <Ionicons
                     name="time-outline"
                     size={14}
-                    color="#00C870"
+                    color={BRAND_GREEN}
                     style={{ marginRight: 6 }}
                   />
                   <Text className={`text-sm ${subtextColor}`}>
@@ -304,7 +304,7 @@ export default function ReviewBookingScreen() {
                     <Ionicons
                       name="pricetag-outline"
                       size={14}
-                      color="#00C870"
+                      color={BRAND_GREEN}
                       style={{ marginRight: 6 }}
                     />
                     <Text className={`text-sm ${subtextColor}`}>
@@ -324,7 +324,7 @@ export default function ReviewBookingScreen() {
                     <Ionicons
                       name="car-outline"
                       size={14}
-                      color="#00C870"
+                      color={BRAND_GREEN}
                       style={{ marginRight: 6, marginTop: 1 }}
                     />
                     <Text className={`text-xs ${subtextColor} flex-1`}>
@@ -337,7 +337,7 @@ export default function ReviewBookingScreen() {
                     <Ionicons
                       name="home-outline"
                       size={14}
-                      color="#00C870"
+                      color={BRAND_GREEN}
                       style={{ marginRight: 6, marginTop: 1 }}
                     />
                     <Text className={`text-xs ${subtextColor} flex-1`}>

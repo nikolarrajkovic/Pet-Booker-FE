@@ -1,17 +1,18 @@
 import React, { useState, useCallback } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import ListState from '../../../components/shared/ListState';
 import ReviewModal from '../../../components/shared/ReviewModal';
 import { useReviewModal } from '../../../hooks/useReviewModal';
 import { BookingCard } from '../components';
 import {
   getBookings,
   bookingToViewModel,
+  parseBookingDate,
   BookingViewModel,
   ACTIVE_STATUS_LABELS,
 } from '../../../services/bookings';
@@ -62,43 +63,51 @@ export default function MyBookingsScreen() {
     }, [load])
   );
 
-  // Active bookings (requested/booked/in-progress) live on the Upcoming tab;
-  // only terminal ones (completed/cancelled) are "past".
-  const upcomingBookings = bookings.filter((b) => ACTIVE_STATUS_LABELS.includes(b.statusLabel));
-  const pastBookings = bookings.filter((b) => !ACTIVE_STATUS_LABELS.includes(b.statusLabel));
+  /**
+   * Splits the two tabs by state AND by the clock.
+   *
+   * State alone is not enough: a booking the provider accepted but never completed keeps its
+   * "Booked" status forever, so it sat under **Upcoming** indefinitely — this account's Upcoming
+   * tab listed six appointments, every one of them weeks in the past. A tab labelled "Upcoming"
+   * has to mean "still ahead of you".
+   *
+   * Two deliberate softenings so nothing vanishes while the user is looking at it:
+   * - an in-progress booking always counts as current, whatever its start time says;
+   * - the cutoff is the START OF TODAY, not "now", so a booking earlier today stays put rather
+   *   than jumping tabs partway through the day it happens on.
+   */
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const isStillAhead = (b: BookingViewModel) => {
+    if (b.statusLabel === 'in-progress') return true;
+    const start = parseBookingDate(b.bookingFrom);
+    return isNaN(start.getTime()) || start.getTime() >= startOfToday.getTime();
+  };
+
+  const upcomingBookings = bookings
+    .filter((b) => ACTIVE_STATUS_LABELS.includes(b.statusLabel) && isStillAhead(b))
+    // Soonest first — an "upcoming" list is read in the order things happen.
+    .sort(
+      (a, b) =>
+        parseBookingDate(a.bookingFrom).getTime() - parseBookingDate(b.bookingFrom).getTime()
+    );
+  const pastBookings = bookings
+    .filter((b) => !ACTIVE_STATUS_LABELS.includes(b.statusLabel) || !isStillAhead(b))
+    // Most recent first — the opposite order, for the same reason.
+    .sort(
+      (a, b) =>
+        parseBookingDate(b.bookingFrom).getTime() - parseBookingDate(a.bookingFrom).getTime()
+    );
   const visible = activeTab === 'upcoming' ? upcomingBookings : pastBookings;
 
-  const renderBody = () => {
-    if (isLoading) {
-      return (
-        <View className="items-center justify-center py-16">
-          <ActivityIndicator size="large" color="#00C870" />
-        </View>
-      );
-    }
-    if (error) {
-      return (
-        <View className="items-center justify-center py-12">
-          <Ionicons
-            name="alert-circle-outline"
-            size={56}
-            color={isDarkMode ? '#6B7280' : '#9CA3AF'}
-          />
-          <Text className={`${subtextColor} mt-4 text-center`}>{error}</Text>
-        </View>
-      );
-    }
-    if (visible.length === 0) {
-      return (
-        <View className="items-center justify-center py-12">
-          <Ionicons name="calendar-outline" size={64} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
-          <Text className={`${subtextColor} mt-4 text-center`}>
-            {activeTab === 'upcoming' ? t('myBookings.noUpcoming') : t('myBookings.noPast')}
-          </Text>
-        </View>
-      );
-    }
-    return (
+  const renderBody = () => (
+    <ListState
+      isLoading={isLoading}
+      error={error}
+      isEmpty={visible.length === 0}
+      emptyIcon="calendar-outline"
+      emptyMessage={activeTab === 'upcoming' ? t('myBookings.noUpcoming') : t('myBookings.noPast')}>
       <>
         {activeTab === 'past' && (
           <Text className={`text-sm ${subtextColor} mb-3`}>
@@ -139,8 +148,8 @@ export default function MyBookingsScreen() {
           />
         ))}
       </>
-    );
-  };
+    </ListState>
+  );
 
   return (
     <>

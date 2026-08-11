@@ -5,6 +5,7 @@ import { PetResponse } from '../../../services/pets';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { useLocale } from '../../../context/LocaleContext';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 type Props = {
   pet: PetResponse;
   isDarkMode: boolean;
@@ -132,7 +133,7 @@ export default function PetDetailsCard({
               <Ionicons
                 name={n.icon}
                 size={16}
-                color="#00C870"
+                color={BRAND_GREEN}
                 style={{ marginTop: 2, marginRight: 8 }}
               />
               <View className="flex-1">

@@ -1,4 +1,4 @@
-import { apiFetch, apiAuthFetch, getApiBaseUrl, parseApiError } from './http';
+import { apiFetch, apiJson, apiVoid, getApiBaseUrl } from './http';
 
 export type CurrentUser = {
   id: number;
@@ -99,20 +99,11 @@ export type RegisterPayload = {
   dateOfBirth: string; // ISO 8601, e.g. "1995-06-15T00:00:00.000Z"
 };
 
-type RegisterApiResponse = {
-  message?: string;
-  detail?: string;
-  [key: string]: unknown;
-};
-
-export async function getMe(): Promise<CurrentUser> {
-  const response = await apiAuthFetch(`${getApiBaseUrl()}/auth/me`);
-
-  if (!response.ok) {
-    throw new Error('Failed to load user profile.');
-  }
-
-  return response.json() as Promise<CurrentUser>;
+export function getMe(): Promise<CurrentUser> {
+  return apiJson<CurrentUser>('/auth/me', {
+    fallback: 'Failed to load user profile.',
+    context: 'getMe',
+  });
 }
 
 export async function refreshAccessToken(
@@ -144,54 +135,30 @@ export async function refreshAccessToken(
   return { accessToken, refreshToken: extractRefreshToken(body) ?? undefined };
 }
 
-export async function registerUser(payload: RegisterPayload): Promise<void> {
-  const url = `${getApiBaseUrl()}/auth/register`;
-
-  const response = await apiFetch(url, {
+// These three public endpoints previously hand-parsed the error body as
+// `message || detail || fallback`, which silently swallowed ASP.NET's
+// `{ errors: { Field: [...] } }` validation shape — so a rejected registration
+// only ever said "Registration failed. Please try again." `parseApiError`
+// (inside the helper) resolves that shape first, surfacing the actual field
+// message the user needs to act on.
+export function registerUser(payload: RegisterPayload): Promise<void> {
+  return apiVoid('/auth/register', {
     method: 'POST',
-    headers: {
-      Accept: '*/*',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
+    body: payload,
+    isPublic: true,
+    fallback: 'Registration failed. Please try again.',
+    context: 'registerUser',
   });
-
-  const raw = await response.text();
-  let body: RegisterApiResponse = {};
-  try {
-    body = JSON.parse(raw);
-  } catch {
-    /* ignore */
-  }
-
-  if (!response.ok) {
-    throw new Error(body.message || body.detail || 'Registration failed. Please try again.');
-  }
 }
 
-export async function confirmEmail(email: string, code: string): Promise<void> {
-  const url = `${getApiBaseUrl()}/auth/confirm-email`;
-
-  const response = await apiFetch(url, {
+export function confirmEmail(email: string, code: string): Promise<void> {
+  return apiVoid('/auth/confirm-email', {
     method: 'POST',
-    headers: {
-      Accept: '*/*',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, code }),
+    body: { email, code },
+    isPublic: true,
+    fallback: 'Email verification failed. Please try again.',
+    context: 'confirmEmail',
   });
-
-  const raw = await response.text();
-  let body: { message?: string; detail?: string } = {};
-  try {
-    body = JSON.parse(raw);
-  } catch {
-    /* ignore */
-  }
-
-  if (!response.ok) {
-    throw new Error(body.message || body.detail || 'Email verification failed. Please try again.');
-  }
 }
 
 export type UpdateProfilePayload = {
@@ -203,90 +170,70 @@ export type UpdateProfilePayload = {
 };
 
 /** Updates the signed-in user's profile. */
-export async function updateProfile(payload: UpdateProfilePayload): Promise<void> {
-  const response = await apiAuthFetch(`${getApiBaseUrl()}/auth/profile`, {
+export function updateProfile(payload: UpdateProfilePayload): Promise<void> {
+  return apiVoid('/auth/profile', {
     method: 'PUT',
-    body: JSON.stringify(payload),
+    body: payload,
+    fallback: 'Failed to update profile.',
+    context: 'updateProfile',
   });
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to update profile.', 'updateProfile'));
-  }
 }
 
 /** Changes the signed-in user's password. */
-export async function changePassword(payload: {
+export function changePassword(payload: {
   currentPassword: string;
   newPassword: string;
   confirmPassword: string;
 }): Promise<void> {
-  const response = await apiAuthFetch(`${getApiBaseUrl()}/auth/change-password`, {
+  return apiVoid('/auth/change-password', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: payload,
+    fallback: 'Failed to change password.',
+    context: 'changePassword',
   });
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to change password.', 'changePassword'));
-  }
 }
 
 /** Requests a password-reset email/code for the given address (public). */
-export async function forgotPassword(email: string): Promise<void> {
-  const response = await apiFetch(`${getApiBaseUrl()}/auth/forgot-password`, {
+export function forgotPassword(email: string): Promise<void> {
+  return apiVoid('/auth/forgot-password', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
+    body: { email },
+    isPublic: true,
+    fallback: 'Failed to send reset email.',
+    context: 'forgotPassword',
   });
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to send reset email.', 'forgotPassword'));
-  }
 }
 
 /** Resets a password using the token from the reset email (public). */
-export async function resetPassword(payload: {
+export function resetPassword(payload: {
   resetToken: string;
   newPassword: string;
   confirmPassword: string;
 }): Promise<void> {
-  const response = await apiFetch(`${getApiBaseUrl()}/auth/reset-password`, {
+  return apiVoid('/auth/reset-password', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: payload,
+    isPublic: true,
+    fallback: 'Failed to reset password.',
+    context: 'resetPassword',
   });
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to reset password.', 'resetPassword'));
-  }
 }
 
 /** Server-side logout (best-effort; the client clears tokens regardless). */
-export async function logout(): Promise<void> {
-  const response = await apiAuthFetch(`${getApiBaseUrl()}/auth/logout`, { method: 'POST' });
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to log out.', 'logout'));
-  }
+export function logout(): Promise<void> {
+  return apiVoid('/auth/logout', {
+    method: 'POST',
+    fallback: 'Failed to log out.',
+    context: 'logout',
+  });
 }
 
-export async function resendConfirmation(email: string): Promise<void> {
-  const url = `${getApiBaseUrl()}/auth/resend-confirmation`;
-
-  const response = await apiFetch(url, {
+export function resendConfirmation(email: string): Promise<void> {
+  return apiVoid('/auth/resend-confirmation', {
     method: 'POST',
-    headers: {
-      Accept: '*/*',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email }),
+    body: { email },
+    isPublic: true,
+    fallback: 'Failed to resend confirmation code. Please try again.',
+    context: 'resendConfirmation',
   });
-
-  const raw = await response.text();
-  let body: { message?: string; detail?: string } = {};
-  try {
-    body = JSON.parse(raw);
-  } catch {
-    /* ignore */
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      body.message || body.detail || 'Failed to resend confirmation code. Please try again.'
-    );
-  }
 }

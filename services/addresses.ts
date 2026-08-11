@@ -1,4 +1,4 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError } from './http';
+import { apiJson } from './http';
 import type { AddressDto } from './service-providers';
 
 /**
@@ -10,14 +10,11 @@ import type { AddressDto } from './service-providers';
  * address id, verified live 2026-07-19), so an edit that ADDS a location must
  * create the row here first and send the returned real-id address instead.
  */
-export async function createAddress(address: AddressDto): Promise<AddressDto> {
-  const url = `${getApiBaseUrl()}/api/addresses`;
-  const response = await apiAuthFetch(url, {
+export function createAddress(address: AddressDto): Promise<AddressDto> {
+  return apiJson<AddressDto>('/api/addresses', {
     method: 'POST',
-    body: JSON.stringify({ ...address, id: 0 }),
+    body: { ...address, id: 0 },
+    fallback: 'Failed to save the address.',
+    context: 'createAddress',
   });
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to save the address.', 'createAddress'));
-  }
-  return response.json();
 }

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { providerTypeValue } from '../../../services/service-providers';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 export type PartnerStatus = 'active' | 'timeout' | 'banned';
 
 export type ServiceHistoryItem = {
@@ -124,7 +125,7 @@ export function PartnerCard({
               position: 'absolute',
               bottom: -6,
               right: -6,
-              backgroundColor: '#00C870',
+              backgroundColor: BRAND_GREEN,
               borderRadius: 10,
               width: 20,
               height: 20,

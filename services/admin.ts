@@ -1,4 +1,4 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError } from './http';
+import { apiVoid } from './http';
 
 /**
  * Admin-only endpoints. All require the caller to have the Admin role
@@ -14,16 +14,34 @@ function ensureReason(reason: string | undefined, fallback: string): string {
   return trimmed.length >= 10 ? trimmed : fallback;
 }
 
-/** Approves a partner application / service provider. */
-export async function approveServiceProvider(serviceProviderId: number): Promise<void> {
-  const url = `${getApiBaseUrl()}/admin/service-providers/${serviceProviderId}/approve`;
-  const response = await apiAuthFetch(url, { method: 'POST' });
+/** POSTs a bodiless moderation action (the `/approve` endpoints). */
+function approveAction(path: string, fallback: string, context: string): Promise<void> {
+  return apiVoid(path, { method: 'POST', fallback, context });
+}
 
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to approve provider.', 'approveServiceProvider')
-    );
-  }
+/** POSTs a moderation action carrying the shared `{ reason }` body (the `/decline` endpoints). */
+function declineAction(
+  path: string,
+  reason: string | undefined,
+  reasonFallback: string,
+  fallback: string,
+  context: string
+): Promise<void> {
+  return apiVoid(path, {
+    method: 'POST',
+    body: { reason: ensureReason(reason, reasonFallback) },
+    fallback,
+    context,
+  });
+}
+
+/** Approves a partner application / service provider. */
+export function approveServiceProvider(serviceProviderId: number): Promise<void> {
+  return approveAction(
+    `/admin/service-providers/${serviceProviderId}/approve`,
+    'Failed to approve provider.',
+    'approveServiceProvider'
+  );
 }
 
 /**
@@ -31,88 +49,68 @@ export async function approveServiceProvider(serviceProviderId: number): Promise
  * Declined with an optional reason). The record is kept — this replaces the
  * old "reject = delete the provider" workaround.
  */
-export async function declineServiceProvider(
-  serviceProviderId: number,
-  reason?: string
-): Promise<void> {
-  const url = `${getApiBaseUrl()}/admin/service-providers/${serviceProviderId}/decline`;
-  const response = await apiAuthFetch(url, {
-    method: 'POST',
-    body: JSON.stringify({ reason: ensureReason(reason, 'Application declined by admin.') }),
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to decline provider.', 'declineServiceProvider')
-    );
-  }
+export function declineServiceProvider(serviceProviderId: number, reason?: string): Promise<void> {
+  return declineAction(
+    `/admin/service-providers/${serviceProviderId}/decline`,
+    reason,
+    'Application declined by admin.',
+    'Failed to decline provider.',
+    'declineServiceProvider'
+  );
 }
 
 /** Approves a single certificate attached to a provider application. */
-export async function approveCertificate(certificateId: number): Promise<void> {
-  const url = `${getApiBaseUrl()}/admin/certificates/${certificateId}/approve`;
-  const response = await apiAuthFetch(url, { method: 'POST' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to approve certificate.', 'approveCertificate')
-    );
-  }
+export function approveCertificate(certificateId: number): Promise<void> {
+  return approveAction(
+    `/admin/certificates/${certificateId}/approve`,
+    'Failed to approve certificate.',
+    'approveCertificate'
+  );
 }
 
 /** Declines a single certificate attached to a provider application. */
-export async function declineCertificate(certificateId: number, reason?: string): Promise<void> {
-  const url = `${getApiBaseUrl()}/admin/certificates/${certificateId}/decline`;
-  const response = await apiAuthFetch(url, {
-    method: 'POST',
-    body: JSON.stringify({ reason: ensureReason(reason, 'Certificate declined by admin.') }),
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to decline certificate.', 'declineCertificate')
-    );
-  }
+export function declineCertificate(certificateId: number, reason?: string): Promise<void> {
+  return declineAction(
+    `/admin/certificates/${certificateId}/decline`,
+    reason,
+    'Certificate declined by admin.',
+    'Failed to decline certificate.',
+    'declineCertificate'
+  );
 }
 
 /**
  * Approves a single user-submitted review (sets approvalStatus = Approved so it
  * becomes publicly visible). Verified live: POST returns 200.
  */
-export async function approveReview(reviewId: number): Promise<void> {
-  const url = `${getApiBaseUrl()}/admin/reviews/${reviewId}/approve`;
-  const response = await apiAuthFetch(url, { method: 'POST' });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to approve review.', 'approveReview'));
-  }
+export function approveReview(reviewId: number): Promise<void> {
+  return approveAction(
+    `/admin/reviews/${reviewId}/approve`,
+    'Failed to approve review.',
+    'approveReview'
+  );
 }
 
 /**
  * Declines a single review (sets approvalStatus = Declined and stores an optional
  * reason). The record is kept; declined reviews never surface to users.
  */
-export async function declineReview(reviewId: number, reason?: string): Promise<void> {
-  const url = `${getApiBaseUrl()}/admin/reviews/${reviewId}/decline`;
-  const response = await apiAuthFetch(url, {
-    method: 'POST',
-    body: JSON.stringify({ reason: ensureReason(reason, 'Review declined by moderator.') }),
-  });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to decline review.', 'declineReview'));
-  }
+export function declineReview(reviewId: number, reason?: string): Promise<void> {
+  return declineAction(
+    `/admin/reviews/${reviewId}/decline`,
+    reason,
+    'Review declined by moderator.',
+    'Failed to decline review.',
+    'declineReview'
+  );
 }
 
 /** Bulk-approves multiple reviews in one call (POST /admin/reviews/approve, `{ ids }`). */
-export async function approveReviews(reviewIds: number[]): Promise<void> {
-  const url = `${getApiBaseUrl()}/admin/reviews/approve`;
-  const response = await apiAuthFetch(url, {
+export function approveReviews(reviewIds: number[]): Promise<void> {
+  return apiVoid('/admin/reviews/approve', {
     method: 'POST',
-    body: JSON.stringify({ ids: reviewIds }),
+    body: { ids: reviewIds },
+    fallback: 'Failed to approve reviews.',
+    context: 'approveReviews',
   });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to approve reviews.', 'approveReviews'));
-  }
 }

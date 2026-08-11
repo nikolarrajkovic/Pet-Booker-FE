@@ -1,4 +1,4 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError } from './http';
+import { apiJson } from './http';
 import { AddressDto } from './service-providers';
 
 export type UserDto = {
@@ -24,13 +24,11 @@ export type UserDto = {
 };
 
 /** GET /api/users/{id} — full user record (incl. avatarUrl + address). */
-export async function getUser(id: number): Promise<UserDto> {
-  const url = `${getApiBaseUrl()}/api/users/${id}`;
-  const response = await apiAuthFetch(url, { method: 'GET' });
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to load profile.', 'getUser'));
-  }
-  return response.json();
+export function getUser(id: number): Promise<UserDto> {
+  return apiJson<UserDto>(`/api/users/${id}`, {
+    fallback: 'Failed to load profile.',
+    context: 'getUser',
+  });
 }
 
 /**
@@ -39,12 +37,12 @@ export async function getUser(id: number): Promise<UserDto> {
  * full `UserDto` from {@link getUser} with your edits merged in; that preserves
  * the sensitive fields untouched.
  */
-export async function updateUser(user: UserDto): Promise<UserDto> {
+export function updateUser(user: UserDto): Promise<UserDto> {
   if (user.id == null) throw new Error('Cannot update a user without an id.');
-  const url = `${getApiBaseUrl()}/api/users/${user.id}`;
-  const response = await apiAuthFetch(url, { method: 'PUT', body: JSON.stringify(user) });
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to save profile.', 'updateUser'));
-  }
-  return response.json();
+  return apiJson<UserDto>(`/api/users/${user.id}`, {
+    method: 'PUT',
+    body: user,
+    fallback: 'Failed to save profile.',
+    context: 'updateUser',
+  });
 }

@@ -14,7 +14,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
@@ -143,11 +143,11 @@ export default function ApplicationReviewScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#00C870' }}>
+    <View style={{ flex: 1, backgroundColor: BRAND_GREEN }}>
       {/* ── Green header ── */}
       <View
         style={{
-          backgroundColor: '#00C870',
+          backgroundColor: BRAND_GREEN,
           paddingHorizontal: 20,
           paddingTop: insets.top + 12,
           paddingBottom: 28,
@@ -383,7 +383,7 @@ export default function ApplicationReviewScreen() {
               title={t('admin.profilePhoto')}
               icon="person-circle-outline"
               iconBg="#E8F5EF"
-              iconColor="#00C870"
+              iconColor={BRAND_GREEN}
               isDarkMode={isDarkMode}
               borderColor={borderColor}
               textColor={textColor}>
@@ -483,7 +483,7 @@ export default function ApplicationReviewScreen() {
               }
               icon="ribbon-outline"
               iconBg="#E8F5EF"
-              iconColor="#00C870"
+              iconColor={BRAND_GREEN}
               isDarkMode={isDarkMode}
               borderColor={borderColor}
               textColor={textColor}
@@ -533,7 +533,7 @@ export default function ApplicationReviewScreen() {
                           activeOpacity={0.8}
                           onPress={() => openDownload(c.fileSrc, t)}
                           style={{ padding: 8 }}>
-                          <Ionicons name="open-outline" size={20} color="#00C870" />
+                          <Ionicons name="open-outline" size={20} color={BRAND_GREEN} />
                         </TouchableOpacity>
                       </View>
                     )}
@@ -626,7 +626,7 @@ export default function ApplicationReviewScreen() {
                 flex: 2,
                 paddingVertical: 14,
                 borderRadius: 12,
-                backgroundColor: '#00C870',
+                backgroundColor: BRAND_GREEN,
                 alignItems: 'center',
                 flexDirection: 'row',
                 justifyContent: 'center',
@@ -763,7 +763,7 @@ function SectionCard({
             justifyContent: 'center',
             marginRight: 10,
           }}>
-          <Ionicons name={icon} size={16} color="#00C870" />
+          <Ionicons name={icon} size={16} color={BRAND_GREEN} />
         </View>
         <Text style={{ color: textColor, fontSize: 15, fontWeight: '700' }}>{title}</Text>
       </View>

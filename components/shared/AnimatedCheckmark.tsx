@@ -11,6 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { BRAND_GREEN } from '../../hooks/useThemeColors';
 type Props = {
   /** Diameter of the circular ring, in px. */
   size?: number;
@@ -43,7 +44,7 @@ const P3 = { x: 0.74, y: 0.31 };
  */
 export default function AnimatedCheckmark({
   size = 128,
-  color = '#00C870',
+  color = BRAND_GREEN,
   ringColor,
   isDarkMode = false,
   onDone,

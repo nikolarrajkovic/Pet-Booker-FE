@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -721,13 +721,13 @@ export default function LiveSessionScreen() {
       contentBg={bgColor}>
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
-          <ActivityIndicator size="large" color="#00C870" />
+          <ActivityIndicator size="large" color={BRAND_GREEN} />
         </View>
       ) : justCompleted ? (
         // ── Service-completed success state ──
         <View className="flex-1 items-center justify-center px-8">
           <View className="mb-5 h-20 w-20 items-center justify-center rounded-full bg-brand-50">
-            <Ionicons name="checkmark-done" size={42} color="#00C870" />
+            <Ionicons name="checkmark-done" size={42} color={BRAND_GREEN} />
           </View>
           <Text className={`text-xl font-bold ${textColor} mb-2`}>
             {t('liveSession.serviceCompleted')}
@@ -815,7 +815,7 @@ export default function LiveSessionScreen() {
                 width: 8,
                 height: 8,
                 borderRadius: 4,
-                backgroundColor: started ? '#00C870' : '#9CA3AF',
+                backgroundColor: started ? BRAND_GREEN : '#9CA3AF',
                 marginRight: 6,
               }}
             />
@@ -838,7 +838,7 @@ export default function LiveSessionScreen() {
                   width: 8,
                   height: 8,
                   borderRadius: 4,
-                  backgroundColor: '#00C870',
+                  backgroundColor: BRAND_GREEN,
                   marginRight: 6,
                 }}
               />
@@ -906,7 +906,7 @@ export default function LiveSessionScreen() {
                         width: 6,
                         height: 6,
                         borderRadius: 3,
-                        backgroundColor: '#00C870',
+                        backgroundColor: BRAND_GREEN,
                         marginRight: 4,
                       }}
                     />
@@ -973,7 +973,7 @@ export default function LiveSessionScreen() {
               ) : (
                 <View
                   className={`${cardBg} rounded-2xl border ${borderColor} flex-row items-center p-4`}>
-                  <ActivityIndicator size="small" color="#00C870" />
+                  <ActivityIndicator size="small" color={BRAND_GREEN} />
                   <Text className={`text-sm ${subtextColor} ml-2 flex-1`}>
                     {started
                       ? t('liveSession.waitingForLocation')
@@ -1025,9 +1025,14 @@ export default function LiveSessionScreen() {
               </Text>
             </View>
             <View className={`mt-4 flex-row items-center border-t pt-4 ${borderColor}`}>
-              <Ionicons name="calendar-outline" size={18} color="#00C870" />
+              <Ionicons name="calendar-outline" size={18} color={BRAND_GREEN} />
               <Text className={`text-sm ${subtextColor} ml-2`}>{formatDate(dto.bookingFrom)}</Text>
-              <Ionicons name="time-outline" size={18} color="#00C870" style={{ marginLeft: 16 }} />
+              <Ionicons
+                name="time-outline"
+                size={18}
+                color={BRAND_GREEN}
+                style={{ marginLeft: 16 }}
+              />
               <Text className={`text-sm ${subtextColor} ml-2`}>
                 {formatTime(dto.bookingFrom)} – {formatTime(dto.bookingTo)}
               </Text>
@@ -1071,7 +1076,7 @@ export default function LiveSessionScreen() {
               {isPartner && started && addOns.some((a) => a.address) ? (
                 <View className="mb-5">
                   <View className="mb-2 flex-row items-center">
-                    <Ionicons name="navigate" size={15} color="#00C870" />
+                    <Ionicons name="navigate" size={15} color={BRAND_GREEN} />
                     <Text className={`text-sm font-bold ${textColor} ml-1.5 flex-1`}>
                       {t('liveSession.route')}
                       {mapTarget ? ` · ${mapTarget.label}` : ''}
@@ -1136,7 +1141,7 @@ export default function LiveSessionScreen() {
                 activeOpacity={0.85}
                 className="flex-row items-center justify-center rounded-2xl py-4"
                 style={{
-                  backgroundColor: canStart ? '#00C870' : isDarkMode ? '#374151' : '#E5E7EB',
+                  backgroundColor: canStart ? BRAND_GREEN : isDarkMode ? '#374151' : '#E5E7EB',
                   opacity: busy ? 0.7 : 1,
                 }}>
                 {busy === 'start' ? (

@@ -1,4 +1,4 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError, extractPageItems } from './http';
+import { apiJson, apiList, apiVoid, getApiBaseUrl } from './http';
 import { uploadFilesBulk } from './files';
 
 function formatDateOnly(date: Date): string {
@@ -97,22 +97,11 @@ export type PetResponse = {
 };
 
 export async function getPets(ownerUserId: number): Promise<PetResponse[]> {
-  const url = `${getApiBaseUrl()}/api/pets?OwnerUserId=${ownerUserId}`;
-
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, `Failed to load pets (${response.status}).`, 'getPets')
-    );
-  }
-
-  const raw = await response.json();
-  const items = extractPageItems<PetResponse>(raw);
-  if (!items.length && !Array.isArray(raw)) {
-    console.warn('[getPets] unexpected response shape', raw);
-  }
-  return items;
+  return apiList<PetResponse>('/api/pets', {
+    query: { OwnerUserId: ownerUserId },
+    fallback: 'Failed to load pets.',
+    context: 'getPets',
+  });
 }
 
 /**
@@ -120,16 +109,11 @@ export async function getPets(ownerUserId: number): Promise<PetResponse[]> {
  * shallow pet include (name/photos/id), so screens that need breed/age/weight/
  * notes (e.g. LiveSession) fetch the pet by id here.
  */
-export async function getPet(petId: string | number): Promise<PetResponse> {
-  const url = `${getApiBaseUrl()}/api/pets/${petId}`;
-
-  const response = await apiAuthFetch(url, { method: 'GET' });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to load pet.', 'getPet'));
-  }
-
-  return response.json();
+export function getPet(petId: string | number): Promise<PetResponse> {
+  return apiJson<PetResponse>(`/api/pets/${petId}`, {
+    fallback: 'Failed to load pet.',
+    context: 'getPet',
+  });
 }
 
 export type CreatePetInput = {
@@ -152,8 +136,6 @@ export type CreatePetInput = {
 };
 
 export async function createPet(input: CreatePetInput): Promise<void> {
-  const url = `${getApiBaseUrl()}/api/pets`;
-
   // The API requires at least one photo (422 "'Request Photos' must not be empty." otherwise)
   if (!input.petPhotos.length) {
     throw new Error('At least one pet photo is required.');
@@ -194,18 +176,12 @@ export async function createPet(input: CreatePetInput): Promise<void> {
     photos,
   };
 
-  console.log('[createPet] body', JSON.stringify(body, null, 2));
-
-  const response = await apiAuthFetch(url, {
+  await apiVoid('/api/pets', {
     method: 'POST',
-    body: JSON.stringify(body),
+    body,
+    fallback: 'Failed to save pet.',
+    context: 'createPet',
   });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, `Failed to save pet (${response.status}).`, 'createPet')
-    );
-  }
 }
 
 export type UpdatePetInput = CreatePetInput & {
@@ -215,7 +191,6 @@ export type UpdatePetInput = CreatePetInput & {
 
 export async function updatePet(input: UpdatePetInput): Promise<void> {
   const base = getApiBaseUrl();
-  const url = `${base}/api/pets/${input.petId}`;
 
   // Strip the app base URL from a resolved URI to get the relative path the backend stores
   const toRelative = (uri: string) => (uri.startsWith(base) ? uri.slice(base.length) : uri);
@@ -282,24 +257,18 @@ export async function updatePet(input: UpdatePetInput): Promise<void> {
     photos: allPhotos,
   };
 
-  console.log('[updatePet] body', JSON.stringify(body, null, 2));
-
-  const response = await apiAuthFetch(url, {
+  await apiVoid(`/api/pets/${input.petId}`, {
     method: 'PUT',
-    body: JSON.stringify(body),
+    body,
+    fallback: 'Failed to save pet.',
+    context: 'updatePet',
   });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to save pet.', 'updatePet'));
-  }
 }
 
-export async function deletePet(petId: string): Promise<void> {
-  const url = `${getApiBaseUrl()}/api/pets/${petId}`;
-
-  const response = await apiAuthFetch(url, { method: 'DELETE' });
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, 'Failed to delete pet.', 'deletePet'));
-  }
+export function deletePet(petId: string): Promise<void> {
+  return apiVoid(`/api/pets/${petId}`, {
+    method: 'DELETE',
+    fallback: 'Failed to delete pet.',
+    context: 'deletePet',
+  });
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { themeColors } from '../../hooks/useThemeColors';
+import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 
 interface TimePickerProps {
@@ -118,7 +118,7 @@ export default function TimePicker({
         disabled={upDisabled}
         style={{ padding: 8, marginBottom: 2, opacity: upDisabled ? 0.3 : 1 }}
         activeOpacity={0.6}>
-        <Ionicons name="chevron-up" size={22} color="#00C870" />
+        <Ionicons name="chevron-up" size={22} color={BRAND_GREEN} />
       </TouchableOpacity>
 
       <View
@@ -129,7 +129,7 @@ export default function TimePicker({
           alignItems: 'center',
           paddingVertical: 14,
           borderWidth: 1.5,
-          borderColor: '#00C870',
+          borderColor: BRAND_GREEN,
         }}>
         <Text style={{ color: textColor, fontSize: 28, fontWeight: '700' }}>{displayVal}</Text>
       </View>
@@ -139,7 +139,7 @@ export default function TimePicker({
         disabled={downDisabled}
         style={{ padding: 8, marginTop: 2, opacity: downDisabled ? 0.3 : 1 }}
         activeOpacity={0.6}>
-        <Ionicons name="chevron-down" size={22} color="#00C870" />
+        <Ionicons name="chevron-down" size={22} color={BRAND_GREEN} />
       </TouchableOpacity>
     </View>
   );
@@ -210,7 +210,7 @@ export default function TimePicker({
           paddingVertical: 12,
           borderRadius: 12,
           alignItems: 'center',
-          backgroundColor: '#00C870',
+          backgroundColor: BRAND_GREEN,
         }}>
         <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>
           {t('shared.done')}

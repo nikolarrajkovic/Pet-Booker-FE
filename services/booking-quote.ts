@@ -1,4 +1,4 @@
-import { apiAuthFetch, getApiBaseUrl, parseApiError } from './http';
+import { apiJson } from './http';
 import type { BookingAdditionalServiceReadDto, BookingDto } from './bookings';
 
 /**
@@ -42,18 +42,11 @@ export type BookingQuote = {
  * Submitting the booking is what enforces those, so a successful quote is not a promise that
  * the create will succeed; it only promises the *price* will match.
  */
-export async function getBookingQuote(booking: BookingDto): Promise<BookingQuote> {
-  const url = `${getApiBaseUrl()}/api/bookings/quote`;
-  const response = await apiAuthFetch(url, {
+export function getBookingQuote(booking: BookingDto): Promise<BookingQuote> {
+  return apiJson<BookingQuote>('/api/bookings/quote', {
     method: 'POST',
-    body: JSON.stringify(booking),
+    body: booking,
+    fallback: 'Failed to price this booking.',
+    context: 'getBookingQuote',
   });
-
-  if (!response.ok) {
-    throw new Error(
-      await parseApiError(response, 'Failed to price this booking.', 'getBookingQuote')
-    );
-  }
-
-  return (await response.json()) as BookingQuote;
 }

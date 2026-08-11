@@ -1,18 +1,11 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  SafeAreaView,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, SafeAreaView } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
+import ListState from '../../../components/shared/ListState';
 import { PartnerCard } from '../components';
 import type { Partner, PartnerStatus } from '../components';
 import {
@@ -22,6 +15,8 @@ import {
   ApprovalStatus,
   type ServiceProviderDto,
 } from '../../../services/service-providers';
+import { getServices } from '../../../services/services';
+import { getReviews } from '../../../services/reviews';
 import { getErrorMessage } from '../../../services/http';
 
 // Maps a raw ServiceProviderDto into the Partner card/detail view shape.
@@ -29,7 +24,10 @@ import { getErrorMessage } from '../../../services/http';
 // 'active'; the admin can still timeout/ban in-session (kept as local overrides).
 // Fields not exposed at the list level (reviews count, total services, phone,
 // bio, starting price) default to 0/'' until the API provides them.
-function providerToPartner(dto: ServiceProviderDto): Partner {
+/** Per-provider tallies the provider list itself doesn't carry. */
+type ProviderTallies = { services: number; reviews: number };
+
+function providerToPartner(dto: ServiceProviderDto, tallies?: ProviderTallies): Partner {
   const photos = dto.photos ?? [];
   const profilePhoto = photos.find((p) => p.isSelected) ?? photos[0];
   const created = dto.createdAt ? new Date(dto.createdAt) : null;
@@ -45,8 +43,11 @@ function providerToPartner(dto: ServiceProviderDto): Partner {
     image: resolveImageUrl(profilePhoto?.src),
     status: 'active',
     rating,
-    reviews: 0,
-    totalServices: 0,
+    // Counted from the catalogue/review lists fetched alongside the providers. Both used to be
+    // hardcoded 0, so every partner in this list read "0 services · (0)" no matter how many they
+    // actually had — next to a real star rating, which made the rating look broken too.
+    reviews: tallies?.reviews ?? 0,
+    totalServices: tallies?.services ?? 0,
     services: [providerTypeLabel(dto.type)],
     distance: addr?.city ?? '',
     joinedDate: created
@@ -103,17 +104,34 @@ export default function AdminPartnersScreen() {
           // Only approved providers are managed here — pending/declined
           // applications live in AdminNewRequests. (Filter server-side, then
           // guard client-side so a declined provider can never show as "active".)
-          const dtos = await getServiceProviders({
-            approvalStatus: ApprovalStatus.Approved,
-            perPage: 200,
-          });
+          // Three list calls, not one-per-partner: the service and review counts are grouped
+          // by provider id client-side, so the cost stays flat however many partners there are.
+          // Both tallies are fail-soft — a partner still renders if either list call fails.
+          const [dtos, services, reviews] = await Promise.all([
+            getServiceProviders({ approvalStatus: ApprovalStatus.Approved, perPage: 200 }),
+            getServices({ perPage: 200 }).catch(() => []),
+            getReviews({ approvalStatus: ApprovalStatus.Approved, perPage: 200 }).catch(() => []),
+          ]);
+
+          const tallies = new Map<number, ProviderTallies>();
+          const bump = (id: number | undefined, key: keyof ProviderTallies) => {
+            if (id == null) return;
+            const row = tallies.get(id) ?? { services: 0, reviews: 0 };
+            row[key] += 1;
+            tallies.set(id, row);
+          };
+          for (const s of services) bump(s.serviceProviderId, 'services');
+          for (const r of reviews) bump(r.serviceProviderId, 'reviews');
+
           const approved = dtos.filter(
             (d) =>
               (d.approvalStatus ??
                 (d.isApproved ? ApprovalStatus.Approved : ApprovalStatus.Pending)) ===
               ApprovalStatus.Approved
           );
-          if (!cancelled) setProviders(approved.map(providerToPartner));
+          if (!cancelled) {
+            setProviders(approved.map((d) => providerToPartner(d, tallies.get(d.id ?? -1))));
+          }
         } catch (e) {
           if (!cancelled) {
             setProviders([]);
@@ -171,11 +189,11 @@ export default function AdminPartnersScreen() {
   }, [partners, activeTab, search]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#00C870' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{
-          backgroundColor: '#00C870',
+          backgroundColor: BRAND_GREEN,
           paddingHorizontal: 20,
           paddingTop: insets.top > 0 ? 8 : 16,
           paddingBottom: 16,
@@ -266,9 +284,9 @@ export default function AdminPartnersScreen() {
                     paddingHorizontal: 14,
                     paddingVertical: 8,
                     borderRadius: 20,
-                    backgroundColor: isActive ? '#00C870' : cardBg,
+                    backgroundColor: isActive ? BRAND_GREEN : cardBg,
                     borderWidth: 1.5,
-                    borderColor: isActive ? '#00C870' : borderColor,
+                    borderColor: isActive ? BRAND_GREEN : borderColor,
                   }}>
                   <Text
                     style={{
@@ -310,36 +328,13 @@ export default function AdminPartnersScreen() {
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
           showsVerticalScrollIndicator={false}>
-          {isLoading ? (
-            <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
-              <ActivityIndicator size="large" color="#00C870" />
-            </View>
-          ) : loadError ? (
-            <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
-              <Ionicons
-                name="alert-circle-outline"
-                size={64}
-                color={isDarkMode ? '#4B5563' : '#D1D5DB'}
-              />
-              <Text
-                style={{ color: subTextColor, marginTop: 16, fontSize: 15, textAlign: 'center' }}>
-                {loadError}
-              </Text>
-            </View>
-          ) : filtered.length === 0 ? (
-            <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 64 }}>
-              <Ionicons
-                name="people-outline"
-                size={64}
-                color={isDarkMode ? '#4B5563' : '#D1D5DB'}
-              />
-              <Text
-                style={{ color: subTextColor, marginTop: 16, fontSize: 15, textAlign: 'center' }}>
-                {t('admin.noPartnersFound')}
-              </Text>
-            </View>
-          ) : (
-            filtered.map((partner) => (
+          <ListState
+            isLoading={isLoading}
+            error={loadError}
+            isEmpty={filtered.length === 0}
+            emptyIcon="people-outline"
+            emptyMessage={t('admin.noPartnersFound')}>
+            {filtered.map((partner) => (
               <PartnerCard
                 key={partner.id}
                 partner={partner}
@@ -350,8 +345,8 @@ export default function AdminPartnersScreen() {
                 borderColor={borderColor}
                 onPress={() => navigation.navigate('PartnerDetails', { partner })}
               />
-            ))
-          )}
+            ))}
+          </ListState>
         </ScrollView>
       </View>
     </SafeAreaView>

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import { SUPPORTED_CURRENCIES, formatMoney, type SupportedCurrency } from '../../services/currency';
 
@@ -70,7 +70,7 @@ export default function CurrencyPicker({ visible, current, onSelect, onClose }: 
                   borderRadius: 16,
                   marginBottom: 10,
                   borderWidth: 2,
-                  borderColor: active ? '#00C870' : isDarkMode ? '#374151' : '#E5E7EB',
+                  borderColor: active ? BRAND_GREEN : isDarkMode ? '#374151' : '#E5E7EB',
                   backgroundColor: active
                     ? isDarkMode
                       ? 'rgba(0,200,112,0.12)'
@@ -84,7 +84,7 @@ export default function CurrencyPicker({ visible, current, onSelect, onClose }: 
                 <Text style={{ color: hex.subtext }} className="mr-3 text-sm">
                   {formatMoney(1200, code)}
                 </Text>
-                {active ? <Ionicons name="checkmark-circle" size={22} color="#00C870" /> : null}
+                {active ? <Ionicons name="checkmark-circle" size={22} color={BRAND_GREEN} /> : null}
               </TouchableOpacity>
             );
           })}

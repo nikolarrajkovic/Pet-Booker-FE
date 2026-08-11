@@ -12,19 +12,23 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import {
   getService,
   ServiceDto,
-  ServiceProviderInfoDto,
   effectiveOptionPrice,
   serviceCurrency,
 } from '../../../services/services';
 import { ReviewDto } from '../../../services/reviews';
-import { resolveImageUrl, ApprovalStatus } from '../../../services/service-providers';
+import {
+  resolveImageUrl,
+  ApprovalStatus,
+  getServiceProvider,
+  ServiceProviderDto,
+} from '../../../services/service-providers';
 import {
   getEnabledServiceAddons,
   addonPriceLabel,
@@ -41,7 +45,7 @@ import { PetSpecies } from '../../../services/pets';
 //
 // Two ways in, because this screen is also the app's one deep-linkable page:
 //   * from Home/Search, carrying the whole `service` — renders immediately, then
-//     re-fetches the full record (the rails return a leaner shape).
+//     re-fetches for the parts a list read leaves out (the service's own reviews).
 //   * from the URL `/services/:serviceId`, carrying only an id — nothing to render
 //     until the fetch lands, so it shows a spinner first.
 // Either way the mount fetch is the same call, so the id-only path costs nothing extra.
@@ -49,6 +53,14 @@ type ServiceDetailRouteParams = { service?: ServiceDto; serviceId?: number };
 
 // Prefer the effective price (after any applied discount) the API returns.
 const servicePrice = (s: ServiceDto) => s.price ?? s.pricing?.basePrice ?? 0;
+
+/**
+ * Whether a day's window covers the whole day. The backend stores an all-day schedule as
+ * `00:00:00`–`23:59:59`, which surfaces as midnight to "24:00" — a range readers parse as a bug
+ * rather than as "always open", so the caller swaps in a phrase instead.
+ */
+const isAllDay = (start: string, end: string) =>
+  start.startsWith('00:00') && (end.startsWith('24:00') || end.startsWith('23:59'));
 
 // Map an acceptedSpecies FLAGS value into species.* translation keys (63 = All → []).
 const speciesKeys = (flags?: number): string[] => {
@@ -81,6 +93,7 @@ export default function ServiceDetailScreen() {
   const { t, tEnum } = useLocale();
 
   const [selectedService, setSelectedService] = useState<ServiceDto | null>(service ?? null);
+  const [provider, setProvider] = useState<ServiceProviderDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
@@ -91,16 +104,29 @@ export default function ServiceDetailScreen() {
       setIsLoading(true);
       setLoadFailed(false);
       try {
-        // One fetch: the full service GET embeds details/schedules/pricing plus
-        // the slim provider (name/photos/address/rating/verified) and the
-        // service's reviews. Fails soft when we were handed a service — the lean
-        // route-param one still renders (without provider/reviews).
+        // The service GET carries details/schedules/pricing/photos/discounts and the
+        // service's own reviews. Fails soft when we were handed a service — the lean
+        // route-param one still renders (without reviews).
         const fullService = id != null ? await getService(id).catch(() => null) : null;
         if (cancelled) return;
         if (fullService) setSelectedService(fullService);
         // Arrived by URL with nothing to fall back on: an unknown or unapproved id
         // is a dead link, so say so rather than rendering an empty page.
-        else if (!service) setLoadFailed(true);
+        else if (!service) {
+          setLoadFailed(true);
+          return;
+        }
+
+        // Who runs it is a SECOND call: a service read carries only `serviceProviderId`,
+        // never the provider record (there is no embed — the booking and review reads are
+        // the ones that carry a slim provider). Fail-soft, because the provider card and
+        // the verified badge are the only things that depend on it — the rest of the page
+        // is the service itself.
+        const providerId = fullService?.serviceProviderId ?? service?.serviceProviderId;
+        if (providerId != null) {
+          const dto = await getServiceProvider(providerId).catch(() => null);
+          if (!cancelled && dto) setProvider(dto);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -130,7 +156,6 @@ export default function ServiceDetailScreen() {
   }
 
   const svc = selectedService;
-  const provider: ServiceProviderInfoDto | null = svc.serviceProvider ?? null;
   // Embedded reviews are service-level and carry every moderation status —
   // this is a public screen, so show only the approved ones.
   const reviews: ReviewDto[] = (svc.reviews ?? []).filter(
@@ -153,6 +178,13 @@ export default function ServiceDetailScreen() {
   const serviceTypeLabel =
     svc.basicServiceName ?? (svc.type != null ? tEnum('serviceProviderType', svc.type) : '');
 
+  // Provider profile photo — same rule as everywhere else: the selected one, else the first.
+  const providerAvatar = (() => {
+    const photos = provider?.photos ?? [];
+    const chosen = photos.find((p) => p.isSelected) ?? photos[0];
+    return chosen?.src ? resolveImageUrl(chosen.src) : '';
+  })();
+
   // Service-level rating (falls back to the provider average / fetched reviews).
   const rating =
     svc.rating ??
@@ -160,7 +192,11 @@ export default function ServiceDetailScreen() {
     (reviews.length
       ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
       : 0);
-  const reviewCount = svc.totalRatingNumber ?? reviews.length;
+  // Count the reviews this page actually lists. `totalRatingNumber` is the PROVIDER's tally
+  // across all their services, so a service with 2 approved reviews advertised "4 reviews" in
+  // the header while the section below it read "Reviews (2)" — the same page disagreeing with
+  // itself. Fall back to the provider tally only when the embed gave us nothing to show.
+  const reviewCount = reviews.length || (svc.totalRatingNumber ?? 0);
 
   // Pricing options (duration/price variants): the header shows "from" the
   // cheapest option's effective price; the full list gets its own section and
@@ -253,7 +289,7 @@ export default function ServiceDetailScreen() {
       }>
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
-          <ActivityIndicator size="large" color="#00C870" />
+          <ActivityIndicator size="large" color={BRAND_GREEN} />
         </View>
       ) : (
         <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 110 }}>
@@ -305,7 +341,7 @@ export default function ServiceDetailScreen() {
               {rating > 0 && (
                 <View className="flex-row items-center">
                   <View className="flex-row items-center rounded-lg bg-brand-50 px-2 py-1">
-                    <Ionicons name="star" size={16} color="#00C870" />
+                    <Ionicons name="star" size={16} color={BRAND_GREEN} />
                     <Text className="ml-1 font-semibold text-brand-700">{rating.toFixed(1)}</Text>
                   </View>
                   <Text className={`${subtextColor} ml-2`}>
@@ -318,7 +354,7 @@ export default function ServiceDetailScreen() {
               )}
               {provider?.isApproved && (
                 <View className="flex-row items-center">
-                  <Ionicons name="checkmark-circle" size={16} color="#00C870" />
+                  <Ionicons name="checkmark-circle" size={16} color={BRAND_GREEN} />
                   <Text className="ml-1 text-sm text-brand-600">
                     {t('serviceDetail.verifiedProvider')}
                   </Text>
@@ -347,15 +383,15 @@ export default function ServiceDetailScreen() {
             section(
               t('serviceDetail.provider'),
               <View className="flex-row items-center">
-                {provider.photos?.[0]?.src ? (
+                {providerAvatar ? (
                   <Image
-                    source={{ uri: resolveImageUrl(provider.photos[0].src) }}
+                    source={{ uri: providerAvatar }}
                     className="mr-3 h-12 w-12 rounded-full"
                     resizeMode="cover"
                   />
                 ) : (
                   <View className="mr-3 h-12 w-12 items-center justify-center rounded-full bg-brand-100">
-                    <Ionicons name="business-outline" size={22} color="#00C870" />
+                    <Ionicons name="business-outline" size={22} color={BRAND_GREEN} />
                   </View>
                 )}
                 <View className="flex-1">
@@ -383,7 +419,7 @@ export default function ServiceDetailScreen() {
                     className={`mb-2 flex-row items-center justify-between rounded-2xl p-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`}>
                     <View className="mr-3 flex-1 flex-row items-center">
                       <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-100">
-                        <Ionicons name="time-outline" size={20} color="#00C870" />
+                        <Ionicons name="time-outline" size={20} color={BRAND_GREEN} />
                       </View>
                       <View className="flex-1">
                         <Text className={`font-medium ${textColor}`}>
@@ -423,7 +459,7 @@ export default function ServiceDetailScreen() {
                       <Ionicons
                         name={isPerDistance(addon) ? 'car-outline' : 'heart-outline'}
                         size={20}
-                        color="#00C870"
+                        color={BRAND_GREEN}
                       />
                     </View>
                     <View className="flex-1">
@@ -472,7 +508,7 @@ export default function ServiceDetailScreen() {
                   <View
                     key={f.label}
                     className={`flex-row items-center rounded-xl px-3 py-2 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
-                    <Ionicons name={f.icon} size={16} color="#00C870" />
+                    <Ionicons name={f.icon} size={16} color={BRAND_GREEN} />
                     <Text className={`text-sm ${textColor} ml-2`}>{f.label}</Text>
                   </View>
                 ))}
@@ -487,7 +523,11 @@ export default function ServiceDetailScreen() {
                 <View key={day} className="flex-row items-center justify-between py-1.5">
                   <Text className={`${textColor}`}>{t(`days.${day.toLowerCase()}` as any)}</Text>
                   <Text className={subtextColor}>
-                    {h.startTime} – {h.endTime}
+                    {/* A full-day window renders as a phrase, not "00:00 – 24:00" — which reads
+                        like a data glitch rather than "we're open all day". */}
+                    {isAllDay(h.startTime, h.endTime)
+                      ? t('serviceDetail.openAllDay')
+                      : `${h.startTime} – ${h.endTime}`}
                   </Text>
                 </View>
               ))
@@ -534,7 +574,7 @@ export default function ServiceDetailScreen() {
             isLoading
               ? {}
               : {
-                  shadowColor: '#00C870',
+                  shadowColor: BRAND_GREEN,
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.3,
                   shadowRadius: 8,

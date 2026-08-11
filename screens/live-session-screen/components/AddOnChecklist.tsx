@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AddressDto } from '../../../services/service-providers';
 import { useLocale } from '../../../context/LocaleContext';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 export type AddOnItem = {
   /**
    * `'pickup'` / `'dropoff'` are the two travel tasks — those keys are meaningful, because
@@ -103,7 +104,7 @@ export default function AddOnChecklist({
                 marginRight: 12,
                 backgroundColor: done ? '#E8F5EF' : isDarkMode ? '#243447' : '#F3F4F6',
               }}>
-              <Ionicons name={item.icon} size={20} color={done ? '#00C870' : '#9CA3AF'} />
+              <Ionicons name={item.icon} size={20} color={done ? BRAND_GREEN : '#9CA3AF'} />
             </View>
             <View className="flex-1">
               <Text className={`text-base font-semibold ${textColor}`}>{item.label}</Text>
@@ -122,7 +123,7 @@ export default function AddOnChecklist({
                         className="mt-2 flex-row items-center self-start rounded-lg px-2.5 py-1.5"
                         style={{
                           backgroundColor: selected
-                            ? '#00C870'
+                            ? BRAND_GREEN
                             : isDarkMode
                               ? '#243447'
                               : '#E6FAF0',
@@ -130,7 +131,7 @@ export default function AddOnChecklist({
                         {directionsLoadingKey === item.key ? (
                           <ActivityIndicator
                             size="small"
-                            color={selected ? '#ffffff' : '#00C870'}
+                            color={selected ? '#ffffff' : BRAND_GREEN}
                           />
                         ) : (
                           <>
@@ -155,7 +156,7 @@ export default function AddOnChecklist({
               <Ionicons
                 name={done ? 'checkmark-circle' : 'ellipse-outline'}
                 size={26}
-                color={done ? '#00C870' : isDarkMode ? '#4B5563' : '#D1D5DB'}
+                color={done ? BRAND_GREEN : isDarkMode ? '#4B5563' : '#D1D5DB'}
               />
             ) : (
               <Ionicons

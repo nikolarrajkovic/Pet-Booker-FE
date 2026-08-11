@@ -6,6 +6,7 @@ import { formatMoney } from '../../../services/currency';
 import { serviceCurrency } from '../../../services/services';
 import type { ServiceSearchItem } from './ListView';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 interface LocationData {
   latitude: number;
   longitude: number;
@@ -44,7 +45,7 @@ function pricePinSvg(label: string): { svg: string; width: number; height: numbe
     height,
     svg:
       `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
-      `<rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="${(height - 2) / 2}" fill="#00C870" stroke="white" stroke-width="2"/>` +
+      `<rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="${(height - 2) / 2}" fill="${BRAND_GREEN}" stroke="white" stroke-width="2"/>` +
       `<text x="${width / 2}" y="${height / 2 + 4}" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">${text}</text>` +
       '</svg>',
   };
@@ -129,7 +130,7 @@ function buildInfoCard(s: ServiceSearchItem, isDarkMode: boolean, onView: () => 
 
   const price = document.createElement('div');
   price.textContent = formatMoney(s.price, serviceCurrency(s.dto));
-  Object.assign(price.style, { color: '#00C870', fontSize: '16px', fontWeight: '700' });
+  Object.assign(price.style, { color: BRAND_GREEN, fontSize: '16px', fontWeight: '700' });
   row.appendChild(price);
 
   body.appendChild(row);

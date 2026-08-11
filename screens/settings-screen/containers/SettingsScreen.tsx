@@ -6,7 +6,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import LanguagePicker from '../../../components/shared/LanguagePicker';
 import CurrencyPicker from '../../../components/shared/CurrencyPicker';
@@ -112,7 +112,7 @@ export default function SettingsScreen() {
         <View className={`${cardBg} mb-6 rounded-2xl p-4`}>
           <View className="flex-row items-center">
             <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-brand-50">
-              <Ionicons name={isDarkMode ? 'moon' : 'sunny'} size={24} color="#00C870" />
+              <Ionicons name={isDarkMode ? 'moon' : 'sunny'} size={24} color={BRAND_GREEN} />
             </View>
             <View className="flex-1">
               <Text className={`text-base font-semibold ${textColor}`}>
@@ -125,7 +125,7 @@ export default function SettingsScreen() {
             <Switch
               value={isDarkMode}
               onValueChange={toggleDarkMode}
-              trackColor={{ false: '#D1D5DB', true: '#00C870' }}
+              trackColor={{ false: '#D1D5DB', true: BRAND_GREEN }}
               thumbColor="white"
             />
           </View>
@@ -148,7 +148,7 @@ export default function SettingsScreen() {
             <Switch
               value={pushNotifications}
               onValueChange={setPushNotifications}
-              trackColor={{ false: '#D1D5DB', true: '#00C870' }}
+              trackColor={{ false: '#D1D5DB', true: BRAND_GREEN }}
               thumbColor="white"
             />
           </View>
@@ -164,7 +164,7 @@ export default function SettingsScreen() {
             <Switch
               value={emailNotifications}
               onValueChange={setEmailNotifications}
-              trackColor={{ false: '#D1D5DB', true: '#00C870' }}
+              trackColor={{ false: '#D1D5DB', true: BRAND_GREEN }}
               thumbColor="white"
             />
           </View>
@@ -180,7 +180,7 @@ export default function SettingsScreen() {
             <Switch
               value={smsNotifications}
               onValueChange={setSmsNotifications}
-              trackColor={{ false: '#D1D5DB', true: '#00C870' }}
+              trackColor={{ false: '#D1D5DB', true: BRAND_GREEN }}
               thumbColor="white"
             />
           </View>
@@ -206,7 +206,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
           <TouchableOpacity className="flex-row items-center border-b border-gray-100 p-4">
             <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-green-50">
-              <Ionicons name="shield-checkmark" size={24} color="#00C870" />
+              <Ionicons name="shield-checkmark" size={24} color={BRAND_GREEN} />
             </View>
             <View className="flex-1">
               <Text className={`text-base font-semibold ${textColor}`}>
@@ -251,7 +251,7 @@ export default function SettingsScreen() {
             onPress={() => setCurrencyPickerOpen(true)}
             className="flex-row items-center border-b border-gray-100 p-4">
             <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-green-50">
-              <Ionicons name="cash" size={24} color="#00C870" />
+              <Ionicons name="cash" size={24} color={BRAND_GREEN} />
             </View>
             <View className="flex-1">
               <Text className={`text-base font-semibold ${textColor}`}>
@@ -276,7 +276,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
           <TouchableOpacity className="flex-row items-center p-4">
             <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-green-50">
-              <Ionicons name="document-text" size={24} color="#00C870" />
+              <Ionicons name="document-text" size={24} color={BRAND_GREEN} />
             </View>
             <View className="flex-1">
               <Text className={`text-base font-semibold ${textColor}`}>

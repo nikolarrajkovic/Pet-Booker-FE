@@ -1,21 +1,13 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import {
-  ScrollView,
-  Text,
-  View,
-  TouchableOpacity,
-  ActivityIndicator,
-  Modal,
-  TextInput,
-} from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import ListState from '../../../components/shared/ListState';
 import { RequestCard } from '../components';
 import type { ServiceRequest, RequestStatus } from '../components';
 import { resolveImageUrl } from '../../../services/service-providers';
@@ -285,38 +277,21 @@ export default function NewRequestsScreen() {
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, paddingTop: 4 }}
         showsVerticalScrollIndicator={false}>
-        {isLoading ? (
-          <View className="items-center justify-center py-16">
-            <ActivityIndicator size="large" color="#00C870" />
-          </View>
-        ) : loadError ? (
-          <View className="items-center justify-center py-16">
-            <Ionicons
-              name="alert-circle-outline"
-              size={64}
-              color={isDarkMode ? '#4B5563' : '#D1D5DB'}
-            />
-            <Text className={`${subtextColor} mt-4 text-center text-base`}>{loadError}</Text>
-          </View>
-        ) : filtered.length === 0 ? (
-          <View className="items-center justify-center py-16">
-            <Ionicons
-              name="clipboard-outline"
-              size={64}
-              color={isDarkMode ? '#4B5563' : '#D1D5DB'}
-            />
-            <Text className={`${subtextColor} mt-4 text-center text-base`}>
-              {activeTab === 'all'
-                ? t('requests.noRequests')
-                : activeTab === 'new'
-                  ? t('requests.noNewRequests')
-                  : activeTab === 'accepted'
-                    ? t('requests.noAcceptedRequests')
-                    : t('requests.noDeclinedRequests')}
-            </Text>
-          </View>
-        ) : (
-          filtered.map((request) => (
+        <ListState
+          isLoading={isLoading}
+          error={loadError}
+          isEmpty={filtered.length === 0}
+          emptyIcon="clipboard-outline"
+          emptyMessage={
+            activeTab === 'all'
+              ? t('requests.noRequests')
+              : activeTab === 'new'
+                ? t('requests.noNewRequests')
+                : activeTab === 'accepted'
+                  ? t('requests.noAcceptedRequests')
+                  : t('requests.noDeclinedRequests')
+          }>
+          {filtered.map((request) => (
             <RequestCard
               key={request.id}
               request={request}
@@ -328,8 +303,8 @@ export default function NewRequestsScreen() {
               onAccept={handleAccept}
               onDecline={handleDecline}
             />
-          ))
-        )}
+          ))}
+        </ListState>
       </ScrollView>
 
       {/* Decline-reason modal */}
@@ -354,7 +329,7 @@ export default function NewRequestsScreen() {
               textAlignVertical="top"
               className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${declineReasonTooShort ? 'mb-1' : 'mb-4'}`}
               style={{ minHeight: 80 }}
-              selectionColor="#00C870"
+              selectionColor={BRAND_GREEN}
             />
             {declineReasonTooShort && (
               <Text className="mb-4 text-xs text-red-500">{t('requests.declineTooShort')}</Text>

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import PhoneInput from '../../../components/shared/PhoneInput';
 import { useLocale } from '../../../context/LocaleContext';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 interface FormData {
   fullName: string;
   email: string;
@@ -157,7 +158,7 @@ export default function PersonalInfoStep({
             <Ionicons
               name="location-outline"
               size={20}
-              color="#00C870"
+              color={BRAND_GREEN}
               style={{ marginRight: 12 }}
             />
             <Text

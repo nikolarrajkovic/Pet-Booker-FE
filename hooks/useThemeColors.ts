@@ -1,6 +1,28 @@
 import { useTheme } from '../context/ThemeContext';
 
 /**
+ * The brand palette as raw hex, mirroring the `brand-*` tokens in
+ * `tailwind.config.js`. These are theme-independent — the brand green is the
+ * same in light and dark mode.
+ *
+ * Use a `brand-*` Tailwind class wherever a `className` will do. Reach for these
+ * constants only where a raw string is required: `color=` on an `Ionicons` or
+ * `ActivityIndicator`, a `style={}` value, or a native component that cannot
+ * take classes. `#00C870` had been pasted into 200+ such places, so a palette
+ * change would have meant a find-and-replace across 70 files.
+ */
+export const BRAND = {
+  50: '#E6FAF0',
+  400: '#2CE07F',
+  500: '#00C870',
+  600: '#00A85A',
+  900: '#003822',
+} as const;
+
+/** The primary brand green (`brand-500`) — the default for spinners and active icons. */
+export const BRAND_GREEN = BRAND[500];
+
+/**
  * Single source of truth for the app's dark/light color palette.
  *
  * Replaces the per-screen `const cardBg = isDarkMode ? ... : ...` blocks that
@@ -51,6 +73,10 @@ export function themeColors(isDarkMode: boolean) {
       subtext: isDarkMode ? '#9CA3AF' : '#6B7280',
       border: isDarkMode ? '#2d3748' : '#E5E7EB',
       inputBg: isDarkMode ? '#243447' : '#F9FAFB',
+      /** Large decorative glyphs — the icon on an empty/error state. Dimmer than `subtext`. */
+      mutedIcon: isDarkMode ? '#4B5563' : '#D1D5DB',
+      /** Neutral chip/badge fill behind a count on an inactive tab. */
+      chipBg: isDarkMode ? '#374151' : '#E5E7EB',
     },
   } as const;
 }

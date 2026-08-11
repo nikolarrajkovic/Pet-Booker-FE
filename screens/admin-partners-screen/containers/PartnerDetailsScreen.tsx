@@ -14,7 +14,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
 import type { Partner, PartnerStatus, ServiceHistoryItem } from '../components';
@@ -55,7 +55,7 @@ const STATUS_CFG: Record<
 };
 
 const HISTORY_STATUS_CFG = {
-  completed: { label: 'Completed', color: '#00C870' },
+  completed: { label: 'Completed', color: BRAND_GREEN },
   cancelled: { label: 'Cancelled', color: '#6B7280' },
   refunded: { label: 'Refunded', color: '#EF4444' },
 };
@@ -149,7 +149,7 @@ export default function PartnerDetailsScreen() {
         title: t('admin.liftTimeout'),
         message: t('admin.liftTimeoutMsg', { name: partner.name }),
         confirmLabel: t('admin.restore'),
-        confirmColor: '#00C870',
+        confirmColor: BRAND_GREEN,
         onConfirm: () => {
           setPartnerStatus('active');
           navigation.navigate('AdminPartners', { updatedId: partner.id, updatedStatus: 'active' });
@@ -175,7 +175,7 @@ export default function PartnerDetailsScreen() {
         title: t('admin.unbanPartner'),
         message: t('admin.unbanPartnerMsg', { name: partner.name }),
         confirmLabel: t('admin.unban'),
-        confirmColor: '#00C870',
+        confirmColor: BRAND_GREEN,
         onConfirm: () => {
           setPartnerStatus('active');
           navigation.navigate('AdminPartners', { updatedId: partner.id, updatedStatus: 'active' });
@@ -196,11 +196,11 @@ export default function PartnerDetailsScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#00C870' }}>
+    <View style={{ flex: 1, backgroundColor: BRAND_GREEN }}>
       {/* ── Green header ── */}
       <View
         style={{
-          backgroundColor: '#00C870',
+          backgroundColor: BRAND_GREEN,
           paddingHorizontal: 20,
           paddingTop: insets.top + 12,
           paddingBottom: 28,
@@ -451,7 +451,7 @@ export default function PartnerDetailsScreen() {
                   justifyContent: 'center',
                   marginRight: 10,
                 }}>
-                <Ionicons name="document-text-outline" size={16} color="#00C870" />
+                <Ionicons name="document-text-outline" size={16} color={BRAND_GREEN} />
               </View>
               <Text style={{ color: textColor, fontSize: 15, fontWeight: '700' }}>
                 {t('admin.partnerDocuments')}
@@ -460,7 +460,7 @@ export default function PartnerDetailsScreen() {
 
             {loadingDocs ? (
               <View style={{ paddingVertical: 32, alignItems: 'center' }}>
-                <ActivityIndicator color="#00C870" />
+                <ActivityIndicator color={BRAND_GREEN} />
               </View>
             ) : docs ? (
               <>
@@ -471,7 +471,7 @@ export default function PartnerDetailsScreen() {
                   textColor={textColor}
                   subTextColor={subTextColor}
                   iconBg="#E8F5EF"
-                  iconColor="#00C870"
+                  iconColor={BRAND_GREEN}
                   iconName="person-circle-outline"
                   title={t('admin.profilePhoto')}
                   subtitle={docs.profilePhoto ? t('admin.uploaded') : t('admin.notProvided')}
@@ -578,7 +578,7 @@ export default function PartnerDetailsScreen() {
                   textColor={textColor}
                   subTextColor={subTextColor}
                   iconBg="#E8F5EF"
-                  iconColor="#00C870"
+                  iconColor={BRAND_GREEN}
                   iconName="ribbon-outline"
                   title={
                     docs.certificates.length
@@ -632,7 +632,7 @@ export default function PartnerDetailsScreen() {
                               activeOpacity={0.8}
                               onPress={() => openDownload(c.fileSrc, t)}
                               style={{ padding: 8 }}>
-                              <Ionicons name="open-outline" size={20} color="#00C870" />
+                              <Ionicons name="open-outline" size={20} color={BRAND_GREEN} />
                             </TouchableOpacity>
                           </View>
                         )}
@@ -924,7 +924,7 @@ function DocCard({
         <Ionicons
           name={uploaded ? 'checkmark-circle' : 'ellipse-outline'}
           size={20}
-          color={uploaded ? '#00C870' : subTextColor}
+          color={uploaded ? BRAND_GREEN : subTextColor}
         />
       </View>
       {children}

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { themeColors } from '../../hooks/useThemeColors';
+import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 
 export type ToastVariant = 'error' | 'success' | 'info';
 
@@ -16,7 +16,7 @@ const VARIANT_CONFIG: Record<
   { icon: keyof typeof Ionicons.glyphMap; accent: string }
 > = {
   error: { icon: 'alert-circle', accent: '#EF4444' },
-  success: { icon: 'checkmark-circle', accent: '#00C870' },
+  success: { icon: 'checkmark-circle', accent: BRAND_GREEN },
   info: { icon: 'information-circle', accent: '#3B82F6' },
 };
 

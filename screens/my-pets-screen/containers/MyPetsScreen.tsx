@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
@@ -118,14 +118,14 @@ export default function MyPetsScreen() {
         <TouchableOpacity
           onPress={() => (navigation as any).navigate('AddPet')}
           className="h-10 w-10 items-center justify-center rounded-full bg-white">
-          <Ionicons name="add" size={24} color="#00C870" />
+          <Ionicons name="add" size={24} color={BRAND_GREEN} />
         </TouchableOpacity>
       }>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingTop: 24, paddingBottom: 20, paddingHorizontal: 24 }}>
         {isLoading ? (
-          <ActivityIndicator size="large" color="#00C870" style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={BRAND_GREEN} style={{ marginTop: 40 }} />
         ) : error ? (
           <Text className={`mt-10 text-center ${subtextColor}`}>{error}</Text>
         ) : pets.length === 0 ? (

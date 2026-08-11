@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors, themeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors, themeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -134,7 +134,7 @@ export default function MyServicesScreen() {
         <View className="px-4 py-4" style={{ gap: 16 }}>
           {isLoading ? (
             <View style={{ alignItems: 'center', paddingVertical: 64 }}>
-              <ActivityIndicator size="large" color="#00C870" />
+              <ActivityIndicator size="large" color={BRAND_GREEN} />
             </View>
           ) : error ? (
             <View style={{ alignItems: 'center', paddingVertical: 48 }}>

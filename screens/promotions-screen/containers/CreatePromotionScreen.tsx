@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -20,7 +20,11 @@ import DatePicker from '../../../components/shared/DatePicker';
 import { getServices, ServiceDto, serviceCurrency } from '../../../services/services';
 import { formatMoney } from '../../../services/currency';
 import { getErrorMessage } from '../../../services/http';
-import { createServiceDiscount, DiscountType } from '../../../services/service-discounts';
+import {
+  createServiceDiscount,
+  DiscountType,
+  endOfDayIso,
+} from '../../../services/service-discounts';
 
 const fmtDate = (d: Date | null) =>
   d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
@@ -107,7 +111,8 @@ export default function CreatePromotionScreen() {
         amount: amountNum,
         percentAmount: isPercent ? amountNum : null,
         applyFrom: startDate.toISOString(),
-        applyTo: endDate ? endDate.toISOString() : null,
+        // The picked end DAY is included in the offer — see endOfDayIso.
+        applyTo: endDate ? endOfDayIso(endDate) : null,
         isEnabled: true,
       });
       navigation.goBack();
@@ -156,7 +161,7 @@ export default function CreatePromotionScreen() {
         </Text>
         {isLoadingServices ? (
           <View className={`${cardBg} mb-5 rounded-xl border p-6 ${borderColor} items-center`}>
-            <ActivityIndicator color="#00C870" />
+            <ActivityIndicator color={BRAND_GREEN} />
           </View>
         ) : services.length === 0 ? (
           <View className={`${cardBg} mb-5 rounded-xl border p-5 ${borderColor} items-center`}>

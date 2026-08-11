@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useLocale } from '../../../context/LocaleContext';
 import { providerTypeValue } from '../../../services/service-providers';
 
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 export type ApplicationStatus = 'pending' | 'approved' | 'rejected';
 
 /** A viewable image document (absolute URL ready for <Image>). */
@@ -201,7 +202,7 @@ export function PartnerApplicationCard({
                 flex: 1,
                 paddingVertical: 10,
                 borderRadius: 10,
-                backgroundColor: '#00C870',
+                backgroundColor: BRAND_GREEN,
                 alignItems: 'center',
                 flexDirection: 'row',
                 justifyContent: 'center',
@@ -356,7 +357,7 @@ function DocStatus({
       <Ionicons
         name={uploaded ? 'checkmark-circle' : 'close-circle'}
         size={18}
-        color={uploaded ? '#00C870' : '#EF4444'}
+        color={uploaded ? BRAND_GREEN : '#EF4444'}
       />
       <Text style={{ color: textColor, fontSize: 12, marginLeft: 8 }}>{label}</Text>
     </View>
