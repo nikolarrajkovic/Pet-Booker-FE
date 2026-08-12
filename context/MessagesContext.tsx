@@ -7,33 +7,54 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import type { HubConnection } from '@microsoft/signalr';
 import { useAuth } from './AuthContext';
-import { getUnreadMessageCount, type MessageDto } from '../services/messages';
+import { getUnreadMessageCount, type ConversationDto, type MessageDto } from '../services/messages';
 import {
   createMessageHubConnection,
   CONVERSATION_READ,
+  INBOX_UPDATED,
   MESSAGE_RECEIVED,
+  TYPING_CHANGED,
+  sendTyping,
+  subscribeToConversation,
+  unsubscribeFromConversation,
   type ConversationReadEvent,
+  type TypingEvent,
 } from '../services/message-hub';
 
 type MessageListener = (message: MessageDto) => void;
 type ReadListener = (event: ConversationReadEvent) => void;
+type TypingListener = (event: TypingEvent) => void;
+type InboxListener = (conversation: ConversationDto) => void;
 
 type MessagesContextValue = {
   /** Total unread across every thread — the badge number. */
   unreadCount: number;
   /** Re-reads the count from the API (after opening a thread, on focus). */
   refreshUnreadCount: () => void;
-  /** Live incoming messages; returns an unsubscribe fn. */
+  /** Live incoming messages for subscribed threads; returns an unsubscribe fn. */
   subscribe: (listener: MessageListener) => () => void;
   /** The other party read a thread — flips outgoing ticks to "read". */
   subscribeToReads: (listener: ReadListener) => () => void;
+  /** The other party is typing. */
+  subscribeToTyping: (listener: TypingListener) => () => void;
+  /** Any thread of the caller's got a new message — the inbox list refreshes off this. */
+  subscribeToInbox: (listener: InboxListener) => () => void;
+  /**
+   * Joins a thread's live group for as long as the screen is mounted. Messages only arrive on
+   * `subscribe` for threads joined this way — the identity channel carries the badge, not the
+   * message bodies.
+   */
+  joinThread: (conversationId: number) => () => void;
+  /** Fire-and-forget typing indicator. */
+  notifyTyping: (conversationId: number, isTyping: boolean) => void;
 };
 
 const MessagesContext = createContext<MessagesContextValue | undefined>(undefined);
 
 /**
- * Real-time direct messages over the backend's SignalR message hub (/hubs/messages).
+ * Real-time direct messages over the backend's SignalR chat hub (/hubs/chat).
  *
  * Deliberately a near-copy of NotificationsContext: one app-wide connection for the session, an
  * unread count seeded from REST (so a push missed while offline self-heals on reconnect), and a
@@ -41,35 +62,47 @@ const MessagesContext = createContext<MessagesContextValue | undefined>(undefine
  * structurally identical means the hub plumbing has one shape to reason about, not two.
  *
  * The chat screen deliberately does NOT open its own connection — a thread is just another
- * subscriber here, so switching threads costs nothing and background threads still bump the badge.
+ * subscriber here, so switching threads costs nothing and background threads still bump the
+ * badge. It does have to *join* the thread's group (`joinThread`), because message bodies go to
+ * the conversation group while only the badge ping goes to the identity channel.
  */
 export function MessagesProvider({ children }: { children: React.ReactNode }) {
   const { currentUser } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const messageListenersRef = useRef<Set<MessageListener>>(new Set());
   const readListenersRef = useRef<Set<ReadListener>>(new Set());
+  const typingListenersRef = useRef<Set<TypingListener>>(new Set());
+  const inboxListenersRef = useRef<Set<InboxListener>>(new Set());
+  const connectionRef = useRef<HubConnection | null>(null);
   const fetchingCountRef = useRef(false);
 
+  // A ProviderProfile account has no Domain.User, so `id` can be absent while the session is
+  // perfectly valid — key the connection off either identity.
   const userId = currentUser?.id ?? null;
-  const providerId = currentUser?.serviceProviderId || null;
+  const providerId = currentUser?.serviceProviderId ?? null;
+  const sessionKey = userId ?? (providerId ? `sp:${providerId}` : null);
 
   const refreshUnreadCount = useCallback(() => {
-    if (!userId) {
+    if (!sessionKey) {
       setUnreadCount(0);
       return;
     }
     // Collapse the burst that happens when the provider seeds and a screen focuses at once.
     if (fetchingCountRef.current) return;
     fetchingCountRef.current = true;
-    // A partner is both a customer and a provider, so their badge covers both inboxes.
-    getUnreadMessageCount(providerId ? { serviceProviderId: providerId } : { userId })
+    // One indexed call, self-scoped server-side — a partner's badge already covers both the
+    // threads they hold as a provider and the ones they hold as a customer.
+    getUnreadMessageCount()
       .then(setUnreadCount)
       .catch(() => {})
       .finally(() => {
         fetchingCountRef.current = false;
       });
-  }, [userId, providerId]);
+  }, [sessionKey]);
 
+  // Four near-identical subscribe fns, written out rather than generated by a helper: a
+  // factory-produced callback has dependencies the exhaustive-deps rule cannot see, and these
+  // are the identities every consumer's effect keys on — they must stay stable.
   const subscribe = useCallback((listener: MessageListener) => {
     messageListenersRef.current.add(listener);
     return () => {
@@ -84,8 +117,40 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const subscribeToTyping = useCallback((listener: TypingListener) => {
+    typingListenersRef.current.add(listener);
+    return () => {
+      typingListenersRef.current.delete(listener);
+    };
+  }, []);
+
+  const subscribeToInbox = useCallback((listener: InboxListener) => {
+    inboxListenersRef.current.add(listener);
+    return () => {
+      inboxListenersRef.current.delete(listener);
+    };
+  }, []);
+
+  const joinThread = useCallback((conversationId: number) => {
+    const connection = connectionRef.current;
+    if (connection) {
+      // Rejected for a non-participant, and pointless before the socket is up — both are
+      // non-fatal: REST still loads and sends, it just won't stream.
+      subscribeToConversation(connection, conversationId).catch(() => {});
+    }
+    return () => {
+      const active = connectionRef.current;
+      if (active) unsubscribeFromConversation(active, conversationId).catch(() => {});
+    };
+  }, []);
+
+  const notifyTyping = useCallback((conversationId: number, isTyping: boolean) => {
+    const connection = connectionRef.current;
+    if (connection) sendTyping(connection, conversationId, isTyping).catch(() => {});
+  }, []);
+
   useEffect(() => {
-    if (!userId) {
+    if (!sessionKey) {
       setUnreadCount(0);
       return;
     }
@@ -94,18 +159,32 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     refreshUnreadCount();
 
     const connection = createMessageHubConnection();
+    connectionRef.current = connection;
 
     connection.on(MESSAGE_RECEIVED, (message: MessageDto) => {
       if (cancelled) return;
-      // The hub echoes a user's own messages back so their other devices stay in sync — those
-      // must not bump the badge, and the open thread de-dupes them by id.
-      if (message.senderUserId !== userId) setUnreadCount((count) => count + 1);
+      // Not used for the badge: this fires for everyone in the thread group, the sender
+      // included. The recipient-only INBOX_UPDATED below is what counts.
       messageListenersRef.current.forEach((listener) => listener(message));
+    });
+
+    connection.on(INBOX_UPDATED, (conversation: ConversationDto) => {
+      if (cancelled) return;
+      // Recipient-only by construction (the server pings the other party's identity group), so
+      // this cannot double-count a user's own sends the way a message echo would. Re-read
+      // rather than increment: one indexed call, and it self-heals any drift.
+      refreshUnreadCount();
+      inboxListenersRef.current.forEach((listener) => listener(conversation));
     });
 
     connection.on(CONVERSATION_READ, (event: ConversationReadEvent) => {
       if (cancelled) return;
       readListenersRef.current.forEach((listener) => listener(event));
+    });
+
+    connection.on(TYPING_CHANGED, (event: TypingEvent) => {
+      if (cancelled) return;
+      typingListenersRef.current.forEach((listener) => listener(event));
     });
 
     // Anything pushed while disconnected is lost — the REST count is the source of truth.
@@ -120,13 +199,32 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       cancelled = true;
+      connectionRef.current = null;
       connection.stop().catch(() => {});
     };
-  }, [userId, refreshUnreadCount]);
+  }, [sessionKey, refreshUnreadCount]);
 
   const value = useMemo(
-    () => ({ unreadCount, refreshUnreadCount, subscribe, subscribeToReads }),
-    [unreadCount, refreshUnreadCount, subscribe, subscribeToReads]
+    () => ({
+      unreadCount,
+      refreshUnreadCount,
+      subscribe,
+      subscribeToReads,
+      subscribeToTyping,
+      subscribeToInbox,
+      joinThread,
+      notifyTyping,
+    }),
+    [
+      unreadCount,
+      refreshUnreadCount,
+      subscribe,
+      subscribeToReads,
+      subscribeToTyping,
+      subscribeToInbox,
+      joinThread,
+      notifyTyping,
+    ]
   );
 
   return <MessagesContext.Provider value={value}>{children}</MessagesContext.Provider>;

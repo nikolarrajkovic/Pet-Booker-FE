@@ -1,38 +1,78 @@
 import { HubConnection } from '@microsoft/signalr';
 import { createHubConnection } from './hub-connection';
-import type { MessageDto } from './messages';
+import type { ConversationDto, MessageDto, ChatParticipant } from './messages';
 
 /**
- * SignalR connection to the backend's message hub (/hubs/messages).
+ * SignalR connection to the backend's chat hub (/hubs/chat).
  *
- * Mirrors the notification hub exactly: no subscribe call is needed, because on connect the
- * server reads the JWT and auto-joins the caller's identity group — so a user receives every
- * message addressed to them across all their threads, and a partner receives theirs, without the
- * client enumerating conversations first.
+ * Two delivery paths, and the difference matters:
  *
- * NOT YET IMPLEMENTED SERVER-SIDE. The hub needs to emit `MessageReceived` with the same
- * `MessageDto` shape the REST feed returns, to both participants of the conversation (echoing to
- * the sender too keeps a user's own devices in sync). `ConversationRead` lets the sender's ticks
- * flip to "read" live when the recipient opens the thread.
+ * - **`ChatMessageReceived`** goes to the thread's group, which a client joins by calling
+ *   `SubscribeToConversation` (the server authorizes it — a conversation id alone is not enough
+ *   to eavesdrop). Only whoever has the thread *open* gets this.
+ * - **`ChatInboxUpdated`** goes to the caller's identity group, which the server joins on
+ *   connect from the JWT. No subscribe call needed, and it arrives whatever screen the user is
+ *   on — this is what moves the badge.
+ *
+ * A client with the thread open receives both for the same message and de-dupes on id.
  */
 
-/** Server → client: a message was posted to a thread the caller is part of. */
-export const MESSAGE_RECEIVED = 'MessageReceived';
+/** Server → client: a new message in a thread the caller has subscribed to. */
+export const MESSAGE_RECEIVED = 'ChatMessageReceived';
 
-/**
- * Server → client: the other party read a thread, so outgoing messages up to `readAt` are read.
- * Payload: `{ conversationId: number; readerUserId: number; readAt: string }`.
- */
-export const CONVERSATION_READ = 'ConversationRead';
+/** Server → client: something changed in one of your threads (badge/inbox row). */
+export const INBOX_UPDATED = 'ChatInboxUpdated';
+
+/** Server → client: the other party caught up, so outgoing ticks flip to read. */
+export const CONVERSATION_READ = 'ChatMessagesRead';
+
+/** Server → client: the other party started or stopped typing. */
+export const TYPING_CHANGED = 'ChatTypingChanged';
 
 export type ConversationReadEvent = {
   conversationId: number;
-  readerUserId: number;
+  /** Which side did the reading — compare against the conversation's `viewer`. */
+  reader: ChatParticipant;
+  upToMessageId: number;
   readAt: string;
 };
 
+export type TypingEvent = {
+  conversationId: number;
+  participant: ChatParticipant;
+  isTyping: boolean;
+};
+
 export type MessageReceivedEvent = MessageDto;
+export type InboxUpdatedEvent = ConversationDto;
 
 export function createMessageHubConnection(): HubConnection {
-  return createHubConnection('/hubs/messages');
+  return createHubConnection('/hubs/chat');
+}
+
+/**
+ * Joins a thread's live group. Server-authorized: a non-participant is rejected, so failures
+ * here are expected for a stale conversation id and must not be fatal — REST still works.
+ */
+export async function subscribeToConversation(
+  connection: HubConnection,
+  conversationId: number
+): Promise<void> {
+  await connection.invoke('SubscribeToConversation', conversationId);
+}
+
+export async function unsubscribeFromConversation(
+  connection: HubConnection,
+  conversationId: number
+): Promise<void> {
+  await connection.invoke('UnsubscribeFromConversation', conversationId);
+}
+
+/** Typing indicator. Fire-and-forget: a dropped frame is worth nothing. */
+export async function sendTyping(
+  connection: HubConnection,
+  conversationId: number,
+  isTyping: boolean
+): Promise<void> {
+  await connection.invoke('Typing', conversationId, isTyping);
 }

@@ -146,6 +146,10 @@ export default function MyBookingsScreen() {
                 ? () =>
                     (navigation as any).navigate('Chat', {
                       serviceProviderId: booking.providerId,
+                      // Names the booking the chat is about, so the message carries that
+                      // context and the thread's subject follows the right service.
+                      bookingId: booking.id,
+                      serviceId: booking.serviceId,
                       providerName: booking.providerName,
                       providerAvatar: booking.image,
                       subtitle: booking.serviceName,

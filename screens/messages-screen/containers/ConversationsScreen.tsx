@@ -1,8 +1,7 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, RefreshControl } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
-import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { useMessages } from '../../../context/MessagesContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
@@ -30,42 +29,29 @@ function relativeTime(iso?: string | null): string {
 /**
  * The message inbox — every thread the signed-in user is part of, newest first.
  *
- * A partner is both a customer and a provider, so their inbox is queried by
- * `serviceProviderId` (threads customers opened with them) and falls back to `userId` otherwise.
+ * No owner parameter is sent: the backend scopes the list to the session, and merges both sides
+ * for a partner (who is a customer of other providers as well as a provider themselves). It also
+ * resolves the counterpart per row, so a customer sees the provider and a provider sees the
+ * customer off the same field without the client knowing which side it is on.
  */
 export default function ConversationsScreen() {
   const navigation = useNavigation<any>();
   const { isDarkMode, bgColor } = useThemeColors();
-  const { currentUser } = useAuth();
   const { t } = useLocale();
-  const { refreshUnreadCount } = useMessages();
+  const { refreshUnreadCount, subscribeToInbox } = useMessages();
 
   const [conversations, setConversations] = useState<ConversationDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const providerId = currentUser?.serviceProviderId || null;
-  const userId = currentUser?.id ?? null;
-
   const load = useCallback(async () => {
-    if (!userId) {
-      setConversations([]);
-      setIsLoading(false);
-      return;
-    }
     setLoadError(null);
     try {
-      const rows = await getConversations(
-        providerId ? { serviceProviderId: providerId } : { userId }
-      );
-      // Newest activity first; a thread with no messages yet sorts to the bottom.
-      setConversations(
-        [...rows].sort(
-          (a, b) =>
-            new Date(b.lastMessageAt ?? 0).getTime() - new Date(a.lastMessageAt ?? 0).getTime()
-        )
-      );
+      // Already ordered by activity server-side (on message id, which is monotonic), so no
+      // client-side re-sort — one less place for the two to disagree.
+      const page = await getConversations({ perPage: 50 });
+      setConversations(page.items);
       refreshUnreadCount();
     } catch (e) {
       setConversations([]);
@@ -73,7 +59,7 @@ export default function ConversationsScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [userId, providerId, t, refreshUnreadCount]);
+  }, [t, refreshUnreadCount]);
 
   useFocusEffect(
     useCallback(() => {
@@ -87,6 +73,9 @@ export default function ConversationsScreen() {
       };
     }, [load])
   );
+
+  // A message arriving in any thread reorders the inbox, so refresh rather than patch one row.
+  useEffect(() => subscribeToInbox(() => load()), [subscribeToInbox, load]);
 
   const onRefresh = async () => {
     setIsRefreshing(true);
@@ -118,31 +107,19 @@ export default function ConversationsScreen() {
           isEmpty={conversations.length === 0}
           emptyIcon="chatbubbles-outline"
           emptyMessage={t('messages.emptyInbox')}>
-          {conversations.map((c) => {
-            // A customer sees the provider; a provider sees the customer.
-            const showingProvider = !providerId;
-            const photo = showingProvider
-              ? (c.serviceProvider?.photos?.find((p) => p.isSelected)?.src ??
-                c.serviceProvider?.photos?.[0]?.src)
-              : (c.user?.photos?.find((p) => p.isSelected)?.src ?? c.user?.photos?.[0]?.src);
-            const name = showingProvider
-              ? (c.serviceProvider?.name ?? t('messages.conversation'))
-              : (c.user?.userName ?? t('messages.conversation'));
-
-            return (
-              <ConversationRow
-                key={c.id}
-                name={name}
-                subtitle={c.service?.name ?? undefined}
-                avatarUrl={resolveImageUrl(photo) || null}
-                lastMessage={c.lastMessage}
-                timeLabel={relativeTime(c.lastMessageAt)}
-                unreadCount={c.unreadCount ?? 0}
-                isDarkMode={isDarkMode}
-                onPress={() => navigation.navigate('Chat', { conversationId: c.id })}
-              />
-            );
-          })}
+          {conversations.map((c) => (
+            <ConversationRow
+              key={c.id}
+              name={c.counterpartName || t('messages.conversation')}
+              subtitle={c.serviceName ?? undefined}
+              avatarUrl={resolveImageUrl(c.counterpartAvatarUrl) || null}
+              lastMessage={c.lastMessagePreview}
+              timeLabel={relativeTime(c.lastMessageAt)}
+              unreadCount={c.unreadCount ?? 0}
+              isDarkMode={isDarkMode}
+              onPress={() => navigation.navigate('Chat', { conversationId: c.id })}
+            />
+          ))}
         </ListState>
       </ScrollView>
     </ScreenLayout>

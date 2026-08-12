@@ -267,6 +267,8 @@ const ru: TranslationDict = {
     a11yBrowseCategory: 'Посмотреть услуги: {category}',
     a11yNotifications: 'Уведомления',
     a11yNotificationsUnread: 'Уведомления, непрочитанных: {count}',
+    a11yMessages: 'Сообщения',
+    a11yMessagesUnread: 'Сообщения, непрочитанных: {count}',
     tagline: 'Найдите идеальный уход для вашего питомца',
     recentlyBooked: 'Недавно забронировано',
     nearYou: 'Рядом с вами',
@@ -517,6 +519,14 @@ const ru: TranslationDict = {
     sendFailed: 'Сообщение не отправлено. Попробуйте ещё раз.',
     threadUnavailable: 'Этот диалог недоступен.',
     messageProvider: 'Написать исполнителю',
+    typing: 'печатает…',
+    enquiryAllowance: 'Ещё {count} до ответа',
+    lockedAwaitingReply:
+      'Ожидание ответа — написать снова можно после ответа исполнителя или после бронирования.',
+    lockedWindowExpired:
+      'Диалог закрыт: срок связи после последнего бронирования истёк. Забронируйте снова, чтобы открыть его.',
+    lockedProviderUnavailable: 'Этот исполнитель сейчас не принимает сообщения.',
+    lockedGeneric: 'Сейчас вы не можете отправлять сообщения в этом диалоге.',
   },
   myBookings: {
     title: 'Мои бронирования',
@@ -754,6 +764,8 @@ const ru: TranslationDict = {
     requestsSub: 'Просматривайте запросы на бронирование',
     myServices: 'Мои услуги',
     myServicesSub: 'Редактируйте услуги и цены',
+    messages: 'Сообщения',
+    messagesSub: 'Вопросы от клиентов',
     promotions: 'Промоакции',
     promotionsSub: 'Повышайте видимость',
     serviceInProgress: 'Услуга выполняется',

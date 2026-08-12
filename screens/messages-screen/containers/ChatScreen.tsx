@@ -12,34 +12,38 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
-import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { useMessages } from '../../../context/MessagesContext';
 import ListState from '../../../components/shared/ListState';
-import { MessageBubble, MessageComposer } from '../components';
+import { MessageBubble, MessageComposer, ComposerLockedNotice } from '../components';
 import { getErrorMessage } from '../../../services/http';
 import { resolveImageUrl } from '../../../services/service-providers';
 import {
+  ChatAccessReason,
+  ChatParticipant,
   getConversation,
   getMessagesPage,
   markConversationRead,
+  openBookingConversation,
   openConversation,
   sendMessage,
+  type ChatAccessDto,
   type ConversationDto,
   type MessageDto,
 } from '../../../services/messages';
 
 /**
- * Route params. Either identifies an existing thread by `conversationId` (inbox, deep link) or
+ * Route params. Either identifies an existing thread by `conversationId` (inbox, deep link), or
  * asks for the thread with a provider by `serviceProviderId` (the chat buttons on ServiceDetail
- * and the booking cards) — the latter is get-or-create, so a caller never has to know whether a
- * thread already exists.
+ * and the booking cards), or by `bookingId` (the provider's entry point — the booking names the
+ * customer, so a provider never has to address an arbitrary user). All three are get-or-create.
  */
 export type ChatRouteParams = {
   conversationId?: number;
   serviceProviderId?: number;
   serviceId?: number | null;
+  bookingId?: number | null;
   /** Shown in the header until the conversation loads, so it never opens blank. */
   providerName?: string;
   providerAvatar?: string | null;
@@ -76,10 +80,16 @@ export default function ChatScreen() {
   const params = route.params ?? {};
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor, hex } =
     useThemeColors();
-  const { currentUser } = useAuth();
   const { showError } = useToast();
   const { t } = useLocale();
-  const { subscribe, subscribeToReads, refreshUnreadCount } = useMessages();
+  const {
+    subscribe,
+    subscribeToReads,
+    subscribeToTyping,
+    joinThread,
+    notifyTyping,
+    refreshUnreadCount,
+  } = useMessages();
 
   const [conversation, setConversation] = useState<ConversationDto | null>(null);
   const [messages, setMessages] = useState<MessageDto[]>([]);
@@ -87,17 +97,24 @@ export default function ChatScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [hasMore, setHasMore] = useState(false);
-  const [page, setPage] = useState(1);
+  const [nextBefore, setNextBefore] = useState<number | null>(null);
+  const [theyAreTyping, setTheyAreTyping] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
-  const meId = currentUser?.id ?? -1;
   const conversationId = conversation?.id ?? params.conversationId ?? null;
 
-  /** Newest-first from the API; the thread renders oldest-first. */
-  const sortMessages = (list: MessageDto[]) =>
-    [...list].sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+  /**
+   * Which side of the thread we are on. Comes from the server, NOT from comparing ids: a
+   * company-managed provider account has no Domain.User, so its messages carry a null
+   * senderUserId and an id comparison would render every one of them as the customer's.
+   */
+  const viewer = conversation?.viewer ?? ChatParticipant.User;
+  const access: ChatAccessDto | null = conversation?.access ?? null;
 
-  // Resolve the thread, then its first page of history.
+  const sortMessages = (list: MessageDto[]) =>
+    [...list].sort((a, b) => a.id - b.id);
+
+  // Resolve the thread, then its newest page of history.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -107,17 +124,23 @@ export default function ChatScreen() {
         const convo = params.conversationId
           ? await getConversation(params.conversationId)
           : params.serviceProviderId
-            ? await openConversation(params.serviceProviderId, params.serviceId)
-            : null;
+            ? await openConversation(
+                params.serviceProviderId,
+                params.serviceId,
+                params.bookingId ?? null
+              )
+            : params.bookingId
+              ? await openBookingConversation(params.bookingId)
+              : null;
         if (!convo) throw new Error(t('messages.threadUnavailable'));
         if (cancelled) return;
         setConversation(convo);
 
-        const first = await getMessagesPage(convo.id, 1, PAGE_SIZE);
+        const first = await getMessagesPage(convo.id, null, PAGE_SIZE);
         if (cancelled) return;
         setMessages(sortMessages(first.items));
         setHasMore(first.hasMore);
-        setPage(1);
+        setNextBefore(first.nextBefore ?? null);
 
         // Opening the thread is what marks it read; fail-soft so a read-receipt
         // hiccup never blocks the conversation itself.
@@ -133,7 +156,21 @@ export default function ChatScreen() {
     return () => {
       cancelled = true;
     };
-  }, [params.conversationId, params.serviceProviderId, params.serviceId, t, refreshUnreadCount]);
+  }, [
+    params.conversationId,
+    params.serviceProviderId,
+    params.serviceId,
+    params.bookingId,
+    t,
+    refreshUnreadCount,
+  ]);
+
+  // Message bodies travel on the thread's own group, so the screen has to join it — the
+  // identity channel the provider keeps open only carries the badge ping.
+  useEffect(() => {
+    if (conversationId == null) return;
+    return joinThread(conversationId);
+  }, [conversationId, joinThread]);
 
   // Live inbound messages for THIS thread.
   useEffect(() => {
@@ -141,44 +178,77 @@ export default function ChatScreen() {
     return subscribe((incoming) => {
       if (incoming.conversationId !== conversationId) return;
       setMessages((prev) => {
-        // The hub echoes our own sends back — de-dupe by id so an optimistic
+        // The group echoes our own sends back — de-dupe by id so an optimistic
         // bubble is replaced rather than doubled.
         if (prev.some((m) => m.id === incoming.id)) return prev;
         return sortMessages([...prev, incoming]);
       });
-      if (incoming.senderUserId !== meId) {
-        markConversationRead(conversationId)
+      if (incoming.sender !== viewer) {
+        setTheyAreTyping(false);
+        markConversationRead(conversationId, incoming.id)
           .then(refreshUnreadCount)
+          .catch(() => {});
+        // Their message can CHANGE the verdict, not just add a line: a provider's reply is
+        // exactly what lifts a spent enquiry allowance. Without this the composer stays locked
+        // behind a notice promising "you can write again once they answer" while the answer is
+        // sitting on screen — until the user backs out and re-enters the thread.
+        getConversation(conversationId)
+          .then(setConversation)
           .catch(() => {});
       }
     });
-  }, [conversationId, meId, subscribe, refreshUnreadCount]);
+  }, [conversationId, viewer, subscribe, refreshUnreadCount]);
 
   // The other party opened the thread — flip our ticks to read.
   useEffect(() => {
     if (conversationId == null) return;
     return subscribeToReads((event) => {
-      if (event.conversationId !== conversationId || event.readerUserId === meId) return;
+      if (event.conversationId !== conversationId || event.reader === viewer) return;
       setMessages((prev) =>
-        prev.map((m) => (m.senderUserId === meId && !m.readAt ? { ...m, readAt: event.readAt } : m))
+        prev.map((m) =>
+          m.sender === viewer && !m.readAt && m.id <= event.upToMessageId
+            ? { ...m, readAt: event.readAt, isRead: true }
+            : m
+        )
       );
     });
-  }, [conversationId, meId, subscribeToReads]);
+  }, [conversationId, viewer, subscribeToReads]);
 
+  // Typing indicator from the other side. Self-clears so a dropped "stopped" frame cannot
+  // leave the header stuck on "typing…".
+  useEffect(() => {
+    if (conversationId == null) return;
+    return subscribeToTyping((event) => {
+      if (event.conversationId !== conversationId || event.participant === viewer) return;
+      setTheyAreTyping(event.isTyping);
+    });
+  }, [conversationId, viewer, subscribeToTyping]);
+
+  useEffect(() => {
+    if (!theyAreTyping) return;
+    const timer = setTimeout(() => setTheyAreTyping(false), 6000);
+    return () => clearTimeout(timer);
+  }, [theyAreTyping]);
+
+  /**
+   * Older history, walked by keyset. `nextBefore` is the oldest id we hold, so the server
+   * returns strictly older rows — a message arriving while the user scrolls can't shift a page
+   * boundary the way an offset would.
+   */
   const loadOlder = useCallback(async () => {
-    if (!hasMore || conversationId == null) return;
+    if (!hasMore || conversationId == null || nextBefore == null) return;
     try {
-      const next = await getMessagesPage(conversationId, page + 1, PAGE_SIZE);
+      const older = await getMessagesPage(conversationId, nextBefore, PAGE_SIZE);
       setMessages((prev) => {
         const seen = new Set(prev.map((m) => m.id));
-        return sortMessages([...next.items.filter((m) => !seen.has(m.id)), ...prev]);
+        return sortMessages([...older.items.filter((m) => !seen.has(m.id)), ...prev]);
       });
-      setHasMore(next.hasMore);
-      setPage((p) => p + 1);
+      setHasMore(older.hasMore);
+      setNextBefore(older.nextBefore ?? null);
     } catch {
       // Silent: the thread the user already has stays usable.
     }
-  }, [hasMore, conversationId, page]);
+  }, [hasMore, conversationId, nextBefore]);
 
   const handleSend = async (body: string) => {
     if (conversationId == null) return;
@@ -187,39 +257,69 @@ export default function ChatScreen() {
     const optimistic: MessageDto = {
       id: -Date.now(),
       conversationId,
-      senderUserId: meId,
+      sender: viewer,
+      senderUserId: null,
       body,
       sentAt: new Date().toISOString(),
       readAt: null,
     };
     setMessages((prev) => [...prev, optimistic]);
     setSending(true);
+    notifyTyping(conversationId, false);
     try {
-      const saved = await sendMessage(conversationId, body);
+      const saved = await sendMessage(conversationId, body, params.bookingId ?? null);
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== optimistic.id && m.id !== saved.id),
         saved,
       ]);
+      // The allowance and the window are server state: a send can be the one that spends the
+      // last enquiry, so re-read the verdict rather than assuming it still holds.
+      getConversation(conversationId)
+        .then(setConversation)
+        .catch(() => {});
     } catch (e) {
       // Drop the optimistic bubble rather than leaving a message that looks delivered.
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       showError(getErrorMessage(e, t('messages.sendFailed')));
+      getConversation(conversationId)
+        .then(setConversation)
+        .catch(() => {});
     } finally {
       setSending(false);
     }
   };
 
-  const counterparty = useMemo(() => {
-    const providerName = conversation?.serviceProvider?.name ?? params.providerName ?? '';
-    const providerPhoto =
-      conversation?.serviceProvider?.photos?.find((p) => p.isSelected)?.src ??
-      conversation?.serviceProvider?.photos?.[0]?.src;
-    return {
-      name: providerName || t('messages.conversation'),
-      avatar: resolveImageUrl(providerPhoto) || params.providerAvatar || null,
-      subtitle: conversation?.service?.name ?? params.subtitle ?? '',
-    };
-  }, [conversation, params.providerName, params.providerAvatar, params.subtitle, t]);
+  const counterparty = useMemo(
+    () => ({
+      name: conversation?.counterpartName || params.providerName || t('messages.conversation'),
+      avatar:
+        resolveImageUrl(conversation?.counterpartAvatarUrl) || params.providerAvatar || null,
+      subtitle: conversation?.serviceName ?? params.subtitle ?? '',
+    }),
+    [conversation, params.providerName, params.providerAvatar, params.subtitle, t]
+  );
+
+  /** Why the composer is locked, in the user's language. */
+  const lockedMessage = useMemo(() => {
+    if (!access || access.canSendMessage) return null;
+    switch (access.reason) {
+      case ChatAccessReason.EnquiryLimitReached:
+        return t('messages.lockedAwaitingReply');
+      case ChatAccessReason.WindowExpired:
+        return t('messages.lockedWindowExpired');
+      case ChatAccessReason.ProviderNotContactable:
+        return t('messages.lockedProviderUnavailable');
+      default:
+        return t('messages.lockedGeneric');
+    }
+  }, [access, t]);
+
+  /** "2 messages left before they reply" — only while the allowance is actually counting. */
+  const allowanceHint = useMemo(() => {
+    const left = access?.remainingEnquiryMessages;
+    if (!access?.canSendMessage || left == null) return null;
+    return t('messages.enquiryAllowance', { count: left });
+  }, [access, t]);
 
   return (
     <SafeAreaView className={`flex-1 ${bgColor}`}>
@@ -252,10 +352,17 @@ export default function ChatScreen() {
           <Text numberOfLines={1} className={`text-[15px] font-bold ${textColor}`}>
             {counterparty.name}
           </Text>
-          {!!counterparty.subtitle && (
-            <Text numberOfLines={1} className={`text-xs ${subtextColor}`}>
-              {counterparty.subtitle}
+          {/* Typing takes the subtitle slot while it lasts — one line, no layout jump. */}
+          {theyAreTyping ? (
+            <Text numberOfLines={1} className="text-xs text-brand-500">
+              {t('messages.typing')}
             </Text>
+          ) : (
+            !!counterparty.subtitle && (
+              <Text numberOfLines={1} className={`text-xs ${subtextColor}`}>
+                {counterparty.subtitle}
+              </Text>
+            )
           )}
         </View>
       </View>
@@ -296,7 +403,7 @@ export default function ChatScreen() {
                 )}
                 <MessageBubble
                   body={message.body}
-                  isMine={message.senderUserId === meId}
+                  isMine={message.sender === viewer}
                   avatarUrl={counterparty.avatar}
                   isRead={!!message.readAt}
                   isDarkMode={isDarkMode}
@@ -306,9 +413,27 @@ export default function ChatScreen() {
           </ListState>
         </ScrollView>
 
-        {!loadError && (
-          <MessageComposer onSend={handleSend} sending={sending} isDarkMode={isDarkMode} />
+        {!!allowanceHint && (
+          <Text className={`px-4 pb-1 text-center text-[11px] ${subtextColor}`}>
+            {allowanceHint}
+          </Text>
         )}
+
+        {!loadError &&
+          (lockedMessage ? (
+            <ComposerLockedNotice message={lockedMessage} isDarkMode={isDarkMode} />
+          ) : (
+            <MessageComposer
+              onSend={handleSend}
+              sending={sending}
+              isDarkMode={isDarkMode}
+              onTypingChange={
+                conversationId != null
+                  ? (typing) => notifyTyping(conversationId, typing)
+                  : undefined
+              }
+            />
+          ))}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

@@ -18,7 +18,13 @@
         }
       ],
       "expo-localization",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#00A85A"
+        }
+      ]
     ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
