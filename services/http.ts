@@ -33,13 +33,84 @@ export function getApiBaseUrl(): string {
   return baseUrl.replace(/\/$/, '');
 }
 
+// The API prefixes a property path with its binding wrapper (`Request.Phone`).
+// That first segment names the DTO, not a field the user filled in — drop it.
+const BINDING_PREFIXES = new Set(['request', 'command', 'query', 'model', 'dto', 'body', '$']);
+
+/**
+ * Turns a server property path into something a user can read:
+ * `Request.Phone` → "Phone", `Request.Photos[0].Url` → "Photos #1 Url".
+ */
+export function humanizeFieldName(propertyName: string): string {
+  return propertyName
+    .split('.')
+    .filter((segment, i) => !(i === 0 && BINDING_PREFIXES.has(segment.toLowerCase())))
+    .map((segment) =>
+      segment
+        .replace(/\[(\d+)\]/g, (_, index: string) => ` #${Number(index) + 1}`)
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2') // phoneNumber → phone Number
+        .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2') // ZIPCode → ZIP Code
+        .trim()
+    )
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+}
+
+/** Lowercased, punctuation-free, space-padded — for whole-word containment tests. */
+function wordsOf(value: string): string {
+  return ` ${value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()} `;
+}
+
+/**
+ * Prefixes a validation message with its field label, but only when the message
+ * does not already name the field. The backend writes most rules in prose
+ * ("Phone must start with +381…"), so blindly prefixing produced "Phone: Phone
+ * must start with…"; terse ones ("must not be empty") need the label to mean
+ * anything at all.
+ */
+function labelledMessage(field: string | undefined, message: string): string {
+  const msg = message.trim();
+  const label = field ? humanizeFieldName(field) : '';
+  if (!label) return msg;
+  return wordsOf(msg).includes(wordsOf(label)) ? msg : `${label}: ${msg}`;
+}
+
+/** One line per rule (de-duplicated) — readable in a toast, alert or inline view. */
+function formatValidationEntries(
+  entries: { field?: string; message: string }[],
+  fallback: string
+): string {
+  const lines = Array.from(
+    new Set(entries.map((e) => labelledMessage(e.field, e.message)).filter(Boolean))
+  );
+  return lines.length ? lines.join('\n') : fallback;
+}
+
+function safeJsonParse(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Extracts a human-readable error message from a failed Response body.
  * Resolution order:
- *   1. ASP.NET validation errors — `{ errors: { Field: ["msg"] } }`
- *   2. `{ message }` → `{ detail }` → `{ title }`
- *   3. Raw text (only if it does not look like a JSON blob)
- *   4. The provided fallback
+ *   1. FluentValidation envelope — `{ error, details: [{ propertyName, errorMessage }] }`
+ *   2. ASP.NET ModelState errors — `{ errors: { Field: ["msg"] } }`
+ *   3. `{ message }` → `{ detail }` → `{ title }` → `{ error }`
+ *   4. Raw text (only if it does not look like a JSON/HTML blob)
+ *   5. The provided fallback
+ *
+ * Both validation shapes render one rule per line, with the field label added
+ * only where the message doesn't already name it. A JSON body we can't read is
+ * never shown to the user — the caller's fallback is, since a raw `{"error":…}`
+ * blob on screen is worse than a plain "Couldn't save your profile."
  *
  * @param response - The failed fetch Response (its body is consumed here)
  * @param fallback - Message to use when nothing better can be extracted
@@ -56,20 +127,53 @@ export async function parseApiError(
     console.error(`[${context}] error`, response.status, text);
   }
 
-  try {
-    const json = JSON.parse(text);
-    if (json.errors && typeof json.errors === 'object') {
-      const fields = Object.entries(json.errors as Record<string, string[]>)
-        .map(([field, msgs]) => `${field}: ${(msgs ?? []).join(', ')}`)
-        .join(' | ');
-      return fields || json.title || fallback;
+  const parsed = safeJsonParse(text);
+
+  if (typeof parsed === 'string' && parsed.trim()) return parsed.trim();
+
+  if (parsed && typeof parsed === 'object') {
+    const json = parsed as Record<string, unknown>;
+
+    // 1. { error: "Validation failed.", details: [{ propertyName, errorMessage, errorCode }] }
+    if (Array.isArray(json.details)) {
+      const entries = json.details
+        .map((detail) => {
+          if (typeof detail === 'string') return { message: detail };
+          const d = (detail ?? {}) as Record<string, unknown>;
+          const message = d.errorMessage ?? d.message ?? d.description;
+          const field = d.propertyName ?? d.property ?? d.field;
+          return {
+            field: typeof field === 'string' ? field : undefined,
+            message: typeof message === 'string' ? message : '',
+          };
+        })
+        .filter((e) => e.message.trim());
+      if (entries.length) return formatValidationEntries(entries, fallback);
     }
-    return json.message ?? json.detail ?? json.title ?? (text || fallback);
-  } catch {
-    // Not JSON — use the raw text only if it looks human-readable
-    const trimmed = text.trim();
-    return text && !trimmed.startsWith('{') && !trimmed.startsWith('[') ? text : fallback;
+
+    // 2. { errors: { "Request.Phone": ["msg"] } }
+    if (json.errors && typeof json.errors === 'object' && !Array.isArray(json.errors)) {
+      const entries = Object.entries(json.errors as Record<string, unknown>).flatMap(
+        ([field, msgs]) =>
+          (Array.isArray(msgs) ? msgs : [msgs])
+            .filter((m): m is string => typeof m === 'string' && m.trim().length > 0)
+            .map((message) => ({ field, message }))
+      );
+      if (entries.length) return formatValidationEntries(entries, fallback);
+    }
+
+    // 3. Single-message shapes.
+    for (const key of ['message', 'detail', 'details', 'title', 'error']) {
+      const value = json[key];
+      if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+
+    return fallback;
   }
+
+  // Not JSON — use the raw text only if it looks human-readable
+  const trimmed = text.trim();
+  return trimmed && !/^[{[<]/.test(trimmed) ? trimmed : fallback;
 }
 
 /**
