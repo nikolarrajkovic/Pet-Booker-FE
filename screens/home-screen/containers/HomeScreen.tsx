@@ -16,6 +16,7 @@ import { getErrorMessage } from '../../../services/http';
 import { ServiceDto, serviceCurrency } from '../../../services/services';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
 import { useNotifications } from '../../../context/NotificationsContext';
+import { useMessages } from '../../../context/MessagesContext';
 import { DiscountType } from '../../../services/service-discounts';
 import { formatOfferAmount } from '../../../screens/promotions-screen/components';
 
@@ -106,8 +107,9 @@ export default function HomeScreen() {
   const [specialDeals, setSpecialDeals] = useState<ServiceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  // Live badge count — kept current by the SignalR push in NotificationsProvider.
+  // Live badge counts — kept current by the SignalR pushes in the two providers.
   const { unreadCount, refreshUnreadCount } = useNotifications();
+  const { unreadCount: unreadMessages, refreshUnreadCount: refreshUnreadMessages } = useMessages();
 
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
   const sectionTitleColor = textColor;
@@ -165,12 +167,13 @@ export default function HomeScreen() {
     }, [latitude, longitude])
   );
 
-  // Unread-notification badge on the bell — pushed live over SignalR; the focus
-  // refresh re-seeds from REST (covers rows read while this screen was blurred).
+  // Unread badges on the bell and the chat icon — pushed live over SignalR; the focus
+  // refresh re-seeds both from REST (covers rows read while this screen was blurred).
   useFocusEffect(
     useCallback(() => {
       refreshUnreadCount();
-    }, [refreshUnreadCount])
+      refreshUnreadMessages();
+    }, [refreshUnreadCount, refreshUnreadMessages])
   );
 
   const handleServicePress = (item: ServiceItem) => {
@@ -266,6 +269,28 @@ export default function HomeScreen() {
                 </Text>
               )}
             </View>
+            {/* Messages sits beside notifications: a chat message is only pushed to the feed
+                once per thread (the rest is carried by this badge), so without an entry point
+                here an ongoing conversation would be invisible from the home screen. */}
+            <TouchableOpacity
+              className="p-2"
+              accessibilityRole="button"
+              accessibilityLabel={
+                unreadMessages > 0
+                  ? t('home.a11yMessagesUnread', { count: unreadMessages })
+                  : t('home.a11yMessages')
+              }
+              accessible
+              onPress={() => (navigation as any).navigate('Messages')}>
+              <Ionicons name="chatbubble-ellipses-outline" size={22} color="white" />
+              {unreadMessages > 0 && (
+                <View className="absolute right-0.5 top-0.5 h-[18px] min-w-[18px] items-center justify-center rounded-full border border-brand-500 bg-red-500 px-1">
+                  <Text className="text-[10px] font-bold text-white">
+                    {unreadMessages > 99 ? '99+' : unreadMessages}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
             <TouchableOpacity
               className="p-2"
               // Icon-only, and the unread count is rendered as a bare badge — without this the

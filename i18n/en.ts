@@ -272,6 +272,8 @@ const en = {
     a11yBrowseCategory: 'Browse {category} services',
     a11yNotifications: 'Notifications',
     a11yNotificationsUnread: 'Notifications, {count} unread',
+    a11yMessages: 'Messages',
+    a11yMessagesUnread: 'Messages, {count} unread',
     tagline: 'Find the perfect care for your pet',
     recentlyBooked: 'Recently Booked',
     nearYou: 'Near You',
@@ -535,6 +537,14 @@ const en = {
     sendFailed: 'Message not sent. Please try again.',
     threadUnavailable: 'This conversation is unavailable.',
     messageProvider: 'Message provider',
+    typing: 'typing…',
+    // Shown while the enquiry allowance is counting down, so the limit is never a surprise.
+    enquiryAllowance: '{count} more before they reply',
+    lockedAwaitingReply: 'Waiting for a reply — you can write again once they answer, or after you book with them.',
+    lockedWindowExpired:
+      'This conversation is closed: the contact period after your last booking has passed. Book again to reopen it.',
+    lockedProviderUnavailable: 'This provider is not accepting messages at the moment.',
+    lockedGeneric: 'You cannot send messages in this conversation right now.',
   },
   myBookings: {
     title: 'My Bookings',
@@ -771,6 +781,8 @@ const en = {
     requestsSub: 'Review booking requests',
     myServices: 'My Services',
     myServicesSub: 'Edit services & pricing',
+    messages: 'Messages',
+    messagesSub: 'Questions from customers',
     promotions: 'Promotions',
     promotionsSub: 'Boost your visibility',
     serviceInProgress: 'Service in progress',

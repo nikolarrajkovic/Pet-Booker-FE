@@ -7,6 +7,7 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
+import { useMessages } from '../../../context/MessagesContext';
 import { getErrorMessage } from '../../../services/http';
 import {
   getBookings,
@@ -257,6 +258,17 @@ const QUICK_ACTIONS = [
     route: 'NewRequests',
   },
   {
+    // A customer can now ask a question before booking anything, so the provider needs a way
+    // in that doesn't go through a booking — this is where those enquiries land.
+    id: 'messages',
+    titleKey: 'partnerHub.messages',
+    subtitleKey: 'partnerHub.messagesSub',
+    icon: 'chatbubble-ellipses-outline' as const,
+    iconBg: '#DCFCE7',
+    iconColor: '#16A34A',
+    route: 'Messages',
+  },
+  {
     id: 'services',
     titleKey: 'partnerHub.myServices',
     subtitleKey: 'partnerHub.myServicesSub',
@@ -282,6 +294,7 @@ export default function PartnerHubScreen() {
   const { currentUser } = useAuth();
   const { showError } = useToast();
   const { t } = useLocale();
+  const { unreadCount: unreadMessages, refreshUnreadCount: refreshUnreadMessages } = useMessages();
   const insets = useSafeAreaInsets();
 
   const bgColor = hex.bg;
@@ -291,6 +304,14 @@ export default function PartnerHubScreen() {
 
   const [hub, setHub] = useState<HubData>(EMPTY_HUB);
   const [loaded, setLoaded] = useState(false);
+
+  // Re-seed the messages badge on focus, like the counts below — a thread read on another
+  // device shouldn't leave a stale number on the tile.
+  useFocusEffect(
+    useCallback(() => {
+      refreshUnreadMessages();
+    }, [refreshUnreadMessages])
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -401,6 +422,8 @@ export default function PartnerHubScreen() {
       return hub.todayCount > 0 ? t('partnerHub.nToday', { n: hub.todayCount }) : null;
     if (id === 'requests')
       return hub.newRequests > 0 ? t('partnerHub.nNew', { n: hub.newRequests }) : null;
+    if (id === 'messages')
+      return unreadMessages > 0 ? t('partnerHub.nNew', { n: unreadMessages }) : null;
     if (id === 'promotions')
       return hub.activePromos > 0 ? t('partnerHub.nActive', { n: hub.activePromos }) : null;
     return null;

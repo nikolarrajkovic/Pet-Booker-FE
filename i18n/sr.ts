@@ -266,6 +266,8 @@ const sr: TranslationDict = {
     a11yBrowseCategory: 'Pregledajte usluge: {category}',
     a11yNotifications: 'Obaveštenja',
     a11yNotificationsUnread: 'Obaveštenja, nepročitanih: {count}',
+    a11yMessages: 'Poruke',
+    a11yMessagesUnread: 'Poruke, nepročitanih: {count}',
     tagline: 'Pronađite savršenu negu za vašeg ljubimca',
     recentlyBooked: 'Nedavno rezervisano',
     nearYou: 'U blizini',
@@ -516,6 +518,14 @@ const sr: TranslationDict = {
     sendFailed: 'Poruka nije poslata. Pokušajte ponovo.',
     threadUnavailable: 'Ovaj razgovor nije dostupan.',
     messageProvider: 'Pošaljite poruku pružaocu',
+    typing: 'kuca…',
+    enquiryAllowance: 'Još {count} pre nego što odgovori',
+    lockedAwaitingReply:
+      'Čeka se odgovor — možete ponovo pisati kada vam odgovori ili nakon što rezervišete kod njega.',
+    lockedWindowExpired:
+      'Ovaj razgovor je zatvoren: period za kontakt nakon poslednje rezervacije je istekao. Rezervišite ponovo da biste ga otvorili.',
+    lockedProviderUnavailable: 'Ovaj pružalac usluge trenutno ne prima poruke.',
+    lockedGeneric: 'Trenutno ne možete slati poruke u ovom razgovoru.',
   },
   myBookings: {
     title: 'Moje rezervacije',
@@ -752,6 +762,8 @@ const sr: TranslationDict = {
     requestsSub: 'Pregledajte zahteve za rezervaciju',
     myServices: 'Moje usluge',
     myServicesSub: 'Uredite usluge i cene',
+    messages: 'Poruke',
+    messagesSub: 'Pitanja od klijenata',
     promotions: 'Promocije',
     promotionsSub: 'Povećajte vidljivost',
     serviceInProgress: 'Usluga u toku',
