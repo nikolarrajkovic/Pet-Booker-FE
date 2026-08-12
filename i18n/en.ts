@@ -540,7 +540,8 @@ const en = {
     typing: 'typing…',
     // Shown while the enquiry allowance is counting down, so the limit is never a surprise.
     enquiryAllowance: '{count} more before they reply',
-    lockedAwaitingReply: 'Waiting for a reply — you can write again once they answer, or after you book with them.',
+    lockedAwaitingReply:
+      'Waiting for a reply — you can write again once they answer, or after you book with them.',
     lockedWindowExpired:
       'This conversation is closed: the contact period after your last booking has passed. Book again to reopen it.',
     lockedProviderUnavailable: 'This provider is not accepting messages at the moment.',
@@ -1356,6 +1357,8 @@ const en = {
   shared: {
     clear: 'Clear',
     done: 'Done',
+    dismiss: 'Dismiss',
+    toastOpenHint: 'Opens the related screen',
     searchCountry: 'Search country',
     selectCallingCode: 'Select country calling code',
     destination: 'Destination',

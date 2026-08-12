@@ -89,6 +89,7 @@ export default function ChatScreen() {
     joinThread,
     notifyTyping,
     refreshUnreadCount,
+    claimActiveConversation,
   } = useMessages();
 
   const [conversation, setConversation] = useState<ConversationDto | null>(null);
@@ -111,8 +112,7 @@ export default function ChatScreen() {
   const viewer = conversation?.viewer ?? ChatParticipant.User;
   const access: ChatAccessDto | null = conversation?.access ?? null;
 
-  const sortMessages = (list: MessageDto[]) =>
-    [...list].sort((a, b) => a.id - b.id);
+  const sortMessages = (list: MessageDto[]) => [...list].sort((a, b) => a.id - b.id);
 
   // Resolve the thread, then its newest page of history.
   useEffect(() => {
@@ -171,6 +171,13 @@ export default function ChatScreen() {
     if (conversationId == null) return;
     return joinThread(conversationId);
   }, [conversationId, joinThread]);
+
+  // Claim this thread as the one on screen, so its own arriving messages don't toast over the
+  // conversation the user is reading. Released on unmount — every other thread still announces.
+  useEffect(() => {
+    if (conversationId == null) return;
+    return claimActiveConversation(conversationId);
+  }, [conversationId, claimActiveConversation]);
 
   // Live inbound messages for THIS thread.
   useEffect(() => {
@@ -292,8 +299,7 @@ export default function ChatScreen() {
   const counterparty = useMemo(
     () => ({
       name: conversation?.counterpartName || params.providerName || t('messages.conversation'),
-      avatar:
-        resolveImageUrl(conversation?.counterpartAvatarUrl) || params.providerAvatar || null,
+      avatar: resolveImageUrl(conversation?.counterpartAvatarUrl) || params.providerAvatar || null,
       subtitle: conversation?.serviceName ?? params.subtitle ?? '',
     }),
     [conversation, params.providerName, params.providerAvatar, params.subtitle, t]

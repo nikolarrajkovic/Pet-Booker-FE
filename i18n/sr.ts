@@ -1336,6 +1336,8 @@ const sr: TranslationDict = {
   shared: {
     clear: 'Obriši',
     done: 'Gotovo',
+    dismiss: 'Zatvori',
+    toastOpenHint: 'Otvara povezani ekran',
     searchCountry: 'Pretražite zemlju',
     selectCallingCode: 'Izaberite pozivni broj zemlje',
     destination: 'Odredište',

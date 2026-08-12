@@ -9,11 +9,16 @@ import React, {
 } from 'react';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
-import { AppNotificationDto, getUnreadNotificationCount } from '../services/app-notifications';
+import {
+  AppNotificationDto,
+  getUnreadNotificationCount,
+  isInboxNotification,
+} from '../services/app-notifications';
 import {
   createNotificationHubConnection,
   NOTIFICATION_RECEIVED,
 } from '../services/notification-hub';
+import { followNotificationRoute, routeForNotification } from '../navigation/notificationRoute';
 
 type Listener = (notification: AppNotificationDto) => void;
 
@@ -82,13 +87,23 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     const connection = createNotificationHubConnection();
     connection.on(NOTIFICATION_RECEIVED, (notification: AppNotificationDto) => {
       if (cancelled) return;
-      if (!notification.isRead) setUnreadCount((count) => count + 1);
+      // Only what the inbox will show may move the bell. A message notification is deliberately
+      // not filed there, so counting it would leave a badge with nothing behind it to clear.
+      if (!notification.isRead && isInboxNotification(notification)) {
+        setUnreadCount((count) => count + 1);
+      }
       // Prefer the message over the title: the title is a bare category label
       // ("Booking declined") while the message carries the detail that makes the
       // push actionable — the provider's decline reason, the service, the date.
       // Both arrive already localized in the recipient's language.
       const text = notification.message?.trim() || notification.title;
-      if (text) showInfo(text);
+      // Every notification toasts, hidden-from-the-inbox ones included — for a message that
+      // toast IS the notification, and tapping it is the way into the thread.
+      if (text) {
+        showInfo(text, {
+          onPress: () => followNotificationRoute(routeForNotification(notification)),
+        });
+      }
       listenersRef.current.forEach((listener) => listener(notification));
     });
     // Pushes sent while we were offline are lost — the REST count self-heals.

@@ -1337,6 +1337,8 @@ const ru: TranslationDict = {
   shared: {
     clear: 'Очистить',
     done: 'Готово',
+    dismiss: 'Закрыть',
+    toastOpenHint: 'Откроет связанный экран',
     searchCountry: 'Поиск страны',
     selectCallingCode: 'Выберите телефонный код страны',
     destination: 'Пункт назначения',
