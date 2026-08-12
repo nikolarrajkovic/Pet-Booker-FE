@@ -61,6 +61,7 @@ import { MessagesProvider } from './context/MessagesContext';
 import { EnumsProvider } from './context/EnumsContext';
 import LanguagePicker from './components/shared/LanguagePicker';
 import { linking } from './navigation/linking';
+import { usePushNotifications } from './hooks/usePushNotifications';
 import { hasSeenPartnerWelcome, markPartnerWelcomeSeen } from './services/onboarding';
 import { Ionicons } from '@expo/vector-icons';
 import { enableScreens } from 'react-native-screens';
@@ -76,6 +77,11 @@ function AppContent() {
   const { isLoggedIn, isLoading, isPartner, currentUser } = useAuth();
   const navigationRef = useNavigationContainerRef();
   const [navReady, setNavReady] = useState(false);
+
+  // Device push: registers this handset while signed in and routes a tapped notification to the
+  // screen it is about. Lives here rather than in a screen because a cold start from a
+  // notification arrives before any screen is mounted.
+  usePushNotifications(navigationRef, navReady);
 
   // Celebrate once, the first time we observe a user is an approved partner
   // (the backend adds them to the ServiceProvider group → `isPartner` flips

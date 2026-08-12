@@ -275,6 +275,16 @@ Direct customer↔provider messaging, **wired 2026-08-12** against `/api/chat/*`
 - `sentAt`/`readAt` are **true UTC instants** — read with `new Date()`, never `parseBookingDate`.
 - The badge is `GET /api/chat/unread-count` (one indexed call), not a sum over a fetched page. Entry points: the Home header chat icon, the Partner Hub "Messages" tile, Profile → Messages, "Message provider" on ServiceDetail, and the chat action on an upcoming booking.
 
+### `services/push-registration.ts` + `hooks/usePushNotifications.ts`
+Device push, **wired 2026-08-12**. This is the only channel that reaches a user whose app is CLOSED — SignalR (`NotificationsContext`, `MessagesContext`) needs a live connection and goes quiet the moment the app backgrounds, so on the packaged mobile build this is what makes notifications actually arrive.
+- **Expo Push**, not FCM/APNs directly: the backend POSTs to Expo's relay and EAS provisions the Apple key / Firebase credentials at build time, so neither end stores them. Tokens look like `ExponentPushToken[...]`.
+- `usePushNotifications(navigationRef, navReady)` is mounted **once in App.tsx**, not in a screen: a cold start from a notification arrives before any screen exists, and `getLastNotificationResponseAsync()` is the only way to see it (it is not delivered as an event).
+- **Registration upserts on a stable `deviceId`**, so a reissued token updates the row instead of accumulating dead siblings. Sign-out sets `isEnabled: false` rather than deleting — otherwise a shared handset keeps buzzing with the previous account's messages.
+- **No-ops on web and on simulators** (`Platform.OS === 'web'`, `!Device.isDevice`) — Expo's token API throws off-device, and web push needs a service worker + VAPID keys neither end has. Every entry point returns quietly, so the web bundle behaves like a device with notifications switched off; verified that signing in on web makes **zero** `/api/user-push-devices` calls.
+- **Android needs the `default` channel created before anything can show** on API 26+, or the notification is dropped silently. The id must match the backend's `Push:AndroidChannelId`.
+- A **tap** routes on the payload's `conversationId` → Chat, `bookingId` → BookingDetails, else the Notifications feed. Foreground arrivals are deliberately *not* routed — the badge and the live SignalR push already update the UI, and yanking someone out of what they're doing would be hostile.
+- Requires an **EAS `projectId`** for a token (SDK 49+); without one registration logs and skips.
+
 ### Verified API behaviors (tested against live backend 2026-06-12)
 These are confirmed quirks of the real API — keep them in mind when building DTOs/payloads:
 - **All `/api/*` list endpoints return a pagination wrapper**: `{ totalItems, totalPages, currentPage, itemsPerPage, items }`. Always unwrap with `extractPageItems()`. List endpoints also accept a `Paginate` bool param.
