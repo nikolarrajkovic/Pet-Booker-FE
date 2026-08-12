@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import type { HubConnection } from '@microsoft/signalr';
+import { HubConnectionState, type HubConnection } from '@microsoft/signalr';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
 import { getUnreadMessageCount, type ConversationDto, type MessageDto } from '../services/messages';
@@ -84,6 +84,8 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
   const connectionRef = useRef<HubConnection | null>(null);
   const fetchingCountRef = useRef(false);
   const activeConversationRef = useRef<number | null>(null);
+  /** Threads currently open on screen, by id → how many screens hold them. */
+  const joinedThreadsRef = useRef<Map<number, number>>(new Map());
 
   // A ProviderProfile account has no Domain.User, so `id` can be absent while the session is
   // perfectly valid — key the connection off either identity.
@@ -187,18 +189,54 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const joinThread = useCallback((conversationId: number) => {
+  /**
+   * Joins the thread's group if the socket is up. Silent when it isn't — `rejoinOpenThreads`
+   * below covers that case once the connection reports Connected.
+   */
+  const joinIfConnected = useCallback((conversationId: number) => {
     const connection = connectionRef.current;
-    if (connection) {
-      // Rejected for a non-participant, and pointless before the socket is up — both are
-      // non-fatal: REST still loads and sends, it just won't stream.
-      subscribeToConversation(connection, conversationId).catch(() => {});
-    }
-    return () => {
-      const active = connectionRef.current;
-      if (active) unsubscribeFromConversation(active, conversationId).catch(() => {});
-    };
+    // The state check is the point: `invoke` on a connection that is still negotiating throws,
+    // and the old code called it anyway and swallowed the rejection.
+    if (!connection || connection.state !== HubConnectionState.Connected) return;
+    // Rejected for a non-participant — non-fatal: REST still loads and sends.
+    subscribeToConversation(connection, conversationId).catch(() => {});
   }, []);
+
+  /**
+   * Opens a thread's live group, and REMEMBERS that it is open.
+   *
+   * The membership has to outlive the moment it was asked for. A screen mounts before the hub
+   * has finished negotiating — always, on a cold start or a deep link — so the join fired into
+   * a connection that wasn't up yet and was dropped with nothing to retry it. The thread then
+   * never received `ChatMessageReceived` at all: an open chat sat there showing nothing while
+   * new messages arrived, visible only as a badge and a toast. The same gap reopens on every
+   * reconnect, which is why the connect path replays this map rather than joining once.
+   *
+   * Counted rather than a plain set: the screen remounts on a params change, so the outgoing
+   * instance's release runs after the incoming one's join and would otherwise leave the group
+   * that is still being watched.
+   */
+  const joinThread = useCallback(
+    (conversationId: number) => {
+      const held = joinedThreadsRef.current.get(conversationId) ?? 0;
+      joinedThreadsRef.current.set(conversationId, held + 1);
+      if (held === 0) joinIfConnected(conversationId);
+
+      return () => {
+        const remaining = (joinedThreadsRef.current.get(conversationId) ?? 1) - 1;
+        if (remaining > 0) {
+          joinedThreadsRef.current.set(conversationId, remaining);
+          return;
+        }
+        joinedThreadsRef.current.delete(conversationId);
+        const connection = connectionRef.current;
+        if (connection?.state === HubConnectionState.Connected) {
+          unsubscribeFromConversation(connection, conversationId).catch(() => {});
+        }
+      };
+    },
+    [joinIfConnected]
+  );
 
   const notifyTyping = useCallback((conversationId: number, isTyping: boolean) => {
     const connection = connectionRef.current;
@@ -244,22 +282,36 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
       typingListenersRef.current.forEach((listener) => listener(event));
     });
 
+    // Group membership does not survive a new socket, so every thread a screen is holding has
+    // to be re-joined — both when this connection first comes up (screens mount long before
+    // it does) and after any reconnect. Without the replay an open chat receives nothing.
+    const rejoinOpenThreads = () => {
+      joinedThreadsRef.current.forEach((_held, conversationId) => joinIfConnected(conversationId));
+    };
+
     // Anything pushed while disconnected is lost — the REST count is the source of truth.
     connection.onreconnected(() => {
-      if (!cancelled) refreshUnreadCount();
+      if (cancelled) return;
+      refreshUnreadCount();
+      rejoinOpenThreads();
     });
 
-    connection.start().catch((error) => {
-      // Non-fatal: messages still send and load over REST, they just don't arrive live.
-      if (__DEV__) console.warn('[Messages] hub connect failed', error);
-    });
+    connection
+      .start()
+      .then(() => {
+        if (!cancelled) rejoinOpenThreads();
+      })
+      .catch((error) => {
+        // Non-fatal: messages still send and load over REST, they just don't arrive live.
+        if (__DEV__) console.warn('[Messages] hub connect failed', error);
+      });
 
     return () => {
       cancelled = true;
       connectionRef.current = null;
       connection.stop().catch(() => {});
     };
-  }, [sessionKey, refreshUnreadCount, showMessageToast]);
+  }, [sessionKey, refreshUnreadCount, showMessageToast, joinIfConnected]);
 
   const value = useMemo(
     () => ({
