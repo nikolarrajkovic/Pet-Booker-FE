@@ -265,6 +265,21 @@ export default function ServiceDetailScreen() {
     (navigation as any).navigate('BookService', { service: selectedService });
   };
 
+  // Opens (or reuses) the thread with this provider. The service is passed along so the
+  // provider sees what the question is about; ChatScreen does the get-or-create.
+  const onMessage = () => {
+    if (!svc.serviceProviderId) return;
+    (navigation as any).navigate('Chat', {
+      serviceProviderId: svc.serviceProviderId,
+      serviceId: svc.id ?? null,
+      providerName: provider?.name ?? undefined,
+      providerAvatar: resolveImageUrl(
+        provider?.photos?.find((p) => p.isSelected)?.src ?? provider?.photos?.[0]?.src
+      ),
+      subtitle: svc.name ?? undefined,
+    });
+  };
+
   // Render helper (not a nested component) so subtrees don't remount each render.
   const section = (title: string, content: React.ReactNode) => (
     <View className={`border-t px-6 py-5 ${borderColor}`}>
@@ -563,13 +578,27 @@ export default function ServiceDetailScreen() {
         </ScrollView>
       )}
 
-      {/* Sticky Book Now — the only way forward into the booking flow */}
+      {/* Sticky footer: ask a question, or book. The chat button sits alongside Book Now
+          because the question that stops someone booking ("do you take reactive dogs?")
+          occurs to them right here, before any booking exists to hang a thread off. */}
       <View
-        className={`absolute bottom-0 left-0 right-0 ${cardBg} border-t ${borderColor} px-6 py-4`}>
+        className={`absolute bottom-0 left-0 right-0 flex-row items-center ${cardBg} border-t ${borderColor} px-6 py-4`}>
+        <TouchableOpacity
+          onPress={onMessage}
+          disabled={isLoading}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={t('messages.messageProvider')}
+          className={`mr-3 h-14 w-14 items-center justify-center rounded-2xl border ${borderColor} ${
+            isLoading ? 'opacity-50' : ''
+          }`}>
+          <Ionicons name="chatbubble-outline" size={22} color={BRAND_GREEN} />
+        </TouchableOpacity>
+
         <TouchableOpacity
           onPress={onBook}
           disabled={isLoading}
-          className={`items-center rounded-2xl py-4 ${isLoading ? 'bg-gray-300' : 'bg-brand-500'}`}
+          className={`flex-1 items-center rounded-2xl py-4 ${isLoading ? 'bg-gray-300' : 'bg-brand-500'}`}
           style={
             isLoading
               ? {}

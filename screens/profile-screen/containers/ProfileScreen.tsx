@@ -46,6 +46,14 @@ const USER_MENU_ITEMS = [
     color: BRAND_GREEN,
   },
   {
+    id: 'messages',
+    icon: 'chatbubbles-outline',
+    iconType: 'ionicons',
+    titleKey: 'messages.title',
+    subtitleKey: 'messages.subtitle',
+    color: BRAND_GREEN,
+  },
+  {
     id: 'notifications',
     icon: 'notifications-outline',
     iconType: 'ionicons',
@@ -169,6 +177,7 @@ export default function ProfileScreen() {
     else if (id === 'schedule') (navigation as any).navigate('MySchedule', { mode: 'user' });
     else if (id === 'services') (navigation as any).navigate('MyServices');
     else if (id === 'promotions') (navigation as any).navigate('Promotions');
+    else if (id === 'messages') (navigation as any).navigate('Messages');
     else if (id === 'notifications') (navigation as any).navigate('Notifications');
     else if (id === 'notification-settings') (navigation as any).navigate('NotificationSettings');
     else if (id === 'settings') (navigation as any).navigate('Settings');
