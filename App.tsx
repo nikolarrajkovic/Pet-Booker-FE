@@ -31,6 +31,8 @@ import MyServicesScreen from './screens/my-services-screen/containers/MyServices
 import AddEditServiceScreen from './screens/my-services-screen/containers/AddEditServiceScreen';
 import ServicePreviewScreen from './screens/service-preview-screen/containers/ServicePreviewScreen';
 import NotificationsScreen from './screens/notifications-screen/containers/NotificationsScreen';
+import ConversationsScreen from './screens/messages-screen/containers/ConversationsScreen';
+import ChatScreen from './screens/messages-screen/containers/ChatScreen';
 import NotificationSettingsScreen from './screens/notifications-screen/containers/NotificationSettingsScreen';
 import NewRequestsScreen from './screens/new-requests-screen/containers/NewRequestsScreen';
 import LiveSessionScreen from './screens/live-session-screen/containers/LiveSessionScreen';
@@ -55,6 +57,7 @@ import { LocaleProvider, useLocale } from './context/LocaleContext';
 import { ToastProvider } from './context/ToastContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationsProvider } from './context/NotificationsContext';
+import { MessagesProvider } from './context/MessagesContext';
 import { EnumsProvider } from './context/EnumsContext';
 import LanguagePicker from './components/shared/LanguagePicker';
 import { linking } from './navigation/linking';
@@ -182,6 +185,8 @@ function AppContent() {
                 options={{ animation: 'slide_from_bottom' }}
               />
               <Stack.Screen name="Notifications" component={NotificationsScreen} />
+              <Stack.Screen name="Messages" component={ConversationsScreen} />
+              <Stack.Screen name="Chat" component={ChatScreen} />
               <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
               <Stack.Screen name="NewRequests" component={NewRequestsScreen} />
               <Stack.Screen name="LiveSession" component={LiveSessionScreen} />
@@ -250,9 +255,11 @@ export default function App() {
         <ToastProvider>
           <AuthProvider>
             <NotificationsProvider>
-              <EnumsProvider>
-                <AppContent />
-              </EnumsProvider>
+              <MessagesProvider>
+                <EnumsProvider>
+                  <AppContent />
+                </EnumsProvider>
+              </MessagesProvider>
             </NotificationsProvider>
           </AuthProvider>
         </ToastProvider>

@@ -137,6 +137,21 @@ export default function MyBookingsScreen() {
             onViewDetails={() =>
               (navigation as any).navigate('BookingDetails', { bookingId: booking.id })
             }
+            // Chat only on the Upcoming tab — there is nothing left to coordinate about a job
+            // that has already happened. Keyed off the tab rather than the status label on
+            // purpose: a booking the provider accepted but never completed keeps an "active"
+            // label forever, and those sit under Past once their date has gone by.
+            onMessage={
+              activeTab === 'upcoming'
+                ? () =>
+                    (navigation as any).navigate('Chat', {
+                      serviceProviderId: booking.providerId,
+                      providerName: booking.providerName,
+                      providerAvatar: booking.image,
+                      subtitle: booking.serviceName,
+                    })
+                : undefined
+            }
             onLeaveReview={() =>
               review.open({
                 bookingId: booking.id,

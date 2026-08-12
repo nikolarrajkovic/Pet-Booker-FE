@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
+import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 import { BookingStatusLabel } from '../../../services/bookings';
 import { formatMoney } from '../../../services/currency';
 
@@ -27,6 +28,8 @@ interface BookingCardProps {
   borderColor: string;
   onViewDetails?: () => void;
   onLeaveReview?: () => void;
+  /** Omit to hide the chat action — the parent decides which bookings are still messageable. */
+  onMessage?: () => void;
 }
 
 const getStatusColor = (status: string) => {
@@ -64,6 +67,7 @@ export default function BookingCard({
   borderColor,
   onViewDetails,
   onLeaveReview,
+  onMessage,
 }: BookingCardProps) {
   const { t, tEnum } = useLocale();
   const canReview = booking.status === 'completed' && !booking.rating && !!onLeaveReview;
@@ -115,6 +119,20 @@ export default function BookingCard({
                   <Text className="ml-1 text-sm font-semibold" style={{ color: '#F59E0B' }}>
                     {t('myBookings.review')}
                   </Text>
+                </TouchableOpacity>
+              ) : null}
+              {/* Only offered while the booking is still live — there is nothing to
+                  coordinate about a completed or cancelled job. */}
+              {onMessage ? (
+                <TouchableOpacity
+                  onPress={onMessage}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('messages.messageProvider')}
+                  className={`h-8 w-8 items-center justify-center rounded-full ${
+                    isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'
+                  }`}>
+                  <Ionicons name="chatbubble-outline" size={15} color={BRAND_GREEN} />
                 </TouchableOpacity>
               ) : null}
               <TouchableOpacity onPress={onViewDetails}>

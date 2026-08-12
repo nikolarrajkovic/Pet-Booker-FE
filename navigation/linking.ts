@@ -69,6 +69,17 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Notifications: 'notifications',
       NotificationSettings: 'notifications/settings',
 
+      // The inbox takes no params; a thread is addressed by its conversation id, which
+      // ChatScreen refetches — so both survive a cold load, per the rule above. The
+      // provider-id entry (from ServiceDetail / a booking card) is deliberately NOT mapped:
+      // it is a get-or-create instruction, not an address.
+      Messages: 'messages',
+      Chat: {
+        path: 'messages/:conversationId',
+        parse: { conversationId: Number },
+        stringify: { conversationId: (id: number) => String(id) },
+      },
+
       // ── Becoming / being a partner ────────────────────────────────────────────────────────
       BecomePartner: 'become-partner',
       PartnerApplication: 'become-partner/apply',
