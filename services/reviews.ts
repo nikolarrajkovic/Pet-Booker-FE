@@ -1,4 +1,4 @@
-import { apiJson, apiList } from './http';
+import { apiJson, apiList, apiPage, type ApiRequestOptions } from './http';
 
 export type ReviewDto = {
   id?: number | null;
@@ -62,8 +62,9 @@ export type GetReviewsParams = {
   perPage?: number;
 };
 
-export async function getReviews(params?: GetReviewsParams): Promise<ReviewDto[]> {
-  return apiList<ReviewDto>('/api/reviews', {
+/** Shared request options for the two shapes below — one place for the filter names. */
+function reviewsRequest(params?: GetReviewsParams): ApiRequestOptions {
+  return {
     query: {
       ServiceProviderId: params?.serviceProviderId,
       UserId: params?.userId,
@@ -75,7 +76,27 @@ export async function getReviews(params?: GetReviewsParams): Promise<ReviewDto[]
     },
     fallback: 'Failed to load reviews.',
     context: 'getReviews',
+  };
+}
+
+export async function getReviews(params?: GetReviewsParams): Promise<ReviewDto[]> {
+  return apiList<ReviewDto>('/api/reviews', reviewsRequest(params));
+}
+
+/**
+ * How many reviews match a filter, without reading them.
+ *
+ * Asks for a single row and returns the wrapper's `totalItems`. A badge that only needs a
+ * number used to pull 200 full reviews — each with its nested user, provider and booking
+ * includes — and call `.length` on them, which was both wasteful and silently wrong past the
+ * page cap.
+ */
+export async function countReviews(params?: GetReviewsParams): Promise<number> {
+  const page = await apiPage<ReviewDto>('/api/reviews', {
+    ...reviewsRequest({ ...params, page: 1, perPage: 1 }),
+    context: 'countReviews',
   });
+  return page.totalItems;
 }
 
 export async function createReview(review: Omit<ReviewDto, 'id'>): Promise<ReviewDto> {

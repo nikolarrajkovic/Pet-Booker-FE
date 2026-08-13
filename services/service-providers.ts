@@ -1,4 +1,4 @@
-import { apiJson, apiList, apiVoid, getApiBaseUrl } from './http';
+import { apiJson, apiList, apiPage, apiVoid, getApiBaseUrl, type ApiRequestOptions } from './http';
 import { uploadFilesBulk } from './files';
 
 // ─── Shared DTO types ────────────────────────────────────────────────────────
@@ -292,10 +292,9 @@ export type GetServiceProvidersParams = {
   perPage?: number;
 };
 
-export function getServiceProviders(
-  params?: GetServiceProvidersParams
-): Promise<ServiceProviderDto[]> {
-  return apiList<ServiceProviderDto>('/api/service-providers', {
+/** Shared request options for the shapes below — one place for the filter names. */
+function providersRequest(params?: GetServiceProvidersParams): ApiRequestOptions {
+  return {
     query: {
       Name: params?.name,
       City: params?.city,
@@ -307,7 +306,30 @@ export function getServiceProviders(
     },
     fallback: 'Failed to load providers.',
     context: 'getServiceProviders',
+  };
+}
+
+export function getServiceProviders(
+  params?: GetServiceProvidersParams
+): Promise<ServiceProviderDto[]> {
+  return apiList<ServiceProviderDto>('/api/service-providers', providersRequest(params));
+}
+
+/**
+ * How many providers match a filter, without reading them.
+ *
+ * Asks for a single row and returns the wrapper's `totalItems`. A moderation badge needs the
+ * number, not the rows — fetching 200 full provider records (photos, certificates, address) to
+ * call `.length` on them was both wasteful and silently wrong past the page cap.
+ */
+export async function countServiceProviders(
+  params?: GetServiceProvidersParams
+): Promise<number> {
+  const page = await apiPage<ServiceProviderDto>('/api/service-providers', {
+    ...providersRequest({ ...params, page: 1, perPage: 1 }),
+    context: 'countServiceProviders',
   });
+  return page.totalItems;
 }
 
 export function getServiceProvider(id: number): Promise<ServiceProviderDto> {

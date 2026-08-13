@@ -643,3 +643,32 @@ export function deleteBooking(id: number): Promise<void> {
     context: 'deleteBooking',
   });
 }
+
+/**
+ * Folds a lifecycle transition's result into a list the screen already holds, so a confirm or
+ * decline costs one request instead of two.
+ *
+ * All six transition endpoints return the updated booking, but the only thing they *change* is
+ * where it sits in the lifecycle — `BookingWorkflow` validates the move, syncs `state`, appends
+ * a history row and notifies. So merge those fields rather than swapping the row wholesale: the
+ * card keeps the `user`/`pet`/`service` includes and the frozen bill lines it renders from,
+ * whatever the transition response happens to embed.
+ *
+ * The row is matched by id and left untouched when the list doesn't hold it.
+ */
+export function applyBookingTransition(
+  bookings: BookingDto[],
+  updated: BookingDto
+): BookingDto[] {
+  return bookings.map((b) =>
+    b.id != null && b.id === updated.id
+      ? {
+          ...b,
+          state: updated.state,
+          currentStatus: updated.currentStatus,
+          cancelReason: updated.cancelReason ?? b.cancelReason,
+          updatedAt: updated.updatedAt ?? b.updatedAt,
+        }
+      : b
+  );
+}

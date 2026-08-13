@@ -34,6 +34,41 @@ export function getApiBaseUrl(): string {
 }
 
 /**
+ * A failed request.
+ *
+ * `status` is the HTTP status the server answered with, or **0 when the request never reached it**
+ * — device offline, server down, DNS/TLS failure, or a CORS block. That distinction is the whole
+ * point of the type: without it a screen cannot tell "the server said no" from "we never got to
+ * ask", and the honest-looking guess is always the wrong one. A login form that reports a CORS
+ * outage as "invalid credentials" sends the user off to reset a password that was fine.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+
+  /** The request never got an answer, so nothing is known about what was sent. */
+  get isNetworkError(): boolean {
+    return this.status === 0;
+  }
+}
+
+/** Narrowing helper for `catch (e: unknown)` blocks. */
+export function isNetworkError(error: unknown): boolean {
+  return error instanceof ApiError && error.isNetworkError;
+}
+
+/** The HTTP status behind a failure, or `null` if the request never reached the server. */
+export function statusOf(error: unknown): number | null {
+  if (error instanceof ApiError) return error.isNetworkError ? null : error.status;
+  return null;
+}
+
+/**
  * Extracts a human-readable error message from a failed Response body.
  * Resolution order:
  *   1. ASP.NET validation errors — `{ errors: { Field: ["msg"] } }`
@@ -173,7 +208,18 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
     ...(init?.headers as Record<string, string>),
   };
 
-  const response = await fetch(url, { ...init, headers });
+  // `fetch` rejects only when the exchange never completed — offline, server down, DNS/TLS
+  // failure, or the browser refusing a cross-origin response. It throws a bare TypeError
+  // ("Failed to fetch" / "Network request failed") that carries no status, so callers used to
+  // see it as indistinguishable from a 401. Tag it as status 0 here, once, rather than asking
+  // every screen to sniff the message text.
+  let response: Response;
+  try {
+    response = await fetch(url, { ...init, headers });
+  } catch {
+    throw new ApiError('Cannot reach the server. Check your connection and try again.', 0);
+  }
+
   const clone = response.clone();
 
   if (__DEV__) {
@@ -322,7 +368,8 @@ export async function apiRequest(path: string, options: ApiRequestOptions): Prom
   const response = await (isPublic ? apiFetch(url, init) : apiAuthFetch(url, init));
 
   if (!response.ok) {
-    throw new Error(await parseApiError(response, fallback, context));
+    // Carries the status so a caller can branch on it (401 vs 500) instead of guessing from text.
+    throw new ApiError(await parseApiError(response, fallback, context), response.status);
   }
 
   return response;

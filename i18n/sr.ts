@@ -99,6 +99,9 @@ const sr: TranslationDict = {
     identifierRequired: 'Email ili korisničko ime je obavezno',
     passwordRequired: 'Lozinka je obavezna',
     invalidCredentials: 'Neispravni podaci. Proverite email/korisničko ime i lozinku.',
+    cannotReachServer:
+      'Server nije dostupan. Proverite internet vezu i pokušajte ponovo — vaši podaci su možda ispravni.',
+    signInFailed: 'Prijava nije uspela. Pokušajte ponovo.',
   },
   register: {
     subtitle: 'Kreirajte nalog',
@@ -1132,8 +1135,6 @@ const sr: TranslationDict = {
     noProviderMsg: 'Nije moguće utvrditi vaš profil pružaoca. Pokušajte ponovo.',
     hoursSaveFailed:
       'Usluga je sačuvana, ali radno vreme nije ažurirano. Otvorite uslugu i pokušajte ponovo.',
-    optionsSaveFailed:
-      'Usluga je sačuvana, ali opcije cena nisu ažurirane. Otvorite uslugu i pokušajte ponovo.',
     saveFailed: 'Čuvanje usluge nije uspelo. Pokušajte ponovo.',
     serviceType: 'Vrsta usluge *',
     selectServiceType: 'Izaberite vrstu usluge',

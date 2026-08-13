@@ -46,50 +46,19 @@ export function deleteServiceSchedule(id: number): Promise<void> {
 }
 
 /**
- * Reconciles a service's per-day schedules to match `desired` (one entry per
- * enabled day). Diffs against `existing` (the schedules already on the service,
- * e.g. `service.schedules` from the GET) keyed by `day`:
- *   - day present in both, times differ → PUT
- *   - day only in desired                → POST
- *   - day only in existing               → DELETE
- * Unchanged days make no request. Any accidental duplicate rows for a day are
- * collapsed to one. Runs the resulting calls in parallel.
+ * Removes every one of a service's working-hour windows.
+ *
+ * The only schedule change the service write cannot express: a non-empty `schedules` array on
+ * the POST/PUT replaces the stored windows wholesale, but an **empty** one means "leave them
+ * untouched" (the Photos convention), so a provider switching every day off would otherwise
+ * keep the hours they just cleared. Everything else — adding, retiming, dropping a single day —
+ * rides along with the service in its own request; don't reintroduce a per-day reconciler.
+ *
+ * Pass the schedules already on the service (`service.schedules` from the GET). Rows with no
+ * id are skipped: they were never persisted.
  */
-export async function saveServiceSchedules(
-  serviceId: number,
-  desired: ServiceScheduleDto[],
-  existing: ServiceScheduleDto[] = []
-): Promise<void> {
-  const desiredByDay = new Map<number, ServiceScheduleDto>();
-  for (const s of desired) desiredByDay.set(s.day, s);
-
-  const existingByDay = new Map<number, ServiceScheduleDto[]>();
-  for (const s of existing) {
-    const list = existingByDay.get(s.day) ?? [];
-    list.push(s);
-    existingByDay.set(s.day, list);
-  }
-
-  const ops: Promise<unknown>[] = [];
-  const days = new Set<number>([...desiredByDay.keys(), ...existingByDay.keys()]);
-
-  for (const day of days) {
-    const want = desiredByDay.get(day);
-    const have = existingByDay.get(day) ?? [];
-
-    if (want && have.length === 0) {
-      ops.push(createServiceSchedule({ ...want, serviceId }));
-    } else if (want && have.length > 0) {
-      const [first, ...extras] = have;
-      if (first.id != null && (first.from !== want.from || first.to !== want.to)) {
-        ops.push(updateServiceSchedule(first.id, { ...want, serviceId, id: first.id }));
-      }
-      // Collapse any accidental duplicate rows for the same day.
-      for (const dup of extras) if (dup.id != null) ops.push(deleteServiceSchedule(dup.id));
-    } else if (!want) {
-      for (const h of have) if (h.id != null) ops.push(deleteServiceSchedule(h.id));
-    }
-  }
-
-  await Promise.all(ops);
+export async function clearServiceSchedules(existing: ServiceScheduleDto[]): Promise<void> {
+  await Promise.all(
+    existing.filter((s) => s.id != null).map((s) => deleteServiceSchedule(s.id!))
+  );
 }

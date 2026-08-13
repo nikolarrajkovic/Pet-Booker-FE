@@ -57,45 +57,9 @@ export function deleteServicePricingOption(id: number): Promise<void> {
   });
 }
 
-/**
- * Reconciles a service's pricing options to match `desired`. Unlike
- * saveServiceSchedules (keyed by day), options have no natural key, so the diff
- * is BY ID against `existing` (usually `service.pricingOptions` from the GET):
- *   - desired without an id                        → POST
- *   - desired with an id, any field changed        → PUT
- *   - existing id absent from desired              → DELETE
- * Unchanged options make no request. Runs the resulting calls in parallel.
- * Deleting every tier reverts the service to classic free-range booking.
- */
-export async function saveServicePricingOptions(
-  serviceId: number,
-  desired: ServicePricingOptionDto[],
-  existing: ServicePricingOptionDto[] = []
-): Promise<void> {
-  const existingById = new Map<number, ServicePricingOptionDto>();
-  for (const o of existing) if (o.id != null) existingById.set(o.id, o);
-
-  const ops: Promise<unknown>[] = [];
-  const keptIds = new Set<number>();
-
-  for (const want of desired) {
-    const have = want.id != null ? existingById.get(want.id) : undefined;
-    if (want.id != null && have) {
-      keptIds.add(want.id);
-      const changed =
-        have.name !== want.name ||
-        have.durationMinutes !== want.durationMinutes ||
-        have.price !== want.price ||
-        (have.description ?? null) !== (want.description ?? null);
-      if (changed) ops.push(updateServicePricingOption(want.id, { ...want, serviceId }));
-    } else {
-      ops.push(createServicePricingOption({ ...want, id: undefined, serviceId }));
-    }
-  }
-
-  for (const [id] of existingById) {
-    if (!keptIds.has(id)) ops.push(deleteServicePricingOption(id));
-  }
-
-  await Promise.all(ops);
-}
+// There is deliberately no reconciler here. A service's pricing options are written nested on
+// the service itself (`ServiceDto.pricingOptions`, built by `uiToServiceDto`): the array is the
+// desired full set, upserted by id in one request, and `[]` clears every tier. The per-option
+// calls above remain for editing a single tier outside a service save. Diffing client-side
+// meant up to one request per tier, each able to fail on its own, and — because an option write
+// declares no currency of its own — each storing a provider's EUR prices as RSD.

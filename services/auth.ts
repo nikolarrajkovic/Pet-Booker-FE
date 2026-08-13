@@ -1,4 +1,4 @@
-import { apiFetch, apiJson, apiVoid, getApiBaseUrl } from './http';
+import { ApiError, apiFetch, apiJson, apiVoid, getApiBaseUrl } from './http';
 
 export type CurrentUser = {
   id: number;
@@ -76,14 +76,21 @@ export async function loginWithEmailPassword(payload: LoginPayload) {
   const body = parseResponseBody(raw);
 
   if (!response.ok) {
-    throw new Error(body.message || body.detail || 'Login failed. Please verify your credentials.');
+    // Keep the status on the error: only a 401 actually means the credentials were rejected.
+    // A 500, a 429 lockout or a gateway error are different problems and must not be reported
+    // to the user as a bad password.
+    throw new ApiError(
+      body.message || body.detail || 'Login failed. Please verify your credentials.',
+      response.status
+    );
   }
 
   const accessToken = extractAccessToken(body);
   const refreshToken = extractRefreshToken(body);
 
   if (!accessToken) {
-    throw new Error('Login response did not include an auth token.');
+    // A 200 with no token is a server contract break, not a credentials problem.
+    throw new ApiError('Login response did not include an auth token.', response.status);
   }
 
   return { accessToken, refreshToken };
