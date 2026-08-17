@@ -449,7 +449,12 @@ export default function AddPetScreen() {
               if (route.params?.goBackOnSave && navigation.canGoBack()) {
                 navigation.goBack();
               } else {
-                (navigation as any).navigate('MyPets', { refreshKey: Date.now() });
+                // popTo, not navigate: in React Navigation v7 `navigate` no longer
+                // pops back to an existing screen, so it would PUSH a second MyPets
+                // on top of this AddPet — leaving "Add pet" under the back button.
+                // popTo pops back to the MyPets we came from (and falls back to
+                // replacing this screen if there isn't one in the stack).
+                (navigation as any).popTo('MyPets', { refreshKey: Date.now() });
               }
             } catch (error) {
               showError(getErrorMessage(error, t('addPet.saveFailed')));
