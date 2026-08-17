@@ -543,7 +543,8 @@ const en = {
     typing: 'typing…',
     // Shown while the enquiry allowance is counting down, so the limit is never a surprise.
     enquiryAllowance: '{count} more before they reply',
-    lockedAwaitingReply: 'Waiting for a reply — you can write again once they answer, or after you book with them.',
+    lockedAwaitingReply:
+      'Waiting for a reply — you can write again once they answer, or after you book with them.',
     lockedWindowExpired:
       'This conversation is closed: the contact period after your last booking has passed. Book again to reopen it.',
     lockedProviderUnavailable: 'This provider is not accepting messages at the moment.',
@@ -1012,14 +1013,9 @@ const en = {
     zipCode: 'ZIP Code',
     serviceInfo: 'Service Information',
     whatServices: 'What services do you offer?',
-    serviceTypesLabel: 'Service Types',
-    selectAllThatApply: 'Select all that apply',
-    svcDogWalking: 'Dog Walking',
-    svcGrooming: 'Grooming',
-    svcPetSitting: 'Pet Sitting',
-    svcBoarding: 'Boarding',
-    svcTraining: 'Training',
-    svcVeterinary: 'Veterinary',
+    serviceTypesLabel: 'Service Type',
+    pickServiceType: 'Choose the type of care you provide',
+    serviceTypeRequired: 'Please choose the type of care you provide.',
     yearsOfExperience: 'Years of Experience',
     yearsPlaceholder: '5 years',
     aboutMe: 'About Me',
@@ -1357,6 +1353,8 @@ const en = {
   shared: {
     clear: 'Clear',
     done: 'Done',
+    dismiss: 'Dismiss',
+    toastOpenHint: 'Opens the related screen',
     searchCountry: 'Search country',
     selectCallingCode: 'Select country calling code',
     destination: 'Destination',

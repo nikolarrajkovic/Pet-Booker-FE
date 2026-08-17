@@ -10,7 +10,8 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useRoute, RouteProp } from '@react-navigation/native';
+import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -75,7 +76,7 @@ function needsSeparator(current: MessageDto, previous?: MessageDto): boolean {
 }
 
 export default function ChatScreen() {
-  const navigation = useNavigation<any>();
+  const { goUp } = useAppNavigation();
   const route = useRoute<RouteProp<{ params: ChatRouteParams }, 'params'>>();
   const params = route.params ?? {};
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor, hex } =
@@ -89,6 +90,7 @@ export default function ChatScreen() {
     joinThread,
     notifyTyping,
     refreshUnreadCount,
+    claimActiveConversation,
   } = useMessages();
 
   const [conversation, setConversation] = useState<ConversationDto | null>(null);
@@ -111,8 +113,7 @@ export default function ChatScreen() {
   const viewer = conversation?.viewer ?? ChatParticipant.User;
   const access: ChatAccessDto | null = conversation?.access ?? null;
 
-  const sortMessages = (list: MessageDto[]) =>
-    [...list].sort((a, b) => a.id - b.id);
+  const sortMessages = (list: MessageDto[]) => [...list].sort((a, b) => a.id - b.id);
 
   // Resolve the thread, then its newest page of history.
   useEffect(() => {
@@ -171,6 +172,13 @@ export default function ChatScreen() {
     if (conversationId == null) return;
     return joinThread(conversationId);
   }, [conversationId, joinThread]);
+
+  // Claim this thread as the one on screen, so its own arriving messages don't toast over the
+  // conversation the user is reading. Released on unmount — every other thread still announces.
+  useEffect(() => {
+    if (conversationId == null) return;
+    return claimActiveConversation(conversationId);
+  }, [conversationId, claimActiveConversation]);
 
   // Live inbound messages for THIS thread.
   useEffect(() => {
@@ -292,8 +300,7 @@ export default function ChatScreen() {
   const counterparty = useMemo(
     () => ({
       name: conversation?.counterpartName || params.providerName || t('messages.conversation'),
-      avatar:
-        resolveImageUrl(conversation?.counterpartAvatarUrl) || params.providerAvatar || null,
+      avatar: resolveImageUrl(conversation?.counterpartAvatarUrl) || params.providerAvatar || null,
       subtitle: conversation?.serviceName ?? params.subtitle ?? '',
     }),
     [conversation, params.providerName, params.providerAvatar, params.subtitle, t]
@@ -327,9 +334,13 @@ export default function ChatScreen() {
           deliberately out of scope, and a dead icon is worse than none. */}
       <View className={`flex-row items-center border-b px-3 py-2.5 ${borderColor} ${cardBg}`}>
         <TouchableOpacity
-          onPress={() =>
-            navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Home')
-          }
+          // `Home` is a tab inside MainTabs, not a root screen, so navigating to it by bare name
+          // is unhandled — which is exactly what happens on the no-history path this fallback
+          // exists for (a deep link straight into a thread, or a reload on one). goUp() is the
+          // shared helper that addresses the nested route correctly.
+          // Wrapped, not passed by reference: goUp's first parameter is the fallback tab, and
+          // handing it the press event would send the navigator an event object as a route name.
+          onPress={() => goUp()}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}

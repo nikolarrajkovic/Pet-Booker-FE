@@ -79,6 +79,38 @@ export type ProviderOverviewStats = {
   activeServices: number;
 };
 
+/**
+ * GET /api/stats/platform — platform-wide figures any signed-in account may read.
+ *
+ * Deliberately narrower than the admin group: it describes the platform from the outside
+ * (how many partners operate here, how they're rated, what one of them takes in a month)
+ * and carries no revenue total, booking volume, or per-account number. That's what makes
+ * it readable by a prospective partner browsing BecomePartner.
+ *
+ * Guard each figure on its own backing count before rendering it — `averageProviderRating`
+ * is 0 when `totalReviews` is 0, and `averageMonthlyPartnerEarnings` is 0 when
+ * `earningPartners` is 0. Both zeros mean "no data yet", not a real measurement.
+ */
+export type PlatformStats = {
+  /** Currency of `averageMonthlyPartnerEarnings` — pass it to `formatMoney`. */
+  currency: string | null;
+  /** Approved (operating) service providers. */
+  activePartners: number;
+  /** Mean of every approved review of an approved provider (0 when there are none). */
+  averageProviderRating: number;
+  /** Approved reviews backing `averageProviderRating`. */
+  totalReviews: number;
+  /** What a partner who is actually trading takes in a typical month. */
+  averageMonthlyPartnerEarnings: number;
+  /** Partners with at least one captured payment in the window (the sample size). */
+  earningPartners: number;
+  /** Calendar months the earnings average covers. */
+  earningsWindowMonths: number;
+};
+
+/** GET /api/stats/platform */
+export const getPlatformStats = () => getStats<PlatformStats>('platform');
+
 /** GET /api/stats/user/overview — a booker's own numbers. */
 export type UserOverviewStats = {
   currency: string | null;

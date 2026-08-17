@@ -20,7 +20,8 @@ import { usePagedList } from '../../../hooks/usePagedList';
 import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import { NotificationItem } from '../components';
 import {
-  getAppNotificationsPage,
+  getInboxNotificationsPage,
+  isInboxNotification,
   markNotificationRead,
   markAllNotificationsRead,
   notificationBookingId,
@@ -44,8 +45,10 @@ export default function NotificationsScreen() {
 
   // The inbox grows without limit, so it pages: PAGE_SIZE rows at a time, appended as you scroll.
   const userId = currentUser?.id;
+  // Message notifications are left out — chat keeps its own inbox and unread count, and filing
+  // every message here buries the booking events this feed exists for.
   const fetchPage = useCallback(
-    (page: number) => getAppNotificationsPage({ userId, page, perPage: PAGE_SIZE }),
+    (page: number) => getInboxNotificationsPage({ userId, page, perPage: PAGE_SIZE }),
     [userId]
   );
   const {
@@ -99,6 +102,7 @@ export default function NotificationsScreen() {
   useEffect(
     () =>
       subscribe((n) => {
+        if (!isInboxNotification(n)) return; // hidden types never enter the feed, live or fetched
         setNotifications((prev) => (prev.some((x) => x.id === n.id) ? prev : [n, ...prev]));
       }),
     [subscribe, setNotifications]

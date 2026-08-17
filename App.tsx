@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from './screens/home-screen/containers/HomeScreen';
@@ -61,6 +61,7 @@ import { MessagesProvider } from './context/MessagesContext';
 import { EnumsProvider } from './context/EnumsContext';
 import LanguagePicker from './components/shared/LanguagePicker';
 import { linking } from './navigation/linking';
+import { navigationRef } from './navigation/navigationRef';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { hasSeenPartnerWelcome, markPartnerWelcomeSeen } from './services/onboarding';
 import { Ionicons } from '@expo/vector-icons';
@@ -75,13 +76,14 @@ function AppContent() {
   const { isDarkMode } = useTheme();
   const { hasChosen, isLoading: localeLoading, language, setLanguage } = useLocale();
   const { isLoggedIn, isLoading, isPartner, currentUser } = useAuth();
-  const navigationRef = useNavigationContainerRef();
+  // The app-level ref lives in its own module, so things outside the navigator (a tapped toast,
+  // a device push) can route without a screen to hang `useNavigation` on.
   const [navReady, setNavReady] = useState(false);
 
   // Device push: registers this handset while signed in and routes a tapped notification to the
   // screen it is about. Lives here rather than in a screen because a cold start from a
   // notification arrives before any screen is mounted.
-  usePushNotifications(navigationRef, navReady);
+  usePushNotifications(navReady);
 
   // Celebrate once, the first time we observe a user is an approved partner
   // (the backend adds them to the ServiceProvider group → `isPartner` flips
@@ -99,7 +101,7 @@ function AppContent() {
     return () => {
       cancelled = true;
     };
-  }, [navReady, isLoggedIn, isPartner, userId, navigationRef]);
+  }, [navReady, isLoggedIn, isPartner, userId]);
 
   if (isLoading || localeLoading) {
     return (

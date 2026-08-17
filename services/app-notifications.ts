@@ -21,7 +21,23 @@ export const NotificationType = {
   ServiceStarted: 12,
   BookingPriceAdjusted: 13,
   PaymentReceived: 14,
+  // A direct message arrived — dataJson carries { conversationId, messageId }. Deliberately
+  // kept OUT of the inbox and its badge: chat has its own inbox and its own unread count, and
+  // filing every message in the notification feed buries the booking events it exists for.
+  // It still arrives as a live toast, which is what carries the user into the thread.
+  NewMessage: 15,
 } as const;
+
+/**
+ * Types the notification inbox does not show. Not a general mute list — a type belongs here only
+ * when the app surfaces it somewhere better, as chat does with its own inbox.
+ */
+const INBOX_HIDDEN_TYPES: number[] = [NotificationType.NewMessage];
+
+/** Whether a notification belongs in the inbox feed (and therefore in its unread badge). */
+export function isInboxNotification(n: AppNotificationDto): boolean {
+  return !INBOX_HIDDEN_TYPES.includes(n.type);
+}
 
 /** A single in-app notification (read shape from GET /api/app-notifications). */
 export type AppNotificationDto = {
@@ -84,13 +100,60 @@ export function getAppNotificationsPage(
  * rather than the page itself. `extractPage` falls back to the item count for a response
  * with no counts, so this stays correct against a bare-array endpoint.
  */
-export async function getUnreadNotificationCount(userId: number): Promise<number> {
+async function countNotifications(params: GetAppNotificationsParams): Promise<number> {
   const page = await apiPage<AppNotificationDto>('/api/app-notifications', {
-    ...notificationsRequest({ userId, isRead: false, page: 1, perPage: 1 }),
+    ...notificationsRequest({ ...params, page: 1, perPage: 1 }),
     fallback: 'Failed to load unread count.',
     context: 'getUnreadNotificationCount',
   });
   return page.totalItems;
+}
+
+/** How many rows the inbox is hiding under the given query — one probe per hidden type. */
+async function countHiddenNotifications(params: GetAppNotificationsParams): Promise<number> {
+  const counts = await Promise.all(
+    INBOX_HIDDEN_TYPES.map((type) => countNotifications({ ...params, type }))
+  );
+  return counts.reduce((sum, n) => sum + n, 0);
+}
+
+/**
+ * Unread rows the BELL stands for — everything the inbox will actually show.
+ *
+ * Counted as "all unread minus unread messages" rather than by filtering fetched rows: both are
+ * one-row probes that read `totalItems`, so the answer is exact however many notifications exist,
+ * where filtering a fetched page would silently cap at whatever the page held. Hiding a type from
+ * the list without also removing it from this count would leave a badge the user cannot clear —
+ * the rows driving it are unreachable.
+ */
+export async function getUnreadNotificationCount(userId: number): Promise<number> {
+  const [all, hidden] = await Promise.all([
+    countNotifications({ userId, isRead: false }),
+    countHiddenNotifications({ userId, isRead: false }),
+  ]);
+  return Math.max(0, all - hidden);
+}
+
+/**
+ * One page of the inbox feed, with hidden types removed.
+ *
+ * The API filters *to* a type, never away from one, so the exclusion happens here. The total is
+ * corrected by the same subtraction the badge uses, keeping "showing X of Y" honest; `hasMore`
+ * still comes from the server, which is paging the unfiltered feed — so a page can render fewer
+ * rows than it fetched, and scrolling simply pulls the next one.
+ */
+export async function getInboxNotificationsPage(
+  params?: GetAppNotificationsParams
+): Promise<PagedResult<AppNotificationDto>> {
+  const [page, hidden] = await Promise.all([
+    getAppNotificationsPage(params),
+    countHiddenNotifications({ ...params, page: undefined, perPage: undefined }),
+  ]);
+  return {
+    ...page,
+    items: page.items.filter(isInboxNotification),
+    totalItems: Math.max(0, page.totalItems - hidden),
+  };
 }
 
 // The write DTO only accepts { id, isRead } — the server stamps readAt itself
@@ -109,14 +172,23 @@ export async function markAllNotificationsRead(ids: number[]): Promise<void> {
   await Promise.all(ids.map((id) => markNotificationRead(id, true)));
 }
 
-/** Safely pulls the bookingId out of a notification's dataJson payload, if any. */
-export function notificationBookingId(n: AppNotificationDto): number | null {
+/** Safely pulls a numeric id out of a notification's dataJson payload, if any. */
+function notificationDataId(n: AppNotificationDto, key: string): number | null {
   if (!n.dataJson) return null;
   try {
-    const parsed = JSON.parse(n.dataJson);
-    const id = parsed?.bookingId;
+    const id = JSON.parse(n.dataJson)?.[key];
     return typeof id === 'number' ? id : null;
   } catch {
     return null;
   }
+}
+
+/** Safely pulls the bookingId out of a notification's dataJson payload, if any. */
+export function notificationBookingId(n: AppNotificationDto): number | null {
+  return notificationDataId(n, 'bookingId');
+}
+
+/** The thread a message notification points at — `{ conversationId, messageId }` in dataJson. */
+export function notificationConversationId(n: AppNotificationDto): number | null {
+  return notificationDataId(n, 'conversationId');
 }
