@@ -115,7 +115,12 @@ export default function HomeScreen() {
   const sectionTitleColor = textColor;
   const subtitleColor = isDarkMode ? 'text-gray-400' : 'text-brand-100';
 
-  const { latitude, longitude } = location;
+  const { latitude, longitude, loading: locating } = location;
+
+  // The three rails that are the same wherever the phone is. Deliberately NOT keyed on the
+  // device position: they used to share an effect with Near You, so the moment the GPS fix
+  // replaced useLocation's placeholder every rail on the page refetched — eight requests to
+  // render four rows, three of them for identical results.
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -135,10 +140,9 @@ export default function HomeScreen() {
           getMostPopular(),
           getOnSale(),
           getRecentlyBooked(),
-          getNearMe({ lat: latitude, lng: longitude }),
         ]);
         if (cancelled) return;
-        const [popularR, saleR, recentR, nearR] = results;
+        const [popularR, saleR, recentR] = results;
         const deals = toItems(val(saleR)).map((item) => {
           const amount = dealLabel(item.dto);
           return amount ? { ...item, dealAmount: amount } : item;
@@ -146,13 +150,12 @@ export default function HomeScreen() {
         setMostPopular(toItems(val(popularR)));
         setSpecialDeals(deals);
         setRecentlyBooked(toItems(val(recentR)));
-        setNearYou(toItems(val(nearR)));
 
-        // Only the four content endpoints determine a "page failed" state.
-        const contentResults = [popularR, saleR, recentR, nearR];
-        const allFailed = contentResults.every((r) => r.status === 'rejected');
+        // A page-level failure, not a row-level one: Near You is reported separately below,
+        // since it resolves on its own schedule.
+        const allFailed = results.every((r) => r.status === 'rejected');
         if (allFailed) {
-          const firstError = contentResults.find(
+          const firstError = results.find(
             (r): r is PromiseRejectedResult => r.status === 'rejected'
           );
           setLoadError(getErrorMessage(firstError?.reason, t('home.loadError')));
@@ -164,7 +167,33 @@ export default function HomeScreen() {
       return () => {
         cancelled = true;
       };
-    }, [latitude, longitude])
+      // `t` is stable for a given language and re-running on a language change would refetch
+      // rows the server returns identically — the labels around them re-render on their own.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+  );
+
+  // Near You, on its own clock. Waits for a real fix rather than firing against the Belgrade
+  // placeholder: that answer is for the wrong city and is thrown away seconds later anyway.
+  // `locating` settles on denial and failure too, so a user who refuses location still gets
+  // the rail, ranked from the default position.
+  useFocusEffect(
+    useCallback(() => {
+      if (locating) return;
+      let cancelled = false;
+      getNearMe({ lat: latitude, lng: longitude })
+        .then((rows) => {
+          if (!cancelled) setNearYou(toItems(rows));
+        })
+        .catch(() => {
+          // Row-level failure: the rest of the page is unaffected, so it renders empty rather
+          // than taking the whole screen into its error state.
+          if (!cancelled) setNearYou([]);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [locating, latitude, longitude])
   );
 
   // Unread badges on the bell and the chat icon — pushed live over SignalR; the focus

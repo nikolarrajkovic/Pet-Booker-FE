@@ -14,8 +14,8 @@ import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import TabBar from '../../../components/shared/TabBar';
 import { getAdminOverviewStats, getAdminRevenueByServiceType } from '../../../services/stats';
-import { getServiceProviders, ApprovalStatus } from '../../../services/service-providers';
-import { getReviews } from '../../../services/reviews';
+import { countServiceProviders, ApprovalStatus } from '../../../services/service-providers';
+import { countReviews } from '../../../services/reviews';
 import { formatMoney } from '../../../services/currency';
 import { getErrorMessage } from '../../../services/http';
 
@@ -79,9 +79,12 @@ async function loadAdminMetrics(): Promise<AdminMetrics> {
     // queues (verified live — `newReviews` still counted an already-approved
     // review, and `newRequests` did not match the pending-application count).
     // These screens link to the moderation queues, so the badges use the exact
-    // server-side ApprovalStatus filters instead — small, filtered queries.
-    getServiceProviders({ approvalStatus: ApprovalStatus.Pending, perPage: 200 }),
-    getReviews({ approvalStatus: ApprovalStatus.Pending, perPage: 200 }),
+    // server-side ApprovalStatus filters instead. Counted, not listed: the badge
+    // is one integer, and pulling 200 full records (a review carries its user,
+    // provider and booking includes) to call `.length` also under-reported any
+    // queue longer than the page cap.
+    countServiceProviders({ approvalStatus: ApprovalStatus.Pending }),
+    countReviews({ approvalStatus: ApprovalStatus.Pending }),
   ]);
 
   const revenueByType = byType
@@ -103,8 +106,8 @@ async function loadAdminMetrics(): Promise<AdminMetrics> {
     servicesScheduled: overview.servicesScheduled,
     newPartnersThisMonth: overview.newPartnersThisMonth,
     activePartners: overview.activePartners,
-    pendingRequests: pendingProviders.length,
-    pendingReviews: pendingReviews.length,
+    pendingRequests: pendingProviders,
+    pendingReviews,
     revenueByType,
   };
 }

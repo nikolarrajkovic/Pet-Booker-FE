@@ -223,7 +223,7 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
     try {
       const type = promo.discountType ?? DiscountType.Percent;
       const value = promo.discountValue ?? promo.discountPercent ?? 0;
-      await updateServiceDiscount(promo.discountId, {
+      const updated = await updateServiceDiscount(promo.discountId, {
         id: promo.discountId,
         serviceId: promo.serviceId,
         type,
@@ -233,7 +233,15 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
         applyTo: promo.applyTo ?? null,
         isEnabled: makeActive,
       });
-      await load();
+      // Rebuild just this card from what the PUT returned. Reloading re-fetched the partner's
+      // whole catalogue — every service with its photos, schedules, options and add-ons — to
+      // learn one boolean the response already carried. The service name and currency come
+      // from the card being replaced, since they belong to the service, not the discount.
+      setOffers((prev) =>
+        prev.map((p) =>
+          p.id === id ? discountToPromotion(t, updated, p.description, p.currency) : p
+        )
+      );
     } catch (e) {
       showError(getErrorMessage(e, t('promotions.updateFailed')));
     }

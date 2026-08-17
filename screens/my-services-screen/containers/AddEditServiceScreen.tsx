@@ -36,8 +36,7 @@ import {
 import { getErrorMessage } from '../../../services/http';
 import { providerTypeValue } from '../../../services/service-providers';
 import { AdditionalServiceChargeType, DistanceLeg } from '../../../services/service-addons';
-import { saveServiceSchedules } from '../../../services/service-schedules';
-import { saveServicePricingOptions } from '../../../services/service-pricing-options';
+import { clearServiceSchedules } from '../../../services/service-schedules';
 import {
   serviceDtoToUi,
   uiToServiceDto,
@@ -47,8 +46,6 @@ import {
   newAdditionalServiceEntry,
   entryToAdditionalServices,
   additionalServiceTitle,
-  workingHoursToSchedules,
-  pricingTiersToOptions,
   resolveServiceAddressForSave,
   DURATION_OPTION_LABELS,
   PricingTier,
@@ -397,13 +394,11 @@ export default function AddEditServiceScreen() {
         params?.serviceDto?.address,
         isEdit
       );
-      // Only API-backed fields persist. Duration tiers persist separately as
-      // pricing options via /api/service-pricing-options below (the DTO's
-      // basePrice carries the cheapest tier for the lean Home-rail display).
-      // Add-ons persist via the catalog — the flat baseFee AND the distance
-      // pricing (perKmFee / freeDistanceKm / maxDistanceKm) for the location
-      // add-ons, as a LocationBasedPriceDto. Working hours persist separately
-      // via /api/service-schedules below.
+      // Only API-backed fields persist. The whole aggregate travels in ONE request: working
+      // hours, duration tiers and the add-on catalog are all nested on the DTO (the flat
+      // baseFee and the distance pricing — perKmFee / freeDistanceKm / maxDistanceKm — for a
+      // location add-on, as a LocationBasedPriceDto). `pricing.basePrice` carries the cheapest
+      // tier so the lean Home-rail display still shows a "from" price.
       const dto = uiToServiceDto(
         {
           serviceProviderId,
@@ -414,46 +409,27 @@ export default function AddEditServiceScreen() {
           pricingTiers,
           maxPetCapacity: parseInt(maxPetCapacity, 10) || 1,
           additionalServices,
+          workingHours,
           photos,
           address,
         },
         params?.serviceDto
       );
-      let savedId: number | undefined;
       if (isEdit && params?.serviceDto?.id != null) {
         await updateService(params.serviceDto.id, dto);
-        savedId = params.serviceDto.id;
       } else {
-        const created = await createService(dto);
-        savedId = created?.id ?? undefined;
+        await createService(dto);
       }
-      // Persist the per-day working hours, reconciling against any schedules the
-      // service already has (edit mode). Best-effort: if it fails the service is
-      // already saved, so warn rather than block — re-saving would re-create the
-      // service on a hard error.
-      if (savedId != null) {
+      // The one change the nested write can't express: an empty `schedules` array means "leave
+      // them alone", so switching every day off has to delete the stored windows explicitly.
+      // Best-effort — the service itself is already saved, and re-running the save to retry
+      // would create a second one.
+      if (isEdit && dto.schedules?.length === 0 && params?.serviceDto?.schedules?.length) {
         try {
-          await saveServiceSchedules(
-            savedId,
-            workingHoursToSchedules(workingHours, savedId),
-            params?.serviceDto?.schedules ?? []
-          );
+          await clearServiceSchedules(params.serviceDto.schedules);
         } catch (schedErr) {
-          if (__DEV__) console.warn('[AddEditService] working-hours save failed', schedErr);
+          if (__DEV__) console.warn('[AddEditService] clearing working hours failed', schedErr);
           showError(t('addEditService.hoursSaveFailed'));
-        }
-        // Persist the duration/price tiers as pricing options, reconciling
-        // against the options the service already has (edit mode). Same
-        // best-effort pattern as the working hours above.
-        try {
-          await saveServicePricingOptions(
-            savedId,
-            pricingTiersToOptions(pricingTiers, savedId),
-            params?.serviceDto?.pricingOptions ?? []
-          );
-        } catch (optErr) {
-          if (__DEV__) console.warn('[AddEditService] pricing-options save failed', optErr);
-          showError(t('addEditService.optionsSaveFailed'));
         }
       }
       navigation.goBack();

@@ -103,6 +103,9 @@ const en = {
     identifierRequired: 'Email or username is required',
     passwordRequired: 'Password is required',
     invalidCredentials: 'Invalid credentials. Please check your email/username and password.',
+    cannotReachServer:
+      "Can't reach the server. Check your connection and try again — your details may be fine.",
+    signInFailed: 'Sign-in failed. Please try again.',
   },
   register: {
     subtitle: 'Create your account',
@@ -1145,8 +1148,6 @@ const en = {
     noProviderMsg: 'Could not determine your provider profile. Please try again.',
     hoursSaveFailed:
       'The service was saved, but its working hours could not be updated. Open the service to try again.',
-    optionsSaveFailed:
-      'The service was saved, but its pricing options could not be updated. Open the service to try again.',
     saveFailed: 'Could not save the service. Please try again.',
     serviceType: 'Service Type *',
     selectServiceType: 'Select a service type',

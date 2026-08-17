@@ -74,8 +74,18 @@ export default function ConversationsScreen() {
     }, [load])
   );
 
-  // A message arriving in any thread reorders the inbox, so refresh rather than patch one row.
-  useEffect(() => subscribeToInbox(() => load()), [subscribeToInbox, load]);
+  // A message arriving in any thread reorders the inbox — but the push carries that thread's
+  // own row (the recipient's view of it, unread count included), so splice it to the front
+  // instead of refetching fifty threads plus the badge to learn what we were just handed. A new
+  // message always makes its thread the most recent, which is exactly where a reload would put
+  // it; the badge is re-seeded by MessagesContext off the same event.
+  useEffect(
+    () =>
+      subscribeToInbox((updated) =>
+        setConversations((prev) => [updated, ...prev.filter((c) => c.id !== updated.id)])
+      ),
+    [subscribeToInbox]
+  );
 
   const onRefresh = async () => {
     setIsRefreshing(true);
