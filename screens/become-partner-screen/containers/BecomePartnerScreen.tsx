@@ -1,11 +1,19 @@
-import React, { useRef } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Animated } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  ScrollView,
+  Text,
+  View,
+  TouchableOpacity,
+  Animated,
+  ActivityIndicator,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import { getPlatformStats, type PlatformStats } from '../../../services/stats';
 import { BenefitCard, HowItWorksStep, TestimonialCard } from '../components';
 
 // Titles/descriptions are translation keys, resolved with t() at render.
@@ -61,6 +69,22 @@ const requirements = [
   { id: 4, textKey: 'becomePartner.req4' },
 ];
 
+/**
+ * Shortens a headline figure the way a marketing stat reads: 12400 → "12.4K", 8 → "8".
+ * Kept out of the currency helpers deliberately — this abbreviates the NUMBER; attaching
+ * the symbol to the result is `useCurrency().wrap`'s job (see Money & Currency in CLAUDE.md).
+ */
+function compactFigure(value: number): string {
+  if (value >= 1_000_000) return `${trimZero(value / 1_000_000)}M`;
+  if (value >= 1_000) return `${trimZero(value / 1_000)}K`;
+  return String(Math.round(value));
+}
+
+/** One decimal, with a trailing ".0" dropped — "1.2K", not "1.2K"/"2.0K" side by side. */
+function trimZero(value: number): string {
+  return value.toFixed(1).replace(/\.0$/, '');
+}
+
 export default function BecomePartnerScreen() {
   const navigation = useNavigation();
   const {
@@ -72,8 +96,74 @@ export default function BecomePartnerScreen() {
     borderColor,
   } = useThemeColors();
   const { t } = useLocale();
-  const { wrap } = useCurrency();
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Platform figures for the stats card above "Why Partner with Us". Fail-soft: this is
+  // secondary marketing data, so a failure hides the card rather than blocking the pitch —
+  // the alternative (leaving the old hardcoded 10K+/2K/4.8 in place) would state numbers
+  // the platform can't back.
+  const [stats, setStats] = useState<PlatformStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  const { money, wrap } = useCurrency(stats?.currency);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const platform = await getPlatformStats();
+        if (!cancelled) setStats(platform);
+      } catch {
+        if (!cancelled) setStats(null);
+      } finally {
+        if (!cancelled) setStatsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // One entry per figure the backend can actually back — a rating with no reviews behind it
+  // and an earnings average with no paid partners behind it both come back as 0, which is an
+  // absence of data rather than a measurement, so those tiles are dropped instead of shown.
+  const statTiles: { key: string; value: string; line1: string; line2: string }[] = stats
+    ? [
+        ...(stats.activePartners > 0
+          ? [
+              {
+                key: 'partners',
+                value: compactFigure(stats.activePartners),
+                line1: t('becomePartner.statActive'),
+                line2: t('becomePartner.statProviders'),
+              },
+            ]
+          : []),
+        ...(stats.earningPartners > 0 && stats.averageMonthlyPartnerEarnings > 0
+          ? [
+              {
+                key: 'earnings',
+                value:
+                  stats.averageMonthlyPartnerEarnings >= 1000
+                    ? wrap(compactFigure(stats.averageMonthlyPartnerEarnings))
+                    : money(stats.averageMonthlyPartnerEarnings),
+                line1: t('becomePartner.statAvgMonthly'),
+                line2: t('becomePartner.statEarnings'),
+              },
+            ]
+          : []),
+        ...(stats.totalReviews > 0
+          ? [
+              {
+                key: 'rating',
+                value: `${stats.averageProviderRating.toFixed(1)}★`,
+                line1: t('becomePartner.statProvider'),
+                line2: t('becomePartner.statRating'),
+              },
+            ]
+          : []),
+      ]
+    : [];
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
 
@@ -91,36 +181,27 @@ export default function BecomePartnerScreen() {
           useNativeDriver: false,
         })}
         scrollEventThrottle={16}>
-        {/* Stats Card */}
-        <View className={`${cardBg} mb-6 rounded-2xl border p-6 ${borderColor}`}>
-          <View className="flex-row justify-around">
-            <View className="items-center">
-              <Text className="text-2xl font-bold text-brand-600">10K+</Text>
-              <Text className={`text-xs ${subtextColor} mt-1`}>
-                {t('becomePartner.statActive')}
-              </Text>
-              <Text className={`text-xs ${subtextColor}`}>{t('becomePartner.statProviders')}</Text>
-            </View>
-            <View className="w-px bg-gray-200" />
-            <View className="items-center">
-              {/* Marketing figure — abbreviated, so the symbol is attached rather than
-                  formatted from an amount. Still follows the currency's placement. */}
-              <Text className="text-2xl font-bold text-brand-600">{wrap('2K')}</Text>
-              <Text className={`text-xs ${subtextColor} mt-1`}>
-                {t('becomePartner.statAvgMonthly')}
-              </Text>
-              <Text className={`text-xs ${subtextColor}`}>{t('becomePartner.statEarnings')}</Text>
-            </View>
-            <View className="w-px bg-gray-200" />
-            <View className="items-center">
-              <Text className="text-2xl font-bold text-brand-600">4.8★</Text>
-              <Text className={`text-xs ${subtextColor} mt-1`}>
-                {t('becomePartner.statProvider')}
-              </Text>
-              <Text className={`text-xs ${subtextColor}`}>{t('becomePartner.statRating')}</Text>
+        {/* Stats Card — real platform figures (GET /api/stats/platform) */}
+        {statsLoading ? (
+          <View className={`${cardBg} mb-6 items-center rounded-2xl border p-6 ${borderColor}`}>
+            <ActivityIndicator color={BRAND_GREEN} />
+          </View>
+        ) : statTiles.length > 0 ? (
+          <View className={`${cardBg} mb-6 rounded-2xl border p-6 ${borderColor}`}>
+            <View className="flex-row justify-around">
+              {statTiles.map((tile, index) => (
+                <React.Fragment key={tile.key}>
+                  {index > 0 && <View className="w-px bg-gray-200" />}
+                  <View className="items-center">
+                    <Text className="text-2xl font-bold text-brand-600">{tile.value}</Text>
+                    <Text className={`text-xs ${subtextColor} mt-1`}>{tile.line1}</Text>
+                    <Text className={`text-xs ${subtextColor}`}>{tile.line2}</Text>
+                  </View>
+                </React.Fragment>
+              ))}
             </View>
           </View>
-        </View>
+        ) : null}
 
         {/* Why Partner with Us */}
         <Text className={`text-xl font-bold ${textColor} mb-4`}>
