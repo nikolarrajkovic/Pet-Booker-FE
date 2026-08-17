@@ -347,7 +347,12 @@ export type CreateServiceProviderPayload = {
   // address country. Defaults to Serbia when unset.
   country?: string;
   zipCode: string;
-  selectedServices: string[];
+  /**
+   * ServiceProviderType the provider record is created as. Required — the application
+   * form used to collect a list of invented service ids that this payload never read,
+   * sending a hardcoded Sitter (0) for every applicant instead.
+   */
+  serviceType: number;
   yearsOfExperience: string;
   aboutYou: string;
   motivation: string;
@@ -434,7 +439,8 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
   const body = {
     id: 0,
     name: payload.fullName,
-    type: 0,
+    // The type the applicant picked in step 2 (ServiceProviderType, from /enums).
+    type: payload.serviceType,
     // Approval is server-controlled: new applications start Pending — an admin
     // approves/declines later via the /admin endpoints.
     contactEmail: payload.email,

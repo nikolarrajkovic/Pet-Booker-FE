@@ -84,7 +84,9 @@ export default function PartnerApplicationScreen() {
     streetAddress: '',
     city: '',
     zipCode: '',
-    selectedServices: [] as string[],
+    // ServiceProviderType value from /enums — null until picked, so an unanswered
+    // required field can't silently submit as Sitter (0).
+    serviceType: null as number | null,
     yearsOfExperience: '',
     aboutYou: '',
     motivation: '',
@@ -331,8 +333,23 @@ export default function PartnerApplicationScreen() {
         <TouchableOpacity
           disabled={isSubmitting}
           onPress={async () => {
+            // The service type is what the provider record is created as, and there is no
+            // later screen to correct it — block the step rather than defaulting it.
+            if (step === 2 && formData.serviceType === null) {
+              showError(t('partnerApplication.serviceTypeRequired'));
+              return;
+            }
+
             if (step < totalSteps) {
               setStep(step + 1);
+              return;
+            }
+
+            // Safety net for a jumped step: the provider is created AS this type, so
+            // never fall back to a default here.
+            if (formData.serviceType === null) {
+              showError(t('partnerApplication.serviceTypeRequired'));
+              setStep(2);
               return;
             }
 
@@ -364,6 +381,7 @@ export default function PartnerApplicationScreen() {
                 .filter(Boolean) as { uri: string; fileName?: string }[];
               await createServiceProvider({
                 ...formData,
+                serviceType: formData.serviceType,
                 profilePhoto: profilePhoto
                   ? { uri: profilePhoto, fileName: profilePhotoFileName }
                   : null,

@@ -13,7 +13,8 @@ interface FormData {
   streetAddress: string;
   city: string;
   zipCode: string;
-  selectedServices: string[];
+  /** ServiceProviderType value — picked in step 2, declared here so the shared form shape matches. */
+  serviceType: number | null;
   yearsOfExperience: string;
   aboutYou: string;
   motivation: string;

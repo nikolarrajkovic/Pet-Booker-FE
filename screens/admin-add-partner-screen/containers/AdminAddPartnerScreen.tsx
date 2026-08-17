@@ -36,7 +36,8 @@ export default function AdminAddPartnerScreen() {
     streetAddress: '',
     city: '',
     zipCode: '',
-    selectedServices: [] as string[],
+    // ServiceProviderType value from /enums (shared shape with the partner application).
+    serviceType: null as number | null,
     yearsOfExperience: '',
     aboutYou: '',
     motivation: '',
