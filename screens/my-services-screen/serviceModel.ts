@@ -325,7 +325,7 @@ export function durationLabelToMinutes(label: string): number | null {
  * The form's pricing tiers → ServicePricingOption rows to persist. Only tiers
  * with a resolvable duration AND a parseable price become options — so a lone
  * duration-less tier stays a classic basePrice-only service (no options, free-
- * range booking). Persist the result with saveServicePricingOptions().
+ * range booking). Written nested on the service itself (`uiToServiceDto`).
  */
 export function pricingTiersToOptions(
   tiers: PricingTier[],
@@ -350,8 +350,9 @@ export function pricingTiersToOptions(
 // --- Working hours <-> service schedules ---------------------------------
 // The form keeps hours per day name with 24h display times ("HH:mm"); the API
 // stores them as ServiceScheduleDto rows keyed by .NET DayOfWeek (Sun=0…Sat=6)
-// with "HH:mm:ss" times. These helpers translate between the two (see services/
-// service-schedules.ts for the CRUD that persists the result).
+// with "HH:mm:ss" times. These helpers translate between the two; the result is
+// written nested on the service (see services/service-schedules.ts for the
+// per-row CRUD, which now only covers clearing them).
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const UI_DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -535,6 +536,9 @@ export type ServiceFormInput = {
   // dropped on the way to the DTO. Previously this was a fixed three-row list with an
   // `expanded` flag doubling as "enabled" — now it's an open list with an explicit `enabled`.
   additionalServices: AdditionalServiceEntry[];
+  // Per-day working hours as the form holds them. Translated to `schedules` on the DTO and
+  // written with the service itself — see the note on the return value below.
+  workingHours: WorkingHours;
   // Ready-to-send photos array — build with buildServicePhotos()
   photos?: ServiceDto['photos'];
   // Ready-to-send address (id already resolved) — build with
@@ -572,11 +576,23 @@ export async function resolveServiceAddressForSave(
  * Pass the original DTO in edit mode: details/pricing fields the form doesn't
  * capture (acceptedSpecies, weight/duration limits, capacity, escrow, unit) are
  * non-nullable server-side and would reset to 0/None if omitted from a PUT.
+ *
+ * **The whole aggregate goes in one request.** `schedules` and `pricingOptions` ride along with
+ * the service instead of being reconciled afterwards through their own CRUD: saving a service
+ * with a full week of hours and four duration tiers used to cost a dozen requests, any of which
+ * could fail on its own and leave the service saved but half-configured. The server persists
+ * the lot in a single SaveChanges (see `docs/mapper-driven-aggregate-writes.md` in the API repo).
+ * It also fixes the prices: nested amounts are converted using the root's declared `currency`,
+ * whereas the standalone option writes declared none and so were stored as though the provider
+ * had typed RSD.
+ *
+ * One thing the nested form cannot say: an **empty** `schedules` array means "leave them alone",
+ * not "clear them" — a provider switching every day off still needs `clearServiceSchedules`.
+ * Pricing options have no such gap; `[]` there really is "no tiers".
  */
 export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): ServiceDto {
-  // basePrice = the cheapest tier. Duration tiers persist separately as pricing
-  // options (pricingTiersToOptions + saveServicePricingOptions); basePrice keeps
-  // any card that reads `price` alone showing a correct "from" figure.
+  // basePrice = the cheapest tier, so any card reading `price` alone shows a correct "from"
+  // figure; the tiers themselves persist as the `pricingOptions` below.
   //
   // Note this payload deliberately carries no `discounts` — offers are written through
   // /api/service-discounts (services/service-discounts.ts), which is where the coherence
@@ -625,6 +641,10 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
     form.additionalServices.flatMap((e) => entryToAdditionalServices(e, form.serviceName))
   );
 
+  // Both collections are pinned to the service being written server-side, so the id we put on
+  // them here is only a placeholder on create (where there is no id yet).
+  const serviceId = form.id ?? 0;
+
   return {
     id: form.id ?? 0,
     serviceProviderId: form.serviceProviderId,
@@ -641,6 +661,14 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
     pricing,
     details,
     additionalServices,
+    // Enabled days only. Non-empty replaces the stored windows wholesale (the Photos
+    // convention); empty is the "leave alone" case the screen handles separately.
+    schedules: workingHoursToSchedules(form.workingHours, serviceId),
+    // The desired full set, upserted by id: known ids are updated in place — which is what
+    // keeps existing bookings pointing at their tier — id-less rows are created, and a tier
+    // the provider removed is dropped. A service with no resolvable duration sends `[]` and
+    // goes back to classic free-range booking.
+    pricingOptions: pricingTiersToOptions(form.pricingTiers, serviceId),
     photos: form.photos ?? [],
     // Round-trip the stored address when the form didn't touch it (omitting it
     // on PUT also keeps it — this is just explicit).

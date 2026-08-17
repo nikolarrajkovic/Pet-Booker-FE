@@ -15,6 +15,9 @@ import { getErrorMessage } from '../services/http';
  *    carries a generation token; a response from an older generation is dropped.
  *  - **Double-firing `loadMore`.** A button double-tap (or two scroll events) must not append the
  *    same page twice, so appends are gated on a ref, not on React state.
+ *  - **A redundant `reload`.** The hook loads page 1 itself on mount, so a screen that also
+ *    reloads on focus asks for it twice on the first focus. `reload` defers to a first-page load
+ *    already in flight instead of superseding it, which is why consumers can call it freely.
  */
 export interface PagedListState<T> {
   items: T[];
@@ -59,12 +62,16 @@ export function usePagedList<T>(
   // inside async callbacks that must see the current value, not the one captured at render.
   const nextPage = useRef(1);
   const generation = useRef(0);
-  const inFlight = useRef(false);
+  // What is in flight, not merely whether something is. `reload` has to tell a first-page load
+  // (which it can defer to) from an append (which it must supersede) — and, crucially, which
+  // *query* is loading: deferring to a load for a query the caller has since changed would leave
+  // the old rows on screen and never fetch the new ones.
+  const inFlight = useRef<{ mode: 'replace' | 'append'; query: typeof fetchPage } | null>(null);
 
   const run = useCallback(
     async (page: number, mode: 'replace' | 'append') => {
       if (inFlight.current) return;
-      inFlight.current = true;
+      inFlight.current = { mode, query: fetchPage };
       const gen = generation.current;
 
       if (mode === 'replace') {
@@ -90,21 +97,35 @@ export function usePagedList<T>(
         setError(getErrorMessage(e, errorFallback));
         if (mode === 'replace') setItems([]);
       } finally {
+        // Only the current generation owns the loading flags and the in-flight slot. A run that
+        // has been superseded must not clear either — doing so used to hand `loadMore` a green
+        // light while the reload that replaced it was still fetching page 1.
         if (gen === generation.current) {
           setIsLoading(false);
           setIsLoadingMore(false);
+          inFlight.current = null;
         }
-        inFlight.current = false;
       }
     },
     [fetchPage, errorFallback]
   );
 
   const reload = useCallback(() => {
+    // A first-page load for THIS SAME query is already running — let it stand. This is the mount
+    // load meeting a screen that also reloads on focus: both fire on the very first focus, and
+    // superseding here fetched page 1 twice and threw the first response away.
+    //
+    // The query check is what keeps that safe. `fetchPage`'s identity IS the query (callers
+    // memoize it on the filters), so a changed filter, a new rail or an id that just arrived
+    // gives a different function — and must supersede, not be skipped. A *disabled* reload
+    // supersedes too: it has to invalidate the load and clear the rows.
+    if (enabled && inFlight.current?.mode === 'replace' && inFlight.current.query === fetchPage) {
+      return;
+    }
     // Bumping the generation invalidates anything in flight, so a slow page-3 response can't
     // append onto a freshly reloaded page 1.
     generation.current += 1;
-    inFlight.current = false;
+    inFlight.current = null;
     nextPage.current = 1;
     if (!enabled) {
       setItems([]);
@@ -115,7 +136,7 @@ export function usePagedList<T>(
       return;
     }
     void run(1, 'replace');
-  }, [enabled, run]);
+  }, [enabled, run, fetchPage]);
 
   const loadMore = useCallback(() => {
     if (!enabled || isLoading || isLoadingMore || !hasMore) return;

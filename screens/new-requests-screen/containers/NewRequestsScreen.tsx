@@ -15,6 +15,7 @@ import {
   getBookings,
   confirmBooking,
   declineBooking,
+  applyBookingTransition,
   parseBookingDate,
   BookingDto,
   BookingState,
@@ -178,8 +179,10 @@ export default function NewRequestsScreen() {
     if (busyId !== null) return;
     setBusyId(id);
     try {
-      await confirmBooking(id);
-      await load();
+      // The transition returns the updated booking, so fold it into the row we already hold
+      // rather than refetching every one of the partner's bookings to learn one status.
+      const updated = await confirmBooking(id);
+      setBookings((prev) => applyBookingTransition(prev, updated));
     } catch (e) {
       showError(getErrorMessage(e, t('requests.acceptFailed')));
     } finally {
@@ -208,8 +211,8 @@ export default function NewRequestsScreen() {
     setDeclineTargetId(null);
     setBusyId(id);
     try {
-      await declineBooking(id, reason);
-      await load();
+      const updated = await declineBooking(id, reason);
+      setBookings((prev) => applyBookingTransition(prev, updated));
     } catch (e) {
       showError(getErrorMessage(e, t('requests.declineFailed')));
     } finally {

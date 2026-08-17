@@ -40,6 +40,8 @@ const CATEGORY_CONFIG: Record<
   {
     titleKey: string;
     badge?: 'popular' | 'deal';
+    /** True only where `load` actually reads the coordinates — see `fetchPage` below. */
+    usesLocation?: boolean;
     load: (lat: number, lng: number) => Promise<ServiceDto[]>;
   }
 > = {
@@ -59,6 +61,7 @@ const CATEGORY_CONFIG: Record<
   },
   'near-you': {
     titleKey: 'home.nearYou',
+    usesLocation: true,
     load: (lat, lng) => getNearMe({ lat, lng, take: CATEGORY_TAKE }),
   },
 };
@@ -129,7 +132,13 @@ export default function SearchScreen() {
     }));
   }, [serviceType]);
 
-  const { latitude, longitude } = location;
+  // Only the Near You rail is a function of where the phone is. Pinning the coordinates to 0
+  // everywhere else keeps `fetchPage`'s identity stable when the GPS fix replaces useLocation's
+  // placeholder — otherwise `usePagedList` reloaded page 1 of a catalogue query that never
+  // looked at the position, so opening Search cost two full pages.
+  const usesLocation = categoryConfig?.usesLocation ?? false;
+  const latitude = usesLocation ? location.latitude : 0;
+  const longitude = usesLocation ? location.longitude : 0;
 
   // The catalogue pages; a Home "See More" rail is a fixed take, so it reports one complete page
   // and the footer stays hidden.
@@ -158,7 +167,13 @@ export default function SearchScreen() {
     totalItems,
     hasMore,
     loadMore,
-  } = usePagedList<ServiceDto>(fetchPage, { errorFallback: t('search.loadError') });
+  } = usePagedList<ServiceDto>(fetchPage, {
+    // Near You waits for a real fix; ranking against the placeholder would list another city's
+    // services and be replaced seconds later. Every other view is position-independent and
+    // loads immediately. `location.loading` settles on denial too, so this never hangs.
+    enabled: !(usesLocation && location.loading),
+    errorFallback: t('search.loadError'),
+  });
 
   // DTO -> card item. Kept out of the fetch so a re-render doesn't refetch.
   const allServices: ServiceSearchItem[] = useMemo(

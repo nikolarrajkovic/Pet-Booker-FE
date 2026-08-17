@@ -14,6 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
+import { getErrorMessage, isNetworkError, statusOf } from '../../../services/http';
 import { useLocale } from '../../../context/LocaleContext';
 import Button from '../../../components/shared/Button';
 import { SocialButton } from '../components';
@@ -36,6 +37,29 @@ function validatePassword(v: string) {
   return '';
 }
 
+/**
+ * Turns a failed sign-in into the line shown under the form.
+ *
+ * This used to be a bare `catch` that reported *every* failure as "invalid credentials", so an
+ * unreachable API sent users off to reset a password that was never wrong — and a real outage
+ * (a CORS misconfiguration) was indistinguishable from a typo.
+ *
+ * Note the API answers a rejected sign-in with **400**, not 401, and puts the reason in the body
+ * ("Invalid credentials.", or the dated lockout notice) already localized via `Accept-Language`.
+ * Those exact words are more useful than generic copy, so they win when present; the translated
+ * strings are only the fallback for a body that said nothing.
+ */
+function resolveLoginError(error: unknown, t: (key: string) => string): string {
+  if (isNetworkError(error)) return t('login.cannotReachServer');
+
+  const serverMessage = getErrorMessage(error, '');
+  if (serverMessage) return serverMessage;
+
+  const status = statusOf(error);
+  if (status === 400 || status === 401) return t('login.invalidCredentials');
+  return t('login.signInFailed');
+}
+
 export default function LoginScreen() {
   const { isDarkMode, textColor, subtextColor } = useThemeColors();
   const { signInWithCredentials, signInWithGoogle } = useAuth();
@@ -47,6 +71,8 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Already-resolved display text (see resolveLoginError), not a translation key: the message can
+  // be the server's own localized words, which have no key to look up.
   const [loginError, setLoginError] = useState('');
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
@@ -79,8 +105,8 @@ export default function LoginScreen() {
       setIsSubmitting(true);
       setLoginError('');
       await signInWithCredentials(identifier.trim(), password);
-    } catch {
-      setLoginError('login.invalidCredentials');
+    } catch (error) {
+      setLoginError(resolveLoginError(error, t as (key: string) => string));
     } finally {
       setIsSubmitting(false);
     }
@@ -189,7 +215,7 @@ export default function LoginScreen() {
 
           {/* Global login error */}
           {loginError ? (
-            <Text className="mb-4 text-center text-sm text-red-500">{t(loginError as any)}</Text>
+            <Text className="mb-4 text-center text-sm text-red-500">{loginError}</Text>
           ) : null}
 
           {/* Sign In Button */}
