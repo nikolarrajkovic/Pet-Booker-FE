@@ -84,9 +84,13 @@ open. Only pushes to a **closed** app are missing.
 
 ## When the backend host URL is ready
 
-1. Put it in `eas.json` — replace `https://REPLACE-WITH-BACKEND-HOST` in the `preview` (and later
-   `production`) profile's `env`. This is the value that gets baked into the JS bundle; it is the
-   only edit needed to point a build at a different server.
+1. Put it in `eas.json`, in the profile's `env`. This is the value baked into the JS bundle, and
+   the only edit needed to point a build at a different server. `preview` and `production`
+   currently point at `https://169.58.199.63.sslip.io` (an sslip.io hostname, so the IP resolves
+   through DNS and Let's Encrypt can issue for it); `development` stays on the LAN address for
+   local work. **Those certificates last 90 days** — if renewal ever silently fails, every request
+   from the app stops, because Android will not accept an expired certificate and the app offers
+   no way to override it.
 2. **Prefer HTTPS with a real certificate.** Android rejects self-signed certs outright. Plain
    `http://` works for `preview` and `development` (`app.config.ts` enables cleartext traffic for
    them) but **not** for `production`, deliberately.
@@ -106,6 +110,38 @@ page has a QR code and a download link.
 > First build only: EAS asks to generate an Android keystore. Say yes — it stores and reuses it.
 > **That keystore is what identifies your app to Play forever**; if you lose it you cannot update
 > a published app. Back it up later with `eas credentials -p android` → Keystore → Download.
+
+---
+
+## Shipping changes: over the air vs. a new build
+
+The app carries `expo-updates`, so which route a change takes depends on what it touched.
+
+**JS/TS and assets — over the air.** Screens, services, i18n, styling: publish and every installed
+app picks it up on next launch. No reinstall, no new link to hand out.
+
+```bash
+npm run update:preview
+```
+
+That takes about a minute. The update goes to the `preview` **channel**, which is the channel the
+`preview` build profile stamps into the APK, so only those builds receive it. `production` builds
+follow the `production` channel and are untouched until you publish there too.
+
+**Native changes — a new build.** A dependency with native code, anything in `app.json` /
+`app.config.ts` (permissions, plugins, package name, Maps key, cleartext), the icon or splash, or
+an Expo SDK bump. An OTA update cannot add native code to an already-installed binary.
+
+### The rule that bites people
+
+`runtimeVersion` uses the `appVersion` policy: an update is only delivered to builds whose
+`version` in `app.json` matches. So when a change **adds or upgrades a native module, bump
+`version`** (1.0.0 → 1.1.0) in the same commit as the rebuild. Otherwise the next OTA update
+reaches older binaries that lack the native code it calls, and they crash on launch — the one
+failure mode of EAS Update that is genuinely hard to diagnose after the fact.
+
+Bumping `version` also fences off the old builds cleanly: they stay on the last update that
+matched their version instead of receiving something they cannot run.
 
 ---
 

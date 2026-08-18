@@ -683,6 +683,8 @@ npx tsc --noEmit     # Type-check only (no test suite is configured)
 
 npm run build:android             # EAS cloud build → installable APK (preview profile)
 npm run build:android:production  # EAS cloud build → .aab for Play Store
+npm run update:preview            # EAS Update → OTA JS update to installed preview builds
+npm run update:production         # EAS Update → OTA JS update to production builds
 ```
 
 **Distributable builds — see [`ANDROID_BUILD.md`](ANDROID_BUILD.md)** for the full runbook (Expo
@@ -694,6 +696,12 @@ account, `eas init`, Maps key, FCM, Play Store checklist). The config split that
   and kept out of this public repo), and `usesCleartextTraffic`, which is **on for
   development/preview and off for production**. A release APK otherwise refuses plain `http://`,
   so a test build against an unencrypted host would fail every request.
+- **EAS Update (`expo-updates`) ships JS/TS + asset changes over the air** — `npm run update:preview`
+  publishes to the `preview` channel, the channel that profile stamps into the APK, and installed
+  builds apply it on next launch. **Native changes still need a rebuild**, and because
+  `runtimeVersion` uses the `appVersion` policy, a change that adds or upgrades a native module must
+  **bump `version` in app.json** in the same commit — otherwise the next OTA update reaches older
+  binaries missing that native code and crashes them on launch.
 - `eas.json` profiles: `preview` → standalone APK for sideloading, `production` → `.aab`.
   `EXPO_PUBLIC_API_BASE_URL` is baked in per profile from that file's `env` block — **changing the
   backend host means editing eas.json and rebuilding**, it is not runtime-configurable.

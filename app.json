@@ -34,9 +34,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.petbooker.app"
@@ -57,6 +55,12 @@
         "projectId": "261a6be9-cb78-4267-9471-4f2fd799d1af"
       }
     },
-    "owner": "nikolarrajkovic"
+    "owner": "nikolarrajkovic",
+    "updates": {
+      "url": "https://u.expo.dev/261a6be9-cb78-4267-9471-4f2fd799d1af"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }
