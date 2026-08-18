@@ -6,9 +6,9 @@ import {
   View,
   TouchableOpacity,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -150,9 +150,7 @@ export default function VerifyEmailScreen() {
 
   return (
     <SafeAreaView className={`flex-1 ${contentBg}`}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1">
+      <KeyboardAvoidingView behavior="padding" className="flex-1">
         {/* Green Header */}
         <View className={`${bgColor} items-center rounded-b-3xl px-6 pb-12 pt-16`}>
           <View className="mb-4 h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg">
