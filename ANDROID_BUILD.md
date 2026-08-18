@@ -109,6 +109,38 @@ page has a QR code and a download link.
 
 ---
 
+## Shipping changes: over the air vs. a new build
+
+The app carries `expo-updates`, so which route a change takes depends on what it touched.
+
+**JS/TS and assets — over the air.** Screens, services, i18n, styling: publish and every installed
+app picks it up on next launch. No reinstall, no new link to hand out.
+
+```bash
+npm run update:preview
+```
+
+That takes about a minute. The update goes to the `preview` **channel**, which is the channel the
+`preview` build profile stamps into the APK, so only those builds receive it. `production` builds
+follow the `production` channel and are untouched until you publish there too.
+
+**Native changes — a new build.** A dependency with native code, anything in `app.json` /
+`app.config.ts` (permissions, plugins, package name, Maps key, cleartext), the icon or splash, or
+an Expo SDK bump. An OTA update cannot add native code to an already-installed binary.
+
+### The rule that bites people
+
+`runtimeVersion` uses the `appVersion` policy: an update is only delivered to builds whose
+`version` in `app.json` matches. So when a change **adds or upgrades a native module, bump
+`version`** (1.0.0 → 1.1.0) in the same commit as the rebuild. Otherwise the next OTA update
+reaches older binaries that lack the native code it calls, and they crash on launch — the one
+failure mode of EAS Update that is genuinely hard to diagnose after the fact.
+
+Bumping `version` also fences off the old builds cleanly: they stay on the last update that
+matched their version instead of receiving something they cannot run.
+
+---
+
 ## Installing on a phone
 
 - **Your phone**: open the build page link, tap Install (or scan the QR), then allow the browser to
