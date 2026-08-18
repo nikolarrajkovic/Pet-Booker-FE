@@ -634,6 +634,12 @@ Genuinely bespoke colors stay inline (sourced from the hook's `isDarkMode`): e.g
 - Visual feedback: red border (error), green border (valid), default (untouched)
 - **Always use `DatePicker` (from `components/shared/DatePicker.tsx`) for any date input** — never use a plain `TextInput` for dates. Pass `isDarkMode`, `value`, `onChange`, and `onClose` props. For time inputs, use `TimePicker` from the same folder — **except booking start times**, which use `TimeSlotPicker` (`screens/book-service-screen/components/`) so unavailable slots are disabled based on existing bookings.
 
+### Keyboard avoidance
+- **Android draws edge-to-edge from Expo SDK 54 on, so the manifest's `adjustResize` is a no-op** — the window no longer shrinks when the IME opens, and the keyboard simply covers the focused field. Nothing about `softwareKeyboardLayoutMode` fixes this; the app has to handle the inset itself.
+- **`react-native-keyboard-controller` is what handles it.** `KeyboardProvider` is mounted once in `App.tsx` around `NavigationContainer` — every `KeyboardAvoidingView` in the app depends on it and silently does nothing without it.
+- **Screens built on `ScreenLayout` get this for free** (it wraps header + content + footer in `KeyboardAvoidingView behavior="padding"`): the body shrinks and the inner `ScrollView` scrolls the focused input into view. Pass `avoidKeyboard={false}` for a screen that manages the keyboard itself.
+- **A screen that does NOT use `ScreenLayout`** (the auth screens, ChatScreen) needs its own `KeyboardAvoidingView` — import it from `react-native-keyboard-controller`, **never from `react-native`**, and use `behavior="padding"` on both platforms. RN's own version with `behavior="height"`/`undefined` on Android relies on the window resize that no longer happens.
+- Adding this made the app depend on a native module: **a JS-only reload will not pick it up** — Expo Go can't run it, and a change here needs a fresh dev/EAS build.
 ### File uploads
 - Always use `uploadFilesBulk()` for multiple files — more efficient than individual uploads
 - Upload files before creating the entity (pet, service, etc.)
@@ -674,7 +680,23 @@ npm run ios          # iOS simulator/device
 npm run lint         # ESLint + Prettier check
 npm run format       # ESLint + Prettier auto-fix
 npx tsc --noEmit     # Type-check only (no test suite is configured)
+
+npm run build:android             # EAS cloud build → installable APK (preview profile)
+npm run build:android:production  # EAS cloud build → .aab for Play Store
 ```
+
+**Distributable builds — see [`ANDROID_BUILD.md`](ANDROID_BUILD.md)** for the full runbook (Expo
+account, `eas init`, Maps key, FCM, Play Store checklist). The config split that supports it:
+- `app.json` holds the static identity — name **PetBooker**, slug `petbooker`, package/bundle id
+  **`com.petbooker.app`** (permanent once published to Play).
+- `app.config.ts` layers on everything environment- or profile-dependent: the **native** Google
+  Maps keys (`EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY` / `..._IOS_KEY` — separate from the web key,
+  and kept out of this public repo), and `usesCleartextTraffic`, which is **on for
+  development/preview and off for production**. A release APK otherwise refuses plain `http://`,
+  so a test build against an unencrypted host would fail every request.
+- `eas.json` profiles: `preview` → standalone APK for sideloading, `production` → `.aab`.
+  `EXPO_PUBLIC_API_BASE_URL` is baked in per profile from that file's `env` block — **changing the
+  backend host means editing eas.json and rebuilding**, it is not runtime-configurable.
 
 Environment: copy `.env.example` → `.env`, set `EXPO_PUBLIC_API_BASE_URL=http://localhost:5161` and `EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY` (Google Maps JS key for the web maps; referrer-restricted to `http://localhost:8081/*`, so the web app must run on port 8081). `.env` is gitignored (real key) — `.env.example` is the committed template. Restart Expo after changing `.env`.
 

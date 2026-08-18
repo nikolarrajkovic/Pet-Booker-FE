@@ -1,4 +1,5 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import './global.css';
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
@@ -119,110 +120,126 @@ function AppContent() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <NavigationContainer
-        ref={navigationRef}
-        onReady={() => setNavReady(true)}
-        // Gives each screen its own URL on web (and petbooker:// deep links on native). Without
-        // it every screen shared `/`, so browser Back left the app rather than going back a
-        // screen. See navigation/linking.ts for which screens are mapped and why some are not.
-        linking={linking}
-        // Rendered while the initial URL is resolved. It is the same spinner the auth restore
-        // uses, so a cold load on a deep link doesn't flash a different-looking screen.
-        fallback={
-          <View
-            style={{
-              flex: 1,
-              justifyContent: 'center',
-              alignItems: 'center',
-              backgroundColor: isDarkMode ? '#0f1621' : '#ffffff',
+      {/*
+        Android draws edge-to-edge from Expo SDK 54 on, which makes the manifest's `adjustResize`
+        a no-op: the window no longer shrinks for the keyboard, so the IME just covers whatever is
+        focused. This provider tracks the keyboard inset itself and is what makes every
+        `KeyboardAvoidingView` below it work — without it they render but never move.
+      */}
+      <KeyboardProvider>
+        <NavigationContainer
+          ref={navigationRef}
+          onReady={() => setNavReady(true)}
+          // Gives each screen its own URL on web (and petbooker:// deep links on native). Without
+          // it every screen shared `/`, so browser Back left the app rather than going back a
+          // screen. See navigation/linking.ts for which screens are mapped and why some are not.
+          linking={linking}
+          // Rendered while the initial URL is resolved. It is the same spinner the auth restore
+          // uses, so a cold load on a deep link doesn't flash a different-looking screen.
+          fallback={
+            <View
+              style={{
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: isDarkMode ? '#0f1621' : '#ffffff',
+              }}>
+              <ActivityIndicator size="large" color="#00A85A" />
+            </View>
+          }>
+          <Stack.Navigator
+            screenOptions={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              animationDuration: 250,
             }}>
-            <ActivityIndicator size="large" color="#00A85A" />
-          </View>
-        }>
-        <Stack.Navigator
-          screenOptions={{
-            headerShown: false,
-            animation: 'slide_from_right',
-            animationDuration: 250,
-          }}>
-          {isLoggedIn ? (
-            <>
-              <Stack.Screen name="MainTabs" component={MainTabs} options={{ animation: 'fade' }} />
-              <Stack.Screen name="ProviderDetail" component={ProviderDetailScreen} />
-              <Stack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
-              <Stack.Screen name="BookService" component={BookServiceScreen} />
-              <Stack.Screen name="ReviewBooking" component={ReviewBookingScreen} />
-              <Stack.Screen
-                name="BookingConfirmed"
-                component={BookingConfirmedScreen}
-                options={{ animation: 'fade' }}
-              />
-              <Stack.Screen name="MyPets" component={MyPetsScreen} />
-              <Stack.Screen
-                name="AddPet"
-                component={AddPetScreen}
-                options={{ animation: 'slide_from_bottom' }}
-              />
-              <Stack.Screen name="Settings" component={SettingsScreen} />
-              <Stack.Screen name="BecomePartner" component={BecomePartnerScreen} />
-              <Stack.Screen name="PartnerApplication" component={PartnerApplicationScreen} />
-              <Stack.Screen
-                name="ApplicationSubmitted"
-                component={ApplicationSubmittedScreen}
-                options={{ animation: 'fade' }}
-              />
-              <Stack.Screen
-                name="PartnerWelcome"
-                component={PartnerWelcomeScreen}
-                options={{ animation: 'fade', gestureEnabled: false }}
-              />
-              <Stack.Screen name="Account" component={AccountScreen} />
-              <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-              <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
-              <Stack.Screen name="BookingDetails" component={BookingDetailsScreen} />
-              <Stack.Screen name="MySchedule" component={MyScheduleScreen} />
-              <Stack.Screen name="MyServices" component={MyServicesScreen} />
-              <Stack.Screen
-                name="AddEditService"
-                component={AddEditServiceScreen}
-                options={{ animation: 'slide_from_bottom' }}
-              />
-              <Stack.Screen
-                name="ServicePreview"
-                component={ServicePreviewScreen}
-                options={{ animation: 'slide_from_bottom' }}
-              />
-              <Stack.Screen name="Notifications" component={NotificationsScreen} />
-              <Stack.Screen name="Messages" component={ConversationsScreen} />
-              <Stack.Screen name="Chat" component={ChatScreen} />
-              <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
-              <Stack.Screen name="NewRequests" component={NewRequestsScreen} />
-              <Stack.Screen name="LiveSession" component={LiveSessionScreen} />
-              <Stack.Screen name="Promotions" component={PromotionsScreen} />
-              <Stack.Screen
-                name="CreatePromotion"
-                component={CreatePromotionScreen}
-                options={{ animation: 'slide_from_bottom' }}
-              />
-              <Stack.Screen name="EditPromotion" component={EditPromotionScreen} />
-              <Stack.Screen name="PromotionAnalytics" component={PromotionAnalyticsScreen} />
-              <Stack.Screen name="AdminNewRequests" component={AdminNewRequestsScreen} />
-              <Stack.Screen name="ApplicationReview" component={ApplicationReviewScreen} />
-              <Stack.Screen name="AdminPartners" component={AdminPartnersScreen} />
-              <Stack.Screen name="AdminReviews" component={AdminReviewsScreen} />
-              <Stack.Screen name="PartnerDetails" component={PartnerDetailsScreen} />
-              <Stack.Screen name="AdminAddPartner" component={AdminAddPartnerScreen} />
-            </>
-          ) : (
-            <>
-              <Stack.Screen name="Login" component={LoginScreen} options={{ animation: 'fade' }} />
-              <Stack.Screen name="Register" component={RegisterScreen} />
-              <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
-              <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-            </>
-          )}
-        </Stack.Navigator>
-      </NavigationContainer>
+            {isLoggedIn ? (
+              <>
+                <Stack.Screen
+                  name="MainTabs"
+                  component={MainTabs}
+                  options={{ animation: 'fade' }}
+                />
+                <Stack.Screen name="ProviderDetail" component={ProviderDetailScreen} />
+                <Stack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
+                <Stack.Screen name="BookService" component={BookServiceScreen} />
+                <Stack.Screen name="ReviewBooking" component={ReviewBookingScreen} />
+                <Stack.Screen
+                  name="BookingConfirmed"
+                  component={BookingConfirmedScreen}
+                  options={{ animation: 'fade' }}
+                />
+                <Stack.Screen name="MyPets" component={MyPetsScreen} />
+                <Stack.Screen
+                  name="AddPet"
+                  component={AddPetScreen}
+                  options={{ animation: 'slide_from_bottom' }}
+                />
+                <Stack.Screen name="Settings" component={SettingsScreen} />
+                <Stack.Screen name="BecomePartner" component={BecomePartnerScreen} />
+                <Stack.Screen name="PartnerApplication" component={PartnerApplicationScreen} />
+                <Stack.Screen
+                  name="ApplicationSubmitted"
+                  component={ApplicationSubmittedScreen}
+                  options={{ animation: 'fade' }}
+                />
+                <Stack.Screen
+                  name="PartnerWelcome"
+                  component={PartnerWelcomeScreen}
+                  options={{ animation: 'fade', gestureEnabled: false }}
+                />
+                <Stack.Screen name="Account" component={AccountScreen} />
+                <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+                <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
+                <Stack.Screen name="BookingDetails" component={BookingDetailsScreen} />
+                <Stack.Screen name="MySchedule" component={MyScheduleScreen} />
+                <Stack.Screen name="MyServices" component={MyServicesScreen} />
+                <Stack.Screen
+                  name="AddEditService"
+                  component={AddEditServiceScreen}
+                  options={{ animation: 'slide_from_bottom' }}
+                />
+                <Stack.Screen
+                  name="ServicePreview"
+                  component={ServicePreviewScreen}
+                  options={{ animation: 'slide_from_bottom' }}
+                />
+                <Stack.Screen name="Notifications" component={NotificationsScreen} />
+                <Stack.Screen name="Messages" component={ConversationsScreen} />
+                <Stack.Screen name="Chat" component={ChatScreen} />
+                <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+                <Stack.Screen name="NewRequests" component={NewRequestsScreen} />
+                <Stack.Screen name="LiveSession" component={LiveSessionScreen} />
+                <Stack.Screen name="Promotions" component={PromotionsScreen} />
+                <Stack.Screen
+                  name="CreatePromotion"
+                  component={CreatePromotionScreen}
+                  options={{ animation: 'slide_from_bottom' }}
+                />
+                <Stack.Screen name="EditPromotion" component={EditPromotionScreen} />
+                <Stack.Screen name="PromotionAnalytics" component={PromotionAnalyticsScreen} />
+                <Stack.Screen name="AdminNewRequests" component={AdminNewRequestsScreen} />
+                <Stack.Screen name="ApplicationReview" component={ApplicationReviewScreen} />
+                <Stack.Screen name="AdminPartners" component={AdminPartnersScreen} />
+                <Stack.Screen name="AdminReviews" component={AdminReviewsScreen} />
+                <Stack.Screen name="PartnerDetails" component={PartnerDetailsScreen} />
+                <Stack.Screen name="AdminAddPartner" component={AdminAddPartnerScreen} />
+              </>
+            ) : (
+              <>
+                <Stack.Screen
+                  name="Login"
+                  component={LoginScreen}
+                  options={{ animation: 'fade' }}
+                />
+                <Stack.Screen name="Register" component={RegisterScreen} />
+                <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+                <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+              </>
+            )}
+          </Stack.Navigator>
+        </NavigationContainer>
+      </KeyboardProvider>
       {/* First-run language chooser — asks the user before they interact. */}
       <LanguagePicker visible={!hasChosen} current={language} onSelect={setLanguage} />
       <StatusBar style={isDarkMode ? 'light' : 'auto'} />
