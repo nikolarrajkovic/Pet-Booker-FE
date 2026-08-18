@@ -84,9 +84,13 @@ open. Only pushes to a **closed** app are missing.
 
 ## When the backend host URL is ready
 
-1. Put it in `eas.json` — replace `https://REPLACE-WITH-BACKEND-HOST` in the `preview` (and later
-   `production`) profile's `env`. This is the value that gets baked into the JS bundle; it is the
-   only edit needed to point a build at a different server.
+1. Put it in `eas.json`, in the profile's `env`. This is the value baked into the JS bundle, and
+   the only edit needed to point a build at a different server. `preview` and `production`
+   currently point at `https://169.58.199.63.sslip.io` (an sslip.io hostname, so the IP resolves
+   through DNS and Let's Encrypt can issue for it); `development` stays on the LAN address for
+   local work. **Those certificates last 90 days** — if renewal ever silently fails, every request
+   from the app stops, because Android will not accept an expired certificate and the app offers
+   no way to override it.
 2. **Prefer HTTPS with a real certificate.** Android rejects self-signed certs outright. Plain
    `http://` works for `preview` and `development` (`app.config.ts` enables cleartext traffic for
    them) but **not** for `production`, deliberately.
