@@ -1,0 +1,31 @@
+# File server for the exported web app, INSIDE the web container. Plain HTTP on :80 — TLS and
+# the public hostname are the edge Caddy's job (PetBookerBackend/docker/Caddyfile), and this
+# container is never published to the host.
+
+:80 {
+	root * /srv
+	encode gzip zstd
+
+	# The app uses real URLs (navigation/linking.ts maps ~44 routes: /search, /services/12,
+	# /bookings/7, /messages/3, /admin/partners, ...). Those paths exist only in the client
+	# router, so a refresh or a pasted link must return the shell and let the app route it.
+	# Without this, every deep link is a 404 and the address bar becomes decorative.
+	try_files {path} /index.html
+
+	# Bundle and assets carry a content hash in the filename, so a changed file is a changed URL
+	# and this can never serve stale code.
+	@immutable path /_expo/* /assets/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# The shell must NOT be cached: it is the one file whose URL stays the same across deploys,
+	# so a cached copy pins returning visitors to the previous bundle indefinitely.
+	@shell path / /index.html
+	header @shell Cache-Control "no-cache"
+
+	file_server
+
+	log {
+		output stdout
+		format console
+	}
+}

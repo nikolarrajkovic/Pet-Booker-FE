@@ -1,0 +1,57 @@
+# Static web build of the Expo app, served by Caddy.
+#
+# Two stages: Node bundles the app with Metro, and the result is copied into a Caddy image that
+# holds no toolchain at all. The runtime image is ~50MB and contains only the export plus the
+# file-server config.
+#
+# ## Why the API URL is a build argument and not an environment variable
+#
+# EXPO_PUBLIC_* values are INLINED into the JavaScript bundle at export time — the base URL ends
+# up as a string literal in AppEntry-<hash>.js, not read from anywhere at runtime. So there is
+# nothing to configure on the container: pointing the app at a different backend means rebuilding
+# the image. Passing these as `environment:` in compose would silently do nothing.
+#
+# The repo's committed .env sets EXPO_PUBLIC_API_BASE_URL=http://localhost:5161. An externally
+# supplied value wins over it (dotenv does not overwrite variables that already exist), which is
+# what makes the ARG below effective — verified by grepping the built bundle for the host.
+
+# Pinned to the version the export is verified against. Debian rather than Alpine: the export
+# pulls in optional native image tooling that is fussy on musl, and the stage is discarded anyway.
+FROM node:20-slim AS build
+
+WORKDIR /src
+
+# Dependencies first, so a source-only change reuses this layer. npm ci needs devDependencies —
+# tailwindcss (for NativeWind), @babel/core and typescript are all build inputs here, so
+# --omit=dev would break the bundle rather than slim it.
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+
+# Build inputs. Both are baked into the bundle; see the note above.
+#   EXPO_PUBLIC_API_BASE_URL        the backend origin the app calls (no trailing slash)
+#   EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY Maps JavaScript API key for the four web map surfaces.
+#                                   Absent is a supported build: maps render blank, the rest of
+#                                   the app is unaffected. The key must allow this deployment's
+#                                   origin as an HTTP referrer or Google blocks it at runtime.
+ARG EXPO_PUBLIC_API_BASE_URL
+ARG EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY
+ENV EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL}
+ENV EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY=${EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY}
+
+# Fail the build rather than ship a bundle pointing at localhost, which would look fine until the
+# first API call from someone else's browser.
+RUN test -n "$EXPO_PUBLIC_API_BASE_URL" || (echo "EXPO_PUBLIC_API_BASE_URL build-arg is required" && exit 1)
+
+RUN npx expo export --platform web --output-dir dist
+
+# Prove the URL actually landed in the bundle. Metro failing to inline it is silent otherwise, and
+# the symptom would be a white screen with a console error nobody sees until a tester reports it.
+RUN grep -qF "$EXPO_PUBLIC_API_BASE_URL" dist/_expo/static/js/web/*.js \
+    || (echo "API base URL is not present in the exported bundle" && exit 1)
+
+FROM caddy:2-alpine
+
+COPY --from=build /src/dist /srv
+COPY docker/web.Caddyfile /etc/caddy/Caddyfile

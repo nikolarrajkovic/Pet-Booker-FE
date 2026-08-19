@@ -687,6 +687,14 @@ npm run update:preview            # EAS Update → OTA JS update to installed pr
 npm run update:production         # EAS Update → OTA JS update to production builds
 ```
 
+**Web deployment — see [`WEB_DEPLOYMENT.md`](WEB_DEPLOYMENT.md)** for serving the browser build
+publicly (`npx expo export --platform web` → a static site behind Caddy on the backend's VM). Two
+things that surprise people: the app gets its **own hostname**, separate from the API's, because
+`navigation/linking.ts` routes collide with API routes (`/admin/partners` vs `GET /admin/users`,
+`/bookings/7` vs `POST /bookings/7/confirm`) — which is also why the API must name that origin in
+its CORS config; and every `EXPO_PUBLIC_*` value is **inlined into the bundle at export time**, so
+changing the API URL is a rebuild, never a restart.
+
 **Distributable builds — see [`ANDROID_BUILD.md`](ANDROID_BUILD.md)** for the full runbook (Expo
 account, `eas init`, Maps key, FCM, Play Store checklist). The config split that supports it:
 - `app.json` holds the static identity — name **PetBooker**, slug `petbooker`, package/bundle id

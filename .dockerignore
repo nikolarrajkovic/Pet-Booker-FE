@@ -1,0 +1,19 @@
+# Build context for docker/Dockerfile.web. Without this the 700+ package node_modules tree and
+# every previous dist/ get shipped to the daemon on each build, which dwarfs the source itself.
+node_modules
+dist
+dist-*
+web-build
+.git
+.expo
+android
+ios
+
+# Secrets: .env.local holds the real Google Maps key. The image takes its build inputs as
+# --build-arg, so nothing here should ever be baked in by accident.
+.env.local
+.env*.local
+
+__tests__
+coverage
+*.log
