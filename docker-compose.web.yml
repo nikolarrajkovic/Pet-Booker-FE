@@ -1,0 +1,50 @@
+# Web deployment of the Expo app. Runs alongside the backend stack on the same VM but deploys
+# independently of it — rebuilding the app never touches the API, the database or Redis.
+#
+# It joins the backend's compose network as an EXTERNAL network so the edge Caddy (which owns
+# 80/443) can reach this container by name. Nothing here is published to the host: the only way
+# in is through that proxy, which is what terminates TLS.
+#
+# Usage, on the server:
+#   cp .env.web.example .env.web && chmod 600 .env.web    # then fill it in
+#   docker compose -f docker-compose.web.yml --env-file .env.web up -d --build
+#
+# See WEB_DEPLOYMENT.md for the full runbook.
+
+name: petbooker-web
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      # Inlined into the bundle at build time, NOT read at runtime — see docker/Dockerfile.web.
+      # Changing either of these requires `up -d --build`, not a restart.
+      args:
+        EXPO_PUBLIC_API_BASE_URL: "${EXPO_PUBLIC_API_BASE_URL:?set EXPO_PUBLIC_API_BASE_URL in .env.web}"
+        EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY: "${EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY:-}"
+    container_name: petbooker-web
+    restart: unless-stopped
+
+    # Docker's default json-file driver keeps logs forever, which is a slow disk-full outage on a
+    # long-running box. Matches the backend stack's cap.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/index.html"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  # Created by docker-compose.sandbox.yml (project name `petbooker-sandbox`). Declared external so
+  # this file never tries to own it: bringing the web app down must not disturb the API's network,
+  # and `docker compose down` here would otherwise attempt exactly that.
+  default:
+    name: petbooker-sandbox_default
+    external: true
