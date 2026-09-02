@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
+import { useLocale } from '../../context/LocaleContext';
 
 type AppHeaderProps = {
   // Size variant
@@ -43,6 +44,7 @@ export default function AppHeader({
 }: AppHeaderProps) {
   const navigation = useNavigation();
   const { isDarkMode } = useTheme();
+  const { t } = useLocale();
   const insets = useSafeAreaInsets();
 
   const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-brand-500';
@@ -84,6 +86,12 @@ export default function AppHeader({
           {showBackButton ? (
             <TouchableOpacity
               onPress={handleBackPress}
+              // An icon-only button announces as nothing without these — which was the case on
+              // every screen in the app. The web design's PageHeader labels its own back link,
+              // so leaving this one bare made the phone design the strictly less accessible of
+              // the two for no reason.
+              accessibilityRole="button"
+              accessibilityLabel={t('common.back')}
               className="h-10 w-10 items-center justify-center rounded-full bg-brand-600">
               <Ionicons name="arrow-back" size={20} color="white" />
             </TouchableOpacity>
@@ -100,6 +108,8 @@ export default function AppHeader({
           {showNotificationButton ? (
             <TouchableOpacity
               onPress={handleNotificationPress}
+              accessibilityRole="button"
+              accessibilityLabel={t('profile.notifications')}
               className="h-10 w-10 items-center justify-center rounded-full bg-brand-600">
               <Ionicons name="notifications-outline" size={20} color="white" />
             </TouchableOpacity>

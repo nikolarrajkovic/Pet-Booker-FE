@@ -51,6 +51,20 @@ const en = {
     admin: 'Admin',
     profile: 'Profile',
   },
+  // Sidebar / top-bar strings for the web design. The phone design has no equivalent —
+  // its navigation is five icons with no group headings and no account menu.
+  nav: {
+    manage: 'Manage',
+    partner: 'Partner',
+    admin: 'Admin',
+    mainNavigation: 'Main navigation',
+    searchPlaceholder: 'Search services…',
+    account: 'Account',
+    collapse: 'Collapse menu',
+    expand: 'Expand menu',
+    openMenu: 'Open menu',
+    closeMenu: 'Close menu',
+  },
   languages: {
     title: 'Choose your language',
     subtitle: 'You can change this later in Settings',
@@ -278,6 +292,8 @@ const en = {
     a11yMessages: 'Messages',
     a11yMessagesUnread: 'Messages, {count} unread',
     tagline: 'Find the perfect care for your pet',
+    // Web design only — the phone header shows the brand mark instead.
+    webGreeting: 'Hi, {name}',
     recentlyBooked: 'Recently Booked',
     nearYou: 'Near You',
     mostPopular: 'Most Popular',
