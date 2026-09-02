@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useFormChain } from '../../../hooks/useFormChain';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
@@ -50,10 +51,15 @@ export default function ChangePasswordScreen() {
     }
   };
 
-  const field = (label: string, value: string, setter: (v: string) => void) => (
+  // Enter walks current -> new -> confirm and then submits, using the same handler (and the same
+  // Alert-based guards) the button runs.
+  const form = useFormChain(['current', 'new', 'confirm'], handleSubmit);
+
+  const field = (name: string, label: string, value: string, setter: (v: string) => void) => (
     <View className="mb-4">
       <Text className={`text-sm font-semibold ${textColor} mb-2`}>{label}</Text>
       <TextInput
+        {...form.field(name)}
         value={value}
         onChangeText={setter}
         secureTextEntry
@@ -69,14 +75,17 @@ export default function ChangePasswordScreen() {
       headerVariant="standard"
       showBackButton
       headerTitle={t('changePassword.title')}
-      contentBg={bgColor}>
+      contentBg={bgColor}
+      // A form: one column of fields. Capped narrow so a label never sits a screen-width
+      // away from the input it names.
+      width="narrow">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ padding: 24 }}
         keyboardShouldPersistTaps="handled">
-        {field(t('changePassword.currentPassword'), currentPassword, setCurrentPassword)}
-        {field(t('changePassword.newPassword'), newPassword, setNewPassword)}
-        {field(t('changePassword.confirmPassword'), confirmPassword, setConfirmPassword)}
+        {field('current', t('changePassword.currentPassword'), currentPassword, setCurrentPassword)}
+        {field('new', t('changePassword.newPassword'), newPassword, setNewPassword)}
+        {field('confirm', t('changePassword.confirmPassword'), confirmPassword, setConfirmPassword)}
 
         <TouchableOpacity
           onPress={handleSubmit}

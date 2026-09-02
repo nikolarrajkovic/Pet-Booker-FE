@@ -5,6 +5,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { useEnums } from '../../../context/EnumsContext';
 import type { EnumEntry } from '../../../services/enums';
 import { PROVIDER_TYPE_LABELS } from '../../../services/service-providers';
+import { useFormChain } from '../../../hooks/useFormChain';
 
 // The provider's type is the ServiceProviderType enum — the same value every other screen
 // filters and labels by. It used to be a local list of six invented ids
@@ -36,6 +37,8 @@ interface FormData {
 }
 
 interface ServiceInfoStepProps {
+  /** Advance to the next step — wired to Enter on the step's last single-line field. */
+  onContinue?: () => void;
   formData: FormData;
   setFormData: React.Dispatch<React.SetStateAction<FormData>>;
   isDarkMode: boolean;
@@ -50,6 +53,7 @@ interface ServiceInfoStepProps {
 export default function ServiceInfoStep({
   formData,
   setFormData,
+  onContinue,
   isDarkMode,
   textColor,
   subtextColor,
@@ -63,6 +67,18 @@ export default function ServiceInfoStep({
   const typeEntries = enums?.serviceProviderType?.length
     ? enums.serviceProviderType
     : FALLBACK_TYPE_ENTRIES;
+
+  // "About you" and "Motivation" are text areas, so Enter must make a paragraph break in them
+  // rather than jumping the user to the next step mid-sentence. Only the years-of-experience
+  // field advances, and the step is submitted with the Continue button.
+  const form = useFormChain(
+    [
+      'yearsOfExperience',
+      { name: 'aboutYou', multiline: true },
+      { name: 'motivation', multiline: true },
+    ],
+    () => onContinue?.()
+  );
 
   return (
     <View>
@@ -117,6 +133,7 @@ export default function ServiceInfoStep({
             className={`flex-1 ${inputText}`}
             placeholder={t('partnerApplication.yearsPlaceholder')}
             placeholderTextColor={placeholderColor}
+            {...form.field('yearsOfExperience')}
             value={formData.yearsOfExperience}
             onChangeText={(text) => setFormData({ ...formData, yearsOfExperience: text })}
           />
@@ -139,6 +156,7 @@ export default function ServiceInfoStep({
             multiline
             numberOfLines={4}
             textAlignVertical="top"
+            {...form.field('aboutYou')}
             value={formData.aboutYou}
             onChangeText={(text) => setFormData({ ...formData, aboutYou: text })}
           />
@@ -161,6 +179,7 @@ export default function ServiceInfoStep({
             multiline
             numberOfLines={4}
             textAlignVertical="top"
+            {...form.field('motivation')}
             value={formData.motivation}
             onChangeText={(text) => setFormData({ ...formData, motivation: text })}
           />

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useFormChain } from '../../../hooks/useFormChain';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
@@ -72,8 +73,18 @@ export default function ForgotPasswordScreen() {
     }
   };
 
-  const input = (value: string, setter: (v: string) => void, props: object = {}) => (
+  // The screen is two forms in one, and only one is on screen at a time — so the chain is built
+  // from the ACTIVE step's fields. Passing both steps' fields would make Enter on the email field
+  // jump to a reset field that is not rendered, which focuses nothing and looks like Enter is
+  // simply broken.
+  const form = useFormChain(
+    step === 'request' ? ['email'] : ['resetToken', 'newPassword', 'confirmPassword'],
+    step === 'request' ? sendEmail : submitReset
+  );
+
+  const input = (name: string, value: string, setter: (v: string) => void, props: object = {}) => (
     <TextInput
+      {...form.field(name)}
       value={value}
       onChangeText={setter}
       className={`${inputBg} rounded-xl px-4 py-3 ${inputText} border ${borderColor} mb-4`}
@@ -87,7 +98,10 @@ export default function ForgotPasswordScreen() {
       headerVariant="standard"
       showBackButton
       headerTitle={t('forgotPassword.title')}
-      contentBg={bgColor}>
+      contentBg={bgColor}
+      // A form: one column of fields. Capped narrow so a label never sits a screen-width
+      // away from the input it names.
+      width="narrow">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ padding: 24 }}
@@ -100,7 +114,7 @@ export default function ForgotPasswordScreen() {
             <Text className={`text-sm font-semibold ${textColor} mb-2`}>
               {t('forgotPassword.email')}
             </Text>
-            {input(email, setEmail, {
+            {input('email', email, setEmail, {
               placeholder: t('forgotPassword.emailPlaceholderExample'),
               keyboardType: 'email-address',
               autoCapitalize: 'none',
@@ -130,18 +144,21 @@ export default function ForgotPasswordScreen() {
             <Text className={`text-sm font-semibold ${textColor} mb-2`}>
               {t('forgotPassword.resetCode')}
             </Text>
-            {input(resetToken, setResetToken, {
+            {input('resetToken', resetToken, setResetToken, {
               placeholder: t('forgotPassword.resetCodePlaceholderPaste'),
               autoCapitalize: 'none',
             })}
             <Text className={`text-sm font-semibold ${textColor} mb-2`}>
               {t('forgotPassword.newPassword')}
             </Text>
-            {input(newPassword, setNewPassword, { secureTextEntry: true, autoCapitalize: 'none' })}
+            {input('newPassword', newPassword, setNewPassword, {
+              secureTextEntry: true,
+              autoCapitalize: 'none',
+            })}
             <Text className={`text-sm font-semibold ${textColor} mb-2`}>
               {t('forgotPassword.confirmPassword')}
             </Text>
-            {input(confirmPassword, setConfirmPassword, {
+            {input('confirmPassword', confirmPassword, setConfirmPassword, {
               secureTextEntry: true,
               autoCapitalize: 'none',
             })}

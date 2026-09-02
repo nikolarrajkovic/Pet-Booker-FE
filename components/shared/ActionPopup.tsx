@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 export type ActionPopupMode = 'confirmation' | 'warning' | 'error';
 
@@ -52,6 +53,8 @@ export default function ActionPopup({
   const overlayBg = isDarkMode ? 'bg-black/70' : 'bg-black/50';
   const cancelBg = isDarkMode ? 'bg-[#243447]' : 'bg-gray-100';
   const cancelText = isDarkMode ? 'text-gray-300' : 'text-gray-700';
+
+  useEscapeToClose(visible, onCancel);
 
   return (
     <Modal

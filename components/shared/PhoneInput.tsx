@@ -6,6 +6,8 @@ import CountryFlag from './CountryFlag';
 import { useLocale } from '../../context/LocaleContext';
 
 import { BRAND_GREEN } from '../../hooks/useThemeColors';
+import { useResponsive } from '../../hooks/useResponsive';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 interface PhoneInputProps {
   /** Stored phone value (dial code + national number, e.g. "+38164 123 4567"). */
   value: string;
@@ -126,6 +128,9 @@ export default function PhoneInput({
     ? COUNTRIES.filter((c) => c.name.toLowerCase().includes(query) || c.dialCode.includes(query))
     : COUNTRIES;
 
+  const { isWebLayout } = useResponsive();
+  useEscapeToClose(pickerVisible, () => setPickerVisible(false));
+
   return (
     <View>
       <View className={`flex-row items-center ${inputBg} rounded-xl border ${borderColor}`}>
@@ -161,16 +166,23 @@ export default function PhoneInput({
       {/* Country picker modal */}
       <Modal
         visible={pickerVisible}
-        animationType="slide"
+        animationType={isWebLayout ? 'fade' : 'slide'}
         transparent
         onRequestClose={() => setPickerVisible(false)}>
+        {/* Bottom sheet on a phone, centred dialog on the web design — a country list pinned to
+            the bottom edge of a monitor is a phone artefact, and it puts the search field a long
+            way from where the user just clicked. */}
         <Pressable
-          className="flex-1 justify-end"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          className={isWebLayout ? 'flex-1 items-center justify-center' : 'flex-1 justify-end'}
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: isWebLayout ? 24 : 0 }}
           onPress={() => setPickerVisible(false)}>
           <Pressable
-            className={`${cardBg} rounded-t-3xl`}
-            style={{ maxHeight: '80%' }}
+            className={`${cardBg} ${isWebLayout ? 'rounded-2xl' : 'rounded-t-3xl'}`}
+            style={
+              isWebLayout
+                ? { maxHeight: '80%', width: '100%', maxWidth: 440 }
+                : { maxHeight: '80%' }
+            }
             onPress={(e) => e.stopPropagation()}>
             {/* Header */}
             <View className="flex-row items-center justify-between px-5 pb-3 pt-5">

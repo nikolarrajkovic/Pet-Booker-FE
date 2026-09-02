@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, StatusBar } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  StatusBar,
+  Pressable,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { BRAND_GREEN, useThemeColors } from '../hooks/useThemeColors';
@@ -8,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEnums } from '../context/EnumsContext';
 import { useLocale } from '../context/LocaleContext';
 import { PetSpecies } from '../services/pets';
+import { useResponsive } from '../hooks/useResponsive';
+import { useEscapeToClose } from '../hooks/useEscapeToClose';
 // No add-on catalog to import any more — extras are named by each provider, so the filter chips
 // are derived from what the current result set actually offers (see the availableAddOns prop).
 
@@ -110,14 +120,37 @@ export default function FilterModal({
   const chipTextClass = (active: boolean) =>
     `text-sm ${active ? 'text-brand-600 font-medium' : subtextColor}`;
 
+  const { isWebLayout } = useResponsive();
+  useEscapeToClose(visible, onClose);
+
   return (
-    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      // A sheet slides up from the bottom edge on a phone; on a desktop the dialog just appears.
+      animationType={isWebLayout ? 'fade' : 'slide'}
+      transparent={true}
+      onRequestClose={onClose}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <View
-        className="flex-1 justify-end"
-        style={{ backgroundColor: isDarkMode ? '#0f1621' : '#ffffff' }}>
-        <View className="absolute inset-0 bg-black/50" />
-        <View className={`flex-1 ${bgColor} mt-16`}>
+      {/*
+        A bottom sheet is a phone form factor: it comes up from the thumb, covers the screen and
+        is dismissed by dragging down. Rendered unmodified in a browser it is a full-height panel
+        pinned to the bottom of a 1440px window with a 16px strip of page visible above it. On the
+        web design the same content becomes a centred dialog with a scrim.
+      */}
+      <Pressable
+        onPress={isWebLayout ? onClose : undefined}
+        className={isWebLayout ? 'flex-1 items-center justify-center' : 'flex-1 justify-end'}
+        style={{
+          backgroundColor: isWebLayout ? 'rgba(0,0,0,0.5)' : isDarkMode ? '#0f1621' : '#ffffff',
+          padding: isWebLayout ? 24 : 0,
+        }}>
+        {!isWebLayout && <View className="absolute inset-0 bg-black/50" />}
+        <Pressable
+          onPress={
+            isWebLayout ? (e: { stopPropagation: () => void }) => e.stopPropagation() : undefined
+          }
+          className={`${bgColor} ${isWebLayout ? 'overflow-hidden rounded-2xl' : 'mt-16 flex-1'}`}
+          style={isWebLayout ? { width: '100%', maxWidth: 560, maxHeight: '85%' } : { flex: 1 }}>
           {/* Header */}
           <View
             className={`flex-row items-center justify-between border-b px-6 py-4 ${borderColor}`}>
@@ -274,19 +307,23 @@ export default function FilterModal({
             </TouchableOpacity>
           </View>
 
-          {/* Bottom safe area background */}
-          <View
-            style={{
-              position: 'absolute',
-              bottom: -100,
-              left: 0,
-              right: 0,
-              height: 100,
-              backgroundColor: isDarkMode ? '#0f1621' : '#ffffff',
-            }}
-          />
-        </View>
-      </View>
+          {/* Bottom safe-area background — fills the home-indicator strip under the sheet.
+              There is no such strip under a centred dialog, where it would paint a 100px block
+              hanging off the bottom edge. */}
+          {!isWebLayout && (
+            <View
+              style={{
+                position: 'absolute',
+                bottom: -100,
+                left: 0,
+                right: 0,
+                height: 100,
+                backgroundColor: isDarkMode ? '#0f1621' : '#ffffff',
+              }}
+            />
+          )}
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }

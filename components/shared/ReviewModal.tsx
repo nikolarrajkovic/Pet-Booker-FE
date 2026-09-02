@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 type ReviewModalProps = {
   visible: boolean;
@@ -77,6 +78,10 @@ export default function ReviewModal({
   const showCommentHint = trimmedComment.length > 0 && commentTooShort;
   const canSubmit = rating > 0 && !commentTooShort && !submitting;
 
+  // Esc dismisses, except while the review is being submitted — the same guard the backdrop
+  // and the X already use.
+  useEscapeToClose(visible && !submitting, onClose);
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <KeyboardAvoidingView
@@ -98,6 +103,11 @@ export default function ReviewModal({
               backgroundColor: hex.card,
               borderRadius: 24,
               padding: 24,
+              // Without a cap this card is the window minus 48px — a 1392px-wide box asking for
+              // a star rating on a desktop. The other pickers already cap at 400.
+              width: '100%',
+              maxWidth: 480,
+              alignSelf: 'center',
             }}>
             {/* Close button */}
             <TouchableOpacity

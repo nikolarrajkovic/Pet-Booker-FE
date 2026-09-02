@@ -271,6 +271,70 @@ export default function PartnerApplicationScreen() {
     cardBg,
   };
 
+  const handleContinue = async () => {
+    // The service type is what the provider record is created as, and there is no
+    // later screen to correct it — block the step rather than defaulting it.
+    if (step === 2 && formData.serviceType === null) {
+      showError(t('partnerApplication.serviceTypeRequired'));
+      return;
+    }
+
+    if (step < totalSteps) {
+      setStep(step + 1);
+      return;
+    }
+
+    // Safety net for a jumped step: the provider is created AS this type, so
+    // never fall back to a default here.
+    if (formData.serviceType === null) {
+      showError(t('partnerApplication.serviceTypeRequired'));
+      setStep(2);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const governmentIdFiles: { uri: string; fileName?: string; isFront: boolean }[] = [
+        ...(governmentIdFront
+          ? [{ uri: governmentIdFront, fileName: governmentIdFrontFileName, isFront: true }]
+          : []),
+        ...(governmentIdBack
+          ? [{ uri: governmentIdBack, fileName: governmentIdBackFileName, isFront: false }]
+          : []),
+      ];
+      const certificateFiles: {
+        uri: string;
+        fileName?: string;
+        certName?: string;
+        issuer?: string;
+        issuedDate?: string;
+      }[] = certificates.map((c) => ({
+        uri: c.uri,
+        fileName: c.fileName,
+        certName: c.fileName ?? t('partnerApplication.certificate'),
+        issuer: c.issuer,
+        issuedDate: c.issuedDate,
+      }));
+      const petPhotoFiles = petPhotos
+        .map((uri, i) => (uri ? { uri, fileName: petPhotoFileNames[i] } : null))
+        .filter(Boolean) as { uri: string; fileName?: string }[];
+      await createServiceProvider({
+        ...formData,
+        serviceType: formData.serviceType,
+        profilePhoto: profilePhoto ? { uri: profilePhoto, fileName: profilePhotoFileName } : null,
+        petPhotoFiles,
+        governmentIdFiles,
+        certificateFiles,
+        userId: currentUser?.id ?? 0,
+      });
+      (navigation as any).navigate('ApplicationSubmitted');
+    } catch (error) {
+      showError(getErrorMessage(error, t('partnerApplication.submitFailed')));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <ScreenLayout
       headerVariant="standard"
@@ -303,12 +367,19 @@ export default function PartnerApplicationScreen() {
             setFormData={setFormData}
             onPrefill={currentUser ? prefillFromAccount : undefined}
             onOpenAddressMap={() => setAddressPickerVisible(true)}
+            // Enter from the step's last field does what Continue does, guards included.
+            onContinue={handleContinue}
             {...themeProps}
           />
         )}
 
         {step === 2 && (
-          <ServiceInfoStep formData={formData} setFormData={setFormData} {...themeProps} />
+          <ServiceInfoStep
+            formData={formData}
+            setFormData={setFormData}
+            onContinue={handleContinue}
+            {...themeProps}
+          />
         )}
 
         {step === 3 && (
@@ -332,71 +403,7 @@ export default function PartnerApplicationScreen() {
       <View className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
         <TouchableOpacity
           disabled={isSubmitting}
-          onPress={async () => {
-            // The service type is what the provider record is created as, and there is no
-            // later screen to correct it — block the step rather than defaulting it.
-            if (step === 2 && formData.serviceType === null) {
-              showError(t('partnerApplication.serviceTypeRequired'));
-              return;
-            }
-
-            if (step < totalSteps) {
-              setStep(step + 1);
-              return;
-            }
-
-            // Safety net for a jumped step: the provider is created AS this type, so
-            // never fall back to a default here.
-            if (formData.serviceType === null) {
-              showError(t('partnerApplication.serviceTypeRequired'));
-              setStep(2);
-              return;
-            }
-
-            setIsSubmitting(true);
-            try {
-              const governmentIdFiles: { uri: string; fileName?: string; isFront: boolean }[] = [
-                ...(governmentIdFront
-                  ? [{ uri: governmentIdFront, fileName: governmentIdFrontFileName, isFront: true }]
-                  : []),
-                ...(governmentIdBack
-                  ? [{ uri: governmentIdBack, fileName: governmentIdBackFileName, isFront: false }]
-                  : []),
-              ];
-              const certificateFiles: {
-                uri: string;
-                fileName?: string;
-                certName?: string;
-                issuer?: string;
-                issuedDate?: string;
-              }[] = certificates.map((c) => ({
-                uri: c.uri,
-                fileName: c.fileName,
-                certName: c.fileName ?? t('partnerApplication.certificate'),
-                issuer: c.issuer,
-                issuedDate: c.issuedDate,
-              }));
-              const petPhotoFiles = petPhotos
-                .map((uri, i) => (uri ? { uri, fileName: petPhotoFileNames[i] } : null))
-                .filter(Boolean) as { uri: string; fileName?: string }[];
-              await createServiceProvider({
-                ...formData,
-                serviceType: formData.serviceType,
-                profilePhoto: profilePhoto
-                  ? { uri: profilePhoto, fileName: profilePhotoFileName }
-                  : null,
-                petPhotoFiles,
-                governmentIdFiles,
-                certificateFiles,
-                userId: currentUser?.id ?? 0,
-              });
-              (navigation as any).navigate('ApplicationSubmitted');
-            } catch (error) {
-              showError(getErrorMessage(error, t('partnerApplication.submitFailed')));
-            } finally {
-              setIsSubmitting(false);
-            }
-          }}
+          onPress={handleContinue}
           className="items-center rounded-2xl bg-brand-500 py-4"
           style={{ opacity: isSubmitting ? 0.7 : 1 }}>
           {isSubmitting ? (

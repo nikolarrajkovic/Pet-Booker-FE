@@ -5,6 +5,7 @@ import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import { LANGUAGES, type Language } from '../../i18n';
 import CountryFlag from './CountryFlag';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 type Props = {
   visible: boolean;
@@ -24,6 +25,8 @@ export default function LanguagePicker({ visible, current, onSelect, onClose }: 
   const { t } = useLocale();
   const { isDarkMode, hex } = useThemeColors();
   const dismissable = !!onClose;
+
+  useEscapeToClose(visible && dismissable, onClose);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>

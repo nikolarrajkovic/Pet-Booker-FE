@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PhoneInput from '../../../components/shared/PhoneInput';
+import { useFormChain } from '../../../hooks/useFormChain';
 import { useLocale } from '../../../context/LocaleContext';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
@@ -27,6 +28,11 @@ interface PersonalInfoStepProps {
   onPrefill?: () => void;
   /** When provided, the street address field can open a map picker (fills street/city/ZIP). */
   onOpenAddressMap?: () => void;
+  /**
+   * Advance to the next step. Wired to Enter on the step's last field, so the keyboard can carry
+   * someone through the whole application without reaching for the Continue button.
+   */
+  onContinue?: () => void;
   isDarkMode: boolean;
   textColor: string;
   subtextColor: string;
@@ -42,6 +48,7 @@ export default function PersonalInfoStep({
   setFormData,
   onPrefill,
   onOpenAddressMap,
+  onContinue,
   isDarkMode,
   textColor,
   subtextColor,
@@ -52,6 +59,12 @@ export default function PersonalInfoStep({
   cardBg,
 }: PersonalInfoStepProps) {
   const { t } = useLocale();
+  // Phone is a composite control (dial-code dropdown + number), so it stays out of the chain;
+  // Enter runs full name -> email -> street -> city -> ZIP and then continues to step 2.
+  const form = useFormChain(['fullName', 'email', 'streetAddress', 'city', 'zipCode'], () =>
+    onContinue?.()
+  );
+
   return (
     <View>
       <Text className={`text-xl font-bold ${textColor} mb-2`}>
@@ -92,6 +105,7 @@ export default function PersonalInfoStep({
             className={`flex-1 ${inputText}`}
             placeholder={t('partnerApplication.fullNamePlaceholder')}
             placeholderTextColor={placeholderColor}
+            {...form.field('fullName')}
             value={formData.fullName}
             onChangeText={(text) => setFormData({ ...formData, fullName: text })}
           />
@@ -117,6 +131,7 @@ export default function PersonalInfoStep({
             placeholderTextColor={placeholderColor}
             keyboardType="email-address"
             autoCapitalize="none"
+            {...form.field('email')}
             value={formData.email}
             onChangeText={(text) => setFormData({ ...formData, email: text })}
           />
@@ -182,6 +197,7 @@ export default function PersonalInfoStep({
               className={`flex-1 ${inputText}`}
               placeholder={t('partnerApplication.streetPlaceholder')}
               placeholderTextColor={placeholderColor}
+              {...form.field('streetAddress')}
               value={formData.streetAddress}
               onChangeText={(text) => setFormData({ ...formData, streetAddress: text })}
             />
@@ -202,6 +218,7 @@ export default function PersonalInfoStep({
             className={inputText}
             placeholder={t('partnerApplication.cityPlaceholder')}
             placeholderTextColor={placeholderColor}
+            {...form.field('city')}
             value={formData.city}
             onChangeText={(text) => setFormData({ ...formData, city: text })}
           />
@@ -220,6 +237,7 @@ export default function PersonalInfoStep({
             placeholderTextColor={placeholderColor}
             keyboardType="number-pad"
             maxLength={5}
+            {...form.field('zipCode')}
             value={formData.zipCode}
             onChangeText={(text) => setFormData({ ...formData, zipCode: text })}
           />
