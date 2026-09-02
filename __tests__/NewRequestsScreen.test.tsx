@@ -8,7 +8,10 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react-
  * can only be judged once everything the handler scheduled has actually run. Asserting earlier
  * passes against both implementations, which makes the test worthless.
  */
-const flush = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+const flush = () =>
+  act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
 
 /**
  * The render+click path for the "patch, don't refetch" change.
@@ -110,7 +113,9 @@ describe('NewRequestsScreen — accepting a request', () => {
     expect(await screen.findByText('Rex')).toBeTruthy();
     expect(screen.getByText('Milo')).toBeTruthy();
     expect(mockGetBookings).toHaveBeenCalledTimes(1);
-    expect(mockGetBookings).toHaveBeenCalledWith(expect.objectContaining({ serviceProviderId: 77 }));
+    expect(mockGetBookings).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceProviderId: 77 })
+    );
   });
 
   it('accepting patches the row from the response instead of re-listing every booking', async () => {

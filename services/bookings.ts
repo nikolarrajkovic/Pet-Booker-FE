@@ -656,10 +656,7 @@ export function deleteBooking(id: number): Promise<void> {
  *
  * The row is matched by id and left untouched when the list doesn't hold it.
  */
-export function applyBookingTransition(
-  bookings: BookingDto[],
-  updated: BookingDto
-): BookingDto[] {
+export function applyBookingTransition(bookings: BookingDto[], updated: BookingDto): BookingDto[] {
   return bookings.map((b) =>
     b.id != null && b.id === updated.id
       ? {

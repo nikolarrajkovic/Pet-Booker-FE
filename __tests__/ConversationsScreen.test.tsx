@@ -76,7 +76,10 @@ const thread = (id: number, name: string, preview: string, unread = 0) => ({
   createdAt: '2026-08-01T08:00:00+00:00',
 });
 
-const flush = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+const flush = () =>
+  act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
 
 describe('ConversationsScreen — a message arrives', () => {
   beforeEach(() => {

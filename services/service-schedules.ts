@@ -58,7 +58,5 @@ export function deleteServiceSchedule(id: number): Promise<void> {
  * id are skipped: they were never persisted.
  */
 export async function clearServiceSchedules(existing: ServiceScheduleDto[]): Promise<void> {
-  await Promise.all(
-    existing.filter((s) => s.id != null).map((s) => deleteServiceSchedule(s.id!))
-  );
+  await Promise.all(existing.filter((s) => s.id != null).map((s) => deleteServiceSchedule(s.id!)));
 }

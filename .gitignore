@@ -28,3 +28,5 @@ memory/
 # Local env overrides — real API keys live here, never in the committed .env
 .env.local
 .env*.local
+# Same convention for notes: *.local.md holds real credentials (staging logins etc.)
+*.local.md
