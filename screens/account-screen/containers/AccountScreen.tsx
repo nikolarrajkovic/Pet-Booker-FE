@@ -12,7 +12,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
-import { useLocation } from '../../../hooks/useLocation';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -27,9 +26,19 @@ import { addressLabel } from '../../../services/geocoding';
 
 type PickedPhoto = { uri: string; fileName?: string; mimeType?: string };
 
+/**
+ * Where the address picker's map starts before it finds the device.
+ *
+ * The screen deliberately does NOT ask for the device position on mount: `useLocation()` fired
+ * Android's location-permission prompt while the push animation from Profile was still running,
+ * and the dialog's scrim greyed out the screen behind it — a dim no other Profile menu item
+ * produced. MapAddressPicker recentres on the real position when it opens, so this is only the
+ * first frame: the saved address when it carries coordinates, else Belgrade.
+ */
+const FALLBACK_REGION = { latitude: 44.8176, longitude: 20.457 };
+
 export default function AccountScreen() {
   const { currentUser, refreshUser } = useAuth();
-  const location = useLocation();
   const {
     isDarkMode,
     bgColor,
@@ -204,7 +213,7 @@ export default function AccountScreen() {
       showBackButton
       headerTitle={t('account.title')}
       contentBg={bgColor}>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         {/* Profile Photo */}
         <View className="items-center py-8">
           <View className="relative">
@@ -346,31 +355,29 @@ export default function AccountScreen() {
               <Text className="font-semibold text-red-500">{t('account.remove')}</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Save — in the flow of the form, not a bar hovering over it. See the note in
+              AddPetScreen for why an edit form does not earn a permanent strip of screen. */}
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={isSaving}
+            className="mt-2 items-center rounded-2xl bg-brand-500 py-4"
+            style={{ opacity: isSaving ? 0.7 : 1 }}>
+            {isSaving ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text className="text-lg font-bold text-white">{t('account.saveChanges')}</Text>
+            )}
+          </TouchableOpacity>
         </View>
       </ScrollView>
-
-      {/* Fixed Bottom Button */}
-      <View
-        className={`absolute bottom-0 left-0 right-0 ${cardBg} border-t ${borderColor} px-6 py-4`}>
-        <TouchableOpacity
-          onPress={handleSave}
-          disabled={isSaving}
-          className="items-center rounded-2xl bg-brand-500 py-4"
-          style={{ opacity: isSaving ? 0.7 : 1 }}>
-          {isSaving ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text className="text-lg font-bold text-white">{t('account.saveChanges')}</Text>
-          )}
-        </TouchableOpacity>
-      </View>
 
       {/* Map picker for the address — opens on the user's current location */}
       {pickerVisible && (
         <MapAddressPicker
           visible
           title={t('account.yourAddress')}
-          initialRegion={{ latitude: location.latitude, longitude: location.longitude }}
+          initialRegion={currentAddress?.location ?? FALLBACK_REGION}
           isDarkMode={isDarkMode}
           onClose={() => setPickerVisible(false)}
           onSelect={(picked) => setAddress(picked)}
