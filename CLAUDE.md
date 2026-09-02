@@ -45,6 +45,7 @@ context/
   ThemeContext.tsx  # isDarkMode, toggleDarkMode
 
 components/shared/  # Reusable UI — ALWAYS check here first before creating a new component
+components/layout/  # The web design's chrome: AppShell (wraps the navigator), SideNav, TopBar, AuthLayout (the signed-out shell)
 components/         # One-off or screen-specific components (e.g. FilterModal)
 
 screens/<name>-screen/
@@ -52,13 +53,23 @@ screens/<name>-screen/
   components/   # Dumb/presentational sub-components for that screen
 
 hooks/          # Custom hooks
+  useResponsive.ts    # Which of the two designs to render, by WINDOW WIDTH (see Responsive layout)
+  useFormChain.ts     # Enter advances a form's fields and submits from the last (see Forms below)
+  useEscapeToClose.ts # Esc closes a dialog on web — <Modal onRequestClose> never fires for a key press
   useLocation.ts      # Geolocation + reverse geocode
   useThemeColors.ts   # Single source of truth for the dark/light palette (see Styling System)
   useAppNavigation.ts # Back-vs-Up navigation helpers: resetToTab/resetToScreen/resetToAuth/goUp (see Navigation)
   useReviewModal.ts   # "Leave a review" modal lifecycle: { target, submitting, open, close, submit } + createReview POST (pairs with components/shared/ReviewModal)
   useCurrency.ts      # Resolves which currency to render an amount in + the helpers to render it: { code, money, perUnit, wrap, prefix, suffix } (see Money & Currency)
+navigation/
+  navItems.ts         # THE list of navigation destinations — read by both TabBar and SideNav
+  navigateToNavItem.ts# Navigating + reading the active route from OUTSIDE the navigator (the shell)
+  linking.ts          # URL <-> screen map (web addresses, petbooker:// deep links)
+  navigationRef.ts    # Container ref for navigating without a screen
 assets/         # Images, fonts
 CLAUDE.md       # This file — primary AI context. (.github/copilot-instructions.md is a legacy copy for GitHub Copilot)
+WEB_LAYOUT.md   # The two designs (mobile / web), what switches between them, and the rules
+WEB_LAYOUT_TESTING.md # How both designs are tested + the behaviour-difference register (B1–B15)
 ```
 
 ---
@@ -438,10 +449,17 @@ Root: Stack navigator guarded by `isLoggedIn`.
 
 **Authenticated root: MainTabs (bottom tab navigator) + stack screens**
 
-Bottom tabs (see `components/shared/TabBar.tsx`):
+Bottom tabs (see `components/shared/TabBar.tsx`) — the **mobile design's** navigation:
 - `Home`, `Search`, `Profile` — always visible
 - `PartnerHub` — only if `isPartner`
 - `AdminDashboard` — only if `isAdmin`
+
+On the **web design** (>=768px) that bar is replaced by `components/layout/SideNav.tsx`, which shows
+the same five plus three more groups — `manage` (My Bookings / My Pets / Messages / Notifications /
+Settings), `partner` (My Schedule / Requests / My Services / Promotions) and `admin` (New Requests /
+Partners / Reviews) — all destinations that on a phone are only reachable via Profile or Partner
+Hub. **Both bars read `navigation/navItems.ts`**, so they cannot list different routes or gate them
+differently by role. See the Responsive layout section.
 
 Stack screens (on top of tabs):
 ```
@@ -466,6 +484,8 @@ Navigation patterns:
 Implementation notes (`App.tsx`):
 - The whole stack is gated on `isLoggedIn`; while `isLoading` (session restore), a full-screen `ActivityIndicator` is shown.
 - `MainTabs` registers all five tabs (`Home`, `Search`, `PartnerHub`, `AdminDashboard`, `Profile`) but the native tab bar is hidden (`tabBarStyle: { display: 'none' }`). The visible bar is the custom `components/shared/TabBar.tsx`, which role-gates `PartnerHub`/`AdminDashboard` via `useAuth()`.
+- **`AppShell` wraps `Stack.Navigator`**, so the web design's sidebar and top bar mount once instead of per screen — a per-screen sidebar would slide in over the sidebar already on screen during every stack push. Being outside the navigator it has no `useNavigation`, so it navigates through the container ref (`navigation/navigateToNavItem.ts`); a **tab** route must be addressed as `navigate('MainTabs', { screen: 'Home' })`, because the tab names do not exist at the root and navigating to a missing route silently does nothing.
+- **Stack transitions are instant on the web design** (`animation: isWebLayout ? 'none' : 'slide_from_right'`). Sliding a screen in from the right echoes a phone gesture that does not exist in a browser, where the sidebar stays put and the slide only makes every navigation feel slow.
 - **Tab screens stay mounted** — React Navigation 7 dropped `unmountOnBlur`, so a tab keeps its state and does NOT remount when you come back to it (the option sat in `MainTabs` doing nothing until 2026-08-24). Fetch in `useFocusEffect`, not `useEffect`, whenever a screen needs fresh data on return; see `MyPetsScreen`.
 - **Tab switches are instant (`animation: 'none'`) and should stay that way.** Every animated option cross-fades the two scenes, and since they are siblings neither can be drawn opaquely over the other: mid-switch both are partly transparent, so each screen's card borders, shadows and section outlines ghost through the other and over the tab bar (which every screen draws itself, at the same spot). `animation: 'fade'` additionally leaves ~25% of the frame as bare navigator background at the midpoint. A custom `sceneStyleInterpolator` can close that background gap but not the blend — the blend is what looked bad, so the animation was dropped entirely (2026-08-24).
 
@@ -523,8 +543,13 @@ Always check this folder before creating a new component. If a new component is 
 |---|---|---|
 | `Button` | `text?`, `children?`, `onPress`, `variant?` ('primary'\|'secondary'\|'outline'\|'ghost'), `icon?`, `iconPosition?`, `disabled?`, `className?` | Primary CTA button |
 | `AppHeader` | `variant?` ('large'\|'standard'\|'compact'), `title?`, `subtitle?`, `showBackButton?`, `onBackPress?`, `showNotificationButton?`, `rightAction?`, `rounded?` | Navigation header, safe-area aware |
-| `ScreenLayout` | `headerVariant?`, `headerTitle?`, `showBackButton?`, `onBackPress?`, `children`, `footer?`, `contentRounded?`, `safeAreaBg?`, `contentBg?` | Wraps SafeAreaView + AppHeader + content area. Use this as the root of every screen. |
-| `TabBar` | (none) | Bottom tab bar — reads context for role-based visibility |
+| `ScreenLayout` | `headerVariant?`, `headerTitle?`, `showBackButton?`, `onBackPress?`, `children`, `footer?`, `contentRounded?`, `safeAreaBg?`, `contentBg?` — **web-only, all inert on mobile:** `width?`, `webHeaderRight?`, `webBare?` | The root of every screen, in **both designs**. Mobile: SafeAreaView + green `AppHeader` + rounded content sheet (unchanged). Web: `PageHeader` + width-capped `ContentContainer`, no safe area, no coloured slab — and `showNotificationButton` is **ignored**, because `TopBar` owns the bell. |
+| `TabBar` | (none) | Bottom tab bar of the **mobile design** — destinations from `navigation/navItems.ts`, role-gated via `useAuth()`. **Renders `null` above 768px**, where `SideNav` is the navigation. |
+| `ContentContainer` | `width?` ('narrow' 720 \| 'default' 1120 \| 'wide' 1400 \| 'full'), `noPadding?` | The centred, width-capped column the web design lays content in. Plain padded `View` on mobile. Use this instead of a hand-written `maxWidth`. |
+| `ResponsiveGrid` | `columns?` ({mobile,tablet,desktop,wide}), `gap?` | Card lists as a breakpoint-driven grid — 1 column on a phone, 2 on a tablet, 3–4 on a desktop. **Every card list on the web design goes through here** so gutters and column counts are decided once. |
+| `ResponsiveModal` | `visible`, `onClose`, `dialogWidth?`, `mobilePresentation?` ('fullScreen' \| 'centered'), `dismissOnBackdropPress?` | Full-screen sheet on a phone, centred dialog on a desktop, with scrim-click and **Esc** dismissal. Use instead of a bare `<Modal>` — an unmodified one covers a 27" display to ask one question. |
+| `TwoColumn` | `aside`, `asideWidth?`, `gap?`, `asideFirstOnMobile?` | Main content beside a sticky side panel on web; stacked on mobile. The shape most detail/form screens want on a wide window. Used **inside** a screen's body, not as a `ScreenLayout` prop — on mobile the panel has to live inside the screen's own ScrollView. |
+| `PageHeader` | `title?`, `subtitle?`, `showBackButton?`, `onBackPress?`, `actions?` | The web design's page-title block — what replaces the green `AppHeader` slab. Rendered by `ScreenLayout`; rarely used directly. |
 | `ServiceCard` | `image`, `name`, `service`, `rating`, `reviews`, `price`, `distance?`, `badge?` ('popular'\|'deal'), `onPress` | 200px-wide provider card |
 | `SeeMoreCard` | `onPress` | Trailing card in horizontal lists |
 | `ServiceBubble` | `label`, `bg?`, `icon?`, `onPress?` | Circular icon + label (service type pill) |
@@ -537,9 +562,58 @@ Always check this folder before creating a new component. If a new component is 
 | `Toast` (`Toast.tsx`) | `toast`, `isDarkMode`, `onDismiss` | Single presentational toast row (icon + message + dismiss) for the global overlay. **Don't render directly** — use `useToast()` (`context/ToastContext.tsx`) to show app-wide error/success/info toasts. See Context Providers. |
 | `ListState` | `isLoading?`, `error?`, `isEmpty?`, `emptyIcon?`, `emptyMessage?`, `children` | The loading → error → empty → content ladder every list screen needs; renders `children` only once all three are ruled out. **Use this instead of hand-writing the spinner/icon/message blocks** — they had drifted into two icon sizes and two greys across the screens that copied them. Also exports `LoadingState` and `MessageState` for a state needed on its own. |
 | `FilterTabs` | `tabs`, `activeKey`, `onChange`, `counts` | Pill filter bar (icon + label + count badge, selected tab tinted with its status color) above a moderation list. `moderationTabs(rejectedLabelKey)` from the same file returns the shared pending/approved/rejected triad — the last tab's wording is a parameter because an application is *rejected* while a review is *declined*. |
-| `StickyFooter` | `className?`, `style?`, `hideOnKeyboard?`, `children` | A bottom CTA bar pinned over a screen's ScrollView. Owns the `absolute bottom-0 left-0 right-0` positioning **and unmounts itself while the keyboard is open** — the bar sits exactly where the ScrollView parks the focused input, so a pinned bar covered the field being typed into. Pass `hideOnKeyboard={false}` for a bar that must stay reachable above the keyboard. **Never hand-write another `absolute bottom-0` bar** — and read the sticky-vs-in-flow rule under Key Conventions before reaching for this at all, because most screens should not have one. |
+| `StickyFooter` | `className?`, `style?`, `hideOnKeyboard?`, `pinnedOnWeb?`, `children` | A bottom CTA bar pinned over a screen's ScrollView. **On the web design it stops being pinned** and renders in the flow — a bar welded across a 1440px window is a phone artefact; screens needing a persistent action put it in a `TwoColumn` aside, which is sticky without spanning anything. Pass `pinnedOnWeb` for the exceptions. Owns the `absolute bottom-0 left-0 right-0` positioning **and unmounts itself while the keyboard is open** — the bar sits exactly where the ScrollView parks the focused input, so a pinned bar covered the field being typed into. Pass `hideOnKeyboard={false}` for a bar that must stay reachable above the keyboard. **Never hand-write another `absolute bottom-0` bar** — and read the sticky-vs-in-flow rule under Key Conventions before reaching for this at all, because most screens should not have one. |
 
 ---
+
+## Responsive layout — TWO designs from one codebase
+
+The app renders a **mobile design** (bottom tab bar, one column, full-screen sheets) and a **web
+design** (left sidebar + top bar, capped multi-column content, dialogs). Same components, one
+tree — there is no `HomeScreen.web.tsx`. **Full reference: [`WEB_LAYOUT.md`](WEB_LAYOUT.md).**
+
+**Window width decides which, not platform** — `hooks/useResponsive.ts`:
+
+```tsx
+const { isMobile, isTablet, isDesktop, isWebLayout, mode, width } = useResponsive();
+```
+
+| width | mode | design |
+|---|---|---|
+| `<768` | `mobile` | bottom `TabBar`, 1 column |
+| `768–1023` | `tablet` | collapsed icon rail, 2 columns |
+| `>=1024` | `desktop` | full sidebar + top bar, 3–4 columns |
+
+Branch on **`isWebLayout`** (tablet or desktop) unless a screen genuinely needs the phone
+treatment on a tablet. A **native build is always `mobile`**, gated by the single
+`RESPONSIVE_ON_NATIVE` constant in that file — flip it there, not per screen.
+
+**Never use `Platform.OS === 'web'` for layout.** That check is for *capability* differences
+(SecureStore vs localStorage, `react-native-maps` vs the Maps JS API, Esc key handling) and those
+already live behind `.web.tsx` files and the service layer. Using it for layout puts a sidebar on
+a phone browser, which is where shared booking links get opened.
+
+**The shell** — `components/layout/AppShell.tsx` wraps `Stack.Navigator` in `App.tsx`, so `SideNav`
+and `TopBar` mount once and never animate in over themselves during a stack push. Being outside
+the navigator, neither can use `useNavigation`/`useNavigationState`; both go through
+`navigation/navigateToNavItem.ts` (container ref). It renders `children` untouched on the mobile
+design and for signed-out users.
+
+**`navigation/navItems.ts` is the single source of truth for destinations.** `TabBar` takes the
+`primary` group; `SideNav` takes all four groups (`primary` / `manage` / `partner` / `admin`) with
+the same role gating. Add a destination there once — never to one bar only.
+
+`TabBar` **renders `null` above 768px**, so the five tab screens keep passing `footer={<TabBar />}`
+unchanged.
+
+**The rules are test-enforced.** `__tests__/responsive/conventions.test.ts` scans the source and
+fails when a screen renders its own root without consulting `useResponsive`, when `Platform.OS` is
+used outside its allowlisted capability cases, when a raw `<Modal>` has no Esc handling, when the
+two nav bars stop sharing `navItems`, or when `RESPONSIVE_ON_NATIVE` moves. Each allowlist entry
+carries a reason — add one deliberately, not to quiet the test.
+
+**Signed-out screens** use `components/layout/AuthLayout.tsx` instead: `AppShell` is skipped for
+them, since a sidebar of destinations behind a login is a list of dead links.
 
 ## Styling System
 
@@ -579,13 +653,17 @@ Genuinely bespoke colors stay inline (sourced from the hook's `isDarkMode`): e.g
 **UI Consistency Rules:**
 - Colors, fonts, and backgrounds must be consistent across the entire app — go through `useThemeColors()`
 - Use `brand-*` tokens for all green/primary colors — never hardcode green hex values. Where a raw string is unavoidable (`color=`, `style={}`, native components), import `BRAND_GREEN`/`BRAND` from `hooks/useThemeColors` rather than re-typing the hex
-- Use `ScreenLayout` as the root wrapper for every screen (provides consistent header + safe area)
+- Use `ScreenLayout` as the root wrapper for every screen — it is what gives a screen **both** designs; one that opts out gets neither
+- Branch layout on `useResponsive()`, **never** on `Platform.OS`. A card list is a `ResponsiveGrid`, a modal is a `ResponsiveModal`, and the content column is capped with the `width` prop — see Responsive layout
 - Use shared components from `components/shared/` whenever they fit — do not duplicate
 - If a new component is needed and it could be reused elsewhere, add it to `components/shared/`
 
 **Platform-specific files:**
 - `.web.tsx` suffix = web-only (e.g. `WebDatePicker.web.tsx`, `MapView.web.tsx`)
 - Metro bundler picks the right variant automatically — no manual platform checks needed for these
+- These exist for **capability** differences (maps, pickers, storage), never for layout. Layout is
+  decided by width through `useResponsive()` — see Responsive layout. There is no `*.web.tsx`
+  variant of a screen, and adding one forks a screen that then drifts.
 
 ---
 
@@ -632,6 +710,21 @@ Genuinely bespoke colors stay inline (sourced from the hook's `isDarkMode`): e.g
 - Disable submit buttons while loading
 
 ### Forms
+- **Every form is wired with `useFormChain` (`hooks/useFormChain.ts`) so Enter works.** A mobile
+  form is driven by thumbs, so its return key does nothing — and a browser user who types and
+  presses Enter concludes the form is broken before they look for the button. The hook chains the
+  inputs: **Enter advances, and submits from the last field**. On a phone the same wiring turns the
+  return key into a working **Next**, so this is not a web-only nicety.
+  ```tsx
+  const form = useFormChain(['identifier', 'password'], handleSignIn);
+  <TextInput {...form.field('identifier')} … />
+  ```
+  - Pass **the same handler the button calls**, guards included — Enter on an invalid form must do
+    what clicking a disabled submit does, and duplicating the validation is how the two drift.
+  - Pass the fields **currently on screen, in order**; a multi-step form passes the active step's.
+  - Mark text areas `{ name: 'notes', multiline: true }` — there Enter means *newline*, and an
+    unmarked one submits the form instead of starting a paragraph.
+  - Keep pickers, date fields and composite controls (`PhoneInput`) out of the chain.
 - Touched state: only show field errors after user has interacted with the field
 - Visual feedback: red border (error), green border (valid), default (untouched)
 - **Always use `DatePicker` (from `components/shared/DatePicker.tsx`) for any date input** — never use a plain `TextInput` for dates. Pass `isDarkMode`, `value`, `onChange`, and `onClose` props. For time inputs, use `TimePicker` from the same folder — **except booking start times**, which use `TimeSlotPicker` (`screens/book-service-screen/components/`) so unavailable slots are disabled based on existing bookings.
@@ -681,7 +774,15 @@ paying only where the action is the point of the screen:
 - Real payment processing is planned for a future date
 
 ### Testing
-- There is no automated test suite here — `npx tsc --noEmit` is the only gate.
+- **There is a Jest suite** (`__tests__/`, `jest-expo` + React Native Testing Library): `npm test`.
+  It is small and targeted, not a coverage exercise — the shared machinery and the behaviours that
+  would otherwise be untestable by eye.
+- `npx tsc --noEmit` and `npm run lint` are the other two gates. All three must be clean.
+- **Anything touching layout must be asserted at both widths.** `__tests__/test-utils.tsx` exports
+  `renderMobile` / `renderDesktop` / `renderTablet` and `describeBothLayouts`, which runs one block
+  once per design. Mock `useWindowDimensions`, **never** `useResponsive` — stubbing the hook under
+  test makes every breakpoint assertion vacuous. Full plan + the behaviour-difference register:
+  [`WEB_LAYOUT_TESTING.md`](WEB_LAYOUT_TESTING.md).
 - Manual regression walkthrough: [`E2E_MANUAL_TESTING.md`](E2E_MANUAL_TESTING.md), organised by role, with a *Known-broken* list so verified bugs are not re-filed.
 - Run the backend suite first so an API fault is not mistaken for a UI one: `PetBookerBackend/scripts/e2e-all.ps1` (index: `PetBookerBackend/docs/e2e-testing-overview.md`).
 
@@ -696,7 +797,8 @@ npm run android      # Android emulator/device
 npm run ios          # iOS simulator/device
 npm run lint         # ESLint + Prettier check
 npm run format       # ESLint + Prettier auto-fix
-npx tsc --noEmit     # Type-check only (no test suite is configured)
+npx tsc --noEmit     # Type-check
+npm test             # Jest suite (npm run test:watch to iterate)
 
 npm run build:android             # EAS cloud build → installable APK (preview profile)
 npm run build:android:production  # EAS cloud build → .aab for Play Store

@@ -1,8 +1,13 @@
 # Manual E2E testing guide
 
 How to walk the app end to end against a live backend, by role, with the expected result at each
-step. There is **no automated test suite in this repo** (`npx tsc --noEmit` is the only gate), so
-this walkthrough is the front end's regression net.
+step. There is a small Jest suite (`npm test`) covering the shared machinery, but it renders to a
+tree, not a browser — it cannot see an overlapping sidebar, a missing hover state or a map that is
+20px tall. So this walkthrough is still the front end's regression net.
+
+**The app renders two designs** — mobile below 768px and web at and above it. Every section below
+is a *per-design* pass, and §9 is the layout pass that covers what only differs between them. See
+[`WEB_LAYOUT.md`](WEB_LAYOUT.md) and [`WEB_LAYOUT_TESTING.md`](WEB_LAYOUT_TESTING.md).
 
 The backend has a scripted suite that covers the API side — run it first, so a red screen here is
 never mistaken for a backend fault:
@@ -209,6 +214,67 @@ Per `CLAUDE.md`, **every** API call must surface its failure.
 | ---- | -------------------------------- | ------------------------------------------------------- |
 | 8.10 | Toggle dark mode on every screen | No unreadable text; no hardcoded light-only backgrounds |
 | 8.11 | Resize to mobile width           | No horizontal scroll; no clipped CTAs                   |
+
+---
+
+## 9. Layout pass — the two designs
+
+Run this after any change to a shared component, `ScreenLayout`, the shell, or a screen's body.
+The whole risk of two designs from one tree is a change that is right in the one you were looking
+at, so **every check here is done at more than one width.**
+
+Resize with Chrome's device toolbar (Ctrl+Shift+M), or just drag the window.
+
+| Width | What it is | Expected design |
+| --- | --- | --- |
+| 390 × 844 | Phone browser (iPhone 14) | **Mobile** — bottom tab bar, one column, full-screen sheets |
+| 820 × 1180 | Tablet portrait | **Tablet** — collapsed icon rail, two columns |
+| 1280 × 800 | Laptop | **Desktop** — full sidebar + top bar |
+| 1920 × 1080 | Monitor | **Desktop**, content capped and centred, not stretched |
+
+### 9a. The shell
+
+| # | Step | Expected |
+| --- | --- | --- |
+| 9.1 | Sign in at 1280px | Sidebar left, top bar above the content. **No bottom tab bar anywhere** |
+| 9.2 | Narrow the window past 768px without reloading | Switches to the mobile design live — bottom bar appears, sidebar goes. No crash, no blank frame |
+| 9.3 | Widen it back past 1024px | Switches back. Scroll position and any open modal survive |
+| 9.4 | Click every sidebar link | Each navigates; the active item is highlighted; **none is a dead link** (a tab route addressed wrongly no-ops silently — see B1) |
+| 9.5 | As a plain user | No Partner and no Admin group, and no empty group headings left behind |
+| 9.6 | As a partner, then as an admin | The matching group appears, and only that one |
+| 9.7 | Top bar: bell, messages, account menu | Badges match the counts; the menu opens, closes on outside click, and Account/Settings/Logout all work |
+| 9.8 | Any screen at 1280px | Exactly **one** notification bell on the page (the top bar's) — see B3 |
+| 9.9 | Sign out | Auth screens render full-page with **no** sidebar or top bar at any width |
+
+### 9b. Per screen
+
+For each screen the change touched, at 390 and at 1440:
+
+| # | Check |
+| --- | --- |
+| 9.10 | Does it **use** the width, or is it a stretched phone screen with 1000px of empty space? |
+| 9.11 | Card lists are a grid on the web design, not a single column of full-width rows |
+| 9.12 | No horizontal scrollbar on the page body — the reliable sign of an unconstrained width |
+| 9.13 | Text lines stay under ~90 characters — the `width` prop caps the column |
+| 9.14 | Modals are centred dialogs on the web design, full-screen sheets on the phone one |
+| 9.15 | The primary CTA is reachable without hunting: pinned on mobile, in the flow or in a sticky aside on web |
+| 9.16 | Hover states on everything clickable, and a visible focus ring when tabbing |
+| 9.16b | **Type into a form and press Enter**: focus moves to the next field, and from the last field the form submits (running the same validation the button does). In a description/notes box Enter starts a new line instead |
+| 9.17 | Both themes — switch to dark at 1920px, where a missed background shows most |
+
+### 9c. Navigation and URLs
+
+| # | Step | Expected |
+| --- | --- | --- |
+| 9.18 | Navigate 3 screens deep, press **browser Back** | Goes back one screen, not out of the app (B2) |
+| 9.19 | Reload on `/services/12` and `/bookings/7` | The page rebuilds from the id, signed-in state intact (B15) |
+| 9.20 | Deep-link to a screen `linking.ts` does **not** map, then reload | Lands on Home rather than crashing — by design |
+
+### 9d. Native must be unchanged
+
+**The most important check here.** The mobile design is the shipped product and this work touches
+its root layout component. Run §§1–8 on a real Android device and confirm nothing moved: header
+spacing, safe areas, the keyboard shrinking the body, tab switches still instant.
 
 ---
 
