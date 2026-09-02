@@ -99,7 +99,10 @@ export default function BookingDetailsScreen() {
         headerVariant="standard"
         showBackButton
         headerTitle={t('bookingDetails.title')}
-        contentBg={bgColor}>
+        contentBg={bgColor}
+        // A read-only recap: stacked sections of label/value rows. Capped narrower than a
+        // dashboard so the rows do not stretch a two-word label across a metre of screen.
+        width="default">
         {isLoading ? (
           <View className="flex-1 items-center justify-center py-20">
             <ActivityIndicator size="large" color={BRAND_GREEN} />

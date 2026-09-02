@@ -12,6 +12,8 @@ import ListState from '../../../components/shared/ListState';
 import { MessageBubble, MessageComposer, ComposerLockedNotice } from '../components';
 import { getErrorMessage } from '../../../services/http';
 import { resolveImageUrl } from '../../../services/service-providers';
+import { useResponsive } from '../../../hooks/useResponsive';
+import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 import {
   ChatAccessReason,
   ChatParticipant,
@@ -75,6 +77,7 @@ export default function ChatScreen() {
     useThemeColors();
   const { showError } = useToast();
   const { t } = useLocale();
+  const { isWebLayout } = useResponsive();
   const {
     subscribe,
     subscribeToReads,
@@ -320,8 +323,16 @@ export default function ChatScreen() {
     return t('messages.enquiryAllowance', { count: left });
   }, [access, t]);
 
+  // A chat thread is a reading column, not a dashboard: message bubbles stretched to 1400px are
+  // unreadable, and the composer ends up a metre wide. Capped like a document, and centred so the
+  // thread sits under the page rather than hugging the sidebar.
+  const Root: any = isWebLayout ? View : SafeAreaView;
+  const column = isWebLayout
+    ? { width: '100%' as const, maxWidth: CONTENT_WIDTHS.narrow, alignSelf: 'center' as const }
+    : undefined;
+
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
+    <Root className={`flex-1 ${bgColor}`} style={column}>
       {/* Header — avatar + who, mirroring the design. No call button: voice calling is
           deliberately out of scope, and a dead icon is worse than none. */}
       <View className={`flex-row items-center border-b px-3 py-2.5 ${borderColor} ${cardBg}`}>
@@ -435,6 +446,6 @@ export default function ChatScreen() {
             />
           ))}
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Root>
   );
 }

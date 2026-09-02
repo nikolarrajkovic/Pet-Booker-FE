@@ -13,6 +13,8 @@ import { PromotionCard } from '../components';
 import type { Promotion, PromotionStatus } from '../components';
 import { getServices, serviceCurrency } from '../../../services/services';
 import { getErrorMessage } from '../../../services/http';
+import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
+import { useResponsive } from '../../../hooks/useResponsive';
 import {
   updateServiceDiscount,
   ServiceDiscountDto,
@@ -161,6 +163,7 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { showError } = useToast();
   const { t } = useLocale();
+  const { isWebLayout } = useResponsive();
   const viewAll = route?.params?.viewAll ?? false;
 
   const [offers, setOffers] = useState<Promotion[]>([]);
@@ -270,7 +273,8 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
             {t('promotions.newButton')}
           </Text>
         </TouchableOpacity>
-      }>
+      }
+      width="wide">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 32 }}
@@ -286,7 +290,9 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
                 <View
                   key={stat.labelKey}
                   className={`${cardBg} rounded-2xl border p-4 ${borderColor} flex-1`}
-                  style={{ minWidth: '45%' }}>
+                  // 45% is two per row, which is right on a phone and leaves four stat tiles
+                  // stretched across two near-empty rows on a desktop.
+                  style={{ minWidth: isWebLayout ? 200 : '45%' }}>
                   <View
                     className={`h-9 w-9 rounded-xl ${stat.bg} mb-3 items-center justify-center`}>
                     <Ionicons name={stat.icon as any} size={18} color={stat.color} />
@@ -322,19 +328,25 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
           isEmpty={offers.length === 0}
           emptyIcon="megaphone-outline"
           emptyMessage={t('promotions.noPromotions')}>
-          {offers.map((promo) => (
-            <PromotionCard
-              key={promo.id}
-              promotion={promo}
-              isDarkMode={isDarkMode}
-              cardBg={cardBg}
-              textColor={textColor}
-              subtextColor={subtextColor}
-              borderColor={borderColor}
-              onPause={handlePause}
-              onStart={handleStart}
-            />
-          ))}
+          {/* Offer cards carry their own `mb-4`, so the grid supplies the columns only. */}
+          <ResponsiveGrid
+            columns={{ mobile: 1, tablet: 2, desktop: 2, wide: 3 }}
+            gap={12}
+            rowGap={0}>
+            {offers.map((promo) => (
+              <PromotionCard
+                key={promo.id}
+                promotion={promo}
+                isDarkMode={isDarkMode}
+                cardBg={cardBg}
+                textColor={textColor}
+                subtextColor={subtextColor}
+                borderColor={borderColor}
+                onPause={handlePause}
+                onStart={handleStart}
+              />
+            ))}
+          </ResponsiveGrid>
         </ListState>
 
         {/* Boost Your Earnings banner — only on main view */}

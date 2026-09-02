@@ -21,6 +21,16 @@ type ServiceCardProps = {
   badge?: 'popular' | 'deal';
   /** Formatted discount (e.g. "3% OFF" / "5 € OFF") — shown on the deal badge. */
   dealAmount?: string;
+  /**
+   * Fill the container instead of the fixed 200px rail width.
+   *
+   * The fixed width is right for a horizontal rail, where the card's job is to be one of several
+   * peeking off the edge of a phone screen. In a `ResponsiveGrid` cell it leaves the card floating
+   * at the left of a 340px column with a gap beside it, so the grid reads as a ragged list rather
+   * than a grid. The taller hero that comes with it keeps the image from looking squat once the
+   * card is wide.
+   */
+  fill?: boolean;
   onPress: () => void;
 };
 
@@ -35,6 +45,7 @@ export default function ServiceCard({
   currency,
   badge,
   dealAmount,
+  fill = false,
   onPress,
 }: ServiceCardProps) {
   const { cardBg, textColor, subtextColor, borderColor } = useThemeColors();
@@ -65,14 +76,14 @@ export default function ServiceCard({
       accessibilityLabel={label}
       accessible
       className={`${cardBg} overflow-hidden rounded-2xl border ${borderColor}`}
-      style={{ width: 200 }}>
+      style={{ width: fill ? '100%' : 200 }}>
       <View className="relative">
         {/* Decorative: the card's own label already names the service. */}
         <Image
           source={{ uri: image }}
           accessibilityRole="none"
           alt=""
-          className="h-32 w-full"
+          className={`w-full ${fill ? 'h-44' : 'h-32'}`}
           resizeMode="cover"
         />
 

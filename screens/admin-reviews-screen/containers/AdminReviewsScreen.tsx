@@ -1,13 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import {
-  ScrollView,
-  Text,
-  View,
-  TouchableOpacity,
-  BackHandler,
-  Modal,
-  TextInput,
-} from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, BackHandler, TextInput } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
@@ -21,6 +13,8 @@ import { getReviews, ReviewDto } from '../../../services/reviews';
 import { approveReview, declineReview } from '../../../services/admin';
 import { ApprovalStatus, resolveImageUrl } from '../../../services/service-providers';
 import { getErrorMessage } from '../../../services/http';
+import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
+import ResponsiveModal from '../../../components/shared/ResponsiveModal';
 
 // ReviewDto (with nested user/serviceProvider includes) → the card's view shape.
 // Takes the translate fn so name fallbacks follow the active language.
@@ -188,7 +182,8 @@ export default function AdminReviewsScreen() {
       onBackPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })}
       headerTitle={t('admin.reviewsTitle')}
       headerSubtitle={t('admin.reviewsSubtitle')}
-      contentBg={contentBg}>
+      contentBg={contentBg}
+      width="wide">
       <FilterTabs tabs={TABS} activeKey={activeTab} onChange={setActiveTab} counts={counts} />
 
       {/* ── List ── */}
@@ -208,92 +203,100 @@ export default function AdminReviewsScreen() {
                 ? t('admin.noApprovedReviews')
                 : t('admin.noDeclinedReviews')
           }>
-          {filtered.map((review) => (
-            <ReviewModerationCard
-              key={review.id}
-              review={review}
-              isDarkMode={isDarkMode}
-              cardBg={cardBg}
-              textColor={textColor}
-              subTextColor={subTextColor}
-              borderColor={borderColor}
-              busy={busyId === review.id}
-              onApprove={busyId !== null ? undefined : handleApprove}
-              onDecline={busyId !== null ? undefined : handleDecline}
-            />
-          ))}
+          {/*
+            Moderation cards are full-width rows built for a phone queue. On a wide page they
+            become 1120px bars with an avatar at one end, so the reviewer scrolls past three
+            screenfuls to see what fits in one. `rowGap={0}` lets each card keep the bottom margin
+            it already has rather than making a presentational component width-aware.
+          */}
+          <ResponsiveGrid columns={{ mobile: 1, tablet: 1, desktop: 2 }} gap={12} rowGap={0}>
+            {filtered.map((review) => (
+              <ReviewModerationCard
+                key={review.id}
+                review={review}
+                isDarkMode={isDarkMode}
+                cardBg={cardBg}
+                textColor={textColor}
+                subTextColor={subTextColor}
+                borderColor={borderColor}
+                busy={busyId === review.id}
+                onApprove={busyId !== null ? undefined : handleApprove}
+                onDecline={busyId !== null ? undefined : handleDecline}
+              />
+            ))}
+          </ResponsiveGrid>
         </ListState>
       </ScrollView>
 
       {/* ── Decline-reason modal ── */}
-      <Modal
+      {/* ResponsiveModal owns the scrim, the width cap and Esc; centred on both designs because
+          the prompt is a title and one field, not a sheet's worth of content. */}
+      <ResponsiveModal
         visible={declineTargetId !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDeclineTargetId(null)}>
-        <View className="flex-1 justify-center bg-black/50 px-6">
-          <View style={{ backgroundColor: cardBg, borderRadius: 16, padding: 20 }}>
-            <Text style={{ color: tColor, fontSize: 18, fontWeight: '700', marginBottom: 4 }}>
-              {t('admin.declineReviewTitle')}
+        onClose={() => setDeclineTargetId(null)}
+        mobilePresentation="centered"
+        dialogWidth={480}>
+        <View style={{ backgroundColor: cardBg, padding: 20 }}>
+          <Text style={{ color: tColor, fontSize: 18, fontWeight: '700', marginBottom: 4 }}>
+            {t('admin.declineReviewTitle')}
+          </Text>
+          <Text style={{ color: subtextColor, fontSize: 13, marginBottom: 16 }}>
+            {t('admin.declineReviewMsg')}
+          </Text>
+          <TextInput
+            value={declineReason}
+            onChangeText={setDeclineReason}
+            placeholder={t('admin.declineReasonPlaceholder')}
+            placeholderTextColor={placeholderColor}
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+            className={`${inputBg} ${inputText}`}
+            style={{
+              borderRadius: 12,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              minHeight: 80,
+              marginBottom: declineReasonTooShort ? 4 : 16,
+            }}
+            selectionColor={BRAND_GREEN}
+          />
+          {declineReasonTooShort && (
+            <Text style={{ color: '#EF4444', fontSize: 12, marginBottom: 12 }}>
+              Please use at least 10 characters, or leave it blank.
             </Text>
-            <Text style={{ color: subtextColor, fontSize: 13, marginBottom: 16 }}>
-              {t('admin.declineReviewMsg')}
-            </Text>
-            <TextInput
-              value={declineReason}
-              onChangeText={setDeclineReason}
-              placeholder={t('admin.declineReasonPlaceholder')}
-              placeholderTextColor={placeholderColor}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              className={`${inputBg} ${inputText}`}
+          )}
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity
+              onPress={() => setDeclineTargetId(null)}
+              activeOpacity={0.7}
               style={{
+                flex: 1,
+                alignItems: 'center',
                 borderRadius: 12,
-                paddingHorizontal: 16,
+                borderWidth: 1,
+                borderColor: bColor,
                 paddingVertical: 12,
-                minHeight: 80,
-                marginBottom: declineReasonTooShort ? 4 : 16,
-              }}
-              selectionColor={BRAND_GREEN}
-            />
-            {declineReasonTooShort && (
-              <Text style={{ color: '#EF4444', fontSize: 12, marginBottom: 12 }}>
-                Please use at least 10 characters, or leave it blank.
-              </Text>
-            )}
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <TouchableOpacity
-                onPress={() => setDeclineTargetId(null)}
-                activeOpacity={0.7}
-                style={{
-                  flex: 1,
-                  alignItems: 'center',
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: bColor,
-                  paddingVertical: 12,
-                }}>
-                <Text style={{ color: tColor, fontWeight: '600' }}>{t('admin.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={confirmDecline}
-                disabled={declineReasonTooShort}
-                activeOpacity={0.7}
-                style={{
-                  flex: 1,
-                  alignItems: 'center',
-                  borderRadius: 12,
-                  backgroundColor: '#EF4444',
-                  paddingVertical: 12,
-                  opacity: declineReasonTooShort ? 0.5 : 1,
-                }}>
-                <Text style={{ color: 'white', fontWeight: '600' }}>{t('admin.decline')}</Text>
-              </TouchableOpacity>
-            </View>
+              }}>
+              <Text style={{ color: tColor, fontWeight: '600' }}>{t('admin.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={confirmDecline}
+              disabled={declineReasonTooShort}
+              activeOpacity={0.7}
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                borderRadius: 12,
+                backgroundColor: '#EF4444',
+                paddingVertical: 12,
+                opacity: declineReasonTooShort ? 0.5 : 1,
+              }}>
+              <Text style={{ color: 'white', fontWeight: '600' }}>{t('admin.decline')}</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </ResponsiveModal>
     </ScreenLayout>
   );
 }

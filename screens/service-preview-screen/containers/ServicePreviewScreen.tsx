@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import ServiceDetailView from '../../../components/shared/ServiceDetailView';
+import { useResponsive } from '../../../hooks/useResponsive';
+import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 
 type ServicePreviewRouteParams = {
   service: {
@@ -29,11 +31,21 @@ export default function ServicePreviewScreen() {
   const { service } = route.params;
   const { isDarkMode, bgColor } = useThemeColors();
   const { t } = useLocale();
+  const { isWebLayout } = useResponsive();
+
+  // A preview of what a customer will see, so it is capped to the same column the real service
+  // page uses — previewing at 1440px would show the provider a layout no booker ever gets.
+  const Root: any = isWebLayout ? View : SafeAreaView;
+  const capped = isWebLayout
+    ? { width: '100%' as const, maxWidth: CONTENT_WIDTHS.default, alignSelf: 'center' as const }
+    : undefined;
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
+    <Root className={`flex-1 ${bgColor}`}>
       {/* Header */}
-      <View className="rounded-b-3xl bg-brand-500 px-6 pb-6" style={{ paddingTop: 48, zIndex: 1 }}>
+      <View
+        className={`bg-brand-500 px-6 pb-6 ${isWebLayout ? '' : 'rounded-b-3xl'}`}
+        style={{ paddingTop: isWebLayout ? 24 : 48, zIndex: 1, ...capped }}>
         <View className="flex-row items-center justify-between">
           <View className="flex-1 flex-row items-center">
             <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
@@ -53,19 +65,23 @@ export default function ServicePreviewScreen() {
       {/* Image — pulled up to sit behind the rounded corners of the header */}
       <View
         className="items-center justify-center bg-gray-200"
-        style={{ height: 220, marginTop: -24 }}>
+        // The -24 lifts the image behind the header's rounded corners; with square corners on the
+        // web design there is nothing to tuck it under.
+        style={{ height: 220, marginTop: isWebLayout ? 0 : -24, ...capped }}>
         <View className="h-20 w-20 items-center justify-center rounded-full bg-gray-300">
           <Ionicons name="camera-outline" size={40} color="#9CA3AF" />
         </View>
       </View>
 
       {/* Service Detail View */}
-      <ServiceDetailView
-        service={service}
-        isDarkMode={isDarkMode}
-        showBookButton={true}
-        onBookPress={undefined} // Disabled in preview
-      />
-    </SafeAreaView>
+      <View style={{ flex: 1, ...capped }}>
+        <ServiceDetailView
+          service={service}
+          isDarkMode={isDarkMode}
+          showBookButton={true}
+          onBookPress={undefined} // Disabled in preview
+        />
+      </View>
+    </Root>
   );
 }

@@ -5,6 +5,8 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
+import { useResponsive } from '../../../hooks/useResponsive';
 import ListState from '../../../components/shared/ListState';
 import ReviewModal from '../../../components/shared/ReviewModal';
 import { useReviewModal } from '../../../hooks/useReviewModal';
@@ -22,6 +24,7 @@ export default function MyBookingsScreen() {
   const { currentUser } = useAuth();
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
+  const { isWebLayout } = useResponsive();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [bookings, setBookings] = useState<BookingViewModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -114,58 +117,65 @@ export default function MyBookingsScreen() {
             {t('myBookings.bookingsCount', { count: pastBookings.length })}
           </Text>
         )}
-        {visible.map((booking) => (
-          <BookingCard
-            key={booking.id}
-            booking={{
-              id: booking.id,
-              providerName: booking.providerName,
-              serviceType: booking.serviceName,
-              date: booking.date,
-              time: booking.time,
-              price: booking.price,
-              currency: booking.currency,
-              status: booking.statusLabel,
-              image: booking.image,
-              rating: booking.rating,
-            }}
-            isDarkMode={isDarkMode}
-            cardBg={cardBg}
-            textColor={textColor}
-            subtextColor={subtextColor}
-            borderColor={borderColor}
-            onViewDetails={() =>
-              (navigation as any).navigate('BookingDetails', { bookingId: booking.id })
-            }
-            // Chat only on the Upcoming tab — there is nothing left to coordinate about a job
-            // that has already happened. Keyed off the tab rather than the status label on
-            // purpose: a booking the provider accepted but never completed keeps an "active"
-            // label forever, and those sit under Past once their date has gone by.
-            onMessage={
-              activeTab === 'upcoming'
-                ? () =>
-                    (navigation as any).navigate('Chat', {
-                      serviceProviderId: booking.providerId,
-                      // Names the booking the chat is about, so the message carries that
-                      // context and the thread's subject follows the right service.
-                      bookingId: booking.id,
-                      serviceId: booking.serviceId,
-                      providerName: booking.providerName,
-                      providerAvatar: booking.image,
-                      subtitle: booking.serviceName,
-                    })
-                : undefined
-            }
-            onLeaveReview={() =>
-              review.open({
-                bookingId: booking.id,
-                serviceProviderId: booking.providerId,
-                serviceId: booking.serviceId,
-                serviceName: booking.serviceName,
-              })
-            }
-          />
-        ))}
+        {/*
+          Booking cards are full-width rows — fine in a phone column, and on a desktop a stack of
+          1120px bars each holding a thumbnail and four short lines. Two per row keeps their
+          proportions and halves the scrolling.
+        */}
+        <ResponsiveGrid columns={{ mobile: 1, tablet: 1, desktop: 2 }} gap={12} rowGap={0}>
+          {visible.map((booking) => (
+            <BookingCard
+              key={booking.id}
+              booking={{
+                id: booking.id,
+                providerName: booking.providerName,
+                serviceType: booking.serviceName,
+                date: booking.date,
+                time: booking.time,
+                price: booking.price,
+                currency: booking.currency,
+                status: booking.statusLabel,
+                image: booking.image,
+                rating: booking.rating,
+              }}
+              isDarkMode={isDarkMode}
+              cardBg={cardBg}
+              textColor={textColor}
+              subtextColor={subtextColor}
+              borderColor={borderColor}
+              onViewDetails={() =>
+                (navigation as any).navigate('BookingDetails', { bookingId: booking.id })
+              }
+              // Chat only on the Upcoming tab — there is nothing left to coordinate about a job
+              // that has already happened. Keyed off the tab rather than the status label on
+              // purpose: a booking the provider accepted but never completed keeps an "active"
+              // label forever, and those sit under Past once their date has gone by.
+              onMessage={
+                activeTab === 'upcoming'
+                  ? () =>
+                      (navigation as any).navigate('Chat', {
+                        serviceProviderId: booking.providerId,
+                        // Names the booking the chat is about, so the message carries that
+                        // context and the thread's subject follows the right service.
+                        bookingId: booking.id,
+                        serviceId: booking.serviceId,
+                        providerName: booking.providerName,
+                        providerAvatar: booking.image,
+                        subtitle: booking.serviceName,
+                      })
+                  : undefined
+              }
+              onLeaveReview={() =>
+                review.open({
+                  bookingId: booking.id,
+                  serviceProviderId: booking.providerId,
+                  serviceId: booking.serviceId,
+                  serviceName: booking.serviceName,
+                })
+              }
+            />
+          ))}
+        </ResponsiveGrid>
       </>
     </ListState>
   );
@@ -174,9 +184,12 @@ export default function MyBookingsScreen() {
     <>
       <ScreenLayout
         headerVariant="standard"
-        showBackButton
         headerTitle={t('myBookings.title')}
-        contentBg={bgColor}>
+        contentBg={bgColor}
+        width="wide"
+        // Back is a drill-down affordance; on the web design My Bookings is a sidebar
+        // destination, so there is nothing above it to return to.
+        showBackButton={!isWebLayout}>
         <ScrollView
           className="flex-1"
           contentContainerStyle={{ paddingTop: 16, paddingBottom: 24 }}>

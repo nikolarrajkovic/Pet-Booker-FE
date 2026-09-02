@@ -18,6 +18,9 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
 import type { Partner, PartnerStatus, ServiceHistoryItem } from '../components';
+import { useResponsive } from '../../../hooks/useResponsive';
+import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
+import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 import {
   getServiceProvider,
   extractProviderDocuments,
@@ -83,6 +86,7 @@ export default function PartnerDetailsScreen() {
   const route = useRoute<any>();
   const { isDarkMode, hex } = useThemeColors();
   const { t, tEnum } = useLocale();
+  const { isWebLayout } = useResponsive();
   const insets = useSafeAreaInsets();
 
   const partner: Partner = route.params?.partner;
@@ -123,6 +127,11 @@ export default function PartnerDetailsScreen() {
       cancelled = true;
     };
   }, [partner?.id]);
+
+  // Esc dismisses both dialogs. Declared above the `!partner` guard: a hook after a conditional
+  // return runs in a different order between renders.
+  useEscapeToClose(!!confirm, () => setConfirm(null));
+  useEscapeToClose(!!viewerUri, () => setViewerUri(null));
 
   if (!partner) {
     return (
@@ -196,14 +205,17 @@ export default function PartnerDetailsScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: BRAND_GREEN }}>
-      {/* ── Green header ── */}
+    <View style={{ flex: 1, backgroundColor: isWebLayout ? bgColor : BRAND_GREEN }}>
+      {/* ── Header ── green slab on a phone, a plain page title on the web design ── */}
       <View
         style={{
-          backgroundColor: BRAND_GREEN,
-          paddingHorizontal: 20,
-          paddingTop: insets.top + 12,
-          paddingBottom: 28,
+          backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
+          paddingHorizontal: isWebLayout ? 40 : 20,
+          paddingTop: isWebLayout ? 32 : insets.top + 12,
+          paddingBottom: isWebLayout ? 12 : 28,
+          width: '100%',
+          maxWidth: isWebLayout ? CONTENT_WIDTHS.default : undefined,
+          alignSelf: 'center',
         }}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -211,13 +223,21 @@ export default function PartnerDetailsScreen() {
             width: 36,
             height: 36,
             borderRadius: 18,
-            backgroundColor: 'rgba(255,255,255,0.25)',
+            backgroundColor: isWebLayout ? hex.card : 'rgba(255,255,255,0.25)',
+            borderWidth: isWebLayout ? 1 : 0,
+            borderColor: hex.border,
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-          <Ionicons name="arrow-back" size={20} color="white" />
+          <Ionicons name="arrow-back" size={20} color={isWebLayout ? hex.subtext : 'white'} />
         </TouchableOpacity>
-        <Text style={{ color: 'white', fontSize: 20, fontWeight: '700', marginTop: 10 }}>
+        <Text
+          style={{
+            color: isWebLayout ? hex.text : 'white',
+            fontSize: isWebLayout ? 28 : 20,
+            fontWeight: '700',
+            marginTop: 10,
+          }}>
           {t('admin.partnerDetails')}
         </Text>
       </View>
@@ -227,12 +247,21 @@ export default function PartnerDetailsScreen() {
         style={{
           flex: 1,
           backgroundColor: bgColor,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          marginTop: -20,
+          borderTopLeftRadius: isWebLayout ? 0 : 24,
+          borderTopRightRadius: isWebLayout ? 0 : 24,
+          marginTop: isWebLayout ? 0 : -20,
         }}>
         <ScrollView
-          contentContainerStyle={{ paddingBottom: 100 }}
+          contentContainerStyle={
+            isWebLayout
+              ? {
+                  paddingBottom: 60,
+                  width: '100%',
+                  maxWidth: CONTENT_WIDTHS.default,
+                  alignSelf: 'center',
+                }
+              : { paddingBottom: 100 }
+          }
           showsVerticalScrollIndicator={false}>
           {/* ── Profile card ── */}
           <View

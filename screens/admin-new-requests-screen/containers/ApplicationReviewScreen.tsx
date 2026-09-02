@@ -20,6 +20,9 @@ import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
 import { providerTypeValue } from '../../../services/service-providers';
 import type { PartnerApplication, ApplicationStatus, ApplicationImage } from '../components';
+import { useResponsive } from '../../../hooks/useResponsive';
+import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
+import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 import {
   approveServiceProvider,
   declineServiceProvider,
@@ -75,6 +78,7 @@ export default function ApplicationReviewScreen() {
   const { isDarkMode, hex } = useThemeColors();
   const { showError } = useToast();
   const { t, tEnum } = useLocale();
+  const { isWebLayout } = useResponsive();
   const insets = useSafeAreaInsets();
 
   const application: PartnerApplication = route.params?.application;
@@ -83,6 +87,10 @@ export default function ApplicationReviewScreen() {
   const [viewerUri, setViewerUri] = useState<string | null>(null);
   const [status, setStatus] = useState<ApplicationStatus>(application?.status ?? 'pending');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Esc dismisses the document viewer. Declared here, above the `!application` guard: a hook
+  // after a conditional return runs in a different order between renders.
+  useEscapeToClose(!!viewerUri, () => setViewerUri(null));
 
   if (!application) {
     return (
@@ -143,14 +151,17 @@ export default function ApplicationReviewScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: BRAND_GREEN }}>
-      {/* ── Green header ── */}
+    <View style={{ flex: 1, backgroundColor: isWebLayout ? bgColor : BRAND_GREEN }}>
+      {/* ── Header ── green slab on a phone, a plain page title on the web design ── */}
       <View
         style={{
-          backgroundColor: BRAND_GREEN,
-          paddingHorizontal: 20,
-          paddingTop: insets.top + 12,
-          paddingBottom: 28,
+          backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
+          paddingHorizontal: isWebLayout ? 40 : 20,
+          paddingTop: isWebLayout ? 32 : insets.top + 12,
+          paddingBottom: isWebLayout ? 12 : 28,
+          width: '100%',
+          maxWidth: isWebLayout ? CONTENT_WIDTHS.default : undefined,
+          alignSelf: 'center',
         }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
           <TouchableOpacity
@@ -159,18 +170,26 @@ export default function ApplicationReviewScreen() {
               width: 36,
               height: 36,
               borderRadius: 18,
-              backgroundColor: 'rgba(255,255,255,0.25)',
+              backgroundColor: isWebLayout ? hex.card : 'rgba(255,255,255,0.25)',
+              borderWidth: isWebLayout ? 1 : 0,
+              borderColor: hex.border,
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: 12,
             }}>
-            <Ionicons name="arrow-back" size={20} color="white" />
+            <Ionicons name="arrow-back" size={20} color={isWebLayout ? hex.subtext : 'white'} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: 'white', fontSize: 20, fontWeight: '700' }}>
+            <Text
+              style={{
+                color: isWebLayout ? hex.text : 'white',
+                fontSize: isWebLayout ? 28 : 20,
+                fontWeight: '700',
+              }}>
               {t('admin.applicationReview')}
             </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>
+            <Text
+              style={{ color: isWebLayout ? hex.subtext : 'rgba(255,255,255,0.8)', fontSize: 13 }}>
               {t('admin.applicationId', { id: application.id })}
             </Text>
           </View>
@@ -182,12 +201,23 @@ export default function ApplicationReviewScreen() {
         style={{
           flex: 1,
           backgroundColor: bgColor,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          marginTop: -20,
+          borderTopLeftRadius: isWebLayout ? 0 : 24,
+          borderTopRightRadius: isWebLayout ? 0 : 24,
+          marginTop: isWebLayout ? 0 : -20,
         }}>
         <ScrollView
-          contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+          contentContainerStyle={
+            isWebLayout
+              ? {
+                  padding: 40,
+                  paddingTop: 8,
+                  paddingBottom: 60,
+                  width: '100%',
+                  maxWidth: CONTENT_WIDTHS.default,
+                  alignSelf: 'center',
+                }
+              : { padding: 20, paddingBottom: 100 }
+          }
           showsVerticalScrollIndicator={false}>
           {/* ── Applicant summary card ── */}
           <View

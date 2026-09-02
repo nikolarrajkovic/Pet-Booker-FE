@@ -11,6 +11,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
+import { useFormChain } from '../../../hooks/useFormChain';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -208,6 +209,9 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
   const inputStyle = `${inputBg} border ${borderColor} rounded-xl px-4 py-3.5 text-sm ${textColor}`;
   const dateField = `${inputBg} border ${borderColor} rounded-xl px-4 py-3.5 flex-row items-center justify-between`;
 
+  // Name -> budget -> save. The amount, dates and type toggle are pickers, not text fields.
+  const form = useFormChain(['name', 'budget'], handleSave);
+
   return (
     <ScreenLayout
       headerVariant="standard"
@@ -228,7 +232,10 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
           className="h-10 w-10 items-center justify-center rounded-full bg-white/20">
           <Ionicons name="bar-chart-outline" size={18} color="white" />
         </TouchableOpacity>
-      }>
+      }
+      // A form: one column of fields. Capped narrow so a label never sits a screen-width
+      // away from the input it names.
+      width="narrow">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 }}
@@ -257,6 +264,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
         </Text>
         <TextInput
           className={`${inputStyle} mb-5`}
+          {...form.field('name')}
           value={name}
           onChangeText={setName}
           placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
@@ -343,6 +351,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
               <Ionicons name="cash-outline" size={18} color="#9CA3AF" style={{ marginRight: 8 }} />
               <TextInput
                 className={`flex-1 py-3.5 text-sm ${textColor}`}
+                {...form.field('budget')}
                 value={budget}
                 onChangeText={setBudget}
                 keyboardType="numeric"

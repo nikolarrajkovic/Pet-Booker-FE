@@ -19,6 +19,7 @@ import { durationDisplayLabel } from '../../my-services-screen/serviceModel';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import StickyFooter from '../../../components/shared/StickyFooter';
+import { useResponsive } from '../../../hooks/useResponsive';
 import { PriceBreakdown, PaymentMethodSelector, AddonLine } from '../components';
 import type { BookingAdditionalServiceReadDto } from '../../../services/bookings';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
@@ -228,178 +229,217 @@ export default function ReviewBookingScreen() {
     }
   };
 
+  const { isWebLayout } = useResponsive();
+
+  const priceBreakdown = (
+    <PriceBreakdown
+      isDarkMode={isDarkMode}
+      textColor={textColor}
+      subtextColor={subtextColor}
+      borderColor={borderColor}
+      serviceTotal={serviceTotal}
+      discount={discount}
+      addons={addonLines}
+      total={grandTotal}
+      currency={serviceCurrency(service)}
+    />
+  );
+
+  const confirmButton = (
+    <TouchableOpacity
+      disabled={isSubmitting}
+      onPress={handleConfirm}
+      className="items-center rounded-2xl bg-brand-500 py-4"
+      style={{ opacity: isSubmitting ? 0.7 : 1 }}>
+      {isSubmitting ? (
+        <ActivityIndicator color="white" />
+      ) : (
+        <Text className="text-lg font-bold text-white">{t('reviewBooking.confirmBooking')}</Text>
+      )}
+    </TouchableOpacity>
+  );
+
   return (
     <ScreenLayout
       headerVariant="standard"
       showBackButton
       headerTitle={t('reviewBooking.title')}
       contentBg={contentBg}
-      contentRounded={false}>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* Service Info */}
-        <View className="flex-row items-center px-6 py-5">
-          {serviceImage ? (
-            <Image
-              source={{ uri: serviceImage }}
-              className="mr-4 h-16 w-16 rounded-xl"
-              resizeMode="cover"
-            />
-          ) : (
-            <View
-              className={`mr-4 h-16 w-16 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
-              <Ionicons name="paw" size={26} color="#9CA3AF" />
+      contentRounded={false}
+      width="wide">
+      {/*
+        The checkout shape. On a phone the total and the confirm button are at the bottom of a
+        long scroll, with the button pinned so it is reachable at any offset. On a desktop that
+        same content fits beside the booking rather than under it: the price stays in view while
+        the user checks the dates and add-ons above it, which is what every checkout page does and
+        what a pinned bar is a small-screen substitute for.
+      */}
+      <View style={{ flex: 1, flexDirection: isWebLayout ? 'row' : 'column' }}>
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ paddingBottom: isWebLayout ? 32 : 100 }}>
+          {/* Service Info */}
+          <View className="flex-row items-center px-6 py-5">
+            {serviceImage ? (
+              <Image
+                source={{ uri: serviceImage }}
+                className="mr-4 h-16 w-16 rounded-xl"
+                resizeMode="cover"
+              />
+            ) : (
+              <View
+                className={`mr-4 h-16 w-16 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
+                <Ionicons name="paw" size={26} color="#9CA3AF" />
+              </View>
+            )}
+            <View className="flex-1">
+              <Text className={`text-lg font-bold ${textColor}`}>{service.name ?? 'Service'}</Text>
+              {service.basicServiceName ? (
+                <Text className="mt-1 text-sm text-brand-600">{service.basicServiceName}</Text>
+              ) : null}
             </View>
-          )}
-          <View className="flex-1">
-            <Text className={`text-lg font-bold ${textColor}`}>{service.name ?? 'Service'}</Text>
-            {service.basicServiceName ? (
-              <Text className="mt-1 text-sm text-brand-600">{service.basicServiceName}</Text>
-            ) : null}
           </View>
-        </View>
 
-        {/* Booking Details — one block per appointment */}
-        <View className={`border-t px-6 py-5 ${borderColor}`}>
-          <Text className={`text-base font-semibold ${textColor} mb-4`}>
-            {t('reviewBooking.bookingDetails')}
-            {appointments.length > 1 ? ` (${appointments.length})` : ''}
-          </Text>
-          {appointments.map((apt, i) => {
-            const start = parseBookingDate(apt.bookingFrom);
-            return (
-              <View key={apt.id} className={i > 0 ? `mt-4 border-t pt-4 ${borderColor}` : ''}>
-                <Text className={`text-base font-semibold ${textColor}`}>
-                  {apt.service.name}{' '}
-                  <Text className={`${subtextColor} font-normal`}>
-                    {t('bookService.forPet', { name: apt.pet.name })}
+          {/* Booking Details — one block per appointment */}
+          <View className={`border-t px-6 py-5 ${borderColor}`}>
+            <Text className={`text-base font-semibold ${textColor} mb-4`}>
+              {t('reviewBooking.bookingDetails')}
+              {appointments.length > 1 ? ` (${appointments.length})` : ''}
+            </Text>
+            {appointments.map((apt, i) => {
+              const start = parseBookingDate(apt.bookingFrom);
+              return (
+                <View key={apt.id} className={i > 0 ? `mt-4 border-t pt-4 ${borderColor}` : ''}>
+                  <Text className={`text-base font-semibold ${textColor}`}>
+                    {apt.service.name}{' '}
+                    <Text className={`${subtextColor} font-normal`}>
+                      {t('bookService.forPet', { name: apt.pet.name })}
+                    </Text>
                   </Text>
-                </Text>
-                <View className="mt-1.5 flex-row items-center">
-                  <Ionicons
-                    name="calendar-outline"
-                    size={14}
-                    color={BRAND_GREEN}
-                    style={{ marginRight: 6 }}
-                  />
-                  <Text className={`text-sm ${subtextColor}`}>
-                    {`${t(DAY_KEYS[start.getDay()])}, ${t(MONTH_KEYS[start.getMonth()])} ${start.getDate()}, ${start.getFullYear()}`}
-                  </Text>
-                </View>
-                <View className="mt-1 flex-row items-center">
-                  <Ionicons
-                    name="time-outline"
-                    size={14}
-                    color={BRAND_GREEN}
-                    style={{ marginRight: 6 }}
-                  />
-                  <Text className={`text-sm ${subtextColor}`}>
-                    {start.toLocaleTimeString(undefined, {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: false,
-                    })}
-                  </Text>
-                </View>
-                {apt.pricingOptionName && (
-                  <View className="mt-1 flex-row items-center">
+                  <View className="mt-1.5 flex-row items-center">
                     <Ionicons
-                      name="pricetag-outline"
+                      name="calendar-outline"
                       size={14}
                       color={BRAND_GREEN}
                       style={{ marginRight: 6 }}
                     />
                     <Text className={`text-sm ${subtextColor}`}>
-                      {t('bookService.option', {
-                        name: durationDisplayLabel(t, apt.pricingOptionName),
+                      {`${t(DAY_KEYS[start.getDay()])}, ${t(MONTH_KEYS[start.getMonth()])} ${start.getDate()}, ${start.getFullYear()}`}
+                    </Text>
+                  </View>
+                  <View className="mt-1 flex-row items-center">
+                    <Ionicons
+                      name="time-outline"
+                      size={14}
+                      color={BRAND_GREEN}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text className={`text-sm ${subtextColor}`}>
+                      {start.toLocaleTimeString(undefined, {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false,
                       })}
                     </Text>
                   </View>
-                )}
-                {apt.addons.length > 0 && (
-                  <Text className={`text-xs ${subtextColor} mt-1`}>
-                    + {apt.addons.map((a) => a.name).join(', ')}
-                  </Text>
-                )}
-                {apt.pickupAddress ? (
-                  <View className="mt-1 flex-row items-start">
-                    <Ionicons
-                      name="car-outline"
-                      size={14}
-                      color={BRAND_GREEN}
-                      style={{ marginRight: 6, marginTop: 1 }}
-                    />
-                    <Text className={`text-xs ${subtextColor} flex-1`}>
-                      {t('reviewBooking.pickupLine', { address: addressLabel(apt.pickupAddress) })}
+                  {apt.pricingOptionName && (
+                    <View className="mt-1 flex-row items-center">
+                      <Ionicons
+                        name="pricetag-outline"
+                        size={14}
+                        color={BRAND_GREEN}
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text className={`text-sm ${subtextColor}`}>
+                        {t('bookService.option', {
+                          name: durationDisplayLabel(t, apt.pricingOptionName),
+                        })}
+                      </Text>
+                    </View>
+                  )}
+                  {apt.addons.length > 0 && (
+                    <Text className={`text-xs ${subtextColor} mt-1`}>
+                      + {apt.addons.map((a) => a.name).join(', ')}
                     </Text>
-                  </View>
-                ) : null}
-                {apt.leaveOverAddress ? (
-                  <View className="mt-1 flex-row items-start">
-                    <Ionicons
-                      name="home-outline"
-                      size={14}
-                      color={BRAND_GREEN}
-                      style={{ marginRight: 6, marginTop: 1 }}
-                    />
-                    <Text className={`text-xs ${subtextColor} flex-1`}>
-                      {t('reviewBooking.dropoffLine', {
-                        address: addressLabel(apt.leaveOverAddress),
-                      })}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-            );
-          })}
-        </View>
+                  )}
+                  {apt.pickupAddress ? (
+                    <View className="mt-1 flex-row items-start">
+                      <Ionicons
+                        name="car-outline"
+                        size={14}
+                        color={BRAND_GREEN}
+                        style={{ marginRight: 6, marginTop: 1 }}
+                      />
+                      <Text className={`text-xs ${subtextColor} flex-1`}>
+                        {t('reviewBooking.pickupLine', {
+                          address: addressLabel(apt.pickupAddress),
+                        })}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {apt.leaveOverAddress ? (
+                    <View className="mt-1 flex-row items-start">
+                      <Ionicons
+                        name="home-outline"
+                        size={14}
+                        color={BRAND_GREEN}
+                        style={{ marginRight: 6, marginTop: 1 }}
+                      />
+                      <Text className={`text-xs ${subtextColor} flex-1`}>
+                        {t('reviewBooking.dropoffLine', {
+                          address: addressLabel(apt.leaveOverAddress),
+                        })}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
 
-        <PriceBreakdown
-          isDarkMode={isDarkMode}
-          textColor={textColor}
-          subtextColor={subtextColor}
-          borderColor={borderColor}
-          serviceTotal={serviceTotal}
-          discount={discount}
-          addons={addonLines}
-          total={grandTotal}
-          currency={serviceCurrency(service)}
-        />
+          {!isWebLayout && priceBreakdown}
 
-        <PaymentMethodSelector
-          isDarkMode={isDarkMode}
-          textColor={textColor}
-          subtextColor={subtextColor}
-          borderColor={borderColor}
-          selectedMethod={selectedPaymentMethod}
-          onSelectMethod={setSelectedPaymentMethod}
-        />
+          <PaymentMethodSelector
+            isDarkMode={isDarkMode}
+            textColor={textColor}
+            subtextColor={subtextColor}
+            borderColor={borderColor}
+            selectedMethod={selectedPaymentMethod}
+            onSelectMethod={setSelectedPaymentMethod}
+          />
 
-        {/* Cancellation Policy */}
-        <View className={`border-t px-6 py-5 ${borderColor}`}>
-          <Text className={`text-base font-semibold ${textColor} mb-3`}>
-            {t('reviewBooking.cancellationPolicy')}
-          </Text>
-          <Text className={`text-sm ${subtextColor} leading-6`}>
-            {t('reviewBooking.cancellationPolicyText')}
-          </Text>
-        </View>
-      </ScrollView>
-
-      <StickyFooter className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
-        <TouchableOpacity
-          disabled={isSubmitting}
-          onPress={handleConfirm}
-          className="items-center rounded-2xl bg-brand-500 py-4"
-          style={{ opacity: isSubmitting ? 0.7 : 1 }}>
-          {isSubmitting ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text className="text-lg font-bold text-white">
-              {t('reviewBooking.confirmBooking')}
+          {/* Cancellation Policy */}
+          <View className={`border-t px-6 py-5 ${borderColor}`}>
+            <Text className={`text-base font-semibold ${textColor} mb-3`}>
+              {t('reviewBooking.cancellationPolicy')}
             </Text>
-          )}
-        </TouchableOpacity>
-      </StickyFooter>
+            <Text className={`text-sm ${subtextColor} leading-6`}>
+              {t('reviewBooking.cancellationPolicyText')}
+            </Text>
+          </View>
+        </ScrollView>
+
+        {isWebLayout && (
+          <View
+            className={`${cardBg} border ${borderColor} rounded-2xl`}
+            style={{
+              width: 360,
+              marginLeft: 24,
+              marginTop: 20,
+              padding: 20,
+              alignSelf: 'flex-start',
+            }}>
+            {priceBreakdown}
+            <View className="mt-4">{confirmButton}</View>
+          </View>
+        )}
+      </View>
+
+      {!isWebLayout && (
+        <StickyFooter className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
+          {confirmButton}
+        </StickyFooter>
+      )}
     </ScreenLayout>
   );
 }

@@ -13,6 +13,7 @@ import { durationDisplayLabel } from '../../my-services-screen/serviceModel';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import StickyFooter from '../../../components/shared/StickyFooter';
+import { useResponsive } from '../../../hooks/useResponsive';
 import DatePicker from '../../../components/shared/DatePicker';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { PetSelector, BookingSummary, TimeSlotPicker, TimeSlot } from '../components';
@@ -664,6 +665,8 @@ export default function BookServiceScreen() {
     </View>
   );
 
+  const { isWebLayout } = useResponsive();
+
   const canContinue = selectionComplete || appointments.length > 0;
 
   return (
@@ -672,20 +675,32 @@ export default function BookServiceScreen() {
       showBackButton
       contentBg={contentBg}
       contentRounded={false}
+      headerTitle={isWebLayout ? t('bookService.title') : undefined}
+      headerSubtitle={
+        isWebLayout
+          ? [selectedService.name, selectedService.basicServiceName].filter(Boolean).join(' • ')
+          : undefined
+      }
       headerChildren={
-        <View className="flex-1">
-          <Text className="text-xl font-bold text-white">{t('bookService.title')}</Text>
-          <Text className={`${isDarkMode ? 'text-gray-300' : 'text-brand-100'} text-sm`}>
-            {[selectedService.name, selectedService.basicServiceName].filter(Boolean).join(' • ')}
-          </Text>
-        </View>
+        isWebLayout ? undefined : (
+          <View className="flex-1">
+            <Text className="text-xl font-bold text-white">{t('bookService.title')}</Text>
+            <Text className={`${isDarkMode ? 'text-gray-300' : 'text-brand-100'} text-sm`}>
+              {[selectedService.name, selectedService.basicServiceName].filter(Boolean).join(' • ')}
+            </Text>
+          </View>
+        )
       }>
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
           <ActivityIndicator size="large" color={BRAND_GREEN} />
         </View>
       ) : (
-        <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
+        <ScrollView
+          className="flex-1"
+          // The tall tail clears the pinned CTA bar; on the web design the bar sits in the flow
+          // below the scroll area, so there is nothing overlapping to clear.
+          contentContainerStyle={{ paddingBottom: isWebLayout ? 24 : 100 }}>
           {/* Step 1: Service (fixed — chosen before entering this screen). When
               the service defines pricing options, picking one is part of this
               step — the booking can't proceed without it. */}

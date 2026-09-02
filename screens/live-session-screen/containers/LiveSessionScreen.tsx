@@ -718,14 +718,19 @@ export default function LiveSessionScreen() {
       showBackButton
       headerTitle={t('liveSession.title')}
       headerSubtitle={isPartner ? t('liveSession.partnerSubtitle') : t('liveSession.userSubtitle')}
-      contentBg={bgColor}>
+      contentBg={bgColor}
+      // A live map plus a status panel — the one screen here that genuinely wants the width.
+      width="wide">
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
           <ActivityIndicator size="large" color={BRAND_GREEN} />
         </View>
       ) : justCompleted ? (
         // ── Service-completed success state ──
-        <View className="flex-1 items-center justify-center px-8">
+        <View
+          className="flex-1 items-center justify-center px-8"
+          // Centred already; a width stops the "done" buttons stretching the full monitor.
+          style={{ maxWidth: 520, alignSelf: 'center', width: '100%' }}>
           <View className="mb-5 h-20 w-20 items-center justify-center rounded-full bg-brand-50">
             <Ionicons name="checkmark-done" size={42} color={BRAND_GREEN} />
           </View>
