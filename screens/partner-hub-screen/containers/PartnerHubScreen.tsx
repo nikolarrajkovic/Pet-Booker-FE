@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -297,6 +297,11 @@ export default function PartnerHubScreen() {
   const { unreadCount: unreadMessages, refreshUnreadCount: refreshUnreadMessages } = useMessages();
   const insets = useSafeAreaInsets();
 
+  // React Native's own SafeAreaView insets on iOS only. Android has drawn edge-to-edge since Expo
+  // SDK 54, so nothing there keeps content clear of the status bar and camera cutout — the header
+  // has to pad for it itself, or the title sits under the front camera.
+  const headerTopInset = Platform.OS === 'android' ? insets.top : 0;
+
   const bgColor = hex.bg;
   const cardBg = hex.card;
   const borderColor = hex.border;
@@ -436,7 +441,7 @@ export default function PartnerHubScreen() {
         style={{
           backgroundColor: BRAND_GREEN,
           paddingHorizontal: 20,
-          paddingTop: insets.top > 0 ? 8 : 16,
+          paddingTop: headerTopInset + (insets.top > 0 ? 8 : 16),
           paddingBottom: 24,
         }}>
         <View

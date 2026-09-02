@@ -1,11 +1,11 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import './global.css';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from './screens/home-screen/containers/HomeScreen';
@@ -81,6 +81,19 @@ function AppContent() {
   // a device push) can route without a screen to hang `useNavigation` on.
   const [navReady, setNavReady] = useState(false);
 
+  // Every screen is drawn on top of the navigator's own background, which react-navigation paints
+  // from the active theme. Left at the default that is `rgb(242,242,242)` in BOTH modes, so any
+  // frame in which a screen has not painted yet — the first frames of a push, while the incoming
+  // screen mounts — shows light grey behind the transition, and in dark mode it is glaring.
+  // Matching it to the app's own palette makes such a gap invisible instead.
+  const navTheme = useMemo(() => {
+    const base = isDarkMode ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: { ...base.colors, background: isDarkMode ? '#0f1621' : '#ffffff' },
+    };
+  }, [isDarkMode]);
+
   // Device push: registers this handset while signed in and routes a tapped notification to the
   // screen it is about. Lives here rather than in a screen because a cold start from a
   // notification arrives before any screen is mounted.
@@ -129,6 +142,7 @@ function AppContent() {
       <KeyboardProvider>
         <NavigationContainer
           ref={navigationRef}
+          theme={navTheme}
           onReady={() => setNavReady(true)}
           // Gives each screen its own URL on web (and petbooker:// deep links on native). Without
           // it every screen shared `/`, so browser Back left the app rather than going back a
@@ -254,8 +268,14 @@ function MainTabs() {
         headerShown: false,
         tabBarShowLabel: false,
         tabBarStyle: { display: 'none' },
-        animation: 'fade',
-        unmountOnBlur: true,
+        // Tabs swap instantly, the way a native tab bar does (and the way React Navigation 7
+        // defaults). Every animated alternative cross-fades the two scenes — they are siblings, so
+        // both are partly transparent at once — which makes each screen's card borders, shadows and
+        // section outlines show through the other and over the tab bar (which every screen draws
+        // itself, at the same spot). A hard swap has no frame where two scenes are visible at all.
+        // (`unmountOnBlur` used to sit here; React Navigation 7 dropped the option, so it did
+        // nothing — tab screens stay mounted and refresh through `useFocusEffect`.)
+        animation: 'none',
         tabBarIcon: ({ color, size }) => {
           if (route.name === 'Home') return <Ionicons name="home" size={size} color={color} />;
           if (route.name === 'Search') return <Ionicons name="search" size={size} color={color} />;
