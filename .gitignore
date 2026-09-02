@@ -28,3 +28,8 @@ memory/
 # Local env overrides — real API keys live here, never in the committed .env
 .env.local
 .env*.local
+
+# Staging test credentials — real mailbox, shared test password, admin login.
+# This repo is public; these never get committed. See STAGING_TESTING.md.
+staging-accounts.local.md
+*.local.md

@@ -16,6 +16,10 @@ docker compose up -d --build authapi petbookerapi
 See `PetBookerBackend/docs/e2e-testing-overview.md` for what that covers and which backend gaps
 are already known.
 
+> **Testing the deployed staging app instead of localhost?** The step tables below still apply,
+> but the setup, accounts and code handling do not — see [`STAGING_TESTING.md`](STAGING_TESTING.md)
+> and [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md).
+
 ## Setup
 
 ```bash

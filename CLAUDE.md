@@ -704,6 +704,13 @@ npm run update:preview            # EAS Update → OTA JS update to installed pr
 npm run update:production         # EAS Update → OTA JS update to production builds
 ```
 
+**Testing the deployed app — see [`STAGING_TESTING.md`](STAGING_TESTING.md)** (protocol, accounts,
+the confirmation-code window) and [`STAGING_TEST_PLAN.md`](STAGING_TEST_PLAN.md) (what to test, in
+dependency order). Staging has no MailHog and no seed script, so codes come from a real inbox the
+user has to read, and every account and fixture is built by hand in a fixed order. Two constraints
+drive the whole protocol: **confirmation codes expire in 15 minutes**, and **there is no reset** —
+an email or username is spent the first time it is used.
+
 **Web deployment — see [`WEB_DEPLOYMENT.md`](WEB_DEPLOYMENT.md)** for serving the browser build
 publicly (`npx expo export --platform web` → a static site behind Caddy on the backend's VM). Two
 things that surprise people: the app gets its **own hostname**, separate from the API's, because
