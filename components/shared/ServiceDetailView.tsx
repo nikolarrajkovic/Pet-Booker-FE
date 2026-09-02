@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import { formatMoney } from '../../services/currency';
+import StickyFooter from './StickyFooter';
 
 interface ServiceDetailViewProps {
   service: {
@@ -177,8 +178,8 @@ export default function ServiceDetailView({
 
       {/* Book Button - only shown if showBookButton is true */}
       {showBookButton && (
-        <View
-          className={`absolute bottom-0 left-0 right-0 ${cardBg} border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} px-6 py-4`}>
+        <StickyFooter
+          className={`${cardBg} border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} px-6 py-4`}>
           <TouchableOpacity
             onPress={onBookPress}
             disabled={!onBookPress}
@@ -196,7 +197,7 @@ export default function ServiceDetailView({
             }>
             <Text className="text-lg font-bold text-white">{t('shared.bookNow')}</Text>
           </TouchableOpacity>
-        </View>
+        </StickyFooter>
       )}
     </ScrollView>
   );

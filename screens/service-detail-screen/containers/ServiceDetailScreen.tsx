@@ -16,6 +16,7 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import StickyFooter from '../../../components/shared/StickyFooter';
 import {
   getService,
   ServiceDto,
@@ -581,8 +582,7 @@ export default function ServiceDetailScreen() {
       {/* Sticky footer: ask a question, or book. The chat button sits alongside Book Now
           because the question that stops someone booking ("do you take reactive dogs?")
           occurs to them right here, before any booking exists to hang a thread off. */}
-      <View
-        className={`absolute bottom-0 left-0 right-0 flex-row items-center ${cardBg} border-t ${borderColor} px-6 py-4`}>
+      <StickyFooter className={`flex-row items-center ${cardBg} border-t ${borderColor} px-6 py-4`}>
         <TouchableOpacity
           onPress={onMessage}
           disabled={isLoading}
@@ -612,7 +612,7 @@ export default function ServiceDetailScreen() {
           }>
           <Text className="text-lg font-bold text-white">{t('serviceDetail.bookNow')}</Text>
         </TouchableOpacity>
-      </View>
+      </StickyFooter>
     </ScreenLayout>
   );
 }
