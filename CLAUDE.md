@@ -466,7 +466,8 @@ Navigation patterns:
 Implementation notes (`App.tsx`):
 - The whole stack is gated on `isLoggedIn`; while `isLoading` (session restore), a full-screen `ActivityIndicator` is shown.
 - `MainTabs` registers all five tabs (`Home`, `Search`, `PartnerHub`, `AdminDashboard`, `Profile`) but the native tab bar is hidden (`tabBarStyle: { display: 'none' }`). The visible bar is the custom `components/shared/TabBar.tsx`, which role-gates `PartnerHub`/`AdminDashboard` via `useAuth()`.
-- Tabs use `unmountOnBlur: true` — screens remount on each focus (do data fetching in `useFocusEffect`, not just `useEffect`, when you need fresh data on return; see `MyPetsScreen`).
+- **Tab screens stay mounted** — React Navigation 7 dropped `unmountOnBlur`, so a tab keeps its state and does NOT remount when you come back to it (the option sat in `MainTabs` doing nothing until 2026-08-24). Fetch in `useFocusEffect`, not `useEffect`, whenever a screen needs fresh data on return; see `MyPetsScreen`.
+- **Tab switches are instant (`animation: 'none'`) and should stay that way.** Every animated option cross-fades the two scenes, and since they are siblings neither can be drawn opaquely over the other: mid-switch both are partly transparent, so each screen's card borders, shadows and section outlines ghost through the other and over the tab bar (which every screen draws itself, at the same spot). `animation: 'fade'` additionally leaves ~25% of the frame as bare navigator background at the midpoint. A custom `sceneStyleInterpolator` can close that background gap but not the blend — the blend is what looked bad, so the animation was dropped entirely (2026-08-24).
 
 ---
 
@@ -536,6 +537,7 @@ Always check this folder before creating a new component. If a new component is 
 | `Toast` (`Toast.tsx`) | `toast`, `isDarkMode`, `onDismiss` | Single presentational toast row (icon + message + dismiss) for the global overlay. **Don't render directly** — use `useToast()` (`context/ToastContext.tsx`) to show app-wide error/success/info toasts. See Context Providers. |
 | `ListState` | `isLoading?`, `error?`, `isEmpty?`, `emptyIcon?`, `emptyMessage?`, `children` | The loading → error → empty → content ladder every list screen needs; renders `children` only once all three are ruled out. **Use this instead of hand-writing the spinner/icon/message blocks** — they had drifted into two icon sizes and two greys across the screens that copied them. Also exports `LoadingState` and `MessageState` for a state needed on its own. |
 | `FilterTabs` | `tabs`, `activeKey`, `onChange`, `counts` | Pill filter bar (icon + label + count badge, selected tab tinted with its status color) above a moderation list. `moderationTabs(rejectedLabelKey)` from the same file returns the shared pending/approved/rejected triad — the last tab's wording is a parameter because an application is *rejected* while a review is *declined*. |
+| `StickyFooter` | `className?`, `style?`, `hideOnKeyboard?`, `children` | A bottom CTA bar pinned over a screen's ScrollView. Owns the `absolute bottom-0 left-0 right-0` positioning **and unmounts itself while the keyboard is open** — the bar sits exactly where the ScrollView parks the focused input, so a pinned bar covered the field being typed into. Pass `hideOnKeyboard={false}` for a bar that must stay reachable above the keyboard. **Never hand-write another `absolute bottom-0` bar** — and read the sticky-vs-in-flow rule under Key Conventions before reaching for this at all, because most screens should not have one. |
 
 ---
 
@@ -634,10 +636,25 @@ Genuinely bespoke colors stay inline (sourced from the hook's `isDarkMode`): e.g
 - Visual feedback: red border (error), green border (valid), default (untouched)
 - **Always use `DatePicker` (from `components/shared/DatePicker.tsx`) for any date input** — never use a plain `TextInput` for dates. Pass `isDarkMode`, `value`, `onChange`, and `onClose` props. For time inputs, use `TimePicker` from the same folder — **except booking start times**, which use `TimeSlotPicker` (`screens/book-service-screen/components/`) so unavailable slots are disabled based on existing bookings.
 
+### Primary actions — sticky bar vs. in the flow
+A CTA pinned to the bottom costs ~84px of **every** screenful for as long as the screen is open, and
+(being an overlay) lands on top of whatever the user scrolls or focuses under it. That rent is worth
+paying only where the action is the point of the screen:
+- **Pin it** (`StickyFooter`) on **commitment** screens, where the user arrived to take one action
+  and may decide at any scroll offset: ServiceDetail ("Book Now"), BookService ("Continue"),
+  ReviewBooking ("Confirm Booking"). Burying the confirm button under a scroll on a checkout-shaped
+  screen is the one case the industry is unanimous about.
+- **Put it in the flow**, as the last element inside the ScrollView, on **forms** — the user has to
+  reach the end to have filled the thing in, so a permanent bar buys nothing: AddPet ("Save Pet"),
+  Account ("Save Changes"), PartnerApplication and AdminAddPartner (which were always in-flow).
+  Give it `mt-2` and drop the ScrollView's `paddingBottom` back to `32` — the tall bottom padding
+  exists only to clear a pinned bar.
+
 ### Keyboard avoidance
 - **Android draws edge-to-edge from Expo SDK 54 on, so the manifest's `adjustResize` is a no-op** — the window no longer shrinks when the IME opens, and the keyboard simply covers the focused field. Nothing about `softwareKeyboardLayoutMode` fixes this; the app has to handle the inset itself.
 - **`react-native-keyboard-controller` is what handles it.** `KeyboardProvider` is mounted once in `App.tsx` around `NavigationContainer` — every `KeyboardAvoidingView` in the app depends on it and silently does nothing without it.
 - **Screens built on `ScreenLayout` get this for free** (it wraps header + content + footer in `KeyboardAvoidingView behavior="padding"`): the body shrinks and the inner `ScrollView` scrolls the focused input into view. Pass `avoidKeyboard={false}` for a screen that manages the keyboard itself.
+- **An `absolute bottom-0` CTA bar overlays the ScrollView rather than shortening it**, so when the keyboard shrinks the screen the ScrollView scrolls the focused input flush to its own bottom edge — under the bar. The primary fix is not to pin a CTA over a form at all (see the sticky-vs-in-flow rule under Key Conventions); where one is genuinely warranted, `StickyFooter` unmounts it for as long as the keyboard is up, which frees that strip and reflows nothing. An **in-flow** CTA never had the problem.
 - **A screen that does NOT use `ScreenLayout`** (the auth screens, ChatScreen) needs its own `KeyboardAvoidingView` — import it from `react-native-keyboard-controller`, **never from `react-native`**, and use `behavior="padding"` on both platforms. RN's own version with `behavior="height"`/`undefined` on Android relies on the window resize that no longer happens.
 - Adding this made the app depend on a native module: **a JS-only reload will not pick it up** — Expo Go can't run it, and a change here needs a fresh dev/EAS build.
 ### File uploads

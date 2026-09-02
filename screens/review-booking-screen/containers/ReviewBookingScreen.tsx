@@ -18,6 +18,7 @@ import { DAY_KEYS, MONTH_KEYS } from '../../../i18n';
 import { durationDisplayLabel } from '../../my-services-screen/serviceModel';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import StickyFooter from '../../../components/shared/StickyFooter';
 import { PriceBreakdown, PaymentMethodSelector, AddonLine } from '../components';
 import type { BookingAdditionalServiceReadDto } from '../../../services/bookings';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
@@ -384,8 +385,7 @@ export default function ReviewBookingScreen() {
         </View>
       </ScrollView>
 
-      <View
-        className={`absolute bottom-0 left-0 right-0 ${cardBg} border-t ${borderColor} px-6 py-4`}>
+      <StickyFooter className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
         <TouchableOpacity
           disabled={isSubmitting}
           onPress={handleConfirm}
@@ -399,7 +399,7 @@ export default function ReviewBookingScreen() {
             </Text>
           )}
         </TouchableOpacity>
-      </View>
+      </StickyFooter>
     </ScreenLayout>
   );
 }

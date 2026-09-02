@@ -12,6 +12,7 @@ import { DAY_SHORT_KEYS, MONTH_KEYS, MONTH_SHORT_KEYS } from '../../../i18n';
 import { durationDisplayLabel } from '../../my-services-screen/serviceModel';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import StickyFooter from '../../../components/shared/StickyFooter';
 import DatePicker from '../../../components/shared/DatePicker';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { PetSelector, BookingSummary, TimeSlotPicker, TimeSlot } from '../components';
@@ -1121,15 +1122,14 @@ export default function BookServiceScreen() {
       )}
 
       {/* Fixed Bottom Button */}
-      <View
-        className={`absolute bottom-0 left-0 right-0 ${cardBg} border-t ${borderColor} px-6 py-4`}>
+      <StickyFooter className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
         <TouchableOpacity
           disabled={!canContinue}
           onPress={onContinue}
           className={`items-center rounded-2xl py-4 ${canContinue ? 'bg-brand-500' : 'bg-gray-300'}`}>
           <Text className="text-lg font-bold text-white">{t('bookService.continueToReview')}</Text>
         </TouchableOpacity>
-      </View>
+      </StickyFooter>
 
       {/* Map picker for pickup / drop-off location — mounted only when open so it
           centres on the user's current location each time (not a stale default). */}

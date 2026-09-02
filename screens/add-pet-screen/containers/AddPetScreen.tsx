@@ -56,14 +56,7 @@ export default function AddPetScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: AddPetRouteParams }, 'params'>>();
   const existingPet = route.params?.pet;
-  const {
-    isDarkMode,
-    cardBg,
-    bgColor: contentBg,
-    textColor,
-    inputBg,
-    inputText,
-  } = useThemeColors();
+  const { isDarkMode, bgColor: contentBg, textColor, inputBg, inputText } = useThemeColors();
   const { showError } = useToast();
   const { currentUser } = useAuth();
   const { t } = useLocale();
@@ -191,7 +184,7 @@ export default function AddPetScreen() {
       contentRounded={false}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: 100, paddingHorizontal: 24 }}>
+        contentContainerStyle={{ paddingTop: 24, paddingBottom: 32, paddingHorizontal: 24 }}>
         <PetPhotoUploader
           photos={petPhotos.map((p) => p.uri)}
           isDarkMode={isDarkMode}
@@ -399,11 +392,10 @@ export default function AddPetScreen() {
             className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
           />
         </View>
-      </ScrollView>
 
-      {/* Save Button */}
-      <View
-        className={`absolute bottom-0 left-0 right-0 ${cardBg} border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-200'} px-6 py-4`}>
+        {/* Save — the last thing in the form, not a bar hovering over it. A long create/edit
+            form does not need its CTA reachable at every scroll offset, and pinning one costs
+            ~84px of every screenful and lands on top of whatever field has focus. */}
         <TouchableOpacity
           disabled={isSubmitting}
           style={{ opacity: isSubmitting ? 0.7 : 1 }}
@@ -462,14 +454,14 @@ export default function AddPetScreen() {
               setIsSubmitting(false);
             }
           }}
-          className="items-center rounded-2xl bg-brand-500 py-4">
+          className="mt-2 items-center rounded-2xl bg-brand-500 py-4">
           {isSubmitting ? (
             <ActivityIndicator color="white" />
           ) : (
             <Text className="text-lg font-bold text-white">{t('addPet.savePet')}</Text>
           )}
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </ScreenLayout>
   );
 }
