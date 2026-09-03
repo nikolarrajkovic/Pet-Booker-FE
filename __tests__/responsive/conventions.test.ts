@@ -76,6 +76,9 @@ describe('Platform.OS is not used for layout', () => {
       'DocumentPicker exposes a native File on web — read via FileReader',
     'screens/verify-email-screen/containers/VerifyEmailScreen.tsx':
       'onPaste is a DOM event; native has no paste handler on TextInput',
+    'components/shared/PatternBackground.tsx':
+      'ImageBackground resizeMode="repeat" does not tile on react-native-web — it draws one tile ' +
+      'in the corner — so web tiles through CSS background-repeat instead',
   };
 
   it('only appears where a capability genuinely differs', () => {

@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useCurrentRouteName } from '../../navigation/navigateToNavItem';
+import PatternBackground from '../shared/PatternBackground';
 import SideNav from './SideNav';
 import TopBar from './TopBar';
 
@@ -52,7 +53,7 @@ export default function AppShell({ children, enabled }: AppShellProps) {
         {/* `minHeight: 0` is what lets the navigator scroll inside this row instead of growing
             the page — without it a long screen pushes the whole shell taller than the window and
             the sidebar scrolls away with it. */}
-        <View style={{ flex: 1, minHeight: 0 }}>{children}</View>
+        <PatternBackground style={{ minHeight: 0 }}>{children}</PatternBackground>
       </View>
     </View>
   );

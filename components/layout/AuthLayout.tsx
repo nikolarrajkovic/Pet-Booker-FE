@@ -4,6 +4,7 @@ import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BRAND, useThemeColors } from '../../hooks/useThemeColors';
 import { useResponsive } from '../../hooks/useResponsive';
+import PatternBackground from '../shared/PatternBackground';
 
 type AuthLayoutProps = {
   /** Big line in the brand band — the app name, or the screen's purpose. */
@@ -74,7 +75,7 @@ export default function AuthLayout({ title, subtitle, children }: AuthLayoutProp
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: hex.bg }}>
+    <PatternBackground style={{ backgroundColor: hex.bg }}>
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
@@ -98,6 +99,6 @@ export default function AuthLayout({ title, subtitle, children }: AuthLayoutProp
           <View style={{ padding: 24 }}>{children}</View>
         </View>
       </ScrollView>
-    </View>
+    </PatternBackground>
   );
 }
