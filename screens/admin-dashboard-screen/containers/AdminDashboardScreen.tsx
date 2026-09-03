@@ -18,6 +18,8 @@ import { countServiceProviders, ApprovalStatus } from '../../../services/service
 import { countReviews } from '../../../services/reviews';
 import { formatMoney } from '../../../services/currency';
 import { getErrorMessage } from '../../../services/http';
+import { useResponsive } from '../../../hooks/useResponsive';
+import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
 const fmtCount = (n: number) => n.toLocaleString('en-US');
@@ -117,6 +119,7 @@ export default function AdminDashboardScreen() {
   const { isDarkMode, hex } = useThemeColors();
   const { showError } = useToast();
   const { t, tEnum } = useLocale();
+  const { isWebLayout } = useResponsive();
 
   const [metrics, setMetrics] = useState<AdminMetrics>(EMPTY_METRICS);
   const [loaded, setLoaded] = useState(false);
@@ -157,20 +160,39 @@ export default function AdminDashboardScreen() {
   const subText = hex.subtext;
   const borderColor = hex.border;
 
+  // Same treatment as the Partner Hub: the green slab, its safe-area padding and the rounded
+  // sheet riding up over it are phone chrome. On the web design the sidebar frames the page, so
+  // the header is a plain title and the tiles use the width instead of staying two-up.
+  const Root: any = isWebLayout ? View : SafeAreaView;
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: BRAND_GREEN }}>
+    <Root style={{ flex: 1, backgroundColor: isWebLayout ? bgColor : BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{
-          backgroundColor: BRAND_GREEN,
-          paddingHorizontal: 20,
-          paddingTop: 48,
-          paddingBottom: 36,
+          backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
+          paddingHorizontal: isWebLayout ? 40 : 20,
+          paddingTop: isWebLayout ? 32 : 48,
+          paddingBottom: isWebLayout ? 8 : 36,
+          width: '100%',
+          maxWidth: isWebLayout ? CONTENT_WIDTHS.wide : undefined,
+          alignSelf: 'center',
         }}>
-        <Text style={{ color: 'white', fontSize: 26, fontWeight: '700', letterSpacing: -0.5 }}>
+        <Text
+          style={{
+            color: isWebLayout ? hex.text : 'white',
+            fontSize: isWebLayout ? 30 : 26,
+            fontWeight: '700',
+            letterSpacing: -0.5,
+          }}>
           {t('admin.dashboardTitle')}
         </Text>
-        <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, marginTop: 2 }}>
+        <Text
+          style={{
+            color: isWebLayout ? hex.subtext : 'rgba(255,255,255,0.85)',
+            fontSize: 14,
+            marginTop: 2,
+          }}>
           {t('admin.dashboardSubtitle')}
         </Text>
       </View>
@@ -180,13 +202,22 @@ export default function AdminDashboardScreen() {
         style={{
           flex: 1,
           backgroundColor: bgColor,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          marginTop: -20,
+          borderTopLeftRadius: isWebLayout ? 0 : 24,
+          borderTopRightRadius: isWebLayout ? 0 : 24,
+          marginTop: isWebLayout ? 0 : -20,
           overflow: 'hidden',
         }}>
         <ScrollView
-          contentContainerStyle={{ paddingBottom: 100 }}
+          contentContainerStyle={
+            isWebLayout
+              ? {
+                  paddingBottom: 40,
+                  width: '100%',
+                  maxWidth: CONTENT_WIDTHS.wide,
+                  alignSelf: 'center',
+                }
+              : { paddingBottom: 100 }
+          }
           showsVerticalScrollIndicator={false}>
           {/* ── Stats grid ── */}
           <View
@@ -336,7 +367,9 @@ export default function AdminDashboardScreen() {
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('AdminNewRequests')}
                 style={{
-                  width: '47.5%',
+                  width: isWebLayout ? '23%' : '47.5%',
+                  minWidth: isWebLayout ? 170 : undefined,
+                  flexGrow: isWebLayout ? 1 : 0,
                   backgroundColor: cardBg,
                   borderRadius: 16,
                   padding: 16,
@@ -386,7 +419,9 @@ export default function AdminDashboardScreen() {
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('AdminPartners')}
                 style={{
-                  width: '47.5%',
+                  width: isWebLayout ? '23%' : '47.5%',
+                  minWidth: isWebLayout ? 170 : undefined,
+                  flexGrow: isWebLayout ? 1 : 0,
                   backgroundColor: cardBg,
                   borderRadius: 16,
                   padding: 16,
@@ -436,7 +471,9 @@ export default function AdminDashboardScreen() {
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('AdminAddPartner')}
                 style={{
-                  width: '47.5%',
+                  width: isWebLayout ? '23%' : '47.5%',
+                  minWidth: isWebLayout ? 170 : undefined,
+                  flexGrow: isWebLayout ? 1 : 0,
                   backgroundColor: cardBg,
                   borderRadius: 16,
                   padding: 16,
@@ -470,7 +507,9 @@ export default function AdminDashboardScreen() {
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('AdminReviews')}
                 style={{
-                  width: '47.5%',
+                  width: isWebLayout ? '23%' : '47.5%',
+                  minWidth: isWebLayout ? 170 : undefined,
+                  flexGrow: isWebLayout ? 1 : 0,
                   backgroundColor: cardBg,
                   borderRadius: 16,
                   padding: 16,
@@ -521,7 +560,7 @@ export default function AdminDashboardScreen() {
 
       {/* ── Tab bar ── */}
       <TabBar />
-    </SafeAreaView>
+    </Root>
   );
 }
 
@@ -555,11 +594,14 @@ function StatCard({
 }: StatCardProps) {
   const isNegative = !!change && change.startsWith('-');
   const trendColor = isNegative ? '#EF4444' : changeColor;
+  const { isWebLayout } = useResponsive();
   return (
     <View
       style={{
         flex: 1,
-        minWidth: '45%',
+        // 45% forces two tiles per row, which is right on a phone and leaves five stat cards
+        // spread over three near-empty rows on a desktop.
+        minWidth: isWebLayout ? 220 : '45%',
         backgroundColor: cardBg,
         borderRadius: 16,
         padding: 16,

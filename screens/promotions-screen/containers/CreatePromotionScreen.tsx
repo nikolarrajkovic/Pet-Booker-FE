@@ -133,7 +133,10 @@ export default function CreatePromotionScreen() {
       showBackButton
       headerTitle={t('promotions.createTitle')}
       headerSubtitle={t('promotions.createSubtitle')}
-      contentBg={contentBg}>
+      contentBg={contentBg}
+      // A form: one column of fields. Capped narrow so a label never sits a screen-width
+      // away from the input it names.
+      width="narrow">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 }}

@@ -17,6 +17,7 @@ import {
   clearLiveScheduleData,
 } from '../utils/scheduleData';
 import { getBookings } from '../../../services/bookings';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 type ViewType = 'day' | 'week' | 'month';
 
@@ -24,8 +25,9 @@ export default function MyScheduleScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { currentUser } = useAuth();
-  const { isDarkMode, bgColor: contentBg } = useThemeColors();
+  const { isDarkMode, bgColor: contentBg, subtextColor } = useThemeColors();
   const { t } = useLocale();
+  const { isWebLayout } = useResponsive();
   const [selectedView, setSelectedView] = useState<ViewType>('day');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [, setDataVersion] = useState(0); // bumped after live data loads to re-render the views
@@ -85,23 +87,30 @@ export default function MyScheduleScreen() {
     <ScreenLayout
       headerVariant="large"
       contentBg={contentBg}
+      // A calendar wants width — a week view squeezed into 720px is why the day view exists.
+      width="wide"
+      headerTitle={isWebLayout ? title : undefined}
+      showBackButton={!isWebLayout}
       headerChildren={
-        <View className="mb-4 flex-row items-center">
-          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-          <Text className="flex-1 text-2xl font-bold text-white">{title}</Text>
-        </View>
+        isWebLayout ? undefined : (
+          <View className="mb-4 flex-row items-center">
+            <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
+              <Ionicons name="arrow-back" size={24} color="white" />
+            </TouchableOpacity>
+            <Text className="flex-1 text-2xl font-bold text-white">{title}</Text>
+          </View>
+        )
       }>
       <View className="flex-1">
         {/* Tab Selector */}
-        <View className={`${bgColor} px-6 py-4`}>
-          <View className="flex-row rounded-xl bg-white/20 p-1">
+        <View className={`${isWebLayout ? contentBg : bgColor} px-6 py-4`}>
+          <View
+            className={`flex-row rounded-xl p-1 ${isWebLayout ? (isDarkMode ? 'bg-[#243447]' : 'bg-gray-100') : 'bg-white/20'}`}>
             <TouchableOpacity
               className={`flex-1 rounded-lg py-2 ${selectedView === 'day' ? 'bg-white' : ''}`}
               onPress={() => setSelectedView('day')}>
               <Text
-                className={`text-center font-semibold ${selectedView === 'day' ? 'text-brand-600' : 'text-white'}`}>
+                className={`text-center font-semibold ${selectedView === 'day' ? 'text-brand-600' : isWebLayout ? subtextColor : 'text-white'}`}>
                 {t('schedule.day')}
               </Text>
             </TouchableOpacity>
@@ -109,7 +118,7 @@ export default function MyScheduleScreen() {
               className={`flex-1 rounded-lg py-2 ${selectedView === 'week' ? 'bg-white' : ''}`}
               onPress={() => setSelectedView('week')}>
               <Text
-                className={`text-center font-semibold ${selectedView === 'week' ? 'text-brand-600' : 'text-white'}`}>
+                className={`text-center font-semibold ${selectedView === 'week' ? 'text-brand-600' : isWebLayout ? subtextColor : 'text-white'}`}>
                 {t('schedule.week')}
               </Text>
             </TouchableOpacity>
@@ -117,7 +126,7 @@ export default function MyScheduleScreen() {
               className={`flex-1 rounded-lg py-2 ${selectedView === 'month' ? 'bg-white' : ''}`}
               onPress={() => setSelectedView('month')}>
               <Text
-                className={`text-center font-semibold ${selectedView === 'month' ? 'text-brand-600' : 'text-white'}`}>
+                className={`text-center font-semibold ${selectedView === 'month' ? 'text-brand-600' : isWebLayout ? subtextColor : 'text-white'}`}>
                 {t('schedule.month')}
               </Text>
             </TouchableOpacity>

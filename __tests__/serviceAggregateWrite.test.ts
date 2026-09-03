@@ -106,7 +106,9 @@ describe('uiToServiceDto — the whole aggregate in one payload', () => {
     expect(dto.pricingOptions?.some((o) => o.name === '1 hour')).toBe(false);
     // The declared currency governs every nested amount; nested rows must not declare their own.
     expect(dto.currency).toBe('EUR');
-    expect(dto.pricingOptions?.every((o) => (o as { currency?: string }).currency === undefined)).toBe(true);
+    expect(
+      dto.pricingOptions?.every((o) => (o as { currency?: string }).currency === undefined)
+    ).toBe(true);
   });
 
   it('emits the two empty-array cases the API treats differently', () => {

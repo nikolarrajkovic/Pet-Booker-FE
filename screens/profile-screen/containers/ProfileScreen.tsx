@@ -7,6 +7,8 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
+import { useResponsive } from '../../../hooks/useResponsive';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
 import { getBookings, parseBookingDate, BookingStatusType } from '../../../services/bookings';
@@ -93,6 +95,7 @@ export default function ProfileScreen() {
   } = useThemeColors();
   const { signOut, isPartner, currentUser } = useAuth();
   const { t } = useLocale();
+  const { isWebLayout } = useResponsive();
 
   const [user, setUser] = useState<UserDto | null>(null);
   const [avatarError, setAvatarError] = useState(false);
@@ -188,30 +191,39 @@ export default function ProfileScreen() {
       headerVariant="large"
       contentBg={contentBg}
       footer={<TabBar />}
+      width="wide"
+      // On the web design the account menu in the TopBar already names the signed-in user, so the
+      // page needs a title rather than a second identity card.
+      headerTitle={isWebLayout ? t('profile.title') : undefined}
+      headerSubtitle={isWebLayout ? [fullName, email].filter(Boolean).join(' · ') : undefined}
       headerChildren={
-        <>
-          <Text className="mb-6 text-2xl font-bold text-white">{t('profile.title')}</Text>
-          <View
-            className={`${isDarkMode ? 'bg-[#243447]' : 'bg-brand-400'} mb-8 flex-row items-center rounded-2xl p-4`}>
-            {avatarUri ? (
-              <Image
-                source={{ uri: avatarUri }}
-                className="mr-4 h-16 w-16 rounded-full"
-                onError={() => setAvatarError(true)}
-              />
-            ) : (
-              <View className="mr-4 h-16 w-16 items-center justify-center rounded-full bg-white/25">
-                <Text className="text-2xl font-bold text-white">{initials}</Text>
+        isWebLayout ? undefined : (
+          <>
+            <Text className="mb-6 text-2xl font-bold text-white">{t('profile.title')}</Text>
+            <View
+              className={`${isDarkMode ? 'bg-[#243447]' : 'bg-brand-400'} mb-8 flex-row items-center rounded-2xl p-4`}>
+              {avatarUri ? (
+                <Image
+                  source={{ uri: avatarUri }}
+                  className="mr-4 h-16 w-16 rounded-full"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                <View className="mr-4 h-16 w-16 items-center justify-center rounded-full bg-white/25">
+                  <Text className="text-2xl font-bold text-white">{initials}</Text>
+                </View>
+              )}
+              <View className="flex-1">
+                <Text className="text-lg font-bold text-white">{fullName}</Text>
+                {email ? <Text className="mt-1 text-sm text-brand-100">{email}</Text> : null}
               </View>
-            )}
-            <View className="flex-1">
-              <Text className="text-lg font-bold text-white">{fullName}</Text>
-              {email ? <Text className="mt-1 text-sm text-brand-100">{email}</Text> : null}
             </View>
-          </View>
-        </>
+          </>
+        )
       }>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingTop: 24, paddingBottom: 100 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingTop: 24, paddingBottom: isWebLayout ? 32 : 100 }}>
         {/* Become a Partner Banner — only for non-partners */}
         {!isPartner && (
           <View className="mx-6 mb-6 rounded-2xl bg-brand-500 p-6">
@@ -229,23 +241,30 @@ export default function ProfileScreen() {
         )}
 
         <View className="px-6">
-          {menuItems.map((item) => (
-            <MenuItem
-              key={item.id}
-              icon={item.icon}
-              iconType={item.iconType}
-              title={t(item.titleKey as any)}
-              subtitle={t(item.subtitleKey as any)}
-              color={item.color}
-              isDarkMode={isDarkMode}
-              cardBg={cardBg}
-              textColor={textColor}
-              subtextColor={subtextColor}
-              borderColor={borderColor}
-              badge={(item as any).badge}
-              onPress={() => handleMenuPress(item.id)}
-            />
-          ))}
+          {/*
+            Nine settings rows stacked full-width read as a phone list on a desktop — each one a
+            1120px-wide bar holding an icon and two short lines. As a grid they become tiles the
+            eye can scan in two dimensions, which is how every web settings page is laid out.
+          */}
+          <ResponsiveGrid columns={{ mobile: 1, tablet: 2, desktop: 3 }} gap={12} rowGap={0}>
+            {menuItems.map((item) => (
+              <MenuItem
+                key={item.id}
+                icon={item.icon}
+                iconType={item.iconType}
+                title={t(item.titleKey as any)}
+                subtitle={t(item.subtitleKey as any)}
+                color={item.color}
+                isDarkMode={isDarkMode}
+                cardBg={cardBg}
+                textColor={textColor}
+                subtextColor={subtextColor}
+                borderColor={borderColor}
+                badge={(item as any).badge}
+                onPress={() => handleMenuPress(item.id)}
+              />
+            ))}
+          </ResponsiveGrid>
 
           <TouchableOpacity
             className={`flex-row items-center ${cardBg} mb-3 rounded-2xl border p-4 ${borderColor}`}

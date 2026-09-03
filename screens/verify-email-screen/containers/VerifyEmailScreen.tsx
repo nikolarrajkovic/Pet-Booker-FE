@@ -1,14 +1,5 @@
 import React, { useRef, useState } from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  Text,
-  View,
-  TouchableOpacity,
-  TextInput,
-  Platform,
-} from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { Text, View, TouchableOpacity, TextInput, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,6 +7,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import Button from '../../../components/shared/Button';
 import { confirmEmail, resendConfirmation } from '../../../services/auth';
+import AuthLayout from '../../../components/layout/AuthLayout';
 
 type RootStackParamList = {
   Login: undefined;
@@ -41,9 +33,6 @@ export default function VerifyEmailScreen() {
   const [resendMessage, setResendMessage] = useState('');
 
   const inputRefs = useRef<(TextInput | null)[]>([]);
-
-  const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
-  const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
   const borderColor = isDarkMode ? '#374151' : '#E5E7EB';
   const cardBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-emerald-50';
   const cardBorder = isDarkMode ? 'border-gray-700' : 'border-emerald-100';
@@ -149,115 +138,96 @@ export default function VerifyEmailScreen() {
   };
 
   return (
-    <SafeAreaView className={`flex-1 ${contentBg}`}>
-      <KeyboardAvoidingView behavior="padding" className="flex-1">
-        {/* Green Header */}
-        <View className={`${bgColor} items-center rounded-b-3xl px-6 pb-12 pt-16`}>
-          <View className="mb-4 h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg">
-            <MaterialCommunityIcons name="paw" size={40} color="#00A85A" />
-          </View>
-          <Text className="text-2xl font-bold text-white">{t('verifyEmail.title')}</Text>
-          <Text className="mt-1 text-brand-100">{t('verifyEmail.subtitle')}</Text>
+    <AuthLayout title={t('verifyEmail.title')} subtitle={t('verifyEmail.subtitle')}>
+      {/* Email card */}
+      <View
+        className={`flex-row items-center ${cardBg} border ${cardBorder} mb-8 rounded-2xl px-4 py-4`}>
+        <View className="mr-3 h-9 w-9 items-center justify-center rounded-full bg-emerald-100">
+          <MaterialCommunityIcons name="email-outline" size={20} color="#00A85A" />
         </View>
+        <View>
+          <Text className={`text-xs ${subtextColor}`}>{t('verifyEmail.codeSentTo')}</Text>
+          <Text className={`text-sm font-semibold ${textColor}`}>{email}</Text>
+        </View>
+      </View>
 
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 40 }}
-          keyboardShouldPersistTaps="handled">
-          {/* Email card */}
-          <View
-            className={`flex-row items-center ${cardBg} border ${cardBorder} mb-8 rounded-2xl px-4 py-4`}>
-            <View className="mr-3 h-9 w-9 items-center justify-center rounded-full bg-emerald-100">
-              <MaterialCommunityIcons name="email-outline" size={20} color="#00A85A" />
-            </View>
-            <View>
-              <Text className={`text-xs ${subtextColor}`}>{t('verifyEmail.codeSentTo')}</Text>
-              <Text className={`text-sm font-semibold ${textColor}`}>{email}</Text>
-            </View>
-          </View>
+      {/* Code label */}
+      <Text className={`text-sm font-semibold ${textColor} mb-3`}>
+        {t('verifyEmail.enterCode')}
+      </Text>
 
-          {/* Code label */}
-          <Text className={`text-sm font-semibold ${textColor} mb-3`}>
-            {t('verifyEmail.enterCode')}
-          </Text>
-
-          {/* OTP boxes — each is individually editable (tap to change), and a
+      {/* OTP boxes — each is individually editable (tap to change), and a
               code pasted into any box fills all six (web: handleWebPaste; native:
               the multi-digit paste comes through onChangeText → distribute). */}
-          <View className="mb-8 flex-row justify-between">
-            {Array.from({ length: CODE_LENGTH }).map((_, index) => (
-              <TextInput
-                key={index}
-                ref={(ref) => {
-                  inputRefs.current[index] = ref;
-                }}
-                value={code[index]}
-                onChangeText={(text) => handleChange(text, index)}
-                onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
-                keyboardType="number-pad"
-                // Wide enough that a pasted code reaches handleChange intact on
-                // native (maxLength 1 would truncate it to a single digit); the
-                // controlled value keeps each box showing one character.
-                maxLength={CODE_LENGTH}
-                selectTextOnFocus
-                textContentType="oneTimeCode"
-                {...(Platform.OS === 'web'
-                  ? ({ onPaste: (e: any) => handleWebPaste(e, index) } as object)
-                  : {})}
-                style={{
-                  width: 44,
-                  height: 52,
-                  borderRadius: 12,
-                  borderWidth: 2,
-                  borderColor: code[index] ? '#00A85A' : borderColor,
-                  backgroundColor: isDarkMode ? '#243447' : '#ffffff',
-                  color: isDarkMode ? '#ffffff' : '#111827',
-                  fontSize: 22,
-                  fontWeight: '700',
-                  textAlign: 'center',
-                }}
-              />
-            ))}
-          </View>
-
-          {/* Verify button */}
-          <Button
-            text={isSubmitting ? t('verifyEmail.verifying') : t('verifyEmail.verify')}
-            onPress={handleVerify}
-            variant="primary"
-            className="mb-4 rounded-2xl py-4"
-            disabled={isSubmitting || !isFilled}
+      <View className="mb-8 flex-row justify-between">
+        {Array.from({ length: CODE_LENGTH }).map((_, index) => (
+          <TextInput
+            key={index}
+            ref={(ref) => {
+              inputRefs.current[index] = ref;
+            }}
+            value={code[index]}
+            onChangeText={(text) => handleChange(text, index)}
+            onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
+            keyboardType="number-pad"
+            // Wide enough that a pasted code reaches handleChange intact on
+            // native (maxLength 1 would truncate it to a single digit); the
+            // controlled value keeps each box showing one character.
+            maxLength={CODE_LENGTH}
+            selectTextOnFocus
+            textContentType="oneTimeCode"
+            {...(Platform.OS === 'web'
+              ? ({ onPaste: (e: any) => handleWebPaste(e, index) } as object)
+              : {})}
+            style={{
+              width: 44,
+              height: 52,
+              borderRadius: 12,
+              borderWidth: 2,
+              borderColor: code[index] ? '#00A85A' : borderColor,
+              backgroundColor: isDarkMode ? '#243447' : '#ffffff',
+              color: isDarkMode ? '#ffffff' : '#111827',
+              fontSize: 22,
+              fontWeight: '700',
+              textAlign: 'center',
+            }}
           />
+        ))}
+      </View>
 
-          {verifyError ? (
-            <Text className="mb-4 text-center text-sm text-red-500">{verifyError}</Text>
-          ) : null}
+      {/* Verify button */}
+      <Button
+        text={isSubmitting ? t('verifyEmail.verifying') : t('verifyEmail.verify')}
+        onPress={handleVerify}
+        variant="primary"
+        className="mb-4 rounded-2xl py-4"
+        disabled={isSubmitting || !isFilled}
+      />
 
-          {resendMessage ? (
-            <Text className="mb-4 text-center text-sm text-brand-600">{resendMessage}</Text>
-          ) : null}
+      {verifyError ? (
+        <Text className="mb-4 text-center text-sm text-red-500">{verifyError}</Text>
+      ) : null}
 
-          {/* Resend link */}
-          <View className="mb-6 flex-row justify-center">
-            <Text className={`text-sm ${subtextColor}`}>{t('verifyEmail.didntReceive')}</Text>
-            <TouchableOpacity onPress={handleResend}>
-              <Text className="text-sm font-semibold text-brand-600">
-                {t('verifyEmail.resend')}
-              </Text>
-            </TouchableOpacity>
-          </View>
+      {resendMessage ? (
+        <Text className="mb-4 text-center text-sm text-brand-600">{resendMessage}</Text>
+      ) : null}
 
-          {/* Tip banner */}
-          <View
-            className={`flex-row items-start ${tipBg} border ${tipBorder} rounded-2xl px-4 py-3`}>
-            <Text className="mr-2 text-sm">💡</Text>
-            <Text className={`flex-1 text-xs leading-5 ${tipText}`}>
-              <Text className="font-semibold">{t('verifyEmail.tipLabel')}</Text>
-              {t('verifyEmail.tipBody')}
-            </Text>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      {/* Resend link */}
+      <View className="mb-6 flex-row justify-center">
+        <Text className={`text-sm ${subtextColor}`}>{t('verifyEmail.didntReceive')}</Text>
+        <TouchableOpacity onPress={handleResend}>
+          <Text className="text-sm font-semibold text-brand-600">{t('verifyEmail.resend')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Tip banner */}
+      <View className={`flex-row items-start ${tipBg} border ${tipBorder} rounded-2xl px-4 py-3`}>
+        <Text className="mr-2 text-sm">💡</Text>
+        <Text className={`flex-1 text-xs leading-5 ${tipText}`}>
+          <Text className="font-semibold">{t('verifyEmail.tipLabel')}</Text>
+          {t('verifyEmail.tipBody')}
+        </Text>
+      </View>
+    </AuthLayout>
   );
 }

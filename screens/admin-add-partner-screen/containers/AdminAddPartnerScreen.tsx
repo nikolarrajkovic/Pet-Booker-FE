@@ -75,6 +75,16 @@ export default function AdminAddPartnerScreen() {
     );
   };
 
+  // Named so Enter on a step's last field can run exactly what Continue runs — the same screen
+  // reuses the partner-application steps, so it gets the same keyboard behaviour.
+  const handleContinue = () => {
+    if (step < totalSteps) {
+      setStep(step + 1);
+    } else {
+      handleSubmit();
+    }
+  };
+
   return (
     <ScreenLayout
       headerVariant="standard"
@@ -97,12 +107,16 @@ export default function AdminAddPartnerScreen() {
             {t('partnerWelcome.stepOf', { current: step, total: totalSteps })}
           </Text>
         </>
-      }>
+      }
+      // A form: one column of fields. Capped narrow so a label never sits a screen-width
+      // away from the input it names.
+      width="narrow">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingTop: 24, paddingBottom: 100, paddingHorizontal: 24 }}>
         {step === 1 && (
           <PersonalInfoStep
+            onContinue={handleContinue}
             formData={formData}
             setFormData={setFormData}
             onOpenAddressMap={() => setAddressPickerVisible(true)}
@@ -111,20 +125,19 @@ export default function AdminAddPartnerScreen() {
         )}
 
         {step === 2 && (
-          <ServiceInfoStep formData={formData} setFormData={setFormData} {...themeProps} />
+          <ServiceInfoStep
+            formData={formData}
+            setFormData={setFormData}
+            onContinue={handleContinue}
+            {...themeProps}
+          />
         )}
       </ScrollView>
 
       {/* Fixed Bottom Button */}
       <View className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
         <TouchableOpacity
-          onPress={() => {
-            if (step < totalSteps) {
-              setStep(step + 1);
-            } else {
-              handleSubmit();
-            }
-          }}
+          onPress={handleContinue}
           className="items-center rounded-2xl bg-brand-500 py-4">
           <Text className="text-lg font-bold text-white">
             {step === totalSteps ? t('admin.addPartner') : t('admin.continue')}

@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, TextInput } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Text, View, TouchableOpacity, TextInput } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useFormChain } from '../../../hooks/useFormChain';
 import { useLocale } from '../../../context/LocaleContext';
 import Button from '../../../components/shared/Button';
 import DatePicker from '../../../components/shared/DatePicker';
 import PhoneInput from '../../../components/shared/PhoneInput';
 import { registerUser } from '../../../services/auth';
+import AuthLayout from '../../../components/layout/AuthLayout';
 
 type RootStackParamList = {
   Login: undefined;
@@ -109,8 +110,6 @@ export default function RegisterScreen() {
   const [submitError, setSubmitError] = useState('');
 
   // ─── Theme ────────────────────────────────────────────────────────────────
-  const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
-  const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
   const inputBg = isDarkMode ? '#243447' : '#ffffff';
   const inputTextColor = isDarkMode ? '#ffffff' : '#111827';
   const defaultBorder = isDarkMode ? '#374151' : '#E5E7EB';
@@ -185,372 +184,357 @@ export default function RegisterScreen() {
     fontSize: 15,
   });
 
+  // Enter walks the form and registers from the last field. Phone number and date of birth are
+  // not in the chain: the first is its own composite control and the second opens a picker, so
+  // neither is a plain text field Enter can move through.
+  const form = useFormChain(
+    ['username', 'email', 'firstName', 'lastName', 'password', 'confirmPassword'],
+    handleRegister
+  );
+
   return (
-    <SafeAreaView className={`flex-1 ${contentBg}`}>
-      <KeyboardAvoidingView behavior="padding" className="flex-1">
-        {/* Green Header */}
-        <View className={`${bgColor} items-center rounded-b-3xl px-6 pb-12 pt-16`}>
-          <View className="mb-4 h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg">
-            <MaterialCommunityIcons name="paw" size={40} color="#00A85A" />
+    <AuthLayout title={t('login.appName')} subtitle={t('register.subtitle')}>
+      {/* Username */}
+      <View className="mb-4">
+        <View className="mb-1 flex-row items-center">
+          <Text className={`text-sm font-semibold ${textColor}`}>{t('register.username')}</Text>
+          <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
+        </View>
+        <Text className={`text-xs ${subtextColor} mb-2`}>{t('register.usernameHint')}</Text>
+        <TextInput
+          {...form.field('username')}
+          value={username}
+          onChangeText={(v) => {
+            setUsername(v);
+            touch('username');
+          }}
+          onBlur={() => touch('username')}
+          placeholder={t('register.usernamePlaceholder')}
+          autoCapitalize="none"
+          style={inputStyle('username')}
+          placeholderTextColor={placeholderColor}
+        />
+        {touched.username && errors.username ? (
+          <Text className="mt-1 text-xs text-red-500">{t(errors.username as any)}</Text>
+        ) : null}
+      </View>
+
+      {/* Email */}
+      <View className="mb-4">
+        <View className="mb-2 flex-row items-center">
+          <Text className={`text-sm font-semibold ${textColor}`}>{t('register.email')}</Text>
+          <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
+        </View>
+        <TextInput
+          {...form.field('email')}
+          value={email}
+          onChangeText={(v) => {
+            setEmail(v);
+            touch('email');
+          }}
+          onBlur={() => touch('email')}
+          placeholder={t('register.emailPlaceholder')}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          style={inputStyle('email')}
+          placeholderTextColor={placeholderColor}
+        />
+        {touched.email && errors.email ? (
+          <Text className="mt-1 text-xs text-red-500">{t(errors.email as any)}</Text>
+        ) : null}
+      </View>
+
+      {/* First Name + Last Name */}
+      <View className="mb-4 flex-row gap-3">
+        <View className="flex-1">
+          <View className="mb-2 flex-row items-center">
+            <Text className={`text-sm font-semibold ${textColor}`}>{t('register.firstName')}</Text>
+            <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
           </View>
-          <Text className="text-2xl font-bold text-white">{t('login.appName')}</Text>
-          <Text className="mt-1 text-brand-100">{t('register.subtitle')}</Text>
+          <TextInput
+            {...form.field('firstName')}
+            value={firstName}
+            onChangeText={(v) => {
+              setFirstName(v);
+              touch('firstName');
+            }}
+            onBlur={() => touch('firstName')}
+            placeholder={t('register.firstNamePlaceholder')}
+            style={inputStyle('firstName')}
+            placeholderTextColor={placeholderColor}
+          />
+          {touched.firstName && errors.firstName ? (
+            <Text className="mt-1 text-xs text-red-500">{t(errors.firstName as any)}</Text>
+          ) : null}
+        </View>
+        <View className="flex-1">
+          <View className="mb-2 flex-row items-center">
+            <Text className={`text-sm font-semibold ${textColor}`}>{t('register.lastName')}</Text>
+            <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
+          </View>
+          <TextInput
+            {...form.field('lastName')}
+            value={lastName}
+            onChangeText={(v) => {
+              setLastName(v);
+              touch('lastName');
+            }}
+            onBlur={() => touch('lastName')}
+            placeholder={t('register.lastNamePlaceholder')}
+            style={inputStyle('lastName')}
+            placeholderTextColor={placeholderColor}
+          />
+          {touched.lastName && errors.lastName ? (
+            <Text className="mt-1 text-xs text-red-500">{t(errors.lastName as any)}</Text>
+          ) : null}
+        </View>
+      </View>
+
+      {/* Phone Number */}
+      <View className="mb-4">
+        <View className="mb-2 flex-row items-center">
+          <Text className={`text-sm font-semibold ${textColor}`}>{t('register.phoneNumber')}</Text>
+          <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
+        </View>
+        <PhoneInput
+          value={phone}
+          onChangeText={(v) => {
+            setPhone(v);
+            touch('phone');
+          }}
+          isDarkMode={isDarkMode}
+          textColor={textColor}
+          subtextColor={subtextColor}
+          inputBg={inputBg === '#ffffff' ? 'bg-white' : 'bg-[#243447]'}
+          inputText={textColor}
+          borderColor={isDarkMode ? 'border-gray-700' : 'border-gray-200'}
+          placeholderColor={placeholderColor}
+          cardBg={isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}
+        />
+        {touched.phone && errors.phone ? (
+          <Text className="mt-1 text-xs text-red-500">{t(errors.phone as any)}</Text>
+        ) : null}
+      </View>
+
+      {/* Date of Birth */}
+      <View className="mb-4">
+        <View className="mb-2 flex-row items-center">
+          <Text className={`text-sm font-semibold ${textColor}`}>{t('register.dateOfBirth')}</Text>
+          <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => {
+            setShowDobPicker((v) => !v);
+            touch('dateOfBirth');
+          }}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: inputBg,
+            borderRadius: 12,
+            borderWidth: 2,
+            borderColor: touched.dateOfBirth
+              ? errors.dateOfBirth
+                ? '#EF4444'
+                : '#00A85A'
+              : defaultBorder,
+            paddingHorizontal: 16,
+            paddingVertical: 13,
+          }}>
+          <Ionicons name="calendar-outline" size={20} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+          <Text
+            style={{
+              marginLeft: 10,
+              fontSize: 15,
+              color: dateOfBirth ? inputTextColor : placeholderColor,
+              flex: 1,
+            }}>
+            {dateOfBirth
+              ? dateOfBirth.toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+                })
+              : t('register.dobPlaceholder')}
+          </Text>
+          <Ionicons
+            name={showDobPicker ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+          />
+        </TouchableOpacity>
+        {touched.dateOfBirth && errors.dateOfBirth ? (
+          <Text className="mt-1 text-xs text-red-500">{t(errors.dateOfBirth as any)}</Text>
+        ) : null}
+        {showDobPicker && (
+          <DatePicker
+            value={dateOfBirth ?? new Date(2000, 0, 1)}
+            maxDate={new Date()}
+            isDarkMode={isDarkMode}
+            onChange={(date) => {
+              setDateOfBirth(date);
+              touch('dateOfBirth');
+              setShowDobPicker(false);
+            }}
+            onClose={() => setShowDobPicker(false)}
+          />
+        )}
+      </View>
+
+      {/* Password */}
+      <View className="mb-2">
+        <View className="mb-2 flex-row items-center">
+          <Text className={`text-sm font-semibold ${textColor}`}>{t('register.password')}</Text>
+          <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
+        </View>
+        <View>
+          <TextInput
+            {...form.field('password')}
+            value={password}
+            onChangeText={(v) => {
+              setPassword(v);
+              touch('password');
+              if (touched.confirmPassword) touch('confirmPassword');
+            }}
+            onBlur={() => touch('password')}
+            placeholder={t('register.passwordPlaceholder')}
+            secureTextEntry={!showPassword}
+            style={{ ...inputStyle('password'), paddingRight: 48 }}
+            placeholderTextColor={placeholderColor}
+          />
+          <TouchableOpacity
+            onPress={() => setShowPassword(!showPassword)}
+            style={{ position: 'absolute', right: 16, top: 13 }}>
+            <Ionicons
+              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+              size={22}
+              color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+            />
+          </TouchableOpacity>
         </View>
 
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 40 }}
-          keyboardShouldPersistTaps="handled">
-          {/* Username */}
-          <View className="mb-4">
-            <View className="mb-1 flex-row items-center">
-              <Text className={`text-sm font-semibold ${textColor}`}>{t('register.username')}</Text>
-              <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
-            </View>
-            <Text className={`text-xs ${subtextColor} mb-2`}>{t('register.usernameHint')}</Text>
-            <TextInput
-              value={username}
-              onChangeText={(v) => {
-                setUsername(v);
-                touch('username');
-              }}
-              onBlur={() => touch('username')}
-              placeholder={t('register.usernamePlaceholder')}
-              autoCapitalize="none"
-              style={inputStyle('username')}
-              placeholderTextColor={placeholderColor}
-            />
-            {touched.username && errors.username ? (
-              <Text className="mt-1 text-xs text-red-500">{t(errors.username as any)}</Text>
-            ) : null}
-          </View>
-
-          {/* Email */}
-          <View className="mb-4">
-            <View className="mb-2 flex-row items-center">
-              <Text className={`text-sm font-semibold ${textColor}`}>{t('register.email')}</Text>
-              <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
-            </View>
-            <TextInput
-              value={email}
-              onChangeText={(v) => {
-                setEmail(v);
-                touch('email');
-              }}
-              onBlur={() => touch('email')}
-              placeholder={t('register.emailPlaceholder')}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              style={inputStyle('email')}
-              placeholderTextColor={placeholderColor}
-            />
-            {touched.email && errors.email ? (
-              <Text className="mt-1 text-xs text-red-500">{t(errors.email as any)}</Text>
-            ) : null}
-          </View>
-
-          {/* First Name + Last Name */}
-          <View className="mb-4 flex-row gap-3">
-            <View className="flex-1">
-              <View className="mb-2 flex-row items-center">
-                <Text className={`text-sm font-semibold ${textColor}`}>
-                  {t('register.firstName')}
-                </Text>
-                <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
-              </View>
-              <TextInput
-                value={firstName}
-                onChangeText={(v) => {
-                  setFirstName(v);
-                  touch('firstName');
-                }}
-                onBlur={() => touch('firstName')}
-                placeholder={t('register.firstNamePlaceholder')}
-                style={inputStyle('firstName')}
-                placeholderTextColor={placeholderColor}
-              />
-              {touched.firstName && errors.firstName ? (
-                <Text className="mt-1 text-xs text-red-500">{t(errors.firstName as any)}</Text>
-              ) : null}
-            </View>
-            <View className="flex-1">
-              <View className="mb-2 flex-row items-center">
-                <Text className={`text-sm font-semibold ${textColor}`}>
-                  {t('register.lastName')}
-                </Text>
-                <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
-              </View>
-              <TextInput
-                value={lastName}
-                onChangeText={(v) => {
-                  setLastName(v);
-                  touch('lastName');
-                }}
-                onBlur={() => touch('lastName')}
-                placeholder={t('register.lastNamePlaceholder')}
-                style={inputStyle('lastName')}
-                placeholderTextColor={placeholderColor}
-              />
-              {touched.lastName && errors.lastName ? (
-                <Text className="mt-1 text-xs text-red-500">{t(errors.lastName as any)}</Text>
-              ) : null}
-            </View>
-          </View>
-
-          {/* Phone Number */}
-          <View className="mb-4">
-            <View className="mb-2 flex-row items-center">
-              <Text className={`text-sm font-semibold ${textColor}`}>
-                {t('register.phoneNumber')}
-              </Text>
-              <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
-            </View>
-            <PhoneInput
-              value={phone}
-              onChangeText={(v) => {
-                setPhone(v);
-                touch('phone');
-              }}
-              isDarkMode={isDarkMode}
-              textColor={textColor}
-              subtextColor={subtextColor}
-              inputBg={inputBg === '#ffffff' ? 'bg-white' : 'bg-[#243447]'}
-              inputText={textColor}
-              borderColor={isDarkMode ? 'border-gray-700' : 'border-gray-200'}
-              placeholderColor={placeholderColor}
-              cardBg={isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}
-            />
-            {touched.phone && errors.phone ? (
-              <Text className="mt-1 text-xs text-red-500">{t(errors.phone as any)}</Text>
-            ) : null}
-          </View>
-
-          {/* Date of Birth */}
-          <View className="mb-4">
-            <View className="mb-2 flex-row items-center">
-              <Text className={`text-sm font-semibold ${textColor}`}>
-                {t('register.dateOfBirth')}
-              </Text>
-              <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                setShowDobPicker((v) => !v);
-                touch('dateOfBirth');
-              }}
+        {/* Strength bar */}
+        {password.length > 0 && strength && (
+          <View style={{ marginTop: 8, marginBottom: 4 }}>
+            <View
               style={{
                 flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: inputBg,
-                borderRadius: 12,
-                borderWidth: 2,
-                borderColor: touched.dateOfBirth
-                  ? errors.dateOfBirth
-                    ? '#EF4444'
-                    : '#00A85A'
-                  : defaultBorder,
-                paddingHorizontal: 16,
-                paddingVertical: 13,
+                height: 4,
+                backgroundColor: isDarkMode ? '#374151' : '#E5E7EB',
+                borderRadius: 4,
+                overflow: 'hidden',
               }}>
-              <Ionicons
-                name="calendar-outline"
-                size={20}
-                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-              />
-              <Text
+              <View
                 style={{
-                  marginLeft: 10,
-                  fontSize: 15,
-                  color: dateOfBirth ? inputTextColor : placeholderColor,
-                  flex: 1,
-                }}>
-                {dateOfBirth
-                  ? dateOfBirth.toLocaleDateString('en-GB', {
-                      day: '2-digit',
-                      month: 'long',
-                      year: 'numeric',
-                    })
-                  : t('register.dobPlaceholder')}
-              </Text>
-              <Ionicons
-                name={showDobPicker ? 'chevron-up' : 'chevron-down'}
-                size={18}
-                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-              />
-            </TouchableOpacity>
-            {touched.dateOfBirth && errors.dateOfBirth ? (
-              <Text className="mt-1 text-xs text-red-500">{t(errors.dateOfBirth as any)}</Text>
-            ) : null}
-            {showDobPicker && (
-              <DatePicker
-                value={dateOfBirth ?? new Date(2000, 0, 1)}
-                maxDate={new Date()}
-                isDarkMode={isDarkMode}
-                onChange={(date) => {
-                  setDateOfBirth(date);
-                  touch('dateOfBirth');
-                  setShowDobPicker(false);
+                  flex: strength.flex,
+                  backgroundColor: strength.color,
+                  borderRadius: 4,
                 }}
-                onClose={() => setShowDobPicker(false)}
               />
-            )}
+            </View>
+            <Text style={{ fontSize: 11, color: strength.color, marginTop: 3, fontWeight: '600' }}>
+              {t(strength.labelKey as any)}
+            </Text>
           </View>
+        )}
 
-          {/* Password */}
-          <View className="mb-2">
-            <View className="mb-2 flex-row items-center">
-              <Text className={`text-sm font-semibold ${textColor}`}>{t('register.password')}</Text>
-              <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
-            </View>
-            <View>
-              <TextInput
-                value={password}
-                onChangeText={(v) => {
-                  setPassword(v);
-                  touch('password');
-                  if (touched.confirmPassword) touch('confirmPassword');
-                }}
-                onBlur={() => touch('password')}
-                placeholder={t('register.passwordPlaceholder')}
-                secureTextEntry={!showPassword}
-                style={{ ...inputStyle('password'), paddingRight: 48 }}
-                placeholderTextColor={placeholderColor}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={{ position: 'absolute', right: 16, top: 13 }}>
+        {/* Requirements checklist */}
+        {(touched.password || password.length > 0) && (
+          <View style={{ marginTop: 4, marginBottom: 8 }}>
+            {[
+              { key: 'register.reqUppercase', ok: /[A-Z]/.test(password) },
+              { key: 'register.reqLowercase', ok: /[a-z]/.test(password) },
+              { key: 'register.reqNumber', ok: /\d/.test(password) },
+              { key: 'register.reqSpecial', ok: /[^A-Za-z0-9]/.test(password) },
+              { key: 'register.reqMinLength', ok: password.length >= 8 },
+            ].map((item) => (
+              <View
+                key={item.key}
+                style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
                 <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={22}
-                  color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                  name={item.ok ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={13}
+                  color={item.ok ? '#00A85A' : '#9CA3AF'}
                 />
-              </TouchableOpacity>
-            </View>
-
-            {/* Strength bar */}
-            {password.length > 0 && strength && (
-              <View style={{ marginTop: 8, marginBottom: 4 }}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    height: 4,
-                    backgroundColor: isDarkMode ? '#374151' : '#E5E7EB',
-                    borderRadius: 4,
-                    overflow: 'hidden',
-                  }}>
-                  <View
-                    style={{
-                      flex: strength.flex,
-                      backgroundColor: strength.color,
-                      borderRadius: 4,
-                    }}
-                  />
-                </View>
                 <Text
-                  style={{ fontSize: 11, color: strength.color, marginTop: 3, fontWeight: '600' }}>
-                  {t(strength.labelKey as any)}
+                  style={{
+                    fontSize: 11,
+                    color: item.ok ? '#00A85A' : '#9CA3AF',
+                    marginLeft: 5,
+                  }}>
+                  {t(item.key as any)}
                 </Text>
               </View>
-            )}
-
-            {/* Requirements checklist */}
-            {(touched.password || password.length > 0) && (
-              <View style={{ marginTop: 4, marginBottom: 8 }}>
-                {[
-                  { key: 'register.reqUppercase', ok: /[A-Z]/.test(password) },
-                  { key: 'register.reqLowercase', ok: /[a-z]/.test(password) },
-                  { key: 'register.reqNumber', ok: /\d/.test(password) },
-                  { key: 'register.reqSpecial', ok: /[^A-Za-z0-9]/.test(password) },
-                  { key: 'register.reqMinLength', ok: password.length >= 8 },
-                ].map((item) => (
-                  <View
-                    key={item.key}
-                    style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3 }}>
-                    <Ionicons
-                      name={item.ok ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={13}
-                      color={item.ok ? '#00A85A' : '#9CA3AF'}
-                    />
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        color: item.ok ? '#00A85A' : '#9CA3AF',
-                        marginLeft: 5,
-                      }}>
-                      {t(item.key as any)}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            )}
+            ))}
           </View>
+        )}
+      </View>
 
-          {/* Confirm Password */}
-          <View className="mb-6">
-            <View className="mb-2 flex-row items-center">
-              <Text className={`text-sm font-semibold ${textColor}`}>
-                {t('register.confirmPassword')}
-              </Text>
-              <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
-            </View>
-            <View>
-              <TextInput
-                value={confirmPassword}
-                onChangeText={(v) => {
-                  setConfirmPassword(v);
-                  touch('confirmPassword');
-                }}
-                onBlur={() => touch('confirmPassword')}
-                placeholder={t('register.confirmPasswordPlaceholder')}
-                secureTextEntry={!showConfirmPassword}
-                style={{ ...inputStyle('confirmPassword'), paddingRight: 48 }}
-                placeholderTextColor={placeholderColor}
-              />
-              <TouchableOpacity
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                style={{ position: 'absolute', right: 16, top: 13 }}>
-                <Ionicons
-                  name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={22}
-                  color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-                />
-              </TouchableOpacity>
-            </View>
-            {touched.confirmPassword && errors.confirmPassword ? (
-              <Text className="mt-1 text-xs text-red-500">{t(errors.confirmPassword as any)}</Text>
-            ) : null}
-          </View>
-
-          {/* Create Account Button */}
-          <Button
-            text={isSubmitting ? t('register.creatingAccount') : t('register.createAccount')}
-            onPress={handleRegister}
-            variant="primary"
-            className="mb-4 rounded-2xl py-4"
-            disabled={isSubmitting}
-          />
-
-          {submitError ? (
-            <Text className="mb-4 text-center text-sm text-red-500">{submitError}</Text>
-          ) : null}
-
-          {/* Terms */}
-          <Text className={`text-center text-xs ${subtextColor} mb-6 leading-5`}>
-            {t('register.termsPrefix')}
-            <Text className="font-semibold text-brand-600">{t('register.termsOfService')}</Text>
-            {t('register.and')}
-            <Text className="font-semibold text-brand-600">{t('register.privacyPolicy')}</Text>
+      {/* Confirm Password */}
+      <View className="mb-6">
+        <View className="mb-2 flex-row items-center">
+          <Text className={`text-sm font-semibold ${textColor}`}>
+            {t('register.confirmPassword')}
           </Text>
+          <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
+        </View>
+        <View>
+          <TextInput
+            {...form.field('confirmPassword')}
+            value={confirmPassword}
+            onChangeText={(v) => {
+              setConfirmPassword(v);
+              touch('confirmPassword');
+            }}
+            onBlur={() => touch('confirmPassword')}
+            placeholder={t('register.confirmPasswordPlaceholder')}
+            secureTextEntry={!showConfirmPassword}
+            style={{ ...inputStyle('confirmPassword'), paddingRight: 48 }}
+            placeholderTextColor={placeholderColor}
+          />
+          <TouchableOpacity
+            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+            style={{ position: 'absolute', right: 16, top: 13 }}>
+            <Ionicons
+              name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+              size={22}
+              color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+            />
+          </TouchableOpacity>
+        </View>
+        {touched.confirmPassword && errors.confirmPassword ? (
+          <Text className="mt-1 text-xs text-red-500">{t(errors.confirmPassword as any)}</Text>
+        ) : null}
+      </View>
 
-          {/* Sign In Link */}
-          <View className="flex-row justify-center">
-            <Text className={`text-sm ${subtextColor}`}>{t('register.alreadyHaveAccount')}</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text className="text-sm font-semibold text-brand-600">{t('register.signIn')}</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      {/* Create Account Button */}
+      <Button
+        text={isSubmitting ? t('register.creatingAccount') : t('register.createAccount')}
+        onPress={handleRegister}
+        variant="primary"
+        className="mb-4 rounded-2xl py-4"
+        disabled={isSubmitting}
+      />
+
+      {submitError ? (
+        <Text className="mb-4 text-center text-sm text-red-500">{submitError}</Text>
+      ) : null}
+
+      {/* Terms */}
+      <Text className={`text-center text-xs ${subtextColor} mb-6 leading-5`}>
+        {t('register.termsPrefix')}
+        <Text className="font-semibold text-brand-600">{t('register.termsOfService')}</Text>
+        {t('register.and')}
+        <Text className="font-semibold text-brand-600">{t('register.privacyPolicy')}</Text>
+      </Text>
+
+      {/* Sign In Link */}
+      <View className="flex-row justify-center">
+        <Text className={`text-sm ${subtextColor}`}>{t('register.alreadyHaveAccount')}</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <Text className="text-sm font-semibold text-brand-600">{t('register.signIn')}</Text>
+        </TouchableOpacity>
+      </View>
+    </AuthLayout>
   );
 }

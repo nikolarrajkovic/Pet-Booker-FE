@@ -5,6 +5,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { useLocale } from '../../../context/LocaleContext';
 import AnimatedCheckmark from '../../../components/shared/AnimatedCheckmark';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 type BookingConfirmedRouteParams = {
   serviceName: string;
@@ -17,10 +18,17 @@ export default function BookingConfirmedScreen() {
   const { serviceName } = route.params;
   const { isDarkMode, bgColor, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
+  const { isWebLayout } = useResponsive();
 
   return (
     <SafeAreaView className={`flex-1 ${bgColor}`}>
-      <View className="flex-1 items-center justify-center px-6">
+      {/*
+        The confirmation is already centred vertically; on a wide window it also needs a width, or
+        the two buttons stretch to 1400px and the message runs as a single line across the monitor.
+      */}
+      <View
+        className="flex-1 items-center justify-center px-6"
+        style={isWebLayout ? { maxWidth: 520, alignSelf: 'center', width: '100%' } : undefined}>
         <View className="mb-8">
           <AnimatedCheckmark size={128} isDarkMode={isDarkMode} />
         </View>

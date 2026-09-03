@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, Text, View, TouchableOpacity, TextInput } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { Text, View, TouchableOpacity, TextInput } from 'react-native';
+
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useFormChain } from '../../../hooks/useFormChain';
 import { useAuth } from '../../../context/AuthContext';
 import { getErrorMessage, isNetworkError, statusOf } from '../../../services/http';
 import { useLocale } from '../../../context/LocaleContext';
 import Button from '../../../components/shared/Button';
 import { SocialButton } from '../components';
+import AuthLayout from '../../../components/layout/AuthLayout';
 
 type RootStackParamList = {
   Login: undefined;
@@ -66,9 +68,6 @@ export default function LoginScreen() {
   // Already-resolved display text (see resolveLoginError), not a translation key: the message can
   // be the server's own localized words, which have no key to look up.
   const [loginError, setLoginError] = useState('');
-
-  const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
-  const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
   const inputBg = isDarkMode ? '#243447' : '#ffffff';
   const inputTextColor = isDarkMode ? '#ffffff' : '#111827';
   const defaultBorder = isDarkMode ? '#374151' : '#E5E7EB';
@@ -104,151 +103,140 @@ export default function LoginScreen() {
     }
   };
 
+  // Enter moves identifier -> password -> sign in. `handleSignIn` is the same function the button
+  // calls, guards included, so pressing Enter on an incomplete form does exactly what clicking the
+  // disabled button does rather than a second, subtly different thing.
+  const form = useFormChain(['identifier', 'password'], handleSignIn);
+
   return (
-    <SafeAreaView className={`flex-1 ${contentBg}`}>
-      <KeyboardAvoidingView behavior="padding" className="flex-1">
-        {/* Green Header */}
-        <View className={`${bgColor} items-center rounded-b-3xl px-6 pb-12 pt-16`}>
-          <View className="mb-4 h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg">
-            <MaterialCommunityIcons name="paw" size={40} color="#00A85A" />
-          </View>
-          <Text className="text-2xl font-bold text-white">{t('login.appName')}</Text>
-          <Text className="mt-1 text-brand-100">{t('login.welcomeBack')}</Text>
-        </View>
+    <AuthLayout title={t('login.appName')} subtitle={t('login.welcomeBack')}>
+      {/* Email or Username */}
+      <View className="mb-4">
+        <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+          {t('login.emailOrUsername')}
+        </Text>
+        <TextInput
+          {...form.field('identifier')}
+          value={identifier}
+          onChangeText={(v) => {
+            setIdentifier(v);
+            touch('identifier');
+            setLoginError('');
+          }}
+          onBlur={() => touch('identifier')}
+          placeholder={t('login.emailOrUsernamePlaceholder')}
+          autoCapitalize="none"
+          style={{
+            backgroundColor: inputBg,
+            color: inputTextColor,
+            borderRadius: 12,
+            borderWidth: 2,
+            borderColor: borderFor('identifier'),
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            fontSize: 15,
+          }}
+          placeholderTextColor={placeholderColor}
+        />
+        {touched.identifier && errors.identifier ? (
+          <Text className="mt-1 text-xs text-red-500">{t(errors.identifier as any)}</Text>
+        ) : null}
+      </View>
 
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 40 }}
-          keyboardShouldPersistTaps="handled">
-          {/* Email or Username */}
-          <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-              {t('login.emailOrUsername')}
-            </Text>
-            <TextInput
-              value={identifier}
-              onChangeText={(v) => {
-                setIdentifier(v);
-                touch('identifier');
-                setLoginError('');
-              }}
-              onBlur={() => touch('identifier')}
-              placeholder={t('login.emailOrUsernamePlaceholder')}
-              autoCapitalize="none"
-              style={{
-                backgroundColor: inputBg,
-                color: inputTextColor,
-                borderRadius: 12,
-                borderWidth: 2,
-                borderColor: borderFor('identifier'),
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                fontSize: 15,
-              }}
-              placeholderTextColor={placeholderColor}
-            />
-            {touched.identifier && errors.identifier ? (
-              <Text className="mt-1 text-xs text-red-500">{t(errors.identifier as any)}</Text>
-            ) : null}
-          </View>
-
-          {/* Password */}
-          <View className="mb-2">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>{t('login.password')}</Text>
-            <View>
-              <TextInput
-                value={password}
-                onChangeText={(v) => {
-                  setPassword(v);
-                  touch('password');
-                  setLoginError('');
-                }}
-                onBlur={() => touch('password')}
-                placeholder={t('login.passwordPlaceholder')}
-                secureTextEntry={!showPassword}
-                style={{
-                  backgroundColor: inputBg,
-                  color: inputTextColor,
-                  borderRadius: 12,
-                  borderWidth: 2,
-                  borderColor: borderFor('password'),
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                  paddingRight: 48,
-                  fontSize: 15,
-                }}
-                placeholderTextColor={placeholderColor}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={{ position: 'absolute', right: 16, top: 13 }}>
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={22}
-                  color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-                />
-              </TouchableOpacity>
-            </View>
-            {touched.password && errors.password ? (
-              <Text className="mt-1 text-xs text-red-500">{t(errors.password as any)}</Text>
-            ) : null}
-          </View>
-
-          {/* Forgot Password */}
-          <TouchableOpacity
-            onPress={() => (navigation as any).navigate('ForgotPassword')}
-            className="mb-5 mt-1 self-end">
-            <Text className="text-sm font-semibold text-brand-600">
-              {t('login.forgotPassword')}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Global login error */}
-          {loginError ? (
-            <Text className="mb-4 text-center text-sm text-red-500">{loginError}</Text>
-          ) : null}
-
-          {/* Sign In Button */}
-          <Button
-            text={isSubmitting ? t('login.signingIn') : t('login.signIn')}
-            onPress={handleSignIn}
-            variant="primary"
-            className="mb-6 rounded-2xl py-4"
-            disabled={isSubmitting}
+      {/* Password */}
+      <View className="mb-2">
+        <Text className={`text-sm font-semibold ${textColor} mb-2`}>{t('login.password')}</Text>
+        <View>
+          <TextInput
+            {...form.field('password')}
+            value={password}
+            onChangeText={(v) => {
+              setPassword(v);
+              touch('password');
+              setLoginError('');
+            }}
+            onBlur={() => touch('password')}
+            placeholder={t('login.passwordPlaceholder')}
+            secureTextEntry={!showPassword}
+            style={{
+              backgroundColor: inputBg,
+              color: inputTextColor,
+              borderRadius: 12,
+              borderWidth: 2,
+              borderColor: borderFor('password'),
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              paddingRight: 48,
+              fontSize: 15,
+            }}
+            placeholderTextColor={placeholderColor}
           />
-
-          {/* Divider */}
-          <View className="mb-6 flex-row items-center">
-            <View className={`h-px flex-1 ${dividerColor}`} />
-            <Text className={`mx-4 ${subtextColor} text-sm`}>{t('common.or')}</Text>
-            <View className={`h-px flex-1 ${dividerColor}`} />
-          </View>
-
-          {/* Social Buttons */}
-          <View className="gap-3">
-            <SocialButton
-              text={t('login.continueWithGoogle')}
-              icon={<MaterialCommunityIcons name="google" size={22} color="#DB4437" />}
-              onPress={signInWithGoogle}
-              isDarkMode={isDarkMode}
+          <TouchableOpacity
+            onPress={() => setShowPassword(!showPassword)}
+            style={{ position: 'absolute', right: 16, top: 13 }}>
+            <Ionicons
+              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+              size={22}
+              color={isDarkMode ? '#9CA3AF' : '#6B7280'}
             />
-            <SocialButton
-              text={t('login.continueWithFacebook')}
-              icon={<MaterialCommunityIcons name="facebook" size={22} color="#1877F2" />}
-              onPress={() => {}}
-              isDarkMode={isDarkMode}
-            />
-          </View>
+          </TouchableOpacity>
+        </View>
+        {touched.password && errors.password ? (
+          <Text className="mt-1 text-xs text-red-500">{t(errors.password as any)}</Text>
+        ) : null}
+      </View>
 
-          {/* Sign Up Link */}
-          <View className="mt-6 flex-row justify-center">
-            <Text className={`text-sm ${subtextColor}`}>{t('login.noAccount')}</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text className="text-sm font-semibold text-brand-600">{t('login.signUp')}</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      {/* Forgot Password */}
+      <TouchableOpacity
+        onPress={() => (navigation as any).navigate('ForgotPassword')}
+        className="mb-5 mt-1 self-end">
+        <Text className="text-sm font-semibold text-brand-600">{t('login.forgotPassword')}</Text>
+      </TouchableOpacity>
+
+      {/* Global login error */}
+      {loginError ? (
+        <Text className="mb-4 text-center text-sm text-red-500">{loginError}</Text>
+      ) : null}
+
+      {/* Sign In Button */}
+      <Button
+        text={isSubmitting ? t('login.signingIn') : t('login.signIn')}
+        onPress={handleSignIn}
+        variant="primary"
+        className="mb-6 rounded-2xl py-4"
+        disabled={isSubmitting}
+      />
+
+      {/* Divider */}
+      <View className="mb-6 flex-row items-center">
+        <View className={`h-px flex-1 ${dividerColor}`} />
+        <Text className={`mx-4 ${subtextColor} text-sm`}>{t('common.or')}</Text>
+        <View className={`h-px flex-1 ${dividerColor}`} />
+      </View>
+
+      {/* Social Buttons */}
+      <View className="gap-3">
+        <SocialButton
+          text={t('login.continueWithGoogle')}
+          icon={<MaterialCommunityIcons name="google" size={22} color="#DB4437" />}
+          onPress={signInWithGoogle}
+          isDarkMode={isDarkMode}
+        />
+        <SocialButton
+          text={t('login.continueWithFacebook')}
+          icon={<MaterialCommunityIcons name="facebook" size={22} color="#1877F2" />}
+          onPress={() => {}}
+          isDarkMode={isDarkMode}
+        />
+      </View>
+
+      {/* Sign Up Link */}
+      <View className="mt-6 flex-row justify-center">
+        <Text className={`text-sm ${subtextColor}`}>{t('login.noAccount')}</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+          <Text className="text-sm font-semibold text-brand-600">{t('login.signUp')}</Text>
+        </TouchableOpacity>
+      </View>
+    </AuthLayout>
   );
 }

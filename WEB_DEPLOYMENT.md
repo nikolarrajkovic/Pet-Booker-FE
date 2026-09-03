@@ -6,6 +6,11 @@ purchase.
 
 For local web development nothing here applies — keep using `npm run web`.
 
+The exported bundle carries **both** of the app's designs — the phone one and the desktop one —
+and picks between them from the window width at runtime, so there is nothing platform-specific to
+build or serve differently. A visitor on a phone browser gets the phone design from the same
+files. See [`WEB_LAYOUT.md`](WEB_LAYOUT.md).
+
 ---
 
 ## What gets deployed

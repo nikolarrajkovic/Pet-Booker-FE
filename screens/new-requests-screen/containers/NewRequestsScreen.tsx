@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, TextInput } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
@@ -22,6 +22,8 @@ import {
   BookingStatusType,
 } from '../../../services/bookings';
 import { formatMoney } from '../../../services/currency';
+import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
+import ResponsiveModal from '../../../components/shared/ResponsiveModal';
 
 // Translate function shape shared by the helpers below (labels follow the
 // active language; the container passes its useLocale().t down).
@@ -234,7 +236,8 @@ export default function NewRequestsScreen() {
           : t('requests.pendingMany', { count: newCount })
       }
       contentBg={contentBg}
-      showNotificationButton>
+      showNotificationButton
+      width="wide">
       {/* Filter tabs */}
       <View className={`mx-4 mb-3 mt-4 ${tabBg} flex-row rounded-2xl border p-1 ${borderColor}`}>
         {TABS.map((tab) => {
@@ -294,67 +297,73 @@ export default function NewRequestsScreen() {
                   ? t('requests.noAcceptedRequests')
                   : t('requests.noDeclinedRequests')
           }>
-          {filtered.map((request) => (
-            <RequestCard
-              key={request.id}
-              request={request}
-              isDarkMode={isDarkMode}
-              cardBg={cardBg}
-              textColor={textColor}
-              subtextColor={subtextColor}
-              borderColor={borderColor}
-              onAccept={handleAccept}
-              onDecline={handleDecline}
-            />
-          ))}
+          {/*
+            Booking requests are wide cards with the client, the service and the accept/decline
+            actions. Two per row on a desktop puts a partner's whole morning queue on one screen.
+          */}
+          <ResponsiveGrid columns={{ mobile: 1, tablet: 1, desktop: 2 }} gap={12} rowGap={0}>
+            {filtered.map((request) => (
+              <RequestCard
+                key={request.id}
+                request={request}
+                isDarkMode={isDarkMode}
+                cardBg={cardBg}
+                textColor={textColor}
+                subtextColor={subtextColor}
+                borderColor={borderColor}
+                onAccept={handleAccept}
+                onDecline={handleDecline}
+              />
+            ))}
+          </ResponsiveGrid>
         </ListState>
       </ScrollView>
 
       {/* Decline-reason modal */}
-      <Modal
+      {/* ResponsiveModal owns the presentation: a centred card on both designs here (the prompt
+          is two fields, not a sheet's worth of content), the scrim, the width cap and Esc. */}
+      <ResponsiveModal
         visible={declineTargetId !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDeclineTargetId(null)}>
-        <View className="flex-1 justify-center bg-black/50 px-6">
-          <View className={`${cardBg} rounded-2xl p-5`}>
-            <Text className={`text-lg font-bold ${textColor} mb-1`}>
-              {t('requests.declineTitle')}
-            </Text>
-            <Text className={`text-sm ${subtextColor} mb-4`}>{t('requests.declineSubtitle')}</Text>
-            <TextInput
-              value={declineReason}
-              onChangeText={setDeclineReason}
-              placeholder={t('requests.declinePlaceholder')}
-              placeholderTextColor={placeholderColor}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${declineReasonTooShort ? 'mb-1' : 'mb-4'}`}
-              style={{ minHeight: 80 }}
-              selectionColor={BRAND_GREEN}
-            />
-            {declineReasonTooShort && (
-              <Text className="mb-4 text-xs text-red-500">{t('requests.declineTooShort')}</Text>
-            )}
-            <View className="flex-row" style={{ gap: 12 }}>
-              <TouchableOpacity
-                onPress={() => setDeclineTargetId(null)}
-                activeOpacity={0.7}
-                className={`flex-1 items-center rounded-xl border py-3 ${borderColor}`}>
-                <Text className={`font-semibold ${textColor}`}>{t('requests.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={confirmDecline}
-                disabled={declineReasonTooShort}
-                activeOpacity={0.7}
-                className={`flex-1 items-center rounded-xl bg-red-500 py-3 ${declineReasonTooShort ? 'opacity-50' : ''}`}>
-                <Text className="font-semibold text-white">{t('requests.decline')}</Text>
-              </TouchableOpacity>
-            </View>
+        onClose={() => setDeclineTargetId(null)}
+        mobilePresentation="centered"
+        dialogWidth={480}>
+        <View className={`${cardBg} p-5`}>
+          <Text className={`text-lg font-bold ${textColor} mb-1`}>
+            {t('requests.declineTitle')}
+          </Text>
+          <Text className={`text-sm ${subtextColor} mb-4`}>{t('requests.declineSubtitle')}</Text>
+          <TextInput
+            value={declineReason}
+            onChangeText={setDeclineReason}
+            placeholder={t('requests.declinePlaceholder')}
+            placeholderTextColor={placeholderColor}
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+            className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${declineReasonTooShort ? 'mb-1' : 'mb-4'}`}
+            style={{ minHeight: 80 }}
+            selectionColor={BRAND_GREEN}
+          />
+          {declineReasonTooShort && (
+            <Text className="mb-4 text-xs text-red-500">{t('requests.declineTooShort')}</Text>
+          )}
+          <View className="flex-row" style={{ gap: 12 }}>
+            <TouchableOpacity
+              onPress={() => setDeclineTargetId(null)}
+              activeOpacity={0.7}
+              className={`flex-1 items-center rounded-xl border py-3 ${borderColor}`}>
+              <Text className={`font-semibold ${textColor}`}>{t('requests.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={confirmDecline}
+              disabled={declineReasonTooShort}
+              activeOpacity={0.7}
+              className={`flex-1 items-center rounded-xl bg-red-500 py-3 ${declineReasonTooShort ? 'opacity-50' : ''}`}>
+              <Text className="font-semibold text-white">{t('requests.decline')}</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </ResponsiveModal>
     </ScreenLayout>
   );
 }

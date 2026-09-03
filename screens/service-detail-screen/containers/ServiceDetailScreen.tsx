@@ -17,6 +17,8 @@ import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import StickyFooter from '../../../components/shared/StickyFooter';
+import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
+import { useResponsive } from '../../../hooks/useResponsive';
 import {
   getService,
   ServiceDto,
@@ -82,7 +84,16 @@ export default function ServiceDetailScreen() {
   const { service, serviceId } = route.params ?? {};
   // The id is what identifies the screen; a passed `service` is just a head start on rendering.
   const id = service?.id ?? serviceId ?? null;
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
+  const { isWebLayout } = useResponsive();
+
+  // The paged gallery sizes each photo to one "page". That page is the WINDOW on a phone, where
+  // the screen is the container — but on the web design the container is the capped content
+  // column beside the sidebar, so using the window width would render each photo wider than the
+  // column and leave the paging maths one photo behind every swipe.
+  const screenWidth = isWebLayout
+    ? Math.min(windowWidth, CONTENT_WIDTHS.default ?? windowWidth)
+    : windowWidth;
   const {
     isDarkMode,
     bgColor: contentBg,
@@ -295,20 +306,26 @@ export default function ServiceDetailScreen() {
       showBackButton
       contentBg={contentBg}
       contentRounded={false}
+      headerTitle={isWebLayout ? t('serviceDetail.title') : undefined}
+      headerSubtitle={isWebLayout ? t('serviceDetail.subtitle') : undefined}
       headerChildren={
-        <View className="flex-1">
-          <Text className="text-xl font-bold text-white">{t('serviceDetail.title')}</Text>
-          <Text className={`${isDarkMode ? 'text-gray-300' : 'text-brand-100'} text-sm`}>
-            {t('serviceDetail.subtitle')}
-          </Text>
-        </View>
+        isWebLayout ? undefined : (
+          <View className="flex-1">
+            <Text className="text-xl font-bold text-white">{t('serviceDetail.title')}</Text>
+            <Text className={`${isDarkMode ? 'text-gray-300' : 'text-brand-100'} text-sm`}>
+              {t('serviceDetail.subtitle')}
+            </Text>
+          </View>
+        )
       }>
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
           <ActivityIndicator size="large" color={BRAND_GREEN} />
         </View>
       ) : (
-        <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 110 }}>
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ paddingBottom: isWebLayout ? 24 : 110 }}>
           {/* Photo gallery — profile photo first, swipe through the rest */}
           {photoUris.length > 0 ? (
             <View>

@@ -5,10 +5,12 @@ import TabBar from '../../../components/shared/TabBar';
 import ServiceCard from '../../../components/shared/ServiceCard';
 import SeeMoreCard from '../../../components/shared/SeeMoreCard';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import Rail from '../../../components/shared/Rail';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useLocation } from '../../../hooks/useLocation';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
+import { useResponsive } from '../../../hooks/useResponsive';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { resolveImageUrl } from '../../../services/service-providers';
@@ -36,6 +38,23 @@ const SERVICE_TYPES = [
   { id: 'grooming', label: 'Groomer', value: 4, icon: 'cut' },
   { id: 'transport', label: 'Transporter', value: 5, icon: 'car' },
 ];
+
+/**
+ * The category pills: a sideways scroller on a phone, a wrapping row on the web design.
+ *
+ * Same children either way — only the container differs, which is what keeps the pills' own
+ * markup (colours, labels, accessibility) in one place rather than duplicated per design.
+ */
+function PillRow({ isWebLayout, children }: { isWebLayout: boolean; children: React.ReactNode }) {
+  if (isWebLayout) {
+    return <View className="-mx-2 flex-row flex-wrap">{children}</View>;
+  }
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-2 flex-row">
+      {children}
+    </ScrollView>
+  );
+}
 
 /** A service flattened for ServiceCard. Booking targets the service itself. */
 type ServiceItem = {
@@ -98,6 +117,7 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const location = useLocation();
   const { isDarkMode, textColor } = useThemeColors();
+  const { isWebLayout } = useResponsive();
   const { currentUser } = useAuth();
   const { t, tEnum } = useLocale();
 
@@ -227,133 +247,168 @@ export default function HomeScreen() {
     badge?: 'popular' | 'deal'
   ) => {
     if (!isLoading && items.length === 0) return null;
+
+    // Skeletons match the real cards' shape, so the row does not resize when the data lands.
+    const cards = isLoading
+      ? Array.from({ length: isWebLayout ? 3 : 3 }).map((_, i) => (
+          <View
+            key={`skeleton-${i}`}
+            className={`overflow-hidden rounded-2xl ${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}`}
+            style={{ width: isWebLayout ? '100%' : 200, height: isWebLayout ? 220 : 160 }}>
+            <View className="flex-1 items-center justify-center">
+              <ActivityIndicator color={BRAND_GREEN} />
+            </View>
+          </View>
+        ))
+      : items.map((item) => (
+          <ServiceCard
+            key={item.id}
+            image={item.image}
+            name={item.name}
+            service={
+              item.subtitle ||
+              (item.dto.type != null ? tEnum('serviceProviderType', item.dto.type) : '')
+            }
+            rating={item.rating}
+            reviews={item.reviews}
+            price={item.price}
+            currency={serviceCurrency(item.dto)}
+            badge={badge}
+            dealAmount={item.dealAmount}
+            // Fills its grid cell on the web design; keeps the 200px rail width on a phone.
+            fill={isWebLayout}
+            onPress={() => handleServicePress(item)}
+          />
+        ));
+
     return (
-      <View className="mb-6">
-        <View className="mb-3 flex-row items-center justify-between px-6">
-          <View className="flex-row items-center">
-            <Ionicons name={icon as any} size={20} color="#10B981" />
-            <Text className={`ml-2 text-base font-semibold ${sectionTitleColor}`}>{title}</Text>
-          </View>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-6">
-          <View className="flex-row gap-3">
-            {isLoading
-              ? Array.from({ length: 3 }).map((_, i) => (
-                  <View
-                    key={i}
-                    className={`overflow-hidden rounded-2xl ${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}`}
-                    style={{ width: 200, height: 160 }}>
-                    <View className={`flex-1 items-center justify-center`}>
-                      <ActivityIndicator color={BRAND_GREEN} />
-                    </View>
-                  </View>
-                ))
-              : items.map((item) => (
-                  <ServiceCard
-                    key={item.id}
-                    image={item.image}
-                    name={item.name}
-                    service={
-                      item.subtitle ||
-                      (item.dto.type != null ? tEnum('serviceProviderType', item.dto.type) : '')
-                    }
-                    rating={item.rating}
-                    reviews={item.reviews}
-                    price={item.price}
-                    currency={serviceCurrency(item.dto)}
-                    badge={badge}
-                    dealAmount={item.dealAmount}
-                    onPress={() => handleServicePress(item)}
-                  />
-                ))}
-            {!isLoading && (
-              // Named after the row it ends — every rail has one of these, and four identical
-              // "See more" buttons on a screen are indistinguishable without it.
-              <SeeMoreCard
-                onPress={() => handleSeeAll(category)}
-                accessibilityLabel={`${t('common.seeMore')}: ${title}`}
-              />
-            )}
-          </View>
-        </ScrollView>
-      </View>
+      <Rail
+        title={title}
+        icon={icon as any}
+        onSeeAll={() => handleSeeAll(category)}
+        mobileTrailing={
+          !isLoading ? (
+            // Named after the row it ends — every rail has one of these, and four identical
+            // "See more" buttons on a screen are indistinguishable without it.
+            <SeeMoreCard
+              onPress={() => handleSeeAll(category)}
+              accessibilityLabel={`${t('common.seeMore')}: ${title}`}
+            />
+          ) : undefined
+        }>
+        {cards}
+      </Rail>
     );
   };
+
+  // The greeting is the web page's title. The phone design's header slab carries the brand mark,
+  // the bell and the messages icon — on the web design the sidebar shows the brand and the TopBar
+  // owns both icons, so repeating any of it here would put two of each on the page.
+  const webTitle = currentUser?.firstName
+    ? t('home.webGreeting', { name: currentUser.firstName })
+    : t('tabs.home');
 
   return (
     <ScreenLayout
       headerVariant="large"
       contentBg={contentBg}
       footer={<TabBar />}
+      width="wide"
+      headerTitle={isWebLayout ? webTitle : undefined}
+      headerSubtitle={isWebLayout ? t('home.tagline') : undefined}
       headerChildren={
-        <>
-          <View className="mb-4 flex-row items-center justify-between">
-            <View className="flex-1 flex-row items-center">
-              <Ionicons name="location-outline" size={18} color="#ffffff" />
-              {location.loading ? (
-                <ActivityIndicator size="small" color="#ffffff" style={{ marginLeft: 8 }} />
-              ) : (
-                <Text className="ml-2 text-sm text-white" numberOfLines={1}>
-                  {location.address}
-                </Text>
-              )}
-            </View>
-            {/* Messages sits beside notifications: a chat message is only pushed to the feed
+        isWebLayout ? (
+          // All that survives into the web header is the location line — "Near You" depends on
+          // it, so the user needs to see which location the rail is ranked against.
+          <View className="flex-row items-center">
+            <Ionicons name="location-outline" size={16} color={BRAND_GREEN} />
+            {location.loading ? (
+              <ActivityIndicator size="small" color={BRAND_GREEN} style={{ marginLeft: 8 }} />
+            ) : (
+              <Text className={`ml-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                {location.address}
+              </Text>
+            )}
+          </View>
+        ) : (
+          <>
+            <View className="mb-4 flex-row items-center justify-between">
+              <View className="flex-1 flex-row items-center">
+                <Ionicons name="location-outline" size={18} color="#ffffff" />
+                {location.loading ? (
+                  <ActivityIndicator size="small" color="#ffffff" style={{ marginLeft: 8 }} />
+                ) : (
+                  <Text className="ml-2 text-sm text-white" numberOfLines={1}>
+                    {location.address}
+                  </Text>
+                )}
+              </View>
+              {/* Messages sits beside notifications: a chat message is only pushed to the feed
                 once per thread (the rest is carried by this badge), so without an entry point
                 here an ongoing conversation would be invisible from the home screen. */}
-            <TouchableOpacity
-              className="p-2"
-              accessibilityRole="button"
-              accessibilityLabel={
-                unreadMessages > 0
-                  ? t('home.a11yMessagesUnread', { count: unreadMessages })
-                  : t('home.a11yMessages')
-              }
-              accessible
-              onPress={() => (navigation as any).navigate('Messages')}>
-              <Ionicons name="chatbubble-ellipses-outline" size={22} color="white" />
-              {unreadMessages > 0 && (
-                <View className="absolute right-0.5 top-0.5 h-[18px] min-w-[18px] items-center justify-center rounded-full border border-brand-500 bg-red-500 px-1">
-                  <Text className="text-[10px] font-bold text-white">
-                    {unreadMessages > 99 ? '99+' : unreadMessages}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="p-2"
-              // Icon-only, and the unread count is rendered as a bare badge — without this the
-              // control announces as an unnamed button and the count is never read at all.
-              accessibilityRole="button"
-              accessibilityLabel={
-                unreadCount > 0
-                  ? t('home.a11yNotificationsUnread', { count: unreadCount })
-                  : t('home.a11yNotifications')
-              }
-              accessible
-              onPress={() => (navigation as any).navigate('Notifications')}>
-              <Ionicons name="notifications-outline" size={22} color="white" />
-              {unreadCount > 0 && (
-                <View className="absolute right-0.5 top-0.5 h-[18px] min-w-[18px] items-center justify-center rounded-full border border-brand-500 bg-red-500 px-1">
-                  <Text className="text-[10px] font-bold text-white">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                className="p-2"
+                accessibilityRole="button"
+                accessibilityLabel={
+                  unreadMessages > 0
+                    ? t('home.a11yMessagesUnread', { count: unreadMessages })
+                    : t('home.a11yMessages')
+                }
+                accessible
+                onPress={() => (navigation as any).navigate('Messages')}>
+                <Ionicons name="chatbubble-ellipses-outline" size={22} color="white" />
+                {unreadMessages > 0 && (
+                  <View className="absolute right-0.5 top-0.5 h-[18px] min-w-[18px] items-center justify-center rounded-full border border-brand-500 bg-red-500 px-1">
+                    <Text className="text-[10px] font-bold text-white">
+                      {unreadMessages > 99 ? '99+' : unreadMessages}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                className="p-2"
+                // Icon-only, and the unread count is rendered as a bare badge — without this the
+                // control announces as an unnamed button and the count is never read at all.
+                accessibilityRole="button"
+                accessibilityLabel={
+                  unreadCount > 0
+                    ? t('home.a11yNotificationsUnread', { count: unreadCount })
+                    : t('home.a11yNotifications')
+                }
+                accessible
+                onPress={() => (navigation as any).navigate('Notifications')}>
+                <Ionicons name="notifications-outline" size={22} color="white" />
+                {unreadCount > 0 && (
+                  <View className="absolute right-0.5 top-0.5 h-[18px] min-w-[18px] items-center justify-center rounded-full border border-brand-500 bg-red-500 px-1">
+                    <Text className="text-[10px] font-bold text-white">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
 
-          <View className="mb-2 flex-row items-center">
-            <MaterialCommunityIcons name="paw" size={24} color="white" />
-            <Text className="ml-2 text-2xl font-bold text-white">{t('login.appName')}</Text>
-          </View>
-          <Text className={`${subtitleColor} mb-8 text-sm`}>{t('home.tagline')}</Text>
-        </>
+            <View className="mb-2 flex-row items-center">
+              <MaterialCommunityIcons name="paw" size={24} color="white" />
+              <Text className="ml-2 text-2xl font-bold text-white">{t('login.appName')}</Text>
+            </View>
+            <Text className={`${subtitleColor} mb-8 text-sm`}>{t('home.tagline')}</Text>
+          </>
+        )
       }>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView
+        className="flex-1"
+        // The tall bottom padding exists to clear the pinned tab bar; the web design has no bar
+        // across the bottom, so there is nothing to clear.
+        contentContainerStyle={{ paddingBottom: isWebLayout ? 40 : 100 }}>
         {/* Service Type Pills */}
         <View className="px-6 py-4">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-2 flex-row">
+          {/*
+            Six pills fit comfortably across a desktop column, so they wrap into place instead of
+            hiding behind a horizontal scrollbar — a sideways scroller is a phone affordance, and
+            on a mouse it is the one gesture people do not think to try.
+          */}
+          <PillRow isWebLayout={isWebLayout}>
             {SERVICE_TYPES.map((service, index) => {
               const typeLabel = tEnum('serviceProviderType', service.value, service.label);
               return (
@@ -365,7 +420,9 @@ export default function HomeScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={t('home.a11yBrowseCategory', { category: typeLabel })}
                   accessible
-                  className={`mx-2 flex-row items-center rounded-full px-6 py-3 ${
+                  // `my-1` is what keeps the rows apart once they wrap on the web design; in the
+                  // phone's single-row scroller it is 4px of harmless breathing room.
+                  className={`mx-2 my-1 flex-row items-center rounded-full px-6 py-3 ${
                     index === 0 ? 'bg-blue-500' : index === 1 ? 'bg-purple-500' : 'bg-brand-500'
                   }`}>
                   <Ionicons name={service.icon as any} size={18} color="white" />
@@ -373,7 +430,7 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               );
             })}
-          </ScrollView>
+          </PillRow>
         </View>
 
         {renderSection(t('home.recentlyBooked'), 'time-outline', recentlyBooked, 'recently-booked')}

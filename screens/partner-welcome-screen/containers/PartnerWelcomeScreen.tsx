@@ -22,6 +22,7 @@ import ScheduleScene from '../components/scenes/ScheduleScene';
 import ServicesScene from '../components/scenes/ServicesScene';
 import PromotionsScene from '../components/scenes/PromotionsScene';
 import LiveSessionScene from '../components/scenes/LiveSessionScene';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 const GREEN = '#22C55E';
 
@@ -158,6 +159,7 @@ function PulsingRing({ size }: { size: number }) {
  * becomes true for a user who hasn't seen it (see `services/onboarding.ts`).
  */
 export default function PartnerWelcomeScreen() {
+  const { isWebLayout } = useResponsive();
   const { resetToTab } = useAppNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocale();
@@ -229,9 +231,15 @@ export default function PartnerWelcomeScreen() {
     </View>
   );
 
+  // The coloured background stays full-bleed — that is the point of a celebration screen — but
+  // the copy inside it is capped, or the headline runs the full width of a monitor.
+  const page = isWebLayout
+    ? { width: '100%' as const, maxWidth: 560, alignSelf: 'center' as const }
+    : undefined;
+
   return (
     <View style={{ flex: 1, backgroundColor: isHero ? GREEN : '#fff' }}>
-      <View style={{ flex: 1 }} {...pan.panHandlers}>
+      <View style={{ flex: 1, ...page }} {...pan.panHandlers}>
         {isHero ? (
           /* ── Celebration hero ── */
           <AnimatedPage

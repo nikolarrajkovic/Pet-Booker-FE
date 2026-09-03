@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import { SUPPORTED_CURRENCIES, formatMoney, type SupportedCurrency } from '../../services/currency';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 type Props = {
   visible: boolean;
@@ -21,6 +22,8 @@ type Props = {
 export default function CurrencyPicker({ visible, current, onSelect, onClose }: Props) {
   const { t } = useLocale();
   const { isDarkMode, hex } = useThemeColors();
+
+  useEscapeToClose(visible, onClose);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>

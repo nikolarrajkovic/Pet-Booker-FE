@@ -26,6 +26,7 @@ import { formatMoney } from '../../../services/currency';
 import { serviceDtoToUi, UiService, additionalServiceTitle } from '../serviceModel';
 import { providerTypeValue } from '../../../services/service-providers';
 import { AdditionalServiceChargeType } from '../../../services/service-addons';
+import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 
 // Extras are provider-named free text now, so there's no fixed name→icon table to key off.
 // A per-distance extra is a trip, everything else is a generic service.
@@ -129,7 +130,9 @@ export default function MyServicesScreen() {
       headerTitle={t('myServices.title')}
       headerSubtitle={subtitle}
       rightAction={addNewButton}
-      contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50'}>
+      webHeaderRight={addNewButton}
+      contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50'}
+      width="wide">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className="px-4 py-4" style={{ gap: 16 }}>
           {isLoading ? (
@@ -166,19 +169,23 @@ export default function MyServicesScreen() {
               </Text>
             </View>
           ) : (
-            services.map((dto) => {
-              const ui = serviceDtoToUi(dto);
-              return (
-                <ServiceListCard
-                  key={ui.id}
-                  service={ui}
-                  currency={serviceCurrency(dto)}
-                  isDarkMode={isDarkMode}
-                  onEdit={() => handleEdit(dto)}
-                  onDelete={() => handleDelete(ui.id)}
-                />
-              );
-            })
+            // These cards have no bottom margin of their own — the wrapping View's `gap` supplies
+            // the spacing — so the grid owns both axes here, unlike the moderation lists.
+            <ResponsiveGrid columns={{ mobile: 1, tablet: 2, desktop: 2, wide: 3 }} gap={16}>
+              {services.map((dto) => {
+                const ui = serviceDtoToUi(dto);
+                return (
+                  <ServiceListCard
+                    key={ui.id}
+                    service={ui}
+                    currency={serviceCurrency(dto)}
+                    isDarkMode={isDarkMode}
+                    onEdit={() => handleEdit(dto)}
+                    onDelete={() => handleDelete(ui.id)}
+                  />
+                );
+              })}
+            </ResponsiveGrid>
           )}
         </View>
       </ScrollView>

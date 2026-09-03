@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
+import { useFormChain } from '../../../hooks/useFormChain';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -168,6 +169,10 @@ export default function AccountScreen() {
   };
 
   // Avatar to display: the freshly-picked photo, else the saved avatar, else initials.
+  // First -> last -> save. Email is read-only and phone is a composite control, so neither joins
+  // the chain — Enter would land on a field the user cannot type in.
+  const form = useFormChain(['firstName', 'lastName'], handleSave);
+
   const savedAvatar = avatarError ? '' : resolveImageUrl(original?.avatarUrl);
   const avatarUri = newPhoto?.uri || savedAvatar;
   const initials = ((firstName || email || '?').trim()[0] ?? '?').toUpperCase();
@@ -180,7 +185,10 @@ export default function AccountScreen() {
         headerVariant="standard"
         showBackButton
         headerTitle={t('account.title')}
-        contentBg={bgColor}>
+        contentBg={bgColor}
+        // A form: one column of fields. Capped narrow so a label never sits a screen-width
+        // away from the input it names.
+        width="narrow">
         <View className="flex-1 items-center justify-center py-20">
           <ActivityIndicator size="large" color={BRAND_GREEN} />
         </View>
@@ -256,6 +264,7 @@ export default function AccountScreen() {
               {t('account.firstName')}
             </Text>
             <TextInput
+              {...form.field('firstName')}
               value={firstName}
               onChangeText={setFirstName}
               className={`${inputBg} rounded-xl px-4 py-3 ${inputText} border ${borderColor}`}
@@ -269,6 +278,7 @@ export default function AccountScreen() {
               {t('account.lastName')}
             </Text>
             <TextInput
+              {...form.field('lastName')}
               value={lastName}
               onChangeText={setLastName}
               className={`${inputBg} rounded-xl px-4 py-3 ${inputText} border ${borderColor}`}

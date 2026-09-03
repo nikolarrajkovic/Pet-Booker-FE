@@ -322,9 +322,7 @@ export function getServiceProviders(
  * number, not the rows — fetching 200 full provider records (photos, certificates, address) to
  * call `.length` on them was both wasteful and silently wrong past the page cap.
  */
-export async function countServiceProviders(
-  params?: GetServiceProvidersParams
-): Promise<number> {
+export async function countServiceProviders(params?: GetServiceProvidersParams): Promise<number> {
   const page = await apiPage<ServiceProviderDto>('/api/service-providers', {
     ...providersRequest({ ...params, page: 1, perPage: 1 }),
     context: 'countServiceProviders',

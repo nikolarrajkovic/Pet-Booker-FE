@@ -15,6 +15,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
+import { useFormChain } from '../../../hooks/useFormChain';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -37,6 +38,7 @@ import { getErrorMessage } from '../../../services/http';
 import { providerTypeValue } from '../../../services/service-providers';
 import { AdditionalServiceChargeType, DistanceLeg } from '../../../services/service-addons';
 import { clearServiceSchedules } from '../../../services/service-schedules';
+import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 import {
   serviceDtoToUi,
   uiToServiceDto,
@@ -369,6 +371,13 @@ export default function AddEditServiceScreen() {
     (navigation as any).navigate('ServicePreview', { service: serviceData });
   };
 
+  // Only the two free-text fields at the top of the form join the chain — everything below is
+  // pickers, toggles and repeatable rows, which Enter has no sensible order to walk through.
+  const form = useFormChain(
+    ['serviceName', { name: 'description', multiline: true }],
+    () => void handleSave()
+  );
+
   const handleSave = async () => {
     if (!serviceType || !serviceName || !description) {
       Alert.alert(t('addEditService.missingInfoTitle'), t('addEditService.missingInfoMsg'));
@@ -471,13 +480,21 @@ export default function AddEditServiceScreen() {
     </TouchableOpacity>
   );
 
+  // Esc dismisses these dialogs — RN's onRequestClose only fires for Android's back button.
+  useEscapeToClose(showServiceTypeModal, () => setShowServiceTypeModal(false));
+  useEscapeToClose(showDurationModal, () => setShowDurationModal(false));
+  useEscapeToClose(showTimePicker, () => setShowTimePicker(false));
+
   return (
     <ScreenLayout
       showBackButton
       headerTitle={isEdit ? t('addEditService.titleEdit') : t('addEditService.titleAdd')}
       headerSubtitle={isEdit ? t('addEditService.subtitleEdit') : t('addEditService.subtitleAdd')}
       rightAction={previewButton}
-      contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-white'}>
+      contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-white'}
+      // A form: one column of fields. Capped narrow so a label never sits a screen-width
+      // away from the input it names.
+      width="narrow">
       <ScrollView className="flex-1 px-6 py-6" showsVerticalScrollIndicator={false}>
         {/* Service Type */}
         <View className="mb-4">
@@ -503,6 +520,7 @@ export default function AddEditServiceScreen() {
             placeholder={t('addEditService.serviceNamePlaceholder')}
             placeholderTextColor={placeholderColor}
             className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
+            {...form.field('serviceName')}
             value={serviceName}
             onChangeText={setServiceName}
           />
@@ -517,6 +535,7 @@ export default function AddEditServiceScreen() {
             placeholder={t('addEditService.descriptionPlaceholder')}
             placeholderTextColor={placeholderColor}
             className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
+            {...form.field('description')}
             value={description}
             onChangeText={setDescription}
             multiline

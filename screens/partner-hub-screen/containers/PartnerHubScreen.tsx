@@ -25,6 +25,8 @@ import {
 } from '../../../services/stats';
 import { getServices } from '../../../services/services';
 import TabBar from '../../../components/shared/TabBar';
+import { useResponsive } from '../../../hooks/useResponsive';
+import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 
 // ─── Formatting / time helpers ───────────────────────────────────────────────
 const fmtPct = (p: number | null): string | undefined =>
@@ -288,12 +290,38 @@ const QUICK_ACTIONS = [
   },
 ];
 
+/**
+ * The stat pills: a sideways scroller on a phone, a wrapping row on the web design.
+ *
+ * A horizontal scrollbar is the one gesture mouse users do not think to try, so on a wide page
+ * the pills wrap into place instead of hiding four of five off the right edge.
+ */
+function PillRow({ isWebLayout, children }: { isWebLayout: boolean; children: React.ReactNode }) {
+  if (isWebLayout) {
+    return (
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 20 }}>
+        {children}
+      </View>
+    );
+  }
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ marginTop: 16 }}
+      contentContainerStyle={{ gap: 10, paddingRight: 4 }}>
+      {children}
+    </ScrollView>
+  );
+}
+
 export default function PartnerHubScreen() {
   const navigation = useNavigation();
   const { isDarkMode, hex } = useThemeColors();
   const { currentUser } = useAuth();
   const { showError } = useToast();
   const { t } = useLocale();
+  const { isWebLayout } = useResponsive();
   const { unreadCount: unreadMessages, refreshUnreadCount: refreshUnreadMessages } = useMessages();
   const insets = useSafeAreaInsets();
 
@@ -434,15 +462,25 @@ export default function PartnerHubScreen() {
     return null;
   };
 
+  // The green slab, its safe-area padding and the rounded sheet that rides up over it are all
+  // phone chrome: they exist to give the status bar a background and to separate a screen that
+  // fills the display. On the web design the sidebar already frames the page, so the header is
+  // just a title — and the stat pills stop being translucent-on-green (there is no green behind
+  // them any more) and become ordinary cards.
+  const Root: any = isWebLayout ? View : SafeAreaView;
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: BRAND_GREEN }}>
+    <Root style={{ flex: 1, backgroundColor: isWebLayout ? bgColor : BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{
-          backgroundColor: BRAND_GREEN,
-          paddingHorizontal: 20,
-          paddingTop: headerTopInset + (insets.top > 0 ? 8 : 16),
+          backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
+          paddingHorizontal: isWebLayout ? 40 : 20,
+          paddingTop: isWebLayout ? 32 : headerTopInset + (insets.top > 0 ? 8 : 16),
           paddingBottom: 24,
+          width: '100%',
+          maxWidth: isWebLayout ? CONTENT_WIDTHS.wide : undefined,
+          alignSelf: 'center',
         }}>
         <View
           style={{
@@ -451,10 +489,21 @@ export default function PartnerHubScreen() {
             justifyContent: 'space-between',
           }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: 'white', fontSize: 26, fontWeight: '700', letterSpacing: -0.5 }}>
+            <Text
+              style={{
+                color: isWebLayout ? hex.text : 'white',
+                fontSize: isWebLayout ? 30 : 26,
+                fontWeight: '700',
+                letterSpacing: -0.5,
+              }}>
               {t('partnerHub.title')}
             </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, marginTop: 2 }}>
+            <Text
+              style={{
+                color: isWebLayout ? hex.subtext : 'rgba(255,255,255,0.85)',
+                fontSize: 14,
+                marginTop: 2,
+              }}>
               {t('partnerHub.welcomeBack', {
                 name: currentUser?.firstName?.trim() || t('partnerHub.partner'),
               })}
@@ -466,25 +515,31 @@ export default function PartnerHubScreen() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: 'rgba(255,255,255,0.25)',
+              backgroundColor: isWebLayout ? hex.card : 'rgba(255,255,255,0.25)',
+              borderWidth: isWebLayout ? 1 : 0,
+              borderColor: hex.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-            <Ionicons name="settings-outline" size={20} color="white" />
+            <Ionicons
+              name="settings-outline"
+              size={20}
+              color={isWebLayout ? hex.subtext : 'white'}
+            />
           </TouchableOpacity>
         </View>
 
         {/* ── Stats Pills (horizontally scrollable) ── */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginTop: 16 }}
-          contentContainerStyle={{ gap: 10, paddingRight: 4 }}>
+        <PillRow isWebLayout={isWebLayout}>
           {pills.map((stat) => (
             <View
               key={stat.id}
               style={{
-                backgroundColor: 'rgba(255,255,255,0.2)',
+                backgroundColor: isWebLayout ? cardBg : 'rgba(255,255,255,0.2)',
+                borderWidth: isWebLayout ? 1 : 0,
+                borderColor: hex.border,
+                flexGrow: isWebLayout ? 1 : 0,
+                flexBasis: isWebLayout ? 180 : undefined,
                 borderRadius: 14,
                 paddingHorizontal: 14,
                 paddingVertical: 10,
@@ -498,15 +553,20 @@ export default function PartnerHubScreen() {
                   width: 36,
                   height: 36,
                   borderRadius: 10,
-                  backgroundColor: 'rgba(255,255,255,0.3)',
+                  backgroundColor: isWebLayout ? hex.chipBg : 'rgba(255,255,255,0.3)',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                <Ionicons name={stat.icon} size={18} color="white" />
+                <Ionicons name={stat.icon} size={18} color={isWebLayout ? BRAND_GREEN : 'white'} />
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={{ color: 'white', fontSize: 18, fontWeight: '700' }}>
+                  <Text
+                    style={{
+                      color: isWebLayout ? hex.text : 'white',
+                      fontSize: 18,
+                      fontWeight: '700',
+                    }}>
                     {stat.value}
                   </Text>
                   {stat.change && (
@@ -523,13 +583,18 @@ export default function PartnerHubScreen() {
                     </View>
                   )}
                 </View>
-                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 1 }}>
+                <Text
+                  style={{
+                    color: isWebLayout ? hex.subtext : 'rgba(255,255,255,0.8)',
+                    fontSize: 11,
+                    marginTop: 1,
+                  }}>
                   {stat.label}
                 </Text>
               </View>
             </View>
           ))}
-        </ScrollView>
+        </PillRow>
       </View>
 
       {/* ── Main Content ── */}
@@ -537,14 +602,25 @@ export default function PartnerHubScreen() {
         style={{
           flex: 1,
           backgroundColor: bgColor,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          marginTop: -16,
+          // The rounded sheet slides up over the green header. With no green header there is
+          // nothing to slide over, and the radius would just clip the content's top corners.
+          borderTopLeftRadius: isWebLayout ? 0 : 24,
+          borderTopRightRadius: isWebLayout ? 0 : 24,
+          marginTop: isWebLayout ? 0 : -16,
           overflow: 'hidden',
         }}>
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 100 }}>
+          contentContainerStyle={
+            isWebLayout
+              ? {
+                  paddingBottom: 40,
+                  width: '100%',
+                  maxWidth: CONTENT_WIDTHS.wide,
+                  alignSelf: 'center',
+                }
+              : { paddingBottom: 100 }
+          }>
           {/* ── Active Live Session banner ── */}
           {hasLiveSession && (
             <TouchableOpacity
@@ -610,7 +686,11 @@ export default function PartnerHubScreen() {
                       )
                     }
                     style={{
-                      width: '47%',
+                      // 47% is two per row on a phone. Kept at that width on a desktop each tile
+                      // becomes ~520px wide to hold an icon and two words.
+                      width: isWebLayout ? '23%' : '47%',
+                      minWidth: isWebLayout ? 180 : undefined,
+                      flexGrow: isWebLayout ? 1 : 0,
                       backgroundColor: cardBg,
                       borderRadius: 16,
                       padding: 16,
@@ -813,6 +893,6 @@ export default function PartnerHubScreen() {
       </View>
 
       <TabBar />
-    </SafeAreaView>
+    </Root>
   );
 }

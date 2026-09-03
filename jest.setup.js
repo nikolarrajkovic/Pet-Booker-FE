@@ -70,3 +70,24 @@ jest.mock('@microsoft/signalr', () => ({
   LogLevel: { Information: 2, Warning: 3, Error: 4, None: 6 },
   HttpTransportType: { WebSockets: 1 },
 }));
+
+// `react-native-keyboard-controller` is a native module: importing it under jest reaches for a
+// TurboModule that only exists in a built app, and the require throws before any component
+// renders. Every screen pulls it in through `ScreenLayout`, so without this mock two thirds of
+// the suite cannot render a screen at all. The keyboard is never visible in a test — the
+// avoidance path is inert on the web design and untestable on the phone one, so a passthrough
+// view and a permanently-hidden keyboard are the honest stubs.
+jest.mock('react-native-keyboard-controller', () => {
+  const { View } = require('react-native');
+  return {
+    KeyboardProvider: ({ children }) => children,
+    KeyboardAvoidingView: View,
+    KeyboardAwareScrollView: View,
+    useKeyboardState: (selector) => {
+      const state = { isVisible: false, height: 0 };
+      return typeof selector === 'function' ? selector(state) : state;
+    },
+    useKeyboardHandler: () => undefined,
+    useReanimatedKeyboardAnimation: () => ({ height: { value: 0 }, progress: { value: 0 } }),
+  };
+});

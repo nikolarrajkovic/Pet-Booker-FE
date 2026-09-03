@@ -10,6 +10,7 @@ import ListState from '../../../components/shared/ListState';
 import FilterTabs, { moderationTabs } from '../../../components/shared/FilterTabs';
 import { PartnerApplicationCard } from '../components';
 import type { PartnerApplication } from '../components';
+import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import {
   getServiceProviders,
   providerTypeLabel,
@@ -181,7 +182,8 @@ export default function AdminNewRequestsScreen() {
       onBackPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })}
       headerTitle={t('admin.requestsTitle')}
       headerSubtitle={t('admin.requestsSubtitle')}
-      contentBg={contentBg}>
+      contentBg={contentBg}
+      width="wide">
       <FilterTabs tabs={TABS} activeKey={activeTab} onChange={setActiveTab} counts={counts} />
 
       {/* ── List ── */}
@@ -201,19 +203,27 @@ export default function AdminNewRequestsScreen() {
                 ? t('admin.noApprovedApplications')
                 : t('admin.noRejectedApplications')
           }>
-          {filtered.map((application) => (
-            <PartnerApplicationCard
-              key={application.id}
-              application={application}
-              isDarkMode={isDarkMode}
-              cardBg={cardBg}
-              textColor={textColor}
-              subTextColor={subTextColor}
-              borderColor={borderColor}
-              onApprove={busyId ? undefined : handleApprove}
-              onReject={busyId ? undefined : handleReject}
-            />
-          ))}
+          {/*
+            Moderation cards are full-width rows built for a phone queue. On a wide page they
+            become 1120px bars with an avatar at one end, so the reviewer scrolls past three
+            screenfuls to see what fits in one. `rowGap={0}` lets each card keep the bottom margin
+            it already has rather than making a presentational component width-aware.
+          */}
+          <ResponsiveGrid columns={{ mobile: 1, tablet: 1, desktop: 2 }} gap={12} rowGap={0}>
+            {filtered.map((application) => (
+              <PartnerApplicationCard
+                key={application.id}
+                application={application}
+                isDarkMode={isDarkMode}
+                cardBg={cardBg}
+                textColor={textColor}
+                subTextColor={subTextColor}
+                borderColor={borderColor}
+                onApprove={busyId ? undefined : handleApprove}
+                onReject={busyId ? undefined : handleReject}
+              />
+            ))}
+          </ResponsiveGrid>
         </ListState>
       </ScrollView>
     </ScreenLayout>

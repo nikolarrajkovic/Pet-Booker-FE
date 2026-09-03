@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useFormChain } from '../../../hooks/useFormChain';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
@@ -175,13 +176,80 @@ export default function AddPetScreen() {
     setMainPhotoIndex((cur) => (index === cur ? 0 : index < cur ? cur - 1 : cur));
   };
 
+  const handleSave = async () => {
+    setHasAttemptedSave(true);
+    const hasErrors =
+      petPhotos.length === 0 ||
+      !petName.trim() ||
+      petType === null ||
+      !breed.trim() ||
+      sex === null ||
+      !birthDate ||
+      !weight.trim() ||
+      !height.trim();
+    if (hasErrors) return;
+    setIsSubmitting(true);
+    try {
+      const input = {
+        ownerUserId: currentUser?.id ?? 0,
+        petName,
+        petType: petType!,
+        breed,
+        sex: sex!,
+        birthDate,
+        weight,
+        weightUnit,
+        height,
+        heightUnit,
+        dietaryNotes,
+        favoriteFood,
+        additionalNotes,
+        petPhotos: petPhotos.map((p, i) => ({ ...p, isSelected: i === mainPhotoIndex })),
+      };
+      if (existingPet?.id) {
+        await updatePet({
+          ...input,
+          petId: existingPet.id,
+          originalPhotos: existingPet.photos,
+        });
+      } else {
+        await createPet(input);
+      }
+      if (route.params?.goBackOnSave && navigation.canGoBack()) {
+        navigation.goBack();
+      } else {
+        // popTo, not navigate: in React Navigation v7 `navigate` no longer
+        // pops back to an existing screen, so it would PUSH a second MyPets
+        // on top of this AddPet — leaving "Add pet" under the back button.
+        // popTo pops back to the MyPets we came from (and falls back to
+        // replacing this screen if there isn't one in the stack).
+        (navigation as any).popTo('MyPets', { refreshKey: Date.now() });
+      }
+    } catch (error) {
+      showError(getErrorMessage(error, t('addPet.saveFailed')));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Enter walks the text fields and saves from the last one. Pet type, sex, birth date and the
+  // photo picker are not text fields, so they sit outside the chain — Enter skips over them, and
+  // the validation in `handleSave` is what catches any the user left unset.
+  const form = useFormChain(
+    ['petName', 'breed', 'weight', 'height', 'dietaryNotes', 'favoriteFood'],
+    handleSave
+  );
+
   return (
     <ScreenLayout
       headerVariant="standard"
       showBackButton
       headerTitle={existingPet ? t('addPet.titleEdit') : t('addPet.titleAdd')}
       contentBg={contentBg}
-      contentRounded={false}>
+      contentRounded={false}
+      // A form: one column of fields. Capped narrow so a label never sits a screen-width
+      // away from the input it names.
+      width="narrow">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingTop: 24, paddingBottom: 32, paddingHorizontal: 24 }}>
@@ -202,6 +270,7 @@ export default function AddPetScreen() {
             {t('addPet.petName')} <Text className="text-red-500">*</Text>
           </Text>
           <TextInput
+            {...form.field('petName')}
             placeholder={t('addPet.petNamePlaceholder')}
             placeholderTextColor={placeholderColor}
             value={petName}
@@ -228,6 +297,7 @@ export default function AddPetScreen() {
             {t('addPet.breed')} <Text className="text-red-500">*</Text>
           </Text>
           <TextInput
+            {...form.field('breed')}
             placeholder={t('addPet.breedPlaceholder')}
             placeholderTextColor={placeholderColor}
             value={breed}
@@ -319,6 +389,7 @@ export default function AddPetScreen() {
               {t('addPet.weight', { unit: weightUnit })} <Text className="text-red-500">*</Text>
             </Text>
             <TextInput
+              {...form.field('weight')}
               placeholder={t('addPet.egPlaceholder', { value: isMetric ? '20' : '50' })}
               placeholderTextColor={placeholderColor}
               value={weight}
@@ -335,6 +406,7 @@ export default function AddPetScreen() {
               {t('addPet.height', { unit: heightUnit })} <Text className="text-red-500">*</Text>
             </Text>
             <TextInput
+              {...form.field('height')}
               placeholder={t('addPet.egPlaceholder', { value: isMetric ? '50' : '20' })}
               placeholderTextColor={placeholderColor}
               value={height}
@@ -354,6 +426,7 @@ export default function AddPetScreen() {
             {t('addPet.dietaryNotes')}
           </Text>
           <TextInput
+            {...form.field('dietaryNotes')}
             placeholder={t('addPet.dietaryPlaceholder')}
             placeholderTextColor={placeholderColor}
             value={dietaryNotes}
@@ -368,6 +441,7 @@ export default function AddPetScreen() {
             {t('addPet.favoriteFood')}
           </Text>
           <TextInput
+            {...form.field('favoriteFood')}
             placeholder={t('addPet.favoritePlaceholder')}
             placeholderTextColor={placeholderColor}
             value={favoriteFood}
@@ -399,61 +473,7 @@ export default function AddPetScreen() {
         <TouchableOpacity
           disabled={isSubmitting}
           style={{ opacity: isSubmitting ? 0.7 : 1 }}
-          onPress={async () => {
-            setHasAttemptedSave(true);
-            const hasErrors =
-              petPhotos.length === 0 ||
-              !petName.trim() ||
-              petType === null ||
-              !breed.trim() ||
-              sex === null ||
-              !birthDate ||
-              !weight.trim() ||
-              !height.trim();
-            if (hasErrors) return;
-            setIsSubmitting(true);
-            try {
-              const input = {
-                ownerUserId: currentUser?.id ?? 0,
-                petName,
-                petType: petType!,
-                breed,
-                sex: sex!,
-                birthDate,
-                weight,
-                weightUnit,
-                height,
-                heightUnit,
-                dietaryNotes,
-                favoriteFood,
-                additionalNotes,
-                petPhotos: petPhotos.map((p, i) => ({ ...p, isSelected: i === mainPhotoIndex })),
-              };
-              if (existingPet?.id) {
-                await updatePet({
-                  ...input,
-                  petId: existingPet.id,
-                  originalPhotos: existingPet.photos,
-                });
-              } else {
-                await createPet(input);
-              }
-              if (route.params?.goBackOnSave && navigation.canGoBack()) {
-                navigation.goBack();
-              } else {
-                // popTo, not navigate: in React Navigation v7 `navigate` no longer
-                // pops back to an existing screen, so it would PUSH a second MyPets
-                // on top of this AddPet — leaving "Add pet" under the back button.
-                // popTo pops back to the MyPets we came from (and falls back to
-                // replacing this screen if there isn't one in the stack).
-                (navigation as any).popTo('MyPets', { refreshKey: Date.now() });
-              }
-            } catch (error) {
-              showError(getErrorMessage(error, t('addPet.saveFailed')));
-            } finally {
-              setIsSubmitting(false);
-            }
-          }}
+          onPress={handleSave}
           className="mt-2 items-center rounded-2xl bg-brand-500 py-4">
           {isSubmitting ? (
             <ActivityIndicator color="white" />

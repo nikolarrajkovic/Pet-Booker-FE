@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import TabBar from '../../../components/shared/TabBar';
 import Button from '../../../components/shared/Button';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import { useResponsive } from '../../../hooks/useResponsive';
 import FilterModal, { FilterState } from '../../../components/FilterModal';
 import { useLocation } from '../../../hooks/useLocation';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -109,6 +110,7 @@ export default function SearchScreen() {
     borderColor,
   } = useThemeColors();
   const { t, tEnum } = useLocale();
+  const { isWebLayout } = useResponsive();
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -315,10 +317,39 @@ export default function SearchScreen() {
     setFilters(newFilters);
   };
 
+  // The view toggle and the filter button are the page's controls, so on the web design they sit
+  // on the title row where a web user looks for them, rather than as a full-width pair of buttons
+  // and a circular icon in a coloured bar.
+  const viewToggle = (
+    <View className={isWebLayout ? 'flex-row gap-2' : 'mb-8 mt-3 flex-row gap-3'}>
+      <View className={isWebLayout ? '' : 'flex-1'}>
+        <Button
+          text={t('search.listView')}
+          onPress={() => setViewMode('list')}
+          icon={
+            <Ionicons name="list" size={18} color={viewMode === 'list' ? BRAND_GREEN : 'white'} />
+          }
+          variant={viewMode === 'list' ? 'outline' : 'primary'}
+          className={viewMode === 'list' ? 'border-2 border-brand-600 bg-white' : ''}
+        />
+      </View>
+      <View className={isWebLayout ? '' : 'flex-1'}>
+        <Button
+          text={t('search.mapView')}
+          onPress={() => setViewMode('map')}
+          icon={
+            <Ionicons name="map" size={18} color={viewMode === 'map' ? BRAND_GREEN : 'white'} />
+          }
+          variant={viewMode === 'map' ? 'outline' : 'primary'}
+          className={viewMode === 'map' ? 'border-2 border-brand-600 bg-white' : ''}
+        />
+      </View>
+    </View>
+  );
+
   return (
     <ScreenLayout
       headerVariant="standard"
-      showBackButton
       headerTitle={
         categoryConfig
           ? t(categoryConfig.titleKey as any)
@@ -328,6 +359,10 @@ export default function SearchScreen() {
       }
       contentBg={contentBg}
       footer={<TabBar />}
+      width="wide"
+      // Back is a phone affordance here — on the web design Search is a sidebar destination, not
+      // somewhere you drilled into, so there is nothing above it to go back to.
+      showBackButton={!isWebLayout}
       rightAction={
         <TouchableOpacity
           onPress={() => setFilterModalVisible(true)}
@@ -335,35 +370,52 @@ export default function SearchScreen() {
           <Ionicons name="options-outline" size={20} color="white" />
         </TouchableOpacity>
       }
-      headerChildren={
-        <View className="mb-8 mt-3 flex-row gap-3">
-          <View className="flex-1">
-            <Button
-              text={t('search.listView')}
-              onPress={() => setViewMode('list')}
-              icon={
-                <Ionicons
-                  name="list"
-                  size={18}
-                  color={viewMode === 'list' ? BRAND_GREEN : 'white'}
-                />
-              }
-              variant={viewMode === 'list' ? 'outline' : 'primary'}
-              className={viewMode === 'list' ? 'border-2 border-brand-600 bg-white' : ''}
-            />
-          </View>
-          <View className="flex-1">
-            <Button
-              text={t('search.mapView')}
-              onPress={() => setViewMode('map')}
-              icon={
-                <Ionicons name="map" size={18} color={viewMode === 'map' ? BRAND_GREEN : 'white'} />
-              }
-              variant={viewMode === 'map' ? 'outline' : 'primary'}
-              className={viewMode === 'map' ? 'border-2 border-brand-600 bg-white' : ''}
-            />
-          </View>
+      webHeaderRight={
+        <View className="flex-row items-center gap-3">
+          {viewToggle}
+          <Button
+            text={t('shared.filters')}
+            onPress={() => setFilterModalVisible(true)}
+            variant="outline"
+            icon={<Ionicons name="options-outline" size={18} color={BRAND_GREEN} />}
+          />
         </View>
+      }
+      headerChildren={
+        isWebLayout ? undefined : (
+          <View className="mb-8 mt-3 flex-row gap-3">
+            <View className="flex-1">
+              <Button
+                text={t('search.listView')}
+                onPress={() => setViewMode('list')}
+                icon={
+                  <Ionicons
+                    name="list"
+                    size={18}
+                    color={viewMode === 'list' ? BRAND_GREEN : 'white'}
+                  />
+                }
+                variant={viewMode === 'list' ? 'outline' : 'primary'}
+                className={viewMode === 'list' ? 'border-2 border-brand-600 bg-white' : ''}
+              />
+            </View>
+            <View className="flex-1">
+              <Button
+                text={t('search.mapView')}
+                onPress={() => setViewMode('map')}
+                icon={
+                  <Ionicons
+                    name="map"
+                    size={18}
+                    color={viewMode === 'map' ? BRAND_GREEN : 'white'}
+                  />
+                }
+                variant={viewMode === 'map' ? 'outline' : 'primary'}
+                className={viewMode === 'map' ? 'border-2 border-brand-600 bg-white' : ''}
+              />
+            </View>
+          </View>
+        )
       }>
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
@@ -391,10 +443,11 @@ export default function SearchScreen() {
           paging={{ total: totalItems, hasMore, isLoadingMore, onLoadMore: loadMore }}
         />
       ) : (
-        // The TabBar overlays the bottom of the content area (absolute bottom-0),
-        // so inset the map by its height — otherwise the map's bottom strip and
-        // Google's attribution hide behind it and the map center sits too low.
-        <View className="flex-1 pb-20">
+        // The TabBar overlays the bottom of the content area (absolute bottom-0), so inset the map
+        // by its height — otherwise the map's bottom strip and Google's attribution hide behind it
+        // and the map centre sits too low. The web design has no such bar, and the inset there
+        // would just be a strip of dead space under the map.
+        <View className={`flex-1 ${isWebLayout ? 'pb-4' : 'pb-20'}`}>
           <MapViewComponent services={mapServices} location={location} isDarkMode={isDarkMode} />
         </View>
       )}

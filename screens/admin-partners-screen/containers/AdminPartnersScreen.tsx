@@ -26,6 +26,9 @@ import {
 import { getServices } from '../../../services/services';
 import { getReviews } from '../../../services/reviews';
 import { getErrorMessage } from '../../../services/http';
+import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
+import { useResponsive } from '../../../hooks/useResponsive';
+import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 
 // Maps a raw ServiceProviderDto into the Partner card/detail view shape.
 // The backend has no timeout/ban moderation concept, so every provider maps to
@@ -92,6 +95,7 @@ export default function AdminPartnersScreen() {
   const route = useRoute<any>();
   const { isDarkMode, hex } = useThemeColors();
   const { t } = useLocale();
+  const { isWebLayout } = useResponsive();
   const insets = useSafeAreaInsets();
 
   // React Native's own SafeAreaView insets on iOS only. Android has drawn edge-to-edge since Expo
@@ -201,15 +205,22 @@ export default function AdminPartnersScreen() {
     });
   }, [partners, activeTab, search]);
 
+  // Same treatment as the Partner Hub and Admin Dashboard: the green slab and the sheet riding up
+  // over it are phone chrome, and the sidebar frames the page on the web design instead.
+  const Root: any = isWebLayout ? View : SafeAreaView;
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: BRAND_GREEN }}>
+    <Root style={{ flex: 1, backgroundColor: isWebLayout ? bgColor : BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{
-          backgroundColor: BRAND_GREEN,
-          paddingHorizontal: 20,
-          paddingTop: headerTopInset + (insets.top > 0 ? 8 : 16),
+          backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
+          paddingHorizontal: isWebLayout ? 40 : 20,
+          paddingTop: isWebLayout ? 32 : headerTopInset + (insets.top > 0 ? 8 : 16),
           paddingBottom: 16,
+          width: '100%',
+          maxWidth: isWebLayout ? CONTENT_WIDTHS.wide : undefined,
+          alignSelf: 'center',
         }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
           <TouchableOpacity
@@ -218,14 +229,21 @@ export default function AdminPartnersScreen() {
               width: 36,
               height: 36,
               borderRadius: 18,
-              backgroundColor: 'rgba(255,255,255,0.25)',
+              backgroundColor: isWebLayout ? hex.card : 'rgba(255,255,255,0.25)',
+              borderWidth: isWebLayout ? 1 : 0,
+              borderColor: hex.border,
               alignItems: 'center',
               justifyContent: 'center',
               marginRight: 12,
             }}>
-            <Ionicons name="arrow-back" size={20} color="white" />
+            <Ionicons name="arrow-back" size={20} color={isWebLayout ? hex.subtext : 'white'} />
           </TouchableOpacity>
-          <Text style={{ color: 'white', fontSize: 20, fontWeight: '700' }}>
+          <Text
+            style={{
+              color: isWebLayout ? hex.text : 'white',
+              fontSize: isWebLayout ? 28 : 20,
+              fontWeight: '700',
+            }}>
             {t('admin.partners')}
           </Text>
         </View>
@@ -274,9 +292,9 @@ export default function AdminPartnersScreen() {
         style={{
           flex: 1,
           backgroundColor: bgColor,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          marginTop: -8,
+          borderTopLeftRadius: isWebLayout ? 0 : 24,
+          borderTopRightRadius: isWebLayout ? 0 : 24,
+          marginTop: isWebLayout ? 0 : -8,
         }}>
         {/* Filter tabs */}
         <View style={{ height: 60 }}>
@@ -339,7 +357,17 @@ export default function AdminPartnersScreen() {
           </ScrollView>
         </View>
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
+          contentContainerStyle={
+            isWebLayout
+              ? {
+                  paddingHorizontal: 40,
+                  paddingBottom: 32,
+                  width: '100%',
+                  maxWidth: CONTENT_WIDTHS.wide,
+                  alignSelf: 'center',
+                }
+              : { paddingHorizontal: 16, paddingBottom: 32 }
+          }
           showsVerticalScrollIndicator={false}>
           <ListState
             isLoading={isLoading}
@@ -347,21 +375,24 @@ export default function AdminPartnersScreen() {
             isEmpty={filtered.length === 0}
             emptyIcon="people-outline"
             emptyMessage={t('admin.noPartnersFound')}>
-            {filtered.map((partner) => (
-              <PartnerCard
-                key={partner.id}
-                partner={partner}
-                isDarkMode={isDarkMode}
-                cardBg={cardBg}
-                textColor={textColor}
-                subTextColor={subTextColor}
-                borderColor={borderColor}
-                onPress={() => navigation.navigate('PartnerDetails', { partner })}
-              />
-            ))}
+            {/* Partner cards carry their own bottom margin, so the grid adds columns only. */}
+            <ResponsiveGrid columns={{ mobile: 1, tablet: 1, desktop: 2 }} gap={12} rowGap={0}>
+              {filtered.map((partner) => (
+                <PartnerCard
+                  key={partner.id}
+                  partner={partner}
+                  isDarkMode={isDarkMode}
+                  cardBg={cardBg}
+                  textColor={textColor}
+                  subTextColor={subTextColor}
+                  borderColor={borderColor}
+                  onPress={() => navigation.navigate('PartnerDetails', { partner })}
+                />
+              ))}
+            </ResponsiveGrid>
           </ListState>
         </ScrollView>
       </View>
-    </SafeAreaView>
+    </Root>
   );
 }
