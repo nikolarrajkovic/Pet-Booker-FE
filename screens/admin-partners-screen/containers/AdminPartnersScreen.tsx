@@ -215,7 +215,7 @@ export default function AdminPartnersScreen() {
       <View
         style={{
           backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
-          paddingHorizontal: isWebLayout ? 40 : 20,
+          paddingHorizontal: isWebLayout ? 32 : 20,
           paddingTop: isWebLayout ? 32 : headerTopInset + (insets.top > 0 ? 8 : 16),
           paddingBottom: 16,
           width: '100%',
@@ -360,7 +360,7 @@ export default function AdminPartnersScreen() {
           contentContainerStyle={
             isWebLayout
               ? {
-                  paddingHorizontal: 40,
+                  paddingHorizontal: 32,
                   paddingBottom: 32,
                   width: '100%',
                   maxWidth: CONTENT_WIDTHS.wide,

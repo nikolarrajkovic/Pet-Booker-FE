@@ -156,7 +156,7 @@ export default function ApplicationReviewScreen() {
       <View
         style={{
           backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
-          paddingHorizontal: isWebLayout ? 40 : 20,
+          paddingHorizontal: isWebLayout ? 32 : 20,
           paddingTop: isWebLayout ? 32 : insets.top + 12,
           paddingBottom: isWebLayout ? 12 : 28,
           width: '100%',
@@ -209,7 +209,7 @@ export default function ApplicationReviewScreen() {
           contentContainerStyle={
             isWebLayout
               ? {
-                  padding: 40,
+                  padding: 32,
                   paddingTop: 8,
                   paddingBottom: 60,
                   width: '100%',

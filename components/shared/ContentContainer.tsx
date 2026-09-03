@@ -13,9 +13,16 @@ export const CONTENT_WIDTHS = {
   /** Forms and auth — a single column of fields nobody wants to be 1400px wide. */
   narrow: 720,
   /** The default: reading pages, detail screens, lists of cards. */
-  default: 1120,
-  /** Dashboards and grids, where more columns genuinely help. */
-  wide: 1400,
+  default: 1240,
+  /**
+   * Dashboards and grids, where more columns genuinely help.
+   *
+   * 1600 rather than a more conventional ~1400: this app has a 244px sidebar, so the cap applies
+   * to what is *left* of the window, and centring that inside the remaining region adds a second
+   * gutter on top of the container's own padding. At 1920 a 1400 cap put 180px of dead space on
+   * each side of every dashboard — enough that the page read as under-filled rather than tidy.
+   */
+  wide: 1600,
   /** No cap — maps and anything that should bleed to the window edge. */
   full: undefined,
 } as const;
@@ -51,7 +58,9 @@ export default function ContentContainer({
 }: ContentContainerProps) {
   const { mode } = useResponsive();
 
-  const horizontalPadding = noPadding ? 0 : byMode(mode, { mobile: 24, tablet: 32, desktop: 40 });
+  // Desktop padding sits *inside* the width cap, so it stacks with the centring margin. 32 keeps
+  // content clear of the sidebar without adding to gutters that are already generous.
+  const horizontalPadding = noPadding ? 0 : byMode(mode, { mobile: 24, tablet: 32, desktop: 32 });
 
   return (
     <View

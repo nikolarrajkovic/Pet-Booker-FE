@@ -171,7 +171,7 @@ export default function AdminDashboardScreen() {
       <View
         style={{
           backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
-          paddingHorizontal: isWebLayout ? 40 : 20,
+          paddingHorizontal: isWebLayout ? 32 : 20,
           paddingTop: isWebLayout ? 32 : 48,
           paddingBottom: isWebLayout ? 8 : 36,
           width: '100%',
