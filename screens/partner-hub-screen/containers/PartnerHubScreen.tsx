@@ -470,7 +470,10 @@ export default function PartnerHubScreen() {
   const Root: any = isWebLayout ? View : SafeAreaView;
 
   return (
-    <Root style={{ flex: 1, backgroundColor: isWebLayout ? bgColor : BRAND_GREEN }}>
+    <Root
+      // Transparent on the web design, not the page ground: the shell already paints that ground
+      // and the pattern texture behind every screen, and repainting it here covers both.
+      style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{
@@ -601,7 +604,9 @@ export default function PartnerHubScreen() {
       <View
         style={{
           flex: 1,
-          backgroundColor: bgColor,
+          // Same reason as the root: on the web design the shell's ground and pattern show
+          // through, and an opaque sheet here would hide the texture on this screen only.
+          backgroundColor: isWebLayout ? 'transparent' : bgColor,
           // The rounded sheet slides up over the green header. With no green header there is
           // nothing to slide over, and the radius would just clip the content's top corners.
           borderTopLeftRadius: isWebLayout ? 0 : 24,

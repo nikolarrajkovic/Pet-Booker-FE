@@ -166,7 +166,10 @@ export default function AdminDashboardScreen() {
   const Root: any = isWebLayout ? View : SafeAreaView;
 
   return (
-    <Root style={{ flex: 1, backgroundColor: isWebLayout ? bgColor : BRAND_GREEN }}>
+    <Root
+      // Transparent on the web design, not the page ground: the shell already paints that ground
+      // and the pattern texture behind every screen, and repainting it here covers both.
+      style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{
@@ -201,7 +204,9 @@ export default function AdminDashboardScreen() {
       <View
         style={{
           flex: 1,
-          backgroundColor: bgColor,
+          // Same reason as the root: on the web design the shell's ground and pattern show
+          // through, and an opaque sheet here would hide the texture on this screen only.
+          backgroundColor: isWebLayout ? 'transparent' : bgColor,
           borderTopLeftRadius: isWebLayout ? 0 : 24,
           borderTopRightRadius: isWebLayout ? 0 : 24,
           marginTop: isWebLayout ? 0 : -20,
