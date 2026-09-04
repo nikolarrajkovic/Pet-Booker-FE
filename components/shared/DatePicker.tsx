@@ -156,6 +156,7 @@ export default function DatePicker({
           marginBottom: 12,
         }}>
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={showYearPicker ? () => setYearPage((p) => p - 1) : prevMonth}
           disabled={showYearPicker ? yearPage === 0 : !canGoPrev()}
           style={{
@@ -171,6 +172,7 @@ export default function DatePicker({
             </Text>
           )}
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => {
               if (!showYearPicker) {
                 const page = Math.floor((viewYear - minYear) / YEARS_PER_PAGE);
@@ -202,6 +204,7 @@ export default function DatePicker({
           </TouchableOpacity>
         </View>
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={showYearPicker ? () => setYearPage((p) => p + 1) : nextMonth}
           disabled={showYearPicker ? yearPage >= totalYearPages - 1 : !canGoNext()}
           style={{
@@ -219,6 +222,7 @@ export default function DatePicker({
             const isActive = year === viewYear;
             return (
               <TouchableOpacity
+                accessibilityRole="button"
                 key={year}
                 onPress={() => {
                   setViewYear(year);
@@ -266,6 +270,7 @@ export default function DatePicker({
                 const disabled = isDisabled(day);
                 return (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     key={key}
                     onPress={() => handleSelect(day)}
                     disabled={disabled}
@@ -300,6 +305,7 @@ export default function DatePicker({
       {/* Actions */}
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={handleClear}
           style={{
             flex: 1,
@@ -315,6 +321,7 @@ export default function DatePicker({
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={handleDone}
           style={{
             flex: 2,

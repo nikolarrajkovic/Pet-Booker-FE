@@ -173,10 +173,16 @@ export default function PhoneInput({
             the bottom edge of a monitor is a phone artefact, and it puts the search field a long
             way from where the user just clicked. */}
         <Pressable
+          accessible={false}
+          focusable={false}
+          tabIndex={-1}
           className={isWebLayout ? 'flex-1 items-center justify-center' : 'flex-1 justify-end'}
           style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: isWebLayout ? 24 : 0 }}
           onPress={() => setPickerVisible(false)}>
           <Pressable
+            accessible={false}
+            focusable={false}
+            tabIndex={-1}
             className={`${cardBg} ${isWebLayout ? 'rounded-2xl' : 'rounded-t-3xl'}`}
             style={
               isWebLayout
@@ -187,7 +193,10 @@ export default function PhoneInput({
             {/* Header */}
             <View className="flex-row items-center justify-between px-5 pb-3 pt-5">
               <Text className={`text-lg font-bold ${textColor}`}>Select Country</Text>
-              <TouchableOpacity onPress={() => setPickerVisible(false)}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={t('common.close')}
+                onPress={() => setPickerVisible(false)}>
                 <Ionicons name="close" size={24} color={placeholderColor} />
               </TouchableOpacity>
             </View>
@@ -221,6 +230,7 @@ export default function PhoneInput({
                 const selected = item.iso === country.iso;
                 return (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     onPress={() => selectCountry(item)}
                     className="flex-row items-center px-5 py-3">
                     <CountryFlag iso={item.iso} width={30} />

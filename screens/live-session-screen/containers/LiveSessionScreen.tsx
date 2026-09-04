@@ -741,6 +741,7 @@ export default function LiveSessionScreen() {
             {t('liveSession.serviceCompletedText')}
           </Text>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => navigation.goBack()}
             activeOpacity={0.85}
             className="w-full items-center rounded-2xl bg-brand-500 px-8 py-3.5">
@@ -765,6 +766,7 @@ export default function LiveSessionScreen() {
             <View
               className={`mb-4 flex-row items-center justify-between ${cardBg} rounded-2xl border ${borderColor} px-3 py-2`}>
               <TouchableOpacity
+                accessibilityRole="button"
                 disabled={index === 0}
                 onPress={() => setIndex((i) => Math.max(0, i - 1))}
                 activeOpacity={0.7}
@@ -788,6 +790,7 @@ export default function LiveSessionScreen() {
                 </Text>
               </View>
               <TouchableOpacity
+                accessibilityRole="button"
                 disabled={index === sessions.length - 1}
                 onPress={() => setIndex((i) => Math.min(sessions.length - 1, i + 1))}
                 activeOpacity={0.7}
@@ -1111,6 +1114,7 @@ export default function LiveSessionScreen() {
                     />
                   </View>
                   <TouchableOpacity
+                    accessibilityRole="button"
                     onPress={openExternalNav}
                     disabled={!mapTarget}
                     activeOpacity={0.85}
@@ -1141,6 +1145,7 @@ export default function LiveSessionScreen() {
                 </Text>
               ) : null}
               <TouchableOpacity
+                accessibilityRole="button"
                 onPress={handleStart}
                 disabled={busy !== null || !canStart}
                 activeOpacity={0.85}
@@ -1173,6 +1178,7 @@ export default function LiveSessionScreen() {
                 </Text>
               ) : null}
               <TouchableOpacity
+                accessibilityRole="button"
                 onPress={handleEnd}
                 disabled={busy !== null || !canEnd}
                 activeOpacity={0.85}

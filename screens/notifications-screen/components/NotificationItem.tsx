@@ -86,6 +86,7 @@ export default function NotificationItem({
 
   return (
     <TouchableOpacity
+      accessibilityRole="button"
       className={`flex-row items-start ${rowBg} mb-3 rounded-2xl border p-4 ${borderColor}`}
       activeOpacity={0.7}
       onPress={onPress}>

@@ -192,6 +192,7 @@ export default function SettingsScreen() {
         </Text>
         <View className={`${cardBg} mb-6 rounded-2xl`}>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => (navigation as any).navigate('ChangePassword')}
             className="flex-row items-center border-b border-gray-100 p-4">
             <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-red-50">
@@ -234,6 +235,7 @@ export default function SettingsScreen() {
         </Text>
         <View className={`${cardBg} rounded-2xl`}>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setLanguagePickerOpen(true)}
             className="flex-row items-center border-b border-gray-100 p-4">
             <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-purple-50">
@@ -248,6 +250,7 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setCurrencyPickerOpen(true)}
             className="flex-row items-center border-b border-gray-100 p-4">
             <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-green-50">

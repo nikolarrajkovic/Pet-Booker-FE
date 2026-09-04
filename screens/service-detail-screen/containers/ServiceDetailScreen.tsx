@@ -613,6 +613,7 @@ export default function ServiceDetailScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={onBook}
           disabled={isLoading}
           className={`flex-1 items-center rounded-2xl py-4 ${isLoading ? 'bg-gray-300' : 'bg-brand-500'}`}

@@ -54,6 +54,9 @@ export default function ResponsiveModal({
     return (
       <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
         <Pressable
+          accessible={false}
+          focusable={false}
+          tabIndex={-1}
           onPress={dismissOnBackdropPress ? onClose : undefined}
           style={{
             flex: 1,
@@ -64,6 +67,9 @@ export default function ResponsiveModal({
           }}>
           {/* Swallows the press so a click inside the dialog doesn't reach the backdrop. */}
           <Pressable
+            accessible={false}
+            focusable={false}
+            tabIndex={-1}
             onPress={(e) => e.stopPropagation()}
             className={`${cardBg} border ${borderColor} rounded-2xl ${className}`}
             style={[
@@ -91,6 +97,9 @@ export default function ResponsiveModal({
     return (
       <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
         <Pressable
+          accessible={false}
+          focusable={false}
+          tabIndex={-1}
           onPress={dismissOnBackdropPress ? onClose : undefined}
           style={{
             flex: 1,
@@ -100,6 +109,9 @@ export default function ResponsiveModal({
             padding: 24,
           }}>
           <Pressable
+            accessible={false}
+            focusable={false}
+            tabIndex={-1}
             onPress={(e) => e.stopPropagation()}
             className={`${cardBg} w-full rounded-2xl ${className}`}
             style={style}>

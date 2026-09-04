@@ -322,6 +322,7 @@ export default function AddPetScreen() {
             {t('addPet.birthDate')} <Text className="text-red-500">*</Text>
           </Text>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setShowBirthDatePicker((v) => !v)}
             style={{
               flexDirection: 'row',
@@ -471,6 +472,7 @@ export default function AddPetScreen() {
             form does not need its CTA reachable at every scroll offset, and pinning one costs
             ~84px of every screenful and lands on top of whatever field has focus. */}
         <TouchableOpacity
+          accessibilityRole="button"
           disabled={isSubmitting}
           style={{ opacity: isSubmitting ? 0.7 : 1 }}
           onPress={handleSave}

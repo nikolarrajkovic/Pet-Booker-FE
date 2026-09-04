@@ -114,6 +114,7 @@ export default function TimePicker({
   }) => (
     <View style={{ alignItems: 'center', flex: 1 }}>
       <TouchableOpacity
+        accessibilityRole="button"
         onPress={onUp}
         disabled={upDisabled}
         style={{ padding: 8, marginBottom: 2, opacity: upDisabled ? 0.3 : 1 }}
@@ -135,6 +136,7 @@ export default function TimePicker({
       </View>
 
       <TouchableOpacity
+        accessibilityRole="button"
         onPress={onDown}
         disabled={downDisabled}
         style={{ padding: 8, marginTop: 2, opacity: downDisabled ? 0.3 : 1 }}
@@ -204,6 +206,7 @@ export default function TimePicker({
 
       {/* Done button */}
       <TouchableOpacity
+        accessibilityRole="button"
         onPress={handleDone}
         style={{
           marginTop: 16,

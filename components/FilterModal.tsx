@@ -138,6 +138,9 @@ export default function FilterModal({
         web design the same content becomes a centred dialog with a scrim.
       */}
       <Pressable
+        accessible={false}
+        focusable={false}
+        tabIndex={-1}
         onPress={isWebLayout ? onClose : undefined}
         className={isWebLayout ? 'flex-1 items-center justify-center' : 'flex-1 justify-end'}
         style={{
@@ -146,6 +149,7 @@ export default function FilterModal({
         }}>
         {!isWebLayout && <View className="absolute inset-0 bg-black/50" />}
         <Pressable
+          accessibilityRole="button"
           onPress={
             isWebLayout ? (e: { stopPropagation: () => void }) => e.stopPropagation() : undefined
           }
@@ -155,7 +159,11 @@ export default function FilterModal({
           <View
             className={`flex-row items-center justify-between border-b px-6 py-4 ${borderColor}`}>
             <Text className={`text-xl font-bold ${textColor}`}>{t('shared.filters')}</Text>
-            <TouchableOpacity onPress={onClose} className="h-8 w-8 items-center justify-center">
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
+              onPress={onClose}
+              className="h-8 w-8 items-center justify-center">
               <Ionicons name="close" size={24} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
             </TouchableOpacity>
           </View>
@@ -171,6 +179,7 @@ export default function FilterModal({
                   const active = filters.serviceTypes.includes(opt.value);
                   return (
                     <TouchableOpacity
+                      accessibilityRole="button"
                       key={opt.value}
                       onPress={() => toggleValue('serviceTypes', opt.value)}
                       className={chipClass(active)}>
@@ -193,6 +202,7 @@ export default function FilterModal({
                   const active = filters.petTypes.includes(opt.value);
                   return (
                     <TouchableOpacity
+                      accessibilityRole="button"
                       key={opt.value}
                       onPress={() => toggleValue('petTypes', opt.value)}
                       className={chipClass(active)}>
@@ -217,6 +227,7 @@ export default function FilterModal({
                     const active = filters.addOns.includes(name);
                     return (
                       <TouchableOpacity
+                        accessibilityRole="button"
                         key={name}
                         onPress={() => toggleAddOn(name)}
                         className={chipClass(active)}>
@@ -270,6 +281,7 @@ export default function FilterModal({
               <View className="flex-row gap-2">
                 {RATING_OPTIONS.map((rating) => (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     key={rating}
                     onPress={() => setFilters((prev) => ({ ...prev, minimumRating: rating }))}
                     className={`flex-1 rounded-xl border py-2 ${
@@ -296,11 +308,13 @@ export default function FilterModal({
             className={`flex-row gap-3 border-t px-6 ${borderColor} ${bgColor}`}
             style={{ paddingTop: 16, paddingBottom: Math.max(insets.bottom, 16) }}>
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={handleReset}
               className={`flex-1 rounded-xl border py-3 ${borderColor} ${cardBg} items-center`}>
               <Text className={`${subtextColor} font-semibold`}>{t('shared.reset')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={handleApply}
               className="flex-1 items-center rounded-xl bg-brand-500 py-3">
               <Text className="font-semibold text-white">{t('shared.applyFilters')}</Text>

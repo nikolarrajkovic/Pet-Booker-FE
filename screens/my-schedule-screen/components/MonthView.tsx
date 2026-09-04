@@ -86,7 +86,7 @@ export default function MonthView({
       {/* Month Navigation */}
       <View className={`border-b px-6 py-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
         <View className="mb-4 flex-row items-center justify-between">
-          <TouchableOpacity className="p-2" onPress={goToPreviousMonth}>
+          <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToPreviousMonth}>
             <Text className={`text-2xl ${textColor}`}>‹</Text>
           </TouchableOpacity>
           <View className="flex-1 items-center">
@@ -97,7 +97,7 @@ export default function MonthView({
               </Text>
             )}
           </View>
-          <TouchableOpacity className="p-2" onPress={goToNextMonth}>
+          <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToNextMonth}>
             <Text className={`text-2xl ${textColor}`}>›</Text>
           </TouchableOpacity>
         </View>
@@ -167,6 +167,7 @@ export default function MonthView({
 
             return (
               <TouchableOpacity
+                accessibilityRole="button"
                 key={index}
                 className="aspect-square w-[14.28%] p-1"
                 onPressIn={() => setPressedDay(dateStr)}

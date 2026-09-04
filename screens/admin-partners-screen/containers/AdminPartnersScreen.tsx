@@ -227,6 +227,7 @@ export default function AdminPartnersScreen() {
         }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })}
             style={{
               width: 36,
@@ -279,7 +280,7 @@ export default function AdminPartnersScreen() {
             }}
           />
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
+            <TouchableOpacity accessibilityRole="button" onPress={() => setSearch('')}>
               <Ionicons
                 name="close-circle"
                 size={18}
@@ -311,6 +312,7 @@ export default function AdminPartnersScreen() {
               const isActive = activeTab === tab.key;
               return (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   key={tab.key}
                   onPress={() => setActiveTab(tab.key)}
                   activeOpacity={0.8}

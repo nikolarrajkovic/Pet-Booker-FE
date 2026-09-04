@@ -271,6 +271,7 @@ export default function BecomePartnerScreen() {
       {/* Fixed Bottom Button */}
       <View className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => (navigation as any).navigate('PartnerApplication')}
           className="items-center rounded-2xl bg-brand-500 py-4">
           <Text className="text-lg font-bold text-white">{t('becomePartner.getStarted')}</Text>

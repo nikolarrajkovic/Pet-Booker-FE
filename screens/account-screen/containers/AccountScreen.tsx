@@ -238,6 +238,7 @@ export default function AccountScreen() {
               </View>
             )}
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={pickProfilePhoto}
               className="absolute bottom-0 right-0 h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-brand-500"
               style={{
@@ -250,7 +251,7 @@ export default function AccountScreen() {
               <Ionicons name="camera" size={20} color="white" />
             </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={pickProfilePhoto} className="mt-3">
+          <TouchableOpacity accessibilityRole="button" onPress={pickProfilePhoto} className="mt-3">
             <Text className="font-semibold text-brand-600">{t('account.changePhoto')}</Text>
           </TouchableOpacity>
         </View>
@@ -325,6 +326,7 @@ export default function AccountScreen() {
               {t('account.address')}
             </Text>
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={() => setPickerVisible(true)}
               className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor} flex-row items-center`}>
               <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
@@ -369,6 +371,7 @@ export default function AccountScreen() {
           {/* Save — in the flow of the form, not a bar hovering over it. See the note in
               AddPetScreen for why an edit form does not earn a permanent strip of screen. */}
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={handleSave}
             disabled={isSaving}
             className="mt-2 items-center rounded-2xl bg-brand-500 py-4"

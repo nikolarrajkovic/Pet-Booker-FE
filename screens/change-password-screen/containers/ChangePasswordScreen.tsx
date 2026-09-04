@@ -88,6 +88,7 @@ export default function ChangePasswordScreen() {
         {field('confirm', t('changePassword.confirmPassword'), confirmPassword, setConfirmPassword)}
 
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={handleSubmit}
           disabled={isSubmitting}
           className="mt-2 items-center rounded-2xl bg-brand-500 py-4"

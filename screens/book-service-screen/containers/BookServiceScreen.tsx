@@ -758,6 +758,7 @@ export default function BookServiceScreen() {
                   const isSelected = option.id != null && option.id === selectedOptionId;
                   return (
                     <TouchableOpacity
+                      accessibilityRole="button"
                       key={option.id ?? option.name}
                       onPress={() => {
                         setSelectedOptionId(option.id ?? null);
@@ -815,6 +816,7 @@ export default function BookServiceScreen() {
                 const line = selected ? quotedAddonLine(addon) : null;
                 return (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     key={addon.id ?? addon.name}
                     onPress={() => addon.id != null && toggleAddon(addon.id)}
                     className={`mb-3 rounded-2xl border-2 p-4 ${
@@ -850,6 +852,7 @@ export default function BookServiceScreen() {
                   {t('bookService.pickupAddress')}
                 </Text>
                 <TouchableOpacity
+                  accessibilityRole="button"
                   onPress={() => setPickerFor('pickup')}
                   className={`rounded-2xl border px-4 py-3 ${borderColor} ${cardBg} flex-row items-center`}>
                   <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
@@ -873,6 +876,7 @@ export default function BookServiceScreen() {
                 {/* Copy the drop-off address into pickup (explicit, not auto-filled). */}
                 {dropoffSelected && dropoffAddr && pickupAddr !== dropoffAddr ? (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     onPress={() => setPickupAddr(dropoffAddr)}
                     className="mt-2 flex-row items-center self-start">
                     <Ionicons name="copy-outline" size={14} color={BRAND_GREEN} />
@@ -889,6 +893,7 @@ export default function BookServiceScreen() {
                   {t('bookService.dropoffAddress')}
                 </Text>
                 <TouchableOpacity
+                  accessibilityRole="button"
                   onPress={() => setPickerFor('dropoff')}
                   className={`rounded-2xl border px-4 py-3 ${borderColor} ${cardBg} flex-row items-center`}>
                   <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
@@ -912,6 +917,7 @@ export default function BookServiceScreen() {
                 {/* Copy the pickup address into drop-off (explicit, not auto-filled). */}
                 {pickupSelected && pickupAddr && dropoffAddr !== pickupAddr ? (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     onPress={() => setDropoffAddr(pickupAddr)}
                     className="mt-2 flex-row items-center self-start">
                     <Ionicons name="copy-outline" size={14} color={BRAND_GREEN} />
@@ -945,6 +951,7 @@ export default function BookServiceScreen() {
               </View>
             ) : (
               <TouchableOpacity
+                accessibilityRole="button"
                 onPress={() => setShowDatePicker((v) => !v)}
                 className={`mb-3 rounded-2xl border p-4 ${borderColor} ${cardBg} flex-row items-center justify-between`}>
                 <View className="flex-row items-center">
@@ -1016,6 +1023,7 @@ export default function BookServiceScreen() {
               </View>
               <Text className={`text-sm ${subtextColor} mb-3`}>{t('bookService.noPetsYet')}</Text>
               <TouchableOpacity
+                accessibilityRole="button"
                 onPress={() => (navigation as any).navigate('AddPet', { goBackOnSave: true })}
                 className="flex-row items-center justify-center rounded-2xl bg-brand-500 py-3">
                 <Ionicons name="add" size={20} color="white" />
@@ -1028,6 +1036,7 @@ export default function BookServiceScreen() {
           {selectionComplete && (
             <View className="px-6 py-4">
               <TouchableOpacity
+                accessibilityRole="button"
                 onPress={addAppointment}
                 className="flex-row items-center justify-center rounded-2xl bg-brand-500 py-4">
                 <Ionicons name="add" size={20} color="white" />
@@ -1097,7 +1106,11 @@ export default function BookServiceScreen() {
                     </View>
                     <View className="ml-2 items-end">
                       <Text className="text-lg font-bold text-brand-600">{fmt(apt.total)}</Text>
-                      <TouchableOpacity onPress={() => removeAppointment(apt.id)} className="mt-2">
+                      <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel={t('common.close')}
+                        onPress={() => removeAppointment(apt.id)}
+                        className="mt-2">
                         <Ionicons
                           name="close"
                           size={20}
@@ -1139,6 +1152,7 @@ export default function BookServiceScreen() {
       {/* Fixed Bottom Button */}
       <StickyFooter className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
         <TouchableOpacity
+          accessibilityRole="button"
           disabled={!canContinue}
           onPress={onContinue}
           className={`items-center rounded-2xl py-4 ${canContinue ? 'bg-brand-500' : 'bg-gray-300'}`}>

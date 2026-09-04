@@ -60,6 +60,7 @@ export default function LoadMoreFooter({
         </View>
       ) : hasMore ? (
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={onLoadMore}
           className={`h-11 justify-center rounded-full border px-6 ${borderColor}`}
           activeOpacity={0.8}

@@ -116,6 +116,7 @@ export default function MyPetsScreen() {
       contentBg={contentBg}
       rightAction={
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => (navigation as any).navigate('AddPet')}
           className="h-10 w-10 items-center justify-center rounded-full bg-white">
           <Ionicons name="add" size={24} color={BRAND_GREEN} />

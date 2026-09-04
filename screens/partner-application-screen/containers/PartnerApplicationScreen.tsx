@@ -402,6 +402,7 @@ export default function PartnerApplicationScreen() {
       {/* Fixed Bottom Button */}
       <View className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
         <TouchableOpacity
+          accessibilityRole="button"
           disabled={isSubmitting}
           onPress={handleContinue}
           className="items-center rounded-2xl bg-brand-500 py-4"

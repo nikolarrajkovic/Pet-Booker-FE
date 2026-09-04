@@ -221,6 +221,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
       contentBg={contentBg}
       rightAction={
         <TouchableOpacity
+          accessibilityRole="button"
           activeOpacity={0.7}
           onPress={() =>
             (navigation as any).replace('PromotionAnalytics', {
@@ -278,6 +279,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
           <View className="flex-1">
             <Text className={`text-xs ${subtextColor} mb-1.5`}>{t('promotions.startDate')}</Text>
             <TouchableOpacity
+              accessibilityRole="button"
               className={dateField}
               activeOpacity={0.75}
               onPress={() => setShowStartPicker((v) => !v)}>
@@ -290,6 +292,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
           <View className="flex-1">
             <Text className={`text-xs ${subtextColor} mb-1.5`}>{t('promotions.endDate')}</Text>
             <TouchableOpacity
+              accessibilityRole="button"
               className={dateField}
               activeOpacity={0.75}
               onPress={() => setShowEndPicker((v) => !v)}>
@@ -302,6 +305,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
         </View>
         {endDate && (
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setEndDate(null)}
             activeOpacity={0.7}
             className="mb-5 self-start">
@@ -393,6 +397,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
                 const active = discountType === opt.type;
                 return (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     key={opt.type}
                     activeOpacity={0.8}
                     onPress={() => setDiscountType(opt.type)}
@@ -443,6 +448,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
 
         {/* Save Changes */}
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={handleSave}
           disabled={isSubmitting}
           activeOpacity={0.8}
@@ -469,6 +475,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
 
         {/* Delete */}
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={handleDelete}
           disabled={isSubmitting}
           activeOpacity={0.8}

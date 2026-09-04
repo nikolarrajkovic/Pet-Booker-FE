@@ -104,6 +104,7 @@ export default function MyServicesScreen() {
 
   const addNewButton = (
     <TouchableOpacity
+      accessibilityRole="button"
       disabled={!providerId}
       onPress={() =>
         (navigation as any).navigate('AddEditService', {
@@ -245,12 +246,14 @@ function ServiceListCard({
         {/* Edit / Delete overlay buttons */}
         <View className="absolute right-3 top-3 flex-row" style={{ gap: 8 }}>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={onEdit}
             className="h-9 w-9 items-center justify-center rounded-full bg-white"
             style={{ elevation: 3, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4 }}>
             <Ionicons name="pencil" size={15} color="#374151" />
           </TouchableOpacity>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={onDelete}
             className="h-9 w-9 items-center justify-center rounded-full bg-red-500"
             style={{ elevation: 3, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4 }}>

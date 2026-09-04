@@ -254,6 +254,7 @@ export default function NewRequestsScreen() {
 
           return (
             <TouchableOpacity
+              accessibilityRole="button"
               key={tab.key}
               onPress={() => setActiveTab(tab.key)}
               activeOpacity={0.7}
@@ -349,12 +350,14 @@ export default function NewRequestsScreen() {
           )}
           <View className="flex-row" style={{ gap: 12 }}>
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={() => setDeclineTargetId(null)}
               activeOpacity={0.7}
               className={`flex-1 items-center rounded-xl border py-3 ${borderColor}`}>
               <Text className={`font-semibold ${textColor}`}>{t('requests.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={confirmDecline}
               disabled={declineReasonTooShort}
               activeOpacity={0.7}

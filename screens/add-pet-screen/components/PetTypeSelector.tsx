@@ -39,6 +39,7 @@ export default function PetTypeSelector({
       <View className="flex-row flex-wrap" style={{ gap: 12 }}>
         {petTypes.map((type) => (
           <TouchableOpacity
+            accessibilityRole="button"
             key={type.value}
             onPress={() => onSelectType(type.value)}
             className={`items-center justify-center rounded-xl border-2 px-4 py-3 ${

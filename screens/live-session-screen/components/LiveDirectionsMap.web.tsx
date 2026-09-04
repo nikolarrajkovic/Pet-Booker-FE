@@ -263,7 +263,10 @@ export default function LiveDirectionsMap({
                 {t('liveSession.locationUnavailable')}
               </Text>
               {onRetryLocate ? (
-                <TouchableOpacity onPress={onRetryLocate} style={{ marginLeft: 10 }}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={onRetryLocate}
+                  style={{ marginLeft: 10 }}>
                   <Text style={{ color: '#00A85A', fontSize: 12, fontWeight: '700' }}>
                     {t('common.retry')}
                   </Text>

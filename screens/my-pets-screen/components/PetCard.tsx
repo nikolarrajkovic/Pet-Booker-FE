@@ -71,10 +71,10 @@ export default function PetCard({
         </View>
       </View>
       <View className="justify-start">
-        <TouchableOpacity onPress={onEdit} className="mb-3">
+        <TouchableOpacity accessibilityRole="button" onPress={onEdit} className="mb-3">
           <Ionicons name="pencil" size={20} color={BRAND_GREEN} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={onDelete} disabled={isDeleting}>
+        <TouchableOpacity accessibilityRole="button" onPress={onDelete} disabled={isDeleting}>
           {isDeleting ? (
             <ActivityIndicator size="small" color="#EF4444" />
           ) : (

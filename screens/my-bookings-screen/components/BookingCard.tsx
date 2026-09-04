@@ -114,7 +114,10 @@ export default function BookingCard({
                 </View>
               ) : null}
               {canReview ? (
-                <TouchableOpacity className="flex-row items-center" onPress={onLeaveReview}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  className="flex-row items-center"
+                  onPress={onLeaveReview}>
                   <Ionicons name="star-outline" size={15} color="#F59E0B" />
                   <Text className="ml-1 text-sm font-semibold" style={{ color: '#F59E0B' }}>
                     {t('myBookings.review')}
@@ -135,7 +138,7 @@ export default function BookingCard({
                   <Ionicons name="chatbubble-outline" size={15} color={BRAND_GREEN} />
                 </TouchableOpacity>
               ) : null}
-              <TouchableOpacity onPress={onViewDetails}>
+              <TouchableOpacity accessibilityRole="button" onPress={onViewDetails}>
                 <Text className="text-sm font-semibold text-brand-600">
                   {t('myBookings.viewDetails')}
                 </Text>

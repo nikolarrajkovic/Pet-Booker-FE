@@ -89,6 +89,7 @@ export default function DocumentsStep({
 
   const uploadBtn = (label: string, onPress: () => void) => (
     <TouchableOpacity
+      accessibilityRole="button"
       onPress={onPress}
       className={`${inputBg} flex-row items-center justify-center rounded-xl border px-4 py-3 ${borderColor}`}
       activeOpacity={0.7}>
@@ -145,6 +146,7 @@ export default function DocumentsStep({
       <View className="mb-6 flex-row gap-3">
         {petPhotos.map((photo, index) => (
           <TouchableOpacity
+            accessibilityRole="button"
             key={index}
             onPress={() => pickPetPhoto(index)}
             activeOpacity={0.7}
@@ -231,7 +233,10 @@ export default function DocumentsStep({
             <Text className={`flex-1 text-sm font-semibold ${textColor}`} numberOfLines={1}>
               {cert.fileName ?? t('partnerApplication.certificateN', { n: index + 1 })}
             </Text>
-            <TouchableOpacity onPress={() => onRemoveCertificate(index)} activeOpacity={0.7}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => onRemoveCertificate(index)}
+              activeOpacity={0.7}>
               <Ionicons name="trash-outline" size={20} color="#EF4444" />
             </TouchableOpacity>
           </View>
@@ -256,6 +261,7 @@ export default function DocumentsStep({
             {t('partnerApplication.issuedDate')}
           </Text>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setOpenDateIndex((i) => (i === index ? null : index))}
             activeOpacity={0.75}
             className={`${inputBg} flex-row items-center justify-between rounded-xl px-3 py-2`}>
@@ -282,6 +288,7 @@ export default function DocumentsStep({
       ))}
 
       <TouchableOpacity
+        accessibilityRole="button"
         onPress={() => pickDocument('certificate')}
         className={`${inputBg} border-2 border-dashed ${borderColor} mb-6 flex-row items-center justify-center rounded-2xl p-4`}
         activeOpacity={0.7}>

@@ -65,6 +65,7 @@ export default function ApplicationSubmittedScreen() {
       {/* Fixed Bottom Buttons */}
       <View className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => resetToTab('Home')}
           className="mb-3 items-center rounded-2xl bg-brand-500 py-4">
           <Text className="text-lg font-bold text-white">
@@ -72,6 +73,7 @@ export default function ApplicationSubmittedScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => resetToTab('Profile')}
           className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} items-center rounded-2xl py-4`}>
           <Text className={`${textColor} text-lg font-semibold`}>

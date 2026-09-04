@@ -111,6 +111,7 @@ export default function MapViewComponent({
       {/* Selected-service card — replaces the default marker callout */}
       {selected && (
         <TouchableOpacity
+          accessibilityRole="button"
           activeOpacity={0.9}
           onPress={() => (navigation as any).navigate('ServiceDetail', { service: selected.dto })}
           className={`absolute bottom-4 left-4 right-4 flex-row items-center rounded-2xl p-3 shadow-lg ${

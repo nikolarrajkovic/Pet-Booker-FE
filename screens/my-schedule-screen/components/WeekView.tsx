@@ -105,7 +105,7 @@ export default function WeekView({
       {/* Week Navigation */}
       <View className={`border-b px-6 py-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
         <View className="mb-4 flex-row items-center justify-between">
-          <TouchableOpacity className="p-2" onPress={goToPreviousWeek}>
+          <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToPreviousWeek}>
             <Text className={`text-2xl ${textColor}`}>‹</Text>
           </TouchableOpacity>
           <View className="flex-1 items-center">
@@ -118,7 +118,7 @@ export default function WeekView({
               </Text>
             )}
           </View>
-          <TouchableOpacity className="p-2" onPress={goToNextWeek}>
+          <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToNextWeek}>
             <Text className={`text-2xl ${textColor}`}>›</Text>
           </TouchableOpacity>
         </View>
@@ -186,6 +186,7 @@ export default function WeekView({
 
             return (
               <TouchableOpacity
+                accessibilityRole="button"
                 key={index}
                 className="flex-1 items-center"
                 onPressIn={() => setPressedDay(dateStr)}
@@ -226,6 +227,7 @@ export default function WeekView({
 
               {services.map((service) => (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   key={service.id}
                   className={`${cardBg} mb-2 flex-row items-center justify-between rounded-xl p-3`}
                   onPress={() => onDateSelect(day)}>

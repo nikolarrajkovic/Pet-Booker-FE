@@ -52,6 +52,7 @@ export default function PetSelector({
       <View className="flex-row gap-3">
         {pets.map((pet) => (
           <TouchableOpacity
+            accessibilityRole="button"
             key={pet.id}
             onPress={() => onSelectPet(pet.id)}
             className={`flex-1 rounded-2xl border-2 p-4 ${
