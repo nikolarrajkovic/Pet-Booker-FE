@@ -168,6 +168,7 @@ export default function ApplicationReviewScreen() {
         }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => navigation.goBack()}
             style={{
               width: 36,
@@ -244,6 +245,7 @@ export default function ApplicationReviewScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                 {docs.profilePhoto ? (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     activeOpacity={0.85}
                     onPress={() => setViewerUri(docs.profilePhoto!.src)}
                     style={{ marginRight: 12 }}>
@@ -450,6 +452,7 @@ export default function ApplicationReviewScreen() {
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {docs.petPhotos.map((p, i) => (
                     <TouchableOpacity
+                      accessibilityRole="button"
                       key={`${p.src}-${i}`}
                       activeOpacity={0.85}
                       onPress={() => setViewerUri(p.src)}
@@ -565,6 +568,7 @@ export default function ApplicationReviewScreen() {
                           </Text>
                         </View>
                         <TouchableOpacity
+                          accessibilityRole="button"
                           activeOpacity={0.8}
                           onPress={() => openDownload(c.fileSrc, t)}
                           style={{ padding: 8 }}>
@@ -629,6 +633,7 @@ export default function ApplicationReviewScreen() {
               gap: 12,
             }}>
             <TouchableOpacity
+              accessibilityRole="button"
               activeOpacity={0.8}
               disabled={isSubmitting}
               onPress={handleReject}
@@ -654,6 +659,7 @@ export default function ApplicationReviewScreen() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
+              accessibilityRole="button"
               activeOpacity={0.8}
               disabled={isSubmitting}
               onPress={handleApprove}
@@ -716,6 +722,7 @@ export default function ApplicationReviewScreen() {
         animationType="fade"
         onRequestClose={() => setViewerUri(null)}>
         <Pressable
+          accessibilityRole="button"
           onPress={() => setViewerUri(null)}
           style={{
             flex: 1,
@@ -732,6 +739,7 @@ export default function ApplicationReviewScreen() {
             />
           ) : null}
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setViewerUri(null)}
             style={{
               position: 'absolute',
@@ -897,7 +905,11 @@ function ViewableImage({
 }) {
   const { t } = useLocale();
   return (
-    <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{ position: 'relative' }}>
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={{ position: 'relative' }}>
       <Image
         source={{ uri }}
         style={{ width: '100%', height, borderRadius: 10 }}
@@ -950,6 +962,7 @@ function IdSide({
       </Text>
       {img ? (
         <TouchableOpacity
+          accessibilityRole="button"
           activeOpacity={0.9}
           onPress={() => (revealed ? onView(img.src) : onReveal())}
           style={{ position: 'relative' }}>

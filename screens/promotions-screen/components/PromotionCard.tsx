@@ -229,6 +229,7 @@ export default function PromotionCard({
       <View className={`flex-row border-t ${borderColor} gap-2 px-4 py-3`}>
         {isScheduled ? (
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => onStart(promotion.id)}
             activeOpacity={0.7}
             className="flex-1 flex-row items-center justify-center rounded-xl bg-brand-500 py-2.5">
@@ -237,6 +238,7 @@ export default function PromotionCard({
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => onPause(promotion.id)}
             activeOpacity={0.7}
             className={`flex-1 flex-row items-center justify-center rounded-xl border py-2.5 ${borderColor} ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'}`}>
@@ -252,6 +254,7 @@ export default function PromotionCard({
           </TouchableOpacity>
         )}
         <TouchableOpacity
+          accessibilityRole="button"
           activeOpacity={0.7}
           onPress={() =>
             (navigation as any).navigate('PromotionAnalytics', {
@@ -272,6 +275,7 @@ export default function PromotionCard({
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
+          accessibilityRole="button"
           activeOpacity={0.7}
           onPress={() => (navigation as any).navigate('EditPromotion', { promotion })}
           className={`w-10 items-center justify-center rounded-xl border ${borderColor} ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'}`}>

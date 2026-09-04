@@ -178,6 +178,7 @@ export function ReviewModerationCard({
       {review.status === 'pending' ? (
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
           <TouchableOpacity
+            accessibilityRole="button"
             activeOpacity={0.8}
             disabled={busy}
             onPress={() => onDecline?.(review.id)}
@@ -198,6 +199,7 @@ export function ReviewModerationCard({
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
+            accessibilityRole="button"
             activeOpacity={0.8}
             disabled={busy}
             onPress={() => onApprove?.(review.id)}

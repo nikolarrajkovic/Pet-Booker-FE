@@ -369,6 +369,7 @@ export default function AdminDashboardScreen() {
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
               {/* New Requests */}
               <TouchableOpacity
+                accessibilityRole="button"
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('AdminNewRequests')}
                 style={{
@@ -421,6 +422,7 @@ export default function AdminDashboardScreen() {
 
               {/* Partners */}
               <TouchableOpacity
+                accessibilityRole="button"
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('AdminPartners')}
                 style={{
@@ -473,6 +475,7 @@ export default function AdminDashboardScreen() {
 
               {/* Add New */}
               <TouchableOpacity
+                accessibilityRole="button"
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('AdminAddPartner')}
                 style={{
@@ -509,6 +512,7 @@ export default function AdminDashboardScreen() {
 
               {/* Reviews */}
               <TouchableOpacity
+                accessibilityRole="button"
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('AdminReviews')}
                 style={{

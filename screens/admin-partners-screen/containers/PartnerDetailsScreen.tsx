@@ -221,6 +221,7 @@ export default function PartnerDetailsScreen() {
           alignSelf: 'center',
         }}>
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => navigation.goBack()}
           style={{
             width: 36,
@@ -282,7 +283,10 @@ export default function PartnerDetailsScreen() {
             }}>
             {/* Large cover image */}
             {coverUri ? (
-              <TouchableOpacity activeOpacity={0.9} onPress={() => setViewerUri(coverUri)}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.9}
+                onPress={() => setViewerUri(coverUri)}>
                 <Image
                   source={{ uri: coverUri }}
                   style={{ width: '100%', height: 180, backgroundColor: dividerColor }}
@@ -541,6 +545,7 @@ export default function PartnerDetailsScreen() {
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                       {docs.petPhotos.map((p, i) => (
                         <TouchableOpacity
+                          accessibilityRole="button"
                           key={`${p.src}-${i}`}
                           activeOpacity={0.85}
                           onPress={() => setViewerUri(p.src)}
@@ -663,6 +668,7 @@ export default function PartnerDetailsScreen() {
                               </Text>
                             </View>
                             <TouchableOpacity
+                              accessibilityRole="button"
                               activeOpacity={0.8}
                               onPress={() => openDownload(c.fileSrc, t)}
                               style={{ padding: 8 }}>
@@ -739,6 +745,7 @@ export default function PartnerDetailsScreen() {
             gap: 12,
           }}>
           <TouchableOpacity
+            accessibilityRole="button"
             activeOpacity={0.8}
             onPress={handleTimeout}
             style={{
@@ -757,6 +764,7 @@ export default function PartnerDetailsScreen() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
+            accessibilityRole="button"
             activeOpacity={0.8}
             onPress={handleBan}
             style={{
@@ -784,6 +792,7 @@ export default function PartnerDetailsScreen() {
         animationType="fade"
         onRequestClose={() => setConfirm(null)}>
         <TouchableOpacity
+          accessibilityRole="button"
           activeOpacity={1}
           onPress={() => setConfirm(null)}
           style={{
@@ -804,6 +813,7 @@ export default function PartnerDetailsScreen() {
             </Text>
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <TouchableOpacity
+                accessibilityRole="button"
                 activeOpacity={0.8}
                 onPress={() => setConfirm(null)}
                 style={{
@@ -819,6 +829,7 @@ export default function PartnerDetailsScreen() {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
+                accessibilityRole="button"
                 activeOpacity={0.8}
                 onPress={() => {
                   confirm?.onConfirm();
@@ -847,6 +858,7 @@ export default function PartnerDetailsScreen() {
         animationType="fade"
         onRequestClose={() => setViewerUri(null)}>
         <Pressable
+          accessibilityRole="button"
           onPress={() => setViewerUri(null)}
           style={{
             flex: 1,
@@ -863,6 +875,7 @@ export default function PartnerDetailsScreen() {
             />
           ) : null}
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setViewerUri(null)}
             style={{
               position: 'absolute',
@@ -978,7 +991,11 @@ function ViewableImage({
 }) {
   const { t } = useLocale();
   return (
-    <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{ position: 'relative' }}>
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={{ position: 'relative' }}>
       <Image
         source={{ uri }}
         style={{ width: '100%', height, borderRadius: 10 }}
@@ -1029,6 +1046,7 @@ function IdSide({
       </Text>
       {img ? (
         <TouchableOpacity
+          accessibilityRole="button"
           activeOpacity={0.9}
           onPress={() => (revealed ? onView(img.src) : onReveal())}
           style={{ position: 'relative' }}>

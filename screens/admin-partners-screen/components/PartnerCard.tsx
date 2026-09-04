@@ -100,6 +100,7 @@ export function PartnerCard({
 
   return (
     <TouchableOpacity
+      accessibilityRole="button"
       activeOpacity={0.8}
       onPress={onPress}
       style={{

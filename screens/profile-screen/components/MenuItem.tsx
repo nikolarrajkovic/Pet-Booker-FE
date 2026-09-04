@@ -33,6 +33,7 @@ export default function MenuItem({
 }: MenuItemProps) {
   return (
     <TouchableOpacity
+      accessibilityRole="button"
       className={`flex-row items-center ${cardBg} mb-3 rounded-2xl border p-4 ${borderColor}`}
       activeOpacity={0.7}
       onPress={onPress}>

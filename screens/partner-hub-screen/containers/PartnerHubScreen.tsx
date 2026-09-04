@@ -513,6 +513,7 @@ export default function PartnerHubScreen() {
             </Text>
           </View>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => (navigation as any).navigate('Settings')}
             style={{
               width: 40,
@@ -629,6 +630,7 @@ export default function PartnerHubScreen() {
           {/* ── Active Live Session banner ── */}
           {hasLiveSession && (
             <TouchableOpacity
+              accessibilityRole="button"
               activeOpacity={0.9}
               onPress={() => (navigation as any).navigate('LiveSession', { mode: 'partner' })}
               style={{
@@ -682,6 +684,7 @@ export default function PartnerHubScreen() {
                 const badgeColor = isLive ? '#EF4444' : '#F97316';
                 return (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     key={action.id}
                     activeOpacity={0.85}
                     onPress={() =>
@@ -795,6 +798,7 @@ export default function PartnerHubScreen() {
               ) : (
                 hub.recent.map((item, index) => (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     key={item.id}
                     activeOpacity={0.8}
                     onPress={() =>
@@ -886,7 +890,9 @@ export default function PartnerHubScreen() {
                   }}>
                   {t('partnerHub.growthTipText')}
                 </Text>
-                <TouchableOpacity onPress={() => (navigation as any).navigate('Profile')}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => (navigation as any).navigate('Profile')}>
                   <Text style={{ fontSize: 13, fontWeight: '600', color: BRAND_GREEN }}>
                     {t('partnerHub.completeProfile')}
                   </Text>
