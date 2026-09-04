@@ -148,3 +148,38 @@ describe('ConversationsScreen — a message arrives', () => {
     expect(mockGetConversations).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('ConversationsScreen — an empty inbox', () => {
+  /**
+   * A list screen that renders nothing when it has nothing reads as a broken page rather than an
+   * empty one — the failure Home's rails had. The inbox routes through the shared `ListState`,
+   * whose empty branch is `isEmpty && emptyMessage`: forget the message and it falls through to
+   * rendering the (empty) list, silently. So the message being present is the thing to pin.
+   */
+  beforeEach(() => {
+    jest.clearAllMocks();
+    inboxListener = null;
+    mockGetConversations.mockResolvedValue({
+      items: [],
+      totalItems: 0,
+      totalPages: 0,
+      currentPage: 1,
+      itemsPerPage: 50,
+      hasMore: false,
+    });
+  });
+
+  it('says the inbox is empty rather than rendering a blank page', async () => {
+    render(withProviders(<ConversationsScreen />));
+    // `t` is mocked to echo its key, so this asserts the screen asked for the empty copy at all.
+    expect(await screen.findByText('messages.emptyInbox')).toBeTruthy();
+  });
+
+  it('has the inbox and thread empty copy in every language', () => {
+    const { dictionaries } = jest.requireActual('../i18n');
+    for (const lang of ['en', 'sr', 'ru']) {
+      expect(dictionaries[lang].messages.emptyInbox).toBeTruthy();
+      expect(dictionaries[lang].messages.emptyThread).toBeTruthy();
+    }
+  });
+});

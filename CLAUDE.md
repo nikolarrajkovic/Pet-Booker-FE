@@ -332,7 +332,14 @@ Candidates for future phases — they exist and are documented in swagger:
 - **Still unwired** (audited against swagger 2026-07-27, 100 paths): `/api/user-pets` (user↔pet join rows, incl. `isPrimaryOwner` — pets are read via `/api/pets?OwnerUserId=` today), `/api/user-push-devices`, `/api/certificates` + `/api/photos` + `/api/provider-profiles` + `/api/booking-statuses` (managed through their parent entities instead), `/api/addresses` GET/PUT/DELETE (only POST is used), `/admin/accounts`, `/admin/groups`, `/admin/roles`, `/admin/users`, `/admin/location-sessions/{id}/retain`, `GET /files` + `POST /files/cleanup/run-now`.
 
 ### Test login
-- Dev/seed admin account: identifier `admin` / password `admin` (use for live API testing via curl).
+- Dev/seed admin account: identifier `admin` / password `Admin123` (use for live API testing via
+  curl). Seeded by AuthApi's `AdminSeedHostedService` from the `AdminSeed` section — the value
+  is `AuthApi/appsettings.Development.json` when running the API directly, and the
+  `ADMIN_PASSWORD:-Admin123` compose default under `docker compose`. The seeder only runs in
+  Development/Docker and demands 12+ characters anywhere else, so this account does not exist
+  on a deployed environment; those get an admin via `POST /admin/accounts`.
+- That account's email really is the string `admin`, which is not a valid address — which is
+  why any backend path that emails it 500s (BACKEND_GAPS B4) while still persisting its write.
 
 ### Auditing the FE against the live API
 The whole service layer was replayed against the running stack on **2026-08-10** — every call in
