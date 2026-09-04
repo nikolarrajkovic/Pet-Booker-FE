@@ -123,6 +123,9 @@ export default function SettingsScreen() {
               </Text>
             </View>
             <Switch
+              // Named after its row. A Switch renders with the value as its only accessible name,
+              // so all four here announced as "switch, on" — indistinguishable from each other.
+              accessibilityLabel={t('settings.darkMode')}
               value={isDarkMode}
               onValueChange={toggleDarkMode}
               trackColor={{ false: '#D1D5DB', true: BRAND_GREEN }}
@@ -146,6 +149,9 @@ export default function SettingsScreen() {
               </Text>
             </View>
             <Switch
+              // Named after its row. A Switch renders with the value as its only accessible name,
+              // so all four here announced as "switch, on" — indistinguishable from each other.
+              accessibilityLabel={t('settings.pushNotifications')}
               value={pushNotifications}
               onValueChange={setPushNotifications}
               trackColor={{ false: '#D1D5DB', true: BRAND_GREEN }}
@@ -162,6 +168,9 @@ export default function SettingsScreen() {
               </Text>
             </View>
             <Switch
+              // Named after its row. A Switch renders with the value as its only accessible name,
+              // so all four here announced as "switch, on" — indistinguishable from each other.
+              accessibilityLabel={t('settings.emailNotifications')}
               value={emailNotifications}
               onValueChange={setEmailNotifications}
               trackColor={{ false: '#D1D5DB', true: BRAND_GREEN }}
@@ -178,6 +187,9 @@ export default function SettingsScreen() {
               </Text>
             </View>
             <Switch
+              // Named after its row. A Switch renders with the value as its only accessible name,
+              // so all four here announced as "switch, on" — indistinguishable from each other.
+              accessibilityLabel={t('settings.smsNotifications')}
               value={smsNotifications}
               onValueChange={setSmsNotifications}
               trackColor={{ false: '#D1D5DB', true: BRAND_GREEN }}

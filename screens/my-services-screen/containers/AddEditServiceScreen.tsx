@@ -1011,7 +1011,12 @@ export default function AddEditServiceScreen() {
           {Object.entries(workingHours).map(([day, hours]) => (
             <View key={day}>
               <TouchableOpacity
-                accessibilityRole="button"
+                // The row is the control, so it carries the semantics: a switch, and whether it
+                // is on. The Switch beside the label is a picture of that state with its pointer
+                // events off — announcing it separately would report the day twice, the second
+                // time as a control that cannot be operated.
+                accessibilityRole="switch"
+                accessibilityState={{ checked: hours.enabled }}
                 onPress={() => toggleWorkingDay(day)}
                 className={`${cardBg} border ${borderColor} mb-2 flex-row items-center justify-between rounded-xl px-4 py-3`}>
                 <Text className={textColor}>{t(`days.${day.toLowerCase()}` as any)}</Text>
@@ -1019,6 +1024,7 @@ export default function AddEditServiceScreen() {
                     (a Switch onValueChange here would fire toggle a second time). */}
                 <View pointerEvents="none">
                   <Switch
+                    accessible={false}
                     value={hours.enabled}
                     trackColor={{ false: '#D1D5DB', true: '#86EFAC' }}
                     thumbColor={hours.enabled ? BRAND_GREEN : '#f4f3f4'}

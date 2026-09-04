@@ -228,6 +228,7 @@ export default function NotificationSettingsScreen() {
                   </View>
                 </View>
                 <Switch
+                  accessibilityLabel={t('notificationSettings.dnd')}
                   value={s.dndEnabled}
                   onValueChange={(v) => update({ dndEnabled: v })}
                   trackColor={{ false: isDarkMode ? '#374151' : '#d1d5db', true: BRAND_GREEN }}

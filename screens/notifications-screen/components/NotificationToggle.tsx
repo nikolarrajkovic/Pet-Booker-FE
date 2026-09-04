@@ -36,6 +36,9 @@ export default function NotificationToggle({
         </View>
       </View>
       <Switch
+        // Named after the row it belongs to. A Switch's only accessible name is its value, so a
+        // screen full of these announced as "switch, on" repeated down the page.
+        accessibilityLabel={title}
         value={value}
         onValueChange={onValueChange}
         trackColor={{ false: isDarkMode ? '#374151' : '#d1d5db', true: BRAND_GREEN }}
