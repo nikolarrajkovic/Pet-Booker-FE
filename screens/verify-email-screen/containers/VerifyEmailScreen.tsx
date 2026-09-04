@@ -215,7 +215,7 @@ export default function VerifyEmailScreen() {
       {/* Resend link */}
       <View className="mb-6 flex-row justify-center">
         <Text className={`text-sm ${subtextColor}`}>{t('verifyEmail.didntReceive')}</Text>
-        <TouchableOpacity onPress={handleResend}>
+        <TouchableOpacity accessibilityRole="button" onPress={handleResend}>
           <Text className="text-sm font-semibold text-brand-600">{t('verifyEmail.resend')}</Text>
         </TouchableOpacity>
       </View>

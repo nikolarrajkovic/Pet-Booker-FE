@@ -35,6 +35,7 @@ export default function SexSelector({
       <View className="flex-row" style={{ gap: 12 }}>
         {sexOptions.map((option) => (
           <TouchableOpacity
+            accessibilityRole="button"
             key={option.value}
             onPress={() => onSelectSex(option.value)}
             className={`flex-1 items-center justify-center rounded-xl border-2 py-4 ${

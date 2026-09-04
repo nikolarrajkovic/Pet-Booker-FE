@@ -69,6 +69,7 @@ export default function ListView({
    */
   const card = (item: ServiceSearchItem) => (
     <TouchableOpacity
+      accessibilityRole="button"
       key={item.id}
       onPress={() => (navigation as any).navigate('ServiceDetail', { service: item.dto })}
       className={`${cardBg} ${isWebLayout ? '' : 'mb-3'} flex-row rounded-2xl border p-3 shadow-sm ${borderColor}`}

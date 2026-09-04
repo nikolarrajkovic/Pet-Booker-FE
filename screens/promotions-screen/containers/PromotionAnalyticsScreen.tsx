@@ -107,6 +107,7 @@ export default function PromotionAnalyticsScreen({ route }: PromotionAnalyticsSc
       contentBg={contentBg}
       rightAction={
         <TouchableOpacity
+          accessibilityRole="button"
           activeOpacity={0.7}
           onPress={() =>
             promotion

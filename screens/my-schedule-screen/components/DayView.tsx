@@ -69,7 +69,7 @@ export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }
     <View className="px-6 py-6">
       {/* Date Navigation */}
       <View className="mb-6 flex-row items-center justify-between">
-        <TouchableOpacity className="p-2" onPress={goToPreviousDay}>
+        <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToPreviousDay}>
           <Ionicons name="chevron-back" size={24} color={isDarkMode ? '#fff' : '#000'} />
         </TouchableOpacity>
         <View className="flex-1 items-center">
@@ -78,7 +78,7 @@ export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }
             <Text className="mt-1 text-sm font-semibold text-brand-500">{t('schedule.today')}</Text>
           )}
         </View>
-        <TouchableOpacity className="p-2" onPress={goToNextDay}>
+        <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToNextDay}>
           <Ionicons name="chevron-forward" size={24} color={isDarkMode ? '#fff' : '#000'} />
         </TouchableOpacity>
       </View>

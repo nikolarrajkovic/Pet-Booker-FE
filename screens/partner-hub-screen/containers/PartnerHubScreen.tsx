@@ -470,12 +470,15 @@ export default function PartnerHubScreen() {
   const Root: any = isWebLayout ? View : SafeAreaView;
 
   return (
-    <Root style={{ flex: 1, backgroundColor: isWebLayout ? bgColor : BRAND_GREEN }}>
+    <Root
+      // Transparent on the web design, not the page ground: the shell already paints that ground
+      // and the pattern texture behind every screen, and repainting it here covers both.
+      style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{
           backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
-          paddingHorizontal: isWebLayout ? 40 : 20,
+          paddingHorizontal: isWebLayout ? 32 : 20,
           paddingTop: isWebLayout ? 32 : headerTopInset + (insets.top > 0 ? 8 : 16),
           paddingBottom: 24,
           width: '100%',
@@ -510,6 +513,7 @@ export default function PartnerHubScreen() {
             </Text>
           </View>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => (navigation as any).navigate('Settings')}
             style={{
               width: 40,
@@ -601,7 +605,9 @@ export default function PartnerHubScreen() {
       <View
         style={{
           flex: 1,
-          backgroundColor: bgColor,
+          // Same reason as the root: on the web design the shell's ground and pattern show
+          // through, and an opaque sheet here would hide the texture on this screen only.
+          backgroundColor: isWebLayout ? 'transparent' : bgColor,
           // The rounded sheet slides up over the green header. With no green header there is
           // nothing to slide over, and the radius would just clip the content's top corners.
           borderTopLeftRadius: isWebLayout ? 0 : 24,
@@ -624,6 +630,7 @@ export default function PartnerHubScreen() {
           {/* ── Active Live Session banner ── */}
           {hasLiveSession && (
             <TouchableOpacity
+              accessibilityRole="button"
               activeOpacity={0.9}
               onPress={() => (navigation as any).navigate('LiveSession', { mode: 'partner' })}
               style={{
@@ -677,6 +684,7 @@ export default function PartnerHubScreen() {
                 const badgeColor = isLive ? '#EF4444' : '#F97316';
                 return (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     key={action.id}
                     activeOpacity={0.85}
                     onPress={() =>
@@ -790,6 +798,7 @@ export default function PartnerHubScreen() {
               ) : (
                 hub.recent.map((item, index) => (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     key={item.id}
                     activeOpacity={0.8}
                     onPress={() =>
@@ -881,7 +890,9 @@ export default function PartnerHubScreen() {
                   }}>
                   {t('partnerHub.growthTipText')}
                 </Text>
-                <TouchableOpacity onPress={() => (navigation as any).navigate('Profile')}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => (navigation as any).navigate('Profile')}>
                   <Text style={{ fontSize: 13, fontWeight: '600', color: BRAND_GREEN }}>
                     {t('partnerHub.completeProfile')}
                   </Text>

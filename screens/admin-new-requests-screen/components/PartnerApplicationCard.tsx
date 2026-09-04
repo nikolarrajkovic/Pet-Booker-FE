@@ -118,6 +118,7 @@ export function PartnerApplicationCard({
       }}>
       {/* ── Card header row ── */}
       <TouchableOpacity
+        accessibilityRole="button"
         activeOpacity={0.8}
         onPress={() => setExpanded((v) => !v)}
         style={{ padding: 16 }}>
@@ -180,6 +181,7 @@ export function PartnerApplicationCard({
         {/* Action buttons */}
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
           <TouchableOpacity
+            accessibilityRole="button"
             activeOpacity={0.8}
             onPress={() => navigation.navigate('ApplicationReview', { application })}
             style={{
@@ -196,6 +198,7 @@ export function PartnerApplicationCard({
           </TouchableOpacity>
           {application.status === 'pending' && (
             <TouchableOpacity
+              accessibilityRole="button"
               activeOpacity={0.8}
               onPress={() => onApprove?.(application.id)}
               style={{

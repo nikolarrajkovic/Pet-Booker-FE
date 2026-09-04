@@ -306,6 +306,7 @@ export default function BookingDetailsScreen() {
             ) : isCompleted ? (
               <View className="mt-6 px-6">
                 <TouchableOpacity
+                  accessibilityRole="button"
                   onPress={() =>
                     review.open({
                       bookingId: dto.id ?? bookingId,

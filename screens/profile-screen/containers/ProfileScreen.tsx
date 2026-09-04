@@ -230,6 +230,7 @@ export default function ProfileScreen() {
             <Text className="mb-2 text-xl font-bold text-white">{t('profile.becomePartner')}</Text>
             <Text className="mb-4 text-sm text-brand-100">{t('profile.becomePartnerSub')}</Text>
             <TouchableOpacity
+              accessibilityRole="button"
               className="rounded-xl bg-white py-3"
               activeOpacity={0.7}
               onPress={() => (navigation as any).navigate('BecomePartner')}>
@@ -267,6 +268,7 @@ export default function ProfileScreen() {
           </ResponsiveGrid>
 
           <TouchableOpacity
+            accessibilityRole="button"
             className={`flex-row items-center ${cardBg} mb-3 rounded-2xl border p-4 ${borderColor}`}
             activeOpacity={0.7}
             onPress={() => signOut()}>

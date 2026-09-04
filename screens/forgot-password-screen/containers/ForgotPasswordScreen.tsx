@@ -120,6 +120,7 @@ export default function ForgotPasswordScreen() {
               autoCapitalize: 'none',
             })}
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={sendEmail}
               disabled={isSubmitting}
               className="mt-2 items-center rounded-2xl bg-brand-500 py-4"
@@ -130,7 +131,10 @@ export default function ForgotPasswordScreen() {
                 <Text className="text-lg font-bold text-white">{t('forgotPassword.sendCode')}</Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setStep('reset')} className="mt-4 items-center">
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => setStep('reset')}
+              className="mt-4 items-center">
               <Text className="text-sm font-semibold text-brand-600">
                 {t('forgotPassword.haveCode')}
               </Text>
@@ -163,6 +167,7 @@ export default function ForgotPasswordScreen() {
               autoCapitalize: 'none',
             })}
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={submitReset}
               disabled={isSubmitting}
               className="mt-2 items-center rounded-2xl bg-brand-500 py-4"

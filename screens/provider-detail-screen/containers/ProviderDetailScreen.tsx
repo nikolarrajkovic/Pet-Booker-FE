@@ -90,6 +90,7 @@ export default function ProviderDetailScreen() {
           resizeMode="cover"
         />
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => navigation.goBack()}
           className="absolute left-4 top-12 h-10 w-10 items-center justify-center rounded-full bg-white"
           style={{
@@ -194,6 +195,7 @@ export default function ProviderDetailScreen() {
                 <Text className={`text-sm ${subtextColor} mb-3`}>Tap a service to book it</Text>
                 {services.map((svc, idx) => (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     key={svc.id ?? idx}
                     onPress={() => (navigation as any).navigate('BookService', { service: svc })}
                     className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>

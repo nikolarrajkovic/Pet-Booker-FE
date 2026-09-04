@@ -332,7 +332,14 @@ Candidates for future phases — they exist and are documented in swagger:
 - **Still unwired** (audited against swagger 2026-07-27, 100 paths): `/api/user-pets` (user↔pet join rows, incl. `isPrimaryOwner` — pets are read via `/api/pets?OwnerUserId=` today), `/api/user-push-devices`, `/api/certificates` + `/api/photos` + `/api/provider-profiles` + `/api/booking-statuses` (managed through their parent entities instead), `/api/addresses` GET/PUT/DELETE (only POST is used), `/admin/accounts`, `/admin/groups`, `/admin/roles`, `/admin/users`, `/admin/location-sessions/{id}/retain`, `GET /files` + `POST /files/cleanup/run-now`.
 
 ### Test login
-- Dev/seed admin account: identifier `admin` / password `admin` (use for live API testing via curl).
+- Dev/seed admin account: identifier `admin` / password `Admin123` (use for live API testing via
+  curl). Seeded by AuthApi's `AdminSeedHostedService` from the `AdminSeed` section — the value
+  is `AuthApi/appsettings.Development.json` when running the API directly, and the
+  `ADMIN_PASSWORD:-Admin123` compose default under `docker compose`. The seeder only runs in
+  Development/Docker and demands 12+ characters anywhere else, so this account does not exist
+  on a deployed environment; those get an admin via `POST /admin/accounts`.
+- That account's email really is the string `admin`, which is not a valid address — which is
+  why any backend path that emails it 500s (BACKEND_GAPS B4) while still persisting its write.
 
 ### Auditing the FE against the live API
 The whole service layer was replayed against the running stack on **2026-08-10** — every call in
@@ -646,7 +653,12 @@ What the hook returns:
 
 The same module also exports the **theme-independent brand palette**: **`BRAND`** (`50`/`400`/`500`/`600`/`900`, mirroring the `brand-*` Tailwind tokens) and **`BRAND_GREEN`** (= `BRAND[500]`, the default for spinners and active icons). Use a `brand-*` class wherever a `className` will do; reach for these only where a raw string is required — `color=` on an `Ionicons`/`ActivityIndicator`, a `style={}` value, or a native component. `#00C870` had been pasted into 200+ such places across 70 files.
 
-Canonical values: screen bg `#0f1621`/`white`, card `#1a2332`/`white`, input `#243447`/`gray-50`, text `white`/`gray-900`, subtext `gray-400`/`gray-600`, border `gray-700`/`gray-200`.
+Canonical values: screen bg `#0f1621`/`#F1F8F4`, card `#1a2332`/`white`, input `#243447`/`gray-50`, text `white`/`gray-900`, subtext `gray-400`/`gray-600`, border `gray-700`/`gray-200`.
+
+**The light-mode ground is a green-tinted off-white, not white.** Page and card were both
+`#ffffff`, which is why the app read as one flat white sheet — a card had nothing to be raised
+against, and no brand colour appeared anywhere but the buttons. Keep `bgColor` for the page and
+`cardBg` for surfaces on it; using `cardBg` as a page background loses the separation again.
 
 Genuinely bespoke colors stay inline (sourced from the hook's `isDarkMode`): e.g. the brand-green header bg (`bg-brand-500`), `AppHeader`, `Banner` tiles, the `#F5F7FA` promotions/requests content bg. Screens with a brand header keep a local `bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500'` and pull the canonical content bg as `bgColor: contentBg` from the hook.
 

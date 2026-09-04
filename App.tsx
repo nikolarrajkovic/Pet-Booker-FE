@@ -93,9 +93,16 @@ function AppContent() {
     const base = isDarkMode ? DarkTheme : DefaultTheme;
     return {
       ...base,
-      colors: { ...base.colors, background: isDarkMode ? '#0f1621' : '#ffffff' },
+      colors: {
+        ...base.colors,
+        // Transparent on the web design: the shell paints the page ground and the pattern texture
+        // behind the navigator, and an opaque scene background covers both — the navigator paints
+        // one surface per screen across the whole content region. Safe there because web stack
+        // transitions are `animation: 'none'`, so there is no in-between frame to hide.
+        background: isWebLayout ? 'transparent' : isDarkMode ? '#0f1621' : '#F1F8F4',
+      },
     };
-  }, [isDarkMode]);
+  }, [isDarkMode, isWebLayout]);
 
   // Device push: registers this handset while signed in and routes a tapped notification to the
   // screen it is about. Lives here rather than in a screen because a cold start from a

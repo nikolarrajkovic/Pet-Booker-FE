@@ -63,7 +63,7 @@ export default function ActionPopup({
       animationType="fade"
       onRequestClose={onCancel}
       statusBarTranslucent>
-      <TouchableWithoutFeedback onPress={onCancel}>
+      <TouchableWithoutFeedback accessible={false} focusable={false} onPress={onCancel}>
         <View className={`flex-1 items-center justify-center ${overlayBg}`}>
           <TouchableWithoutFeedback>
             <View className={`${cardBg} mx-8 w-80 rounded-2xl p-6`}>
@@ -73,6 +73,8 @@ export default function ActionPopup({
 
               <View className="flex-row gap-3">
                 <TouchableOpacity
+                  accessible={false}
+                  focusable={false}
                   onPress={onCancel}
                   className={`flex-1 items-center justify-center rounded-xl py-3 ${cancelBg}`}
                   activeOpacity={0.7}>
@@ -80,6 +82,7 @@ export default function ActionPopup({
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  accessibilityRole="button"
                   onPress={onConfirm}
                   className={`flex-1 items-center justify-center rounded-xl py-3 ${actionButtonColor[frozenMode]}`}
                   activeOpacity={0.7}>

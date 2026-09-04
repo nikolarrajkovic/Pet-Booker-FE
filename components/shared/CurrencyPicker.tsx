@@ -28,6 +28,9 @@ export default function CurrencyPicker({ visible, current, onSelect, onClose }: 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable
+        accessible={false}
+        focusable={false}
+        tabIndex={-1}
         onPress={onClose}
         style={{
           flex: 1,
@@ -38,6 +41,9 @@ export default function CurrencyPicker({ visible, current, onSelect, onClose }: 
         }}>
         {/* Stop backdrop taps from closing when they land on the card */}
         <Pressable
+          accessible={false}
+          focusable={false}
+          tabIndex={-1}
           onPress={() => {}}
           style={{
             width: '100%',
@@ -50,7 +56,11 @@ export default function CurrencyPicker({ visible, current, onSelect, onClose }: 
             <Text style={{ color: hex.text }} className="text-xl font-bold">
               {t('currencies.title')}
             </Text>
-            <TouchableOpacity onPress={onClose} hitSlop={8}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
+              onPress={onClose}
+              hitSlop={8}>
               <Ionicons name="close" size={24} color={hex.subtext} />
             </TouchableOpacity>
           </View>
@@ -62,6 +72,7 @@ export default function CurrencyPicker({ visible, current, onSelect, onClose }: 
             const active = code === current;
             return (
               <TouchableOpacity
+                accessibilityRole="button"
                 key={code}
                 onPress={() => onSelect(code)}
                 activeOpacity={0.7}

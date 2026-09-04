@@ -25,13 +25,46 @@ export function LoadingState() {
 /**
  * Icon + message, the shape both the error and the empty state take. Exported
  * for the handful of screens that need one on its own, outside a `ListState`.
+ *
+ * The icon sits in a **filled circular badge**, which is what makes this legible: these screens
+ * are drawn over the pet pattern, and a bare muted-grey glyph on that ground reads as one more
+ * piece of the wallpaper rather than as the page telling you something. The badge gives it a
+ * solid backing and the tint carries the meaning. NotificationsScreen arrived at the same shape
+ * independently; this is that shape, shared.
  */
-export function MessageState({ icon, message }: { icon: IoniconName; message: string }) {
-  const { subtextColor, hex } = useThemeColors();
+export function MessageState({
+  icon,
+  message,
+  tone = 'empty',
+}: {
+  icon: IoniconName;
+  message: string;
+  /** `error` tints the badge red — an empty list and a failed one must not look alike. */
+  tone?: 'empty' | 'error';
+}) {
+  const { textColor, cardBg, isDarkMode } = useThemeColors();
+  const isError = tone === 'error';
+  const badgeBg = isError
+    ? isDarkMode
+      ? 'bg-[#3a1f24]'
+      : 'bg-red-50'
+    : isDarkMode
+      ? // Deliberately NOT the card colour: the badge sits ON the card, so reusing #1a2332 made
+        // the disc invisible in dark mode and left the icon floating. A dark brand tint keeps the
+        // same read as bg-brand-50 does against white.
+        'bg-[#14372a]'
+      : 'bg-brand-50';
+
   return (
     <StatePad>
-      <Ionicons name={icon} size={64} color={hex.mutedIcon} />
-      <Text className={`${subtextColor} mt-4 text-center text-base`}>{message}</Text>
+      {/* On a card, not loose on the page. Every other block of content on these screens sits on
+          one, and against the pattern an uncontained state reads as part of the wallpaper. */}
+      <View className={`${cardBg} mx-4 items-center self-stretch rounded-2xl px-6 py-10`}>
+        <View className={`mb-4 h-20 w-20 items-center justify-center rounded-full ${badgeBg}`}>
+          <Ionicons name={icon} size={36} color={isError ? '#EF4444' : BRAND_GREEN} />
+        </View>
+        <Text className={`${textColor} text-center text-base font-semibold`}>{message}</Text>
+      </View>
     </StatePad>
   );
 }
@@ -80,7 +113,7 @@ export default function ListState({
   children,
 }: ListStateProps) {
   if (isLoading) return <LoadingState />;
-  if (error) return <MessageState icon="alert-circle-outline" message={error} />;
+  if (error) return <MessageState icon="alert-circle-outline" message={error} tone="error" />;
   if (isEmpty && emptyMessage) return <MessageState icon={emptyIcon} message={emptyMessage} />;
   return <>{children}</>;
 }

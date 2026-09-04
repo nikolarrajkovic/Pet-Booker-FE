@@ -43,7 +43,10 @@ export default function PetPhotoUploader({
         style={{ gap: 12, paddingVertical: 8, paddingHorizontal: 4 }}>
         {photos.map((photo, index) => (
           <View key={index} className="relative" style={{ overflow: 'visible', width: '30%' }}>
-            <TouchableOpacity activeOpacity={0.8} onPress={() => onSetMain(index)}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={0.8}
+              onPress={() => onSetMain(index)}>
               <Image
                 source={{ uri: photo }}
                 className="h-24 w-full rounded-xl"
@@ -66,6 +69,8 @@ export default function PetPhotoUploader({
               </View>
             )}
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
               onPress={() => onRemovePhoto(index)}
               className="absolute -right-2 -top-2 h-6 w-6 items-center justify-center rounded-full bg-red-500"
               style={{
@@ -80,6 +85,7 @@ export default function PetPhotoUploader({
           </View>
         ))}
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={onPickImage}
           className={`border-2 border-dashed ${error ? 'border-red-500' : isDarkMode ? 'border-gray-600' : 'border-gray-300'} items-center justify-center rounded-xl`}
           style={{ width: '30%', height: 96 }}>

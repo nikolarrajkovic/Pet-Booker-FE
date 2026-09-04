@@ -31,6 +31,9 @@ export default function LanguagePicker({ visible, current, onSelect, onClose }: 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable
+        accessible={false}
+        focusable={false}
+        tabIndex={-1}
         onPress={dismissable ? onClose : undefined}
         style={{
           flex: 1,
@@ -41,6 +44,9 @@ export default function LanguagePicker({ visible, current, onSelect, onClose }: 
         }}>
         {/* Stop backdrop taps from closing when they land on the card */}
         <Pressable
+          accessible={false}
+          focusable={false}
+          tabIndex={-1}
           onPress={() => {}}
           style={{
             width: '100%',
@@ -54,7 +60,11 @@ export default function LanguagePicker({ visible, current, onSelect, onClose }: 
               {t('languages.title')}
             </Text>
             {dismissable ? (
-              <TouchableOpacity onPress={onClose} hitSlop={8}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={t('common.close')}
+                onPress={onClose}
+                hitSlop={8}>
                 <Ionicons name="close" size={24} color={hex.subtext} />
               </TouchableOpacity>
             ) : null}
@@ -67,6 +77,7 @@ export default function LanguagePicker({ visible, current, onSelect, onClose }: 
             const active = lang.code === current;
             return (
               <TouchableOpacity
+                accessibilityRole="button"
                 key={lang.code}
                 onPress={() => onSelect(lang.code)}
                 activeOpacity={0.7}

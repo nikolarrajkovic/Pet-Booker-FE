@@ -172,6 +172,7 @@ export default function LoginScreen() {
             placeholderTextColor={placeholderColor}
           />
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setShowPassword(!showPassword)}
             style={{ position: 'absolute', right: 16, top: 13 }}>
             <Ionicons
@@ -188,6 +189,7 @@ export default function LoginScreen() {
 
       {/* Forgot Password */}
       <TouchableOpacity
+        accessibilityRole="button"
         onPress={() => (navigation as any).navigate('ForgotPassword')}
         className="mb-5 mt-1 self-end">
         <Text className="text-sm font-semibold text-brand-600">{t('login.forgotPassword')}</Text>
@@ -233,7 +235,9 @@ export default function LoginScreen() {
       {/* Sign Up Link */}
       <View className="mt-6 flex-row justify-center">
         <Text className={`text-sm ${subtextColor}`}>{t('login.noAccount')}</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => navigation.navigate('Register')}>
           <Text className="text-sm font-semibold text-brand-600">{t('login.signUp')}</Text>
         </TouchableOpacity>
       </View>

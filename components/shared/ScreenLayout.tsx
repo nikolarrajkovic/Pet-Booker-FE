@@ -99,7 +99,7 @@ export default function ScreenLayout({
   if (isWebLayout) {
     if (webBare) {
       return (
-        <View style={{ flex: 1, backgroundColor: hex.bg }}>
+        <View style={{ flex: 1 }}>
           {children}
           {footer}
         </View>
@@ -107,7 +107,10 @@ export default function ScreenLayout({
     }
 
     return (
-      <View style={{ flex: 1, backgroundColor: hex.bg }}>
+      // Transparent, not `hex.bg`: the shell paints the page background and the pattern texture
+      // behind this, and an opaque screen root would cover both. Content that must stay readable
+      // paints its own surface — every card and sheet in the app already does.
+      <View style={{ flex: 1 }}>
         {/*
           Two containers, not one: the header needs the column's horizontal gutters, but the body
           does not — screens already pad their own ScrollViews (`px-6`), and nesting a padded

@@ -94,7 +94,10 @@ export default function MyScheduleScreen() {
       headerChildren={
         isWebLayout ? undefined : (
           <View className="mb-4 flex-row items-center">
-            <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => navigation.goBack()}
+              className="mr-4">
               <Ionicons name="arrow-back" size={24} color="white" />
             </TouchableOpacity>
             <Text className="flex-1 text-2xl font-bold text-white">{title}</Text>
@@ -107,6 +110,7 @@ export default function MyScheduleScreen() {
           <View
             className={`flex-row rounded-xl p-1 ${isWebLayout ? (isDarkMode ? 'bg-[#243447]' : 'bg-gray-100') : 'bg-white/20'}`}>
             <TouchableOpacity
+              accessibilityRole="button"
               className={`flex-1 rounded-lg py-2 ${selectedView === 'day' ? 'bg-white' : ''}`}
               onPress={() => setSelectedView('day')}>
               <Text
@@ -115,6 +119,7 @@ export default function MyScheduleScreen() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
+              accessibilityRole="button"
               className={`flex-1 rounded-lg py-2 ${selectedView === 'week' ? 'bg-white' : ''}`}
               onPress={() => setSelectedView('week')}>
               <Text
@@ -123,6 +128,7 @@ export default function MyScheduleScreen() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
+              accessibilityRole="button"
               className={`flex-1 rounded-lg py-2 ${selectedView === 'month' ? 'bg-white' : ''}`}
               onPress={() => setSelectedView('month')}>
               <Text

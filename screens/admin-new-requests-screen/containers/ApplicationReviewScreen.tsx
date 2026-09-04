@@ -151,12 +151,15 @@ export default function ApplicationReviewScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: isWebLayout ? bgColor : BRAND_GREEN }}>
+    <View
+      // Transparent on the web design, not the page ground: the shell already paints that ground
+      // and the pattern texture behind every screen, and repainting it here covers both.
+      style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
       {/* ── Header ── green slab on a phone, a plain page title on the web design ── */}
       <View
         style={{
           backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
-          paddingHorizontal: isWebLayout ? 40 : 20,
+          paddingHorizontal: isWebLayout ? 32 : 20,
           paddingTop: isWebLayout ? 32 : insets.top + 12,
           paddingBottom: isWebLayout ? 12 : 28,
           width: '100%',
@@ -165,6 +168,7 @@ export default function ApplicationReviewScreen() {
         }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => navigation.goBack()}
             style={{
               width: 36,
@@ -200,7 +204,9 @@ export default function ApplicationReviewScreen() {
       <View
         style={{
           flex: 1,
-          backgroundColor: bgColor,
+          // Same reason as the root: on the web design the shell's ground and pattern show
+          // through, and an opaque sheet here would hide the texture on this screen only.
+          backgroundColor: isWebLayout ? 'transparent' : bgColor,
           borderTopLeftRadius: isWebLayout ? 0 : 24,
           borderTopRightRadius: isWebLayout ? 0 : 24,
           marginTop: isWebLayout ? 0 : -20,
@@ -209,7 +215,7 @@ export default function ApplicationReviewScreen() {
           contentContainerStyle={
             isWebLayout
               ? {
-                  padding: 40,
+                  padding: 32,
                   paddingTop: 8,
                   paddingBottom: 60,
                   width: '100%',
@@ -239,6 +245,7 @@ export default function ApplicationReviewScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                 {docs.profilePhoto ? (
                   <TouchableOpacity
+                    accessibilityRole="button"
                     activeOpacity={0.85}
                     onPress={() => setViewerUri(docs.profilePhoto!.src)}
                     style={{ marginRight: 12 }}>
@@ -445,6 +452,7 @@ export default function ApplicationReviewScreen() {
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                   {docs.petPhotos.map((p, i) => (
                     <TouchableOpacity
+                      accessibilityRole="button"
                       key={`${p.src}-${i}`}
                       activeOpacity={0.85}
                       onPress={() => setViewerUri(p.src)}
@@ -560,6 +568,7 @@ export default function ApplicationReviewScreen() {
                           </Text>
                         </View>
                         <TouchableOpacity
+                          accessibilityRole="button"
                           activeOpacity={0.8}
                           onPress={() => openDownload(c.fileSrc, t)}
                           style={{ padding: 8 }}>
@@ -624,6 +633,7 @@ export default function ApplicationReviewScreen() {
               gap: 12,
             }}>
             <TouchableOpacity
+              accessibilityRole="button"
               activeOpacity={0.8}
               disabled={isSubmitting}
               onPress={handleReject}
@@ -649,6 +659,7 @@ export default function ApplicationReviewScreen() {
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
+              accessibilityRole="button"
               activeOpacity={0.8}
               disabled={isSubmitting}
               onPress={handleApprove}
@@ -711,6 +722,7 @@ export default function ApplicationReviewScreen() {
         animationType="fade"
         onRequestClose={() => setViewerUri(null)}>
         <Pressable
+          accessibilityRole="button"
           onPress={() => setViewerUri(null)}
           style={{
             flex: 1,
@@ -727,6 +739,7 @@ export default function ApplicationReviewScreen() {
             />
           ) : null}
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setViewerUri(null)}
             style={{
               position: 'absolute',
@@ -892,7 +905,11 @@ function ViewableImage({
 }) {
   const { t } = useLocale();
   return (
-    <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{ position: 'relative' }}>
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={{ position: 'relative' }}>
       <Image
         source={{ uri }}
         style={{ width: '100%', height, borderRadius: 10 }}
@@ -945,6 +962,7 @@ function IdSide({
       </Text>
       {img ? (
         <TouchableOpacity
+          accessibilityRole="button"
           activeOpacity={0.9}
           onPress={() => (revealed ? onView(img.src) : onReveal())}
           style={{ position: 'relative' }}>

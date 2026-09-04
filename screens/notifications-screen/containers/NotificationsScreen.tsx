@@ -234,6 +234,7 @@ export default function NotificationsScreen() {
         rightAction={
           unreadCount > 0 ? (
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={handleMarkAll}
               className="h-10 items-center justify-center rounded-full bg-brand-600 px-3">
               <Text className="text-xs font-semibold text-white">
@@ -273,6 +274,7 @@ export default function NotificationsScreen() {
                 </Text>
                 <Text className={`text-sm ${subtextColor} mt-2 text-center`}>{error}</Text>
                 <TouchableOpacity
+                  accessibilityRole="button"
                   onPress={() => load()}
                   className="mt-4 rounded-full bg-brand-500 px-5 py-2.5">
                   <Text className="font-semibold text-white">{t('notifications.tryAgain')}</Text>

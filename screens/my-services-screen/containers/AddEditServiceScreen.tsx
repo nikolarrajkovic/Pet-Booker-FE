@@ -475,7 +475,7 @@ export default function AddEditServiceScreen() {
   const anyDayEnabled = Object.values(workingHours).some((day) => day.enabled);
 
   const previewButton = (
-    <TouchableOpacity onPress={handlePreview}>
+    <TouchableOpacity accessibilityRole="button" onPress={handlePreview}>
       <Text className="font-semibold text-white">{t('addEditService.preview')}</Text>
     </TouchableOpacity>
   );
@@ -502,6 +502,7 @@ export default function AddEditServiceScreen() {
             {t('addEditService.serviceType')}
           </Text>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setShowServiceTypeModal(true)}
             className={`${inputBg} flex-row items-center justify-between rounded-xl px-4 py-3`}>
             <Text className={serviceType ? textColor : `${subtextColor}`}>
@@ -553,6 +554,7 @@ export default function AddEditServiceScreen() {
             {t('addEditService.serviceLocationHint')}
           </Text>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setShowAddressPicker(true)}
             className={`${inputBg} flex-row items-center rounded-xl px-4 py-3`}>
             <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
@@ -564,7 +566,10 @@ export default function AddEditServiceScreen() {
             <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
           </TouchableOpacity>
           {profileAddress && (
-            <TouchableOpacity onPress={useProfileAddress} className="mt-2 flex-row items-center">
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={useProfileAddress}
+              className="mt-2 flex-row items-center">
               <Ionicons name="home-outline" size={16} color={BRAND_GREEN} />
               <Text className="ml-2 text-sm font-semibold text-brand-500">
                 {t('addEditService.useProfileAddress')}
@@ -584,7 +589,10 @@ export default function AddEditServiceScreen() {
           <View className="flex-row flex-wrap gap-2">
             {serviceImages.map((img, index) => (
               <View key={index} className="relative" style={{ width: 80, height: 80 }}>
-                <TouchableOpacity activeOpacity={0.8} onPress={() => setMainImageIndex(index)}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  activeOpacity={0.8}
+                  onPress={() => setMainImageIndex(index)}>
                   <Image
                     source={{ uri: img.uri }}
                     style={{
@@ -611,6 +619,8 @@ export default function AddEditServiceScreen() {
                   </View>
                 )}
                 <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.close')}
                   onPress={() => removeImage(index)}
                   className="absolute -right-1.5 -top-1.5 h-5 w-5 items-center justify-center rounded-full bg-red-500"
                   style={{ elevation: 3 }}>
@@ -619,6 +629,7 @@ export default function AddEditServiceScreen() {
               </View>
             ))}
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={handleAddPhoto}
               className={`${inputBg} border ${borderColor} items-center justify-center rounded-xl border-dashed`}
               style={{ width: 80, height: 80 }}>
@@ -640,6 +651,7 @@ export default function AddEditServiceScreen() {
             <View key={index} className="mb-3 flex-row items-center" style={{ gap: 8 }}>
               {/* Duration picker */}
               <TouchableOpacity
+                accessibilityRole="button"
                 onPress={() => {
                   setDurationModalIndex(index);
                   setShowDurationModal(true);
@@ -674,6 +686,7 @@ export default function AddEditServiceScreen() {
               {/* Remove — fixed width so it always sits at the right edge */}
               {pricingTiers.length > 1 ? (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   onPress={() => removePricingTier(index)}
                   style={{ width: 56, alignItems: 'flex-end' }}>
                   <Text className="text-sm font-medium text-red-500">
@@ -686,6 +699,7 @@ export default function AddEditServiceScreen() {
             </View>
           ))}
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={addPricingTier}
             className="items-center rounded-xl py-3"
             style={{
@@ -756,6 +770,7 @@ export default function AddEditServiceScreen() {
                     {extraTitle(service)}
                   </Text>
                   <TouchableOpacity
+                    accessibilityRole="button"
                     onPress={() => removeAdditionalService(index)}
                     accessibilityLabel={t('addEditService.removeExtra')}>
                     <Ionicons name="trash-outline" size={20} color={isDarkMode ? '#fff' : '#000'} />
@@ -764,6 +779,7 @@ export default function AddEditServiceScreen() {
 
                 {/* Offered on/off — keeps the config but hides it from new bookings */}
                 <TouchableOpacity
+                  accessibilityRole="button"
                   onPress={() => patchAdditionalService(index, { enabled: !service.enabled })}
                   className="mb-3 flex-row items-center">
                   <Ionicons
@@ -794,6 +810,7 @@ export default function AddEditServiceScreen() {
                     },
                   ].map((opt) => (
                     <TouchableOpacity
+                      accessibilityRole="button"
                       key={opt.value}
                       onPress={() => setChargeType(index, opt.value)}
                       className={`flex-1 rounded-xl px-3 py-2 ${
@@ -844,6 +861,7 @@ export default function AddEditServiceScreen() {
                         { value: DistanceLeg.RoundTrip, label: t('addEditService.legRoundTrip') },
                       ].map((opt) => (
                         <TouchableOpacity
+                          accessibilityRole="button"
                           key={opt.value}
                           onPress={() => patchAdditionalService(index, { distanceLeg: opt.value })}
                           className="mb-1 flex-row items-center">
@@ -959,6 +977,7 @@ export default function AddEditServiceScreen() {
           })}
 
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={addAdditionalService}
             className={`${cardBg} border ${borderColor} flex-row items-center justify-center rounded-xl px-4 py-3`}>
             <Ionicons name="add" size={18} color={BRAND_GREEN} />
@@ -992,6 +1011,12 @@ export default function AddEditServiceScreen() {
           {Object.entries(workingHours).map(([day, hours]) => (
             <View key={day}>
               <TouchableOpacity
+                // The row is the control, so it carries the semantics: a switch, and whether it
+                // is on. The Switch beside the label is a picture of that state with its pointer
+                // events off — announcing it separately would report the day twice, the second
+                // time as a control that cannot be operated.
+                accessibilityRole="switch"
+                accessibilityState={{ checked: hours.enabled }}
                 onPress={() => toggleWorkingDay(day)}
                 className={`${cardBg} border ${borderColor} mb-2 flex-row items-center justify-between rounded-xl px-4 py-3`}>
                 <Text className={textColor}>{t(`days.${day.toLowerCase()}` as any)}</Text>
@@ -999,6 +1024,7 @@ export default function AddEditServiceScreen() {
                     (a Switch onValueChange here would fire toggle a second time). */}
                 <View pointerEvents="none">
                   <Switch
+                    accessible={false}
                     value={hours.enabled}
                     trackColor={{ false: '#D1D5DB', true: '#86EFAC' }}
                     thumbColor={hours.enabled ? BRAND_GREEN : '#f4f3f4'}
@@ -1014,6 +1040,7 @@ export default function AddEditServiceScreen() {
                         {t('addEditService.startTime')}
                       </Text>
                       <TouchableOpacity
+                        accessibilityRole="button"
                         onPress={() => openTimePicker(day, 'start')}
                         className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
                         <Text className={textColor}>{hours.startTime}</Text>
@@ -1025,6 +1052,7 @@ export default function AddEditServiceScreen() {
                         {t('addEditService.endTime')}
                       </Text>
                       <TouchableOpacity
+                        accessibilityRole="button"
                         onPress={() => openTimePicker(day, 'end')}
                         className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
                         <Text className={textColor}>{hours.endTime}</Text>
@@ -1040,6 +1068,7 @@ export default function AddEditServiceScreen() {
 
         {/* Save / Update Button */}
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={handleSave}
           disabled={isSaving}
           className={`mt-4 items-center rounded-2xl bg-brand-500 py-4 ${isEdit ? 'mb-3' : 'mb-6'}`}
@@ -1056,6 +1085,7 @@ export default function AddEditServiceScreen() {
         {/* Delete Button — edit mode only */}
         {isEdit && (
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={handleDelete}
             disabled={isSaving}
             className="mb-6 flex-row items-center justify-center rounded-2xl border-2 border-red-500 py-4"
@@ -1075,6 +1105,8 @@ export default function AddEditServiceScreen() {
         animationType="fade"
         onRequestClose={() => setShowServiceTypeModal(false)}>
         <TouchableOpacity
+          accessible={false}
+          focusable={false}
           activeOpacity={1}
           onPress={() => setShowServiceTypeModal(false)}
           className="flex-1 justify-end bg-black/50">
@@ -1084,13 +1116,17 @@ export default function AddEditServiceScreen() {
                 <Text className={`text-xl font-bold ${textColor}`}>
                   {t('addEditService.selectServiceTypeModal')}
                 </Text>
-                <TouchableOpacity onPress={() => setShowServiceTypeModal(false)}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.close')}
+                  onPress={() => setShowServiceTypeModal(false)}>
                   <Ionicons name="close" size={24} color={isDarkMode ? '#fff' : '#000'} />
                 </TouchableOpacity>
               </View>
 
               {SERVICE_TYPES.map((type) => (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   key={type}
                   onPress={() => {
                     setServiceType(type);
@@ -1117,6 +1153,8 @@ export default function AddEditServiceScreen() {
         animationType="fade"
         onRequestClose={() => setShowDurationModal(false)}>
         <TouchableOpacity
+          accessible={false}
+          focusable={false}
           activeOpacity={1}
           onPress={() => setShowDurationModal(false)}
           className="flex-1 justify-end bg-black/50">
@@ -1126,13 +1164,17 @@ export default function AddEditServiceScreen() {
                 <Text className={`text-xl font-bold ${textColor}`}>
                   {t('addEditService.selectDuration')}
                 </Text>
-                <TouchableOpacity onPress={() => setShowDurationModal(false)}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.close')}
+                  onPress={() => setShowDurationModal(false)}>
                   <Ionicons name="close" size={24} color={isDarkMode ? '#fff' : '#000'} />
                 </TouchableOpacity>
               </View>
 
               {DURATION_OPTIONS.map((option) => (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   key={option}
                   onPress={() => {
                     updatePricingTier(durationModalIndex, 'duration', option);

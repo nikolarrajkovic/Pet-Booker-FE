@@ -87,6 +87,7 @@ export default function AddOnChecklist({
           : t('liveSession.requested');
         return (
           <TouchableOpacity
+            accessibilityRole="button"
             key={item.key}
             activeOpacity={rowReadOnly ? 1 : 0.7}
             disabled={rowReadOnly}
@@ -117,6 +118,7 @@ export default function AddOnChecklist({
                     const selected = selectedKey === item.key;
                     return (
                       <TouchableOpacity
+                        accessibilityRole="button"
                         onPress={() => onDirections(item.key)}
                         disabled={directionsLoadingKey === item.key}
                         activeOpacity={0.7}

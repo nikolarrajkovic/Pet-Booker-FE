@@ -48,7 +48,10 @@ export default function ServicePreviewScreen() {
         style={{ paddingTop: isWebLayout ? 24 : 48, zIndex: 1, ...capped }}>
         <View className="flex-row items-center justify-between">
           <View className="flex-1 flex-row items-center">
-            <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => navigation.goBack()}
+              className="mr-4">
               <Ionicons name="arrow-back" size={24} color="white" />
             </TouchableOpacity>
             <View className="flex-1">
@@ -56,7 +59,10 @@ export default function ServicePreviewScreen() {
               <Text className="mt-1 text-sm text-brand-100">{t('myServices.previewSubtitle')}</Text>
             </View>
           </View>
-          <TouchableOpacity onPress={() => navigation.goBack()} className="ml-2">
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => navigation.goBack()}
+            className="ml-2">
             <Text className="font-semibold text-white">{t('myServices.edit')}</Text>
           </TouchableOpacity>
         </View>

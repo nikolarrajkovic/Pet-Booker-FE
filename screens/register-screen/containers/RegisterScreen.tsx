@@ -323,6 +323,7 @@ export default function RegisterScreen() {
           <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
         </View>
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => {
             setShowDobPicker((v) => !v);
             touch('dateOfBirth');
@@ -403,6 +404,7 @@ export default function RegisterScreen() {
             placeholderTextColor={placeholderColor}
           />
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setShowPassword(!showPassword)}
             style={{ position: 'absolute', right: 16, top: 13 }}>
             <Ionicons
@@ -493,6 +495,7 @@ export default function RegisterScreen() {
             placeholderTextColor={placeholderColor}
           />
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setShowConfirmPassword(!showConfirmPassword)}
             style={{ position: 'absolute', right: 16, top: 13 }}>
             <Ionicons
@@ -531,7 +534,7 @@ export default function RegisterScreen() {
       {/* Sign In Link */}
       <View className="flex-row justify-center">
         <Text className={`text-sm ${subtextColor}`}>{t('register.alreadyHaveAccount')}</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+        <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('Login')}>
           <Text className="text-sm font-semibold text-brand-600">{t('register.signIn')}</Text>
         </TouchableOpacity>
       </View>

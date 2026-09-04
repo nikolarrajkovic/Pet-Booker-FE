@@ -181,6 +181,7 @@ export default function ServiceDetailView({
         <StickyFooter
           className={`${cardBg} border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} px-6 py-4`}>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={onBookPress}
             disabled={!onBookPress}
             className={`${onBookPress ? 'bg-brand-500' : 'bg-gray-300'} items-center rounded-2xl py-4`}

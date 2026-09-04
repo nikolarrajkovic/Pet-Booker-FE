@@ -14,6 +14,7 @@ export default function SocialButton({ text, icon, onPress, isDarkMode }: Props)
 
   return (
     <TouchableOpacity
+      accessibilityRole="button"
       onPress={onPress}
       activeOpacity={0.7}
       className={`flex-row items-center justify-center rounded-xl border py-4 ${borderColor} ${bgColor}`}>

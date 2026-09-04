@@ -154,7 +154,11 @@ export default function DirectionsModal({
             alignItems: 'center',
             backgroundColor: hex.card,
           }}>
-          <TouchableOpacity onPress={onClose} style={{ marginRight: 12 }}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t('common.close')}
+            onPress={onClose}
+            style={{ marginRight: 12 }}>
             <Ionicons name="close" size={24} color={hex.text} />
           </TouchableOpacity>
           <Text style={{ color: hex.text, fontSize: 18, fontWeight: '700' }}>{title}</Text>
@@ -232,6 +236,7 @@ export default function DirectionsModal({
             </Text>
           ) : null}
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={openExternal}
             disabled={!destination}
             style={{

@@ -210,12 +210,15 @@ export default function AdminPartnersScreen() {
   const Root: any = isWebLayout ? View : SafeAreaView;
 
   return (
-    <Root style={{ flex: 1, backgroundColor: isWebLayout ? bgColor : BRAND_GREEN }}>
+    <Root
+      // Transparent on the web design, not the page ground: the shell already paints that ground
+      // and the pattern texture behind every screen, and repainting it here covers both.
+      style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{
           backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
-          paddingHorizontal: isWebLayout ? 40 : 20,
+          paddingHorizontal: isWebLayout ? 32 : 20,
           paddingTop: isWebLayout ? 32 : headerTopInset + (insets.top > 0 ? 8 : 16),
           paddingBottom: 16,
           width: '100%',
@@ -224,6 +227,7 @@ export default function AdminPartnersScreen() {
         }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })}
             style={{
               width: 36,
@@ -276,7 +280,7 @@ export default function AdminPartnersScreen() {
             }}
           />
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
+            <TouchableOpacity accessibilityRole="button" onPress={() => setSearch('')}>
               <Ionicons
                 name="close-circle"
                 size={18}
@@ -291,7 +295,9 @@ export default function AdminPartnersScreen() {
       <View
         style={{
           flex: 1,
-          backgroundColor: bgColor,
+          // Same reason as the root: on the web design the shell's ground and pattern show
+          // through, and an opaque sheet here would hide the texture on this screen only.
+          backgroundColor: isWebLayout ? 'transparent' : bgColor,
           borderTopLeftRadius: isWebLayout ? 0 : 24,
           borderTopRightRadius: isWebLayout ? 0 : 24,
           marginTop: isWebLayout ? 0 : -8,
@@ -306,6 +312,7 @@ export default function AdminPartnersScreen() {
               const isActive = activeTab === tab.key;
               return (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   key={tab.key}
                   onPress={() => setActiveTab(tab.key)}
                   activeOpacity={0.8}
@@ -360,7 +367,7 @@ export default function AdminPartnersScreen() {
           contentContainerStyle={
             isWebLayout
               ? {
-                  paddingHorizontal: 40,
+                  paddingHorizontal: 32,
                   paddingBottom: 32,
                   width: '100%',
                   maxWidth: CONTENT_WIDTHS.wide,

@@ -89,6 +89,9 @@ export default function ReviewModal({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* Dim backdrop — tap to dismiss (unless mid-submit) */}
         <Pressable
+          accessible={false}
+          focusable={false}
+          tabIndex={-1}
           onPress={submitting ? undefined : onClose}
           style={{
             flex: 1,
@@ -98,6 +101,9 @@ export default function ReviewModal({
           }}>
           {/* Stop backdrop taps from closing when they land on the card */}
           <Pressable
+            accessible={false}
+            focusable={false}
+            tabIndex={-1}
             onPress={(e) => e.stopPropagation()}
             style={{
               backgroundColor: hex.card,
@@ -111,6 +117,8 @@ export default function ReviewModal({
             }}>
             {/* Close button */}
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
               onPress={submitting ? undefined : onClose}
               disabled={submitting}
               style={{ position: 'absolute', top: 14, right: 14, zIndex: 1, padding: 4 }}>
@@ -136,6 +144,7 @@ export default function ReviewModal({
             <View className="mt-5 flex-row items-center justify-center">
               {[1, 2, 3, 4, 5].map((value) => (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   key={value}
                   onPress={() => !submitting && setRating(value)}
                   activeOpacity={0.7}
@@ -184,6 +193,7 @@ export default function ReviewModal({
 
             {/* Submit */}
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={() => canSubmit && onSubmit(rating, trimmedComment)}
               disabled={!canSubmit}
               activeOpacity={0.85}

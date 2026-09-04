@@ -160,7 +160,11 @@ export default function MapAddressPicker({
             alignItems: 'center',
             backgroundColor: hex.card,
           }}>
-          <TouchableOpacity onPress={onClose} style={{ marginRight: 12 }}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t('common.close')}
+            onPress={onClose}
+            style={{ marginRight: 12 }}>
             <Ionicons name="close" size={24} color={hex.text} />
           </TouchableOpacity>
           <Text style={{ color: hex.text, fontSize: 18, fontWeight: '700' }}>{title}</Text>
@@ -214,6 +218,7 @@ export default function MapAddressPicker({
             <Ionicons name="location" size={42} color={BRAND_GREEN} style={{ marginBottom: 42 }} />
           </View>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={locateMe}
             style={{
               position: 'absolute',
@@ -240,6 +245,7 @@ export default function MapAddressPicker({
             Search, or move the map to place the pin on the exact spot.
           </Text>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={confirm}
             disabled={busy}
             style={{

@@ -205,6 +205,7 @@ export default function RequestCard({
       {request.status === 'new' && (
         <View className={`flex-row border-t ${borderColor}`}>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => onDecline(request.id)}
             activeOpacity={0.7}
             className="flex-1 flex-row items-center justify-center py-4">
@@ -213,6 +214,7 @@ export default function RequestCard({
           </TouchableOpacity>
           <View className={`w-px ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`} />
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => onAccept(request.id)}
             activeOpacity={0.7}
             className="flex-1 flex-row items-center justify-center rounded-br-2xl bg-brand-500 py-4">

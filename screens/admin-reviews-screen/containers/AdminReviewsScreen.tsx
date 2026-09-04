@@ -268,6 +268,7 @@ export default function AdminReviewsScreen() {
           )}
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={() => setDeclineTargetId(null)}
               activeOpacity={0.7}
               style={{
@@ -281,6 +282,7 @@ export default function AdminReviewsScreen() {
               <Text style={{ color: tColor, fontWeight: '600' }}>{t('admin.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={confirmDecline}
               disabled={declineReasonTooShort}
               activeOpacity={0.7}

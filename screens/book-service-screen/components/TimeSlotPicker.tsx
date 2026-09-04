@@ -52,6 +52,7 @@ export default function TimeSlotPicker({
         <View className="flex-row flex-wrap gap-2">
           {slots.map((slot) => (
             <TouchableOpacity
+              accessibilityRole="button"
               key={slot.id}
               onPress={() => slot.available && onSelectSlot(slot)}
               disabled={!slot.available}

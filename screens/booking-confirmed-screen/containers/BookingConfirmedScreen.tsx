@@ -40,11 +40,13 @@ export default function BookingConfirmedScreen() {
         </Text>
         <View className="w-full">
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => resetToTab('Home')}
             className="mb-3 items-center rounded-2xl bg-brand-500 py-4">
             <Text className="text-lg font-bold text-white">{t('bookingConfirmed.backToHome')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => resetToScreen('MyBookings')}
             className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} border ${borderColor} items-center rounded-2xl py-4`}>
             <Text className={`${textColor} text-lg font-semibold`}>

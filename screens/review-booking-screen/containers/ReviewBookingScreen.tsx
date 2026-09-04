@@ -247,6 +247,7 @@ export default function ReviewBookingScreen() {
 
   const confirmButton = (
     <TouchableOpacity
+      accessibilityRole="button"
       disabled={isSubmitting}
       onPress={handleConfirm}
       className="items-center rounded-2xl bg-brand-500 py-4"

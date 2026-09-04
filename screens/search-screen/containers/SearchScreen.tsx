@@ -365,6 +365,7 @@ export default function SearchScreen() {
       showBackButton={!isWebLayout}
       rightAction={
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => setFilterModalVisible(true)}
           className="h-10 w-10 items-center justify-center rounded-full bg-brand-600">
           <Ionicons name="options-outline" size={20} color="white" />

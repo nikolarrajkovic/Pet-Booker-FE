@@ -32,12 +32,15 @@ export default function EnableNotificationsCard({
           {t('notificationSettings.enableText')}
         </Text>
       </View>
-      <TouchableOpacity className="mb-2 rounded-xl bg-brand-500 py-3" onPress={onEnable}>
+      <TouchableOpacity
+        accessibilityRole="button"
+        className="mb-2 rounded-xl bg-brand-500 py-3"
+        onPress={onEnable}>
         <Text className="text-center text-base font-semibold text-white">
           {t('notificationSettings.enableCta')}
         </Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={onDismiss} className="py-2">
+      <TouchableOpacity accessibilityRole="button" onPress={onDismiss} className="py-2">
         <Text
           className={`text-center font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
           {t('notificationSettings.maybeLater')}

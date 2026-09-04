@@ -196,6 +196,7 @@ export default function MyBookingsScreen() {
           <View className="mb-4 px-6">
             <View className="flex-row">
               <TouchableOpacity
+                accessibilityRole="button"
                 onPress={() => setActiveTab('upcoming')}
                 className={`flex-1 border-b-2 py-3 ${activeTab === 'upcoming' ? 'border-brand-500' : `border-gray-300 ${isDarkMode ? 'border-gray-700' : ''}`}`}>
                 <Text
@@ -205,6 +206,7 @@ export default function MyBookingsScreen() {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
+                accessibilityRole="button"
                 onPress={() => setActiveTab('past')}
                 className={`flex-1 border-b-2 py-3 ${activeTab === 'past' ? 'border-brand-500' : `border-gray-300 ${isDarkMode ? 'border-gray-700' : ''}`}`}>
                 <Text

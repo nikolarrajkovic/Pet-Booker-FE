@@ -205,12 +205,15 @@ export default function PartnerDetailsScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: isWebLayout ? bgColor : BRAND_GREEN }}>
+    <View
+      // Transparent on the web design, not the page ground: the shell already paints that ground
+      // and the pattern texture behind every screen, and repainting it here covers both.
+      style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
       {/* ── Header ── green slab on a phone, a plain page title on the web design ── */}
       <View
         style={{
           backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
-          paddingHorizontal: isWebLayout ? 40 : 20,
+          paddingHorizontal: isWebLayout ? 32 : 20,
           paddingTop: isWebLayout ? 32 : insets.top + 12,
           paddingBottom: isWebLayout ? 12 : 28,
           width: '100%',
@@ -218,6 +221,7 @@ export default function PartnerDetailsScreen() {
           alignSelf: 'center',
         }}>
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => navigation.goBack()}
           style={{
             width: 36,
@@ -246,7 +250,9 @@ export default function PartnerDetailsScreen() {
       <View
         style={{
           flex: 1,
-          backgroundColor: bgColor,
+          // Same reason as the root: on the web design the shell's ground and pattern show
+          // through, and an opaque sheet here would hide the texture on this screen only.
+          backgroundColor: isWebLayout ? 'transparent' : bgColor,
           borderTopLeftRadius: isWebLayout ? 0 : 24,
           borderTopRightRadius: isWebLayout ? 0 : 24,
           marginTop: isWebLayout ? 0 : -20,
@@ -277,7 +283,10 @@ export default function PartnerDetailsScreen() {
             }}>
             {/* Large cover image */}
             {coverUri ? (
-              <TouchableOpacity activeOpacity={0.9} onPress={() => setViewerUri(coverUri)}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.9}
+                onPress={() => setViewerUri(coverUri)}>
                 <Image
                   source={{ uri: coverUri }}
                   style={{ width: '100%', height: 180, backgroundColor: dividerColor }}
@@ -536,6 +545,7 @@ export default function PartnerDetailsScreen() {
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                       {docs.petPhotos.map((p, i) => (
                         <TouchableOpacity
+                          accessibilityRole="button"
                           key={`${p.src}-${i}`}
                           activeOpacity={0.85}
                           onPress={() => setViewerUri(p.src)}
@@ -658,6 +668,7 @@ export default function PartnerDetailsScreen() {
                               </Text>
                             </View>
                             <TouchableOpacity
+                              accessibilityRole="button"
                               activeOpacity={0.8}
                               onPress={() => openDownload(c.fileSrc, t)}
                               style={{ padding: 8 }}>
@@ -734,6 +745,7 @@ export default function PartnerDetailsScreen() {
             gap: 12,
           }}>
           <TouchableOpacity
+            accessibilityRole="button"
             activeOpacity={0.8}
             onPress={handleTimeout}
             style={{
@@ -752,6 +764,7 @@ export default function PartnerDetailsScreen() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
+            accessibilityRole="button"
             activeOpacity={0.8}
             onPress={handleBan}
             style={{
@@ -779,6 +792,7 @@ export default function PartnerDetailsScreen() {
         animationType="fade"
         onRequestClose={() => setConfirm(null)}>
         <TouchableOpacity
+          accessibilityRole="button"
           activeOpacity={1}
           onPress={() => setConfirm(null)}
           style={{
@@ -799,6 +813,7 @@ export default function PartnerDetailsScreen() {
             </Text>
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <TouchableOpacity
+                accessibilityRole="button"
                 activeOpacity={0.8}
                 onPress={() => setConfirm(null)}
                 style={{
@@ -814,6 +829,7 @@ export default function PartnerDetailsScreen() {
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
+                accessibilityRole="button"
                 activeOpacity={0.8}
                 onPress={() => {
                   confirm?.onConfirm();
@@ -842,6 +858,7 @@ export default function PartnerDetailsScreen() {
         animationType="fade"
         onRequestClose={() => setViewerUri(null)}>
         <Pressable
+          accessibilityRole="button"
           onPress={() => setViewerUri(null)}
           style={{
             flex: 1,
@@ -858,6 +875,7 @@ export default function PartnerDetailsScreen() {
             />
           ) : null}
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setViewerUri(null)}
             style={{
               position: 'absolute',
@@ -973,7 +991,11 @@ function ViewableImage({
 }) {
   const { t } = useLocale();
   return (
-    <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{ position: 'relative' }}>
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={{ position: 'relative' }}>
       <Image
         source={{ uri }}
         style={{ width: '100%', height, borderRadius: 10 }}
@@ -1024,6 +1046,7 @@ function IdSide({
       </Text>
       {img ? (
         <TouchableOpacity
+          accessibilityRole="button"
           activeOpacity={0.9}
           onPress={() => (revealed ? onView(img.src) : onReveal())}
           style={{ position: 'relative' }}>

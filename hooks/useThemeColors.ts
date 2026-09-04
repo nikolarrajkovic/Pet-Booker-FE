@@ -54,7 +54,12 @@ export function themeColors(isDarkMode: boolean) {
     isDarkMode,
 
     // NativeWind class tokens (className=)
-    bgColor: isDarkMode ? 'bg-[#0f1621]' : 'bg-white',
+    // The page ground is a soft green-tinted off-white, NOT pure white, and cards stay white on
+    // top of it. Both used to be `#ffffff`, which is why the app read as one flat white sheet —
+    // a card had nothing to be raised against, and there was no brand colour anywhere but the
+    // buttons. One token change tints every screen and makes every card pop, without touching a
+    // single screen file.
+    bgColor: isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F1F8F4]',
     cardBg: isDarkMode ? 'bg-[#1a2332]' : 'bg-white',
     textColor: isDarkMode ? 'text-white' : 'text-gray-900',
     subtextColor: isDarkMode ? 'text-gray-400' : 'text-gray-600',
@@ -67,7 +72,7 @@ export function themeColors(isDarkMode: boolean) {
 
     // raw hex for style={} / native components that can't take classes
     hex: {
-      bg: isDarkMode ? '#0f1621' : '#ffffff',
+      bg: isDarkMode ? '#0f1621' : '#F1F8F4',
       card: isDarkMode ? '#1a2332' : '#ffffff',
       text: isDarkMode ? '#F9FAFB' : '#111827',
       subtext: isDarkMode ? '#9CA3AF' : '#6B7280',

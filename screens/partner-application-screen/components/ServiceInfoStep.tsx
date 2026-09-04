@@ -101,6 +101,7 @@ export default function ServiceInfoStep({
             const isSelected = formData.serviceType === entry.value;
             return (
               <TouchableOpacity
+                accessibilityRole="button"
                 key={entry.value}
                 onPress={() => setFormData({ ...formData, serviceType: entry.value })}
                 className={`rounded-xl border-2 px-6 py-3 ${

@@ -27,6 +27,7 @@ export default function PaymentMethodSelector({
         {t('reviewBooking.paymentMethod')}
       </Text>
       <TouchableOpacity
+        accessibilityRole="button"
         onPress={() => onSelectMethod('online')}
         className={`mb-3 flex-row items-center rounded-2xl border-2 p-4 ${selectedMethod === 'online' ? 'border-brand-500 bg-brand-50' : isDarkMode ? 'border-gray-800 bg-[#1a2332]' : 'border-gray-200 bg-white'}`}>
         <View
@@ -45,6 +46,7 @@ export default function PaymentMethodSelector({
         </View>
       </TouchableOpacity>
       <TouchableOpacity
+        accessibilityRole="button"
         onPress={() => onSelectMethod('cash')}
         className={`flex-row items-center rounded-2xl border-2 p-4 ${selectedMethod === 'cash' ? 'border-brand-500 bg-brand-50' : isDarkMode ? 'border-gray-800 bg-[#1a2332]' : 'border-gray-200 bg-white'}`}>
         <View

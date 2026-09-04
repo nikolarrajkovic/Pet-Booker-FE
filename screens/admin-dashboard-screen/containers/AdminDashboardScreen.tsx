@@ -166,12 +166,15 @@ export default function AdminDashboardScreen() {
   const Root: any = isWebLayout ? View : SafeAreaView;
 
   return (
-    <Root style={{ flex: 1, backgroundColor: isWebLayout ? bgColor : BRAND_GREEN }}>
+    <Root
+      // Transparent on the web design, not the page ground: the shell already paints that ground
+      // and the pattern texture behind every screen, and repainting it here covers both.
+      style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{
           backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
-          paddingHorizontal: isWebLayout ? 40 : 20,
+          paddingHorizontal: isWebLayout ? 32 : 20,
           paddingTop: isWebLayout ? 32 : 48,
           paddingBottom: isWebLayout ? 8 : 36,
           width: '100%',
@@ -201,7 +204,9 @@ export default function AdminDashboardScreen() {
       <View
         style={{
           flex: 1,
-          backgroundColor: bgColor,
+          // Same reason as the root: on the web design the shell's ground and pattern show
+          // through, and an opaque sheet here would hide the texture on this screen only.
+          backgroundColor: isWebLayout ? 'transparent' : bgColor,
           borderTopLeftRadius: isWebLayout ? 0 : 24,
           borderTopRightRadius: isWebLayout ? 0 : 24,
           marginTop: isWebLayout ? 0 : -20,
@@ -364,6 +369,7 @@ export default function AdminDashboardScreen() {
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
               {/* New Requests */}
               <TouchableOpacity
+                accessibilityRole="button"
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('AdminNewRequests')}
                 style={{
@@ -416,6 +422,7 @@ export default function AdminDashboardScreen() {
 
               {/* Partners */}
               <TouchableOpacity
+                accessibilityRole="button"
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('AdminPartners')}
                 style={{
@@ -468,6 +475,7 @@ export default function AdminDashboardScreen() {
 
               {/* Add New */}
               <TouchableOpacity
+                accessibilityRole="button"
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('AdminAddPartner')}
                 style={{
@@ -504,6 +512,7 @@ export default function AdminDashboardScreen() {
 
               {/* Reviews */}
               <TouchableOpacity
+                accessibilityRole="button"
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate('AdminReviews')}
                 style={{

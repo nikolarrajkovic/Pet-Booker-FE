@@ -265,6 +265,7 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
       contentBg={contentBg}
       rightAction={
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => (navigation as any).navigate('CreatePromotion')}
           activeOpacity={0.8}
           className="flex-row items-center rounded-full bg-white px-4 py-2">
@@ -314,6 +315,7 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
           </Text>
           {!viewAll && (
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={() => (navigation as any).navigate('Promotions', { viewAll: true })}
               activeOpacity={0.7}>
               <Text className="text-sm font-semibold text-brand-600">
@@ -364,6 +366,7 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
                 {t('promotions.boostEarningsText')}
               </Text>
               <TouchableOpacity
+                accessibilityRole="button"
                 onPress={() => (navigation as any).navigate('CreatePromotion')}
                 activeOpacity={0.8}
                 className="mt-3 self-start rounded-xl bg-brand-500 px-4 py-2.5">
