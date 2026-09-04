@@ -7,7 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 const TILE_SOURCE = require('../../assets/pattern-bg.png');
 
 /** Tile size in px — must match the asset's own dimensions so the CSS tiling is 1:1. */
-const TILE = { width: 420, height: 280 } as const;
+const TILE = { width: 420, height: 420 } as const;
 
 /**
  * How loud the texture is. Deliberately low: this sits *behind* real content, and a background
@@ -53,7 +53,9 @@ type PatternBackgroundProps = {
  * URL on every platform, so the web design tiles with real CSS and native keeps the
  * `ImageBackground` path, which does work there.
  *
- * The asset is authored at exactly its tile size (420×280), so `background-size` is a straight
+ * The asset is authored at exactly its tile size (420×420 — square, because the source is a
+ * square seamless tile and changing the aspect would break the repeat), so `background-size` is a
+ * straight
  * 1:1 and the file stays small.
  */
 export default function PatternBackground({
