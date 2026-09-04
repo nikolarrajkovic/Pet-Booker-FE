@@ -4,6 +4,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { loginWithEmailPassword, getMe, logout as logoutApi, CurrentUser } from '../services/auth';
 import { saveTokens, getAccessToken, clearTokens } from '../services/token-storage';
 import { registerSessionExpiredHandler } from '../services/http';
+import { resetShownOnce } from '../hooks/useShowOnce';
 import { registerDisplayCurrency, DEFAULT_CURRENCY } from '../services/currency';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -107,6 +108,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       /* ignore — proceed with local sign-out */
     }
     await clearTokens();
+    // Session-scoped "show this once" flags belong to the account that just left — without this
+    // the next person to sign in on the same device never sees their own welcome.
+    resetShownOnce();
     setCurrentUser(null);
     setIsLoggedIn(false);
   };

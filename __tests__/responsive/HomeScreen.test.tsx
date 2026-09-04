@@ -84,6 +84,13 @@ jest.mock('@react-navigation/native', () => ({
 }));
 
 import HomeScreen from '../../screens/home-screen/containers/HomeScreen';
+import { resetShownOnce } from '../../hooks/useShowOnce';
+
+beforeEach(() => {
+  // The welcome banner shows once per app session, so without this the first render in the file
+  // consumes the flag and every later one asserts against a screen that has hidden it.
+  resetShownOnce();
+});
 
 afterEach(() => {
   jest.clearAllMocks();

@@ -646,7 +646,12 @@ What the hook returns:
 
 The same module also exports the **theme-independent brand palette**: **`BRAND`** (`50`/`400`/`500`/`600`/`900`, mirroring the `brand-*` Tailwind tokens) and **`BRAND_GREEN`** (= `BRAND[500]`, the default for spinners and active icons). Use a `brand-*` class wherever a `className` will do; reach for these only where a raw string is required — `color=` on an `Ionicons`/`ActivityIndicator`, a `style={}` value, or a native component. `#00C870` had been pasted into 200+ such places across 70 files.
 
-Canonical values: screen bg `#0f1621`/`white`, card `#1a2332`/`white`, input `#243447`/`gray-50`, text `white`/`gray-900`, subtext `gray-400`/`gray-600`, border `gray-700`/`gray-200`.
+Canonical values: screen bg `#0f1621`/`#F1F8F4`, card `#1a2332`/`white`, input `#243447`/`gray-50`, text `white`/`gray-900`, subtext `gray-400`/`gray-600`, border `gray-700`/`gray-200`.
+
+**The light-mode ground is a green-tinted off-white, not white.** Page and card were both
+`#ffffff`, which is why the app read as one flat white sheet — a card had nothing to be raised
+against, and no brand colour appeared anywhere but the buttons. Keep `bgColor` for the page and
+`cardBg` for surfaces on it; using `cardBg` as a page background loses the separation again.
 
 Genuinely bespoke colors stay inline (sourced from the hook's `isDarkMode`): e.g. the brand-green header bg (`bg-brand-500`), `AppHeader`, `Banner` tiles, the `#F5F7FA` promotions/requests content bg. Screens with a brand header keep a local `bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500'` and pull the canonical content bg as `bgColor: contentBg` from the hook.
 

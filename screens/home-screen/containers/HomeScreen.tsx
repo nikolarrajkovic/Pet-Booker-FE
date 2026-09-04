@@ -6,6 +6,8 @@ import ServiceCard from '../../../components/shared/ServiceCard';
 import SeeMoreCard from '../../../components/shared/SeeMoreCard';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import Rail from '../../../components/shared/Rail';
+import WelcomeBanner from '../../../components/shared/WelcomeBanner';
+import { useShowOnce } from '../../../hooks/useShowOnce';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useLocation } from '../../../hooks/useLocation';
@@ -118,6 +120,9 @@ export default function HomeScreen() {
   const location = useLocation();
   const { isDarkMode, textColor } = useThemeColors();
   const { isWebLayout } = useResponsive();
+  // Greets you when you open the app, then gets out of the way. Tab screens stay mounted, but
+  // returning from a booking flow remounts Home often enough that a permanent banner is clutter.
+  const showWelcome = useShowOnce('home-welcome');
   const { currentUser } = useAuth();
   const { t, tEnum } = useLocale();
 
@@ -314,23 +319,10 @@ export default function HomeScreen() {
       contentBg={contentBg}
       footer={<TabBar />}
       width="wide"
-      headerTitle={isWebLayout ? webTitle : undefined}
-      headerSubtitle={isWebLayout ? t('home.tagline') : undefined}
+      // The greeting, tagline and location now live in the WelcomeBanner card inside the content,
+      // rather than as a page title, a subtitle and a stray row beneath them.
       headerChildren={
-        isWebLayout ? (
-          // All that survives into the web header is the location line — "Near You" depends on
-          // it, so the user needs to see which location the rail is ranked against.
-          <View className="flex-row items-center">
-            <Ionicons name="location-outline" size={16} color={BRAND_GREEN} />
-            {location.loading ? (
-              <ActivityIndicator size="small" color={BRAND_GREEN} style={{ marginLeft: 8 }} />
-            ) : (
-              <Text className={`ml-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                {location.address}
-              </Text>
-            )}
-          </View>
-        ) : (
+        isWebLayout ? undefined : (
           <>
             <View className="mb-4 flex-row items-center justify-between">
               <View className="flex-1 flex-row items-center">
@@ -401,8 +393,22 @@ export default function HomeScreen() {
         // The tall bottom padding exists to clear the pinned tab bar; the web design has no bar
         // across the bottom, so there is nothing to clear.
         contentContainerStyle={{ paddingBottom: isWebLayout ? 40 : 100 }}>
+        {showWelcome && (
+          <View className="px-6 pt-4">
+            <WelcomeBanner
+              title={webTitle}
+              subtitle={t('home.tagline')}
+              // The phone design already shows the location in its green header, so repeating it
+              // here would print the same place twice on one screen. On the web design that
+              // header is gone and the card is the only thing carrying it.
+              locationLabel={isWebLayout ? location.address : null}
+              locationLoading={isWebLayout && location.loading}
+            />
+          </View>
+        )}
+
         {/* Service Type Pills */}
-        <View className="px-6 py-4">
+        <View className={`px-6 pb-4 ${showWelcome ? '' : 'pt-4'}`}>
           {/*
             Six pills fit comfortably across a desktop column, so they wrap into place instead of
             hiding behind a horizontal scrollbar — a sideways scroller is a phone affordance, and

@@ -49,6 +49,12 @@ export default function PageHeader({
 
   const hasTitleRow = Boolean(title || actions);
 
+  // Nothing to show means nothing to reserve space for. Without this the padding alone renders —
+  // 32px above and 24px below of empty column — which pushes a screen's real first element down
+  // the page for no reason. Home hit exactly this once its greeting moved into a card and it
+  // stopped passing a title.
+  if (!hasTitleRow && !showBackButton && !children) return null;
+
   return (
     <View className="pb-6 pt-8">
       {showBackButton && (
