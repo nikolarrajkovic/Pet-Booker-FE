@@ -41,7 +41,9 @@ export default function CurrencyPicker({ visible, current, onSelect, onClose }: 
         }}>
         {/* Stop backdrop taps from closing when they land on the card */}
         <Pressable
-          accessibilityRole="button"
+          accessible={false}
+          focusable={false}
+          tabIndex={-1}
           onPress={() => {}}
           style={{
             width: '100%',

@@ -73,3 +73,33 @@ it('every pressable with an onPress is either a control or explicitly inert', ()
 
   expect(offenders).toEqual([]);
 });
+
+/**
+ * A no-op `onPress` is a stop-propagation wrapper, and must be inert rather than roled.
+ *
+ * These sit inside a modal backdrop and exist only so a tap landing on the dialog card doesn't
+ * bubble out and close it. Giving one `accessibilityRole="button"` satisfies the check above while
+ * announcing the whole dialog as a button and putting a 400px-wide stop in the tab order ahead of
+ * its own contents — which is exactly what the first pass did to the language and currency pickers.
+ */
+it('a no-op onPress is inert, never a button', () => {
+  const offenders: string[] = [];
+
+  for (const file of files) {
+    const src = fs.readFileSync(file, 'utf8').replace(/^[ \t]*\/\/.*$/gm, '');
+    const re = /<(TouchableOpacity|Pressable|TouchableWithoutFeedback)\b/g;
+
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(src)) !== null) {
+      const start = m.index + m[0].length;
+      const tag = src.slice(start, tagEnd(src, start));
+      if (!/onPress=\{\(\) => \{\}\}/.test(tag)) continue;
+      if (!tag.includes('accessibilityRole')) continue;
+
+      const line = src.slice(0, m.index).split('\n').length;
+      offenders.push(`${path.relative(ROOT, file).split(path.sep).join('/')}:${line}`);
+    }
+  }
+
+  expect(offenders).toEqual([]);
+});
