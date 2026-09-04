@@ -21,6 +21,12 @@ type RailProps = {
   mobileTrailing?: ReactNode;
   /** Cap the grid at one row on web, so a rail stays a rail rather than becoming the page. */
   maxOnWeb?: number;
+  /**
+   * Shown in place of the cards when there are none. Omitted means an empty rail renders
+   * nothing at all, which is right for a row whose absence explains itself (a history rail for
+   * someone with no history) and wrong for one the reader is looking for and cannot find.
+   */
+  empty?: ReactNode;
   className?: string;
 };
 
@@ -42,11 +48,15 @@ export default function Rail({
   onSeeAll,
   mobileTrailing,
   maxOnWeb = 4,
+  empty,
   className = '',
 }: RailProps) {
   const { textColor } = useThemeColors();
   const { isWebLayout, isWide } = useResponsive();
   const { t } = useLocale();
+
+  const items = Children.toArray(children);
+  const isEmpty = items.length === 0;
 
   const header = (
     <View className="mb-3 flex-row items-center justify-between px-6">
@@ -56,7 +66,7 @@ export default function Rail({
           {title}
         </Text>
       </View>
-      {isWebLayout && onSeeAll && (
+      {isWebLayout && onSeeAll && !isEmpty && (
         <Pressable
           onPress={onSeeAll}
           accessibilityRole="link"
@@ -76,10 +86,19 @@ export default function Rail({
     </View>
   );
 
+  if (isEmpty && empty) {
+    return (
+      <View className={`${isWebLayout ? 'mb-8' : 'mb-6'} ${className}`}>
+        {header}
+        <View className="px-6">{empty}</View>
+      </View>
+    );
+  }
+
   if (isWebLayout) {
     // One row, not the whole result set — a rail is a teaser, and "See all" is the way in.
     const columns = isWide ? 4 : 3;
-    const visible = Children.toArray(children).slice(0, Math.min(maxOnWeb, columns));
+    const visible = items.slice(0, Math.min(maxOnWeb, columns));
 
     return (
       <View className={`mb-8 ${className}`}>

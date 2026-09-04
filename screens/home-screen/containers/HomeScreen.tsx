@@ -132,6 +132,13 @@ export default function HomeScreen() {
   const [specialDeals, setSpecialDeals] = useState<ServiceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Near You resolves on its own clock, so it needs its own failure flag. Folding it into
+  // `loadError` would let one dead row blank the three that loaded fine.
+  const [nearYouFailed, setNearYouFailed] = useState(false);
+  // Same distinction for the deals row. "No deals right now" is a claim about the catalogue, so
+  // it must not be made on behalf of a request that never answered.
+  const [dealsFailed, setDealsFailed] = useState(false);
+  const [nearYouReloads, setNearYouReloads] = useState(0);
   // Live badge counts — kept current by the SignalR pushes in the two providers.
   const { unreadCount, refreshUnreadCount } = useNotifications();
   const { unreadCount: unreadMessages, refreshUnreadCount: refreshUnreadMessages } = useMessages();
@@ -172,6 +179,7 @@ export default function HomeScreen() {
           const amount = dealLabel(item.dto);
           return amount ? { ...item, dealAmount: amount } : item;
         });
+        setDealsFailed(saleR.status === 'rejected');
         setMostPopular(toItems(val(popularR)));
         setSpecialDeals(deals);
         setRecentlyBooked(toItems(val(recentR)));
@@ -206,19 +214,24 @@ export default function HomeScreen() {
     useCallback(() => {
       if (locating) return;
       let cancelled = false;
+      setNearYouFailed(false);
       getNearMe({ lat: latitude, lng: longitude })
         .then((rows) => {
           if (!cancelled) setNearYou(toItems(rows));
         })
         .catch(() => {
-          // Row-level failure: the rest of the page is unaffected, so it renders empty rather
-          // than taking the whole screen into its error state.
-          if (!cancelled) setNearYou([]);
+          // Row-level failure: the rest of the page is unaffected, so it stays out of the
+          // page-wide error state. It still has to SAY so — an empty array and a dead request
+          // used to render identically, i.e. as no row at all, so a failure here was silent.
+          if (!cancelled) {
+            setNearYou([]);
+            setNearYouFailed(true);
+          }
         });
       return () => {
         cancelled = true;
       };
-    }, [locating, latitude, longitude])
+    }, [locating, latitude, longitude, nearYouReloads])
   );
 
   // Unread badges on the bell and the chat icon — pushed live over SignalR; the focus
@@ -249,9 +262,13 @@ export default function HomeScreen() {
     icon: string,
     items: ServiceItem[],
     category: string,
-    badge?: 'popular' | 'deal'
+    badge?: 'popular' | 'deal',
+    empty?: React.ReactNode
   ) => {
-    if (!isLoading && items.length === 0) return null;
+    // No cards and nothing to say about it: the row stays away entirely. That is right for a
+    // history rail (someone with no bookings does not need to be told on a browse screen) and
+    // wrong for a row the reader came looking for, which passes `empty`.
+    if (!isLoading && items.length === 0 && !empty) return null;
 
     // Skeletons match the real cards' shape, so the row does not resize when the data lands.
     const cards = isLoading
@@ -300,11 +317,47 @@ export default function HomeScreen() {
               accessibilityLabel={`${t('common.seeMore')}: ${title}`}
             />
           ) : undefined
-        }>
+        }
+        empty={empty}>
         {cards}
       </Rail>
     );
   };
+
+  /**
+   * What a rail shows instead of cards. Deliberately quiet — one line, the row's own width, no
+   * illustration: it explains a gap in a page that still has content elsewhere, so it must not
+   * out-shout the rows that did load.
+   */
+  const emptyRow = (icon: string, title: string, sub: string, action?: () => void) => (
+    <View
+      className={`items-center rounded-2xl px-6 py-8 ${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}`}>
+      <Ionicons name={icon as any} size={28} color="#9CA3AF" />
+      <Text className={`mt-3 text-center text-base font-semibold ${textColor}`}>{title}</Text>
+      <Text
+        className={`mt-1 text-center text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+        {sub}
+      </Text>
+      {action && (
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={action}
+          className="mt-4 rounded-xl bg-brand-600 px-5 py-2.5">
+          <Text className="font-semibold text-white">{t('common.retry')}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  // Everything empty is a different situation from one row being empty: it gets the single
+  // page-level message below, and the per-row notes stay out of its way rather than stacking
+  // four "nothing here" cards on top of it.
+  const allRowsEmpty =
+    !isLoading &&
+    nearYou.length === 0 &&
+    mostPopular.length === 0 &&
+    recentlyBooked.length === 0 &&
+    specialDeals.length === 0;
 
   // The greeting is the web page's title. The phone design's header slab carries the brand mark,
   // the bell and the messages icon — on the web design the sidebar shows the brand and the TopBar
@@ -440,7 +493,23 @@ export default function HomeScreen() {
         </View>
 
         {renderSection(t('home.recentlyBooked'), 'time-outline', recentlyBooked, 'recently-booked')}
-        {renderSection(t('home.nearYou'), 'location-outline', nearYou, 'near-you')}
+        {renderSection(
+          t('home.nearYou'),
+          'location-outline',
+          nearYou,
+          'near-you',
+          undefined,
+          allRowsEmpty
+            ? undefined
+            : nearYouFailed
+              ? emptyRow(
+                  'cloud-offline-outline',
+                  t('home.nearYouFailed'),
+                  t('home.loadError'),
+                  () => setNearYouReloads((n) => n + 1)
+                )
+              : emptyRow('location-outline', t('home.nothingNearby'), t('home.nothingNearbySub'))
+        )}
         {renderSection(
           t('home.mostPopular'),
           'trending-up-outline',
@@ -453,14 +522,13 @@ export default function HomeScreen() {
           'pricetag-outline',
           specialDeals,
           'special-deals',
-          'deal'
+          'deal',
+          allRowsEmpty || dealsFailed
+            ? undefined
+            : emptyRow('pricetag-outline', t('home.noDeals'), t('home.noDealsSub'))
         )}
 
-        {!isLoading &&
-          nearYou.length === 0 &&
-          mostPopular.length === 0 &&
-          recentlyBooked.length === 0 &&
-          specialDeals.length === 0 &&
+        {allRowsEmpty &&
           (loadError ? (
             <View className="flex-1 items-center justify-center px-6 py-20">
               <Ionicons name="alert-circle-outline" size={48} color="#9CA3AF" />

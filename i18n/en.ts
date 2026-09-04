@@ -302,6 +302,11 @@ const en = {
     loadError: 'Could not load services. Please try again.',
     noServices: 'No services found',
     noServicesSub: 'Check back soon — new partners are joining every day.',
+    nothingNearby: 'Nothing near you yet',
+    nothingNearbySub: 'Try a wider area, or check back as partners join.',
+    nearYouFailed: 'Couldn’t load services near you',
+    noDeals: 'No deals right now',
+    noDealsSub: 'Partners add offers regularly — check back soon.',
   },
   card: {
     popular: 'Popular',
