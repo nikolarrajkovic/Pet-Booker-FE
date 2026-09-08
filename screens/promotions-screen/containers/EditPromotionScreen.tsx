@@ -234,6 +234,24 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
           <Ionicons name="bar-chart-outline" size={18} color="white" />
         </TouchableOpacity>
       }
+      // The same control, tinted rather than translucent-white. `ScreenLayout` falls back to
+      // `rightAction` when no web variant is given, and white-on-translucent is authored for the
+      // phone's green header — on the web page header's light ground it disappears.
+      webHeaderRight={
+        <TouchableOpacity
+          accessibilityRole="button"
+          activeOpacity={0.7}
+          onPress={() =>
+            (navigation as any).replace('PromotionAnalytics', {
+              promotion,
+              promotionTitle: promotion.title,
+              promotionDescription: promotion.description,
+            })
+          }
+          className="h-10 w-10 items-center justify-center rounded-full bg-brand-50">
+          <Ionicons name="bar-chart-outline" size={18} color={BRAND_GREEN} />
+        </TouchableOpacity>
+      }
       // A form: one column of fields. Capped narrow so a label never sits a screen-width
       // away from the input it names.
       width="narrow">
