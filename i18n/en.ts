@@ -635,6 +635,13 @@ const en = {
   notificationSettings: {
     title: 'Notification Settings',
     saveFailed: 'Couldn’t save your last change. It’s applied on this device only.',
+    pushBlockedTitle: 'Notifications are turned off for this app',
+    pushBlockedText: 'Allow them in your phone settings to get booking updates and messages here.',
+    openSettings: 'Open Settings',
+    pushUnavailableTitle: 'Push isn’t available on this device',
+    pushUnavailableText:
+      'Notifications need a phone or tablet — a browser or simulator can’t receive them.',
+    pushEnableFailed: 'Couldn’t turn on notifications for this device.',
     channels: 'Notification Channels',
     push: 'Push Notifications',
     pushSubtitle: 'Receive notifications on this device',
@@ -654,7 +661,8 @@ const en = {
     quietHours: 'Quiet Hours',
     dnd: 'Do Not Disturb',
     dndSubtitle: 'Mute non-urgent notifications from {range}',
-    customizeSchedule: 'Customize Schedule',
+    quietStart: 'Starts',
+    quietEnd: 'Ends',
     deviceSettingsHint:
       'You can manage notification permissions in your device settings at any time.',
     enableTitle: 'Enable Push Notifications',

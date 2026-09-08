@@ -612,6 +612,14 @@ const sr: TranslationDict = {
   notificationSettings: {
     title: 'Podešavanja obaveštenja',
     saveFailed: 'Poslednja izmena nije sačuvana. Primenjena je samo na ovom uređaju.',
+    pushBlockedTitle: 'Obaveštenja su isključena za ovu aplikaciju',
+    pushBlockedText:
+      'Dozvolite ih u podešavanjima telefona da biste ovde primali izmene rezervacija i poruke.',
+    openSettings: 'Otvori podešavanja',
+    pushUnavailableTitle: 'Push obaveštenja nisu dostupna na ovom uređaju',
+    pushUnavailableText:
+      'Obaveštenja zahtevaju telefon ili tablet — pregledač ili simulator ne može da ih primi.',
+    pushEnableFailed: 'Nije moguće uključiti obaveštenja za ovaj uređaj.',
     channels: 'Kanali obaveštenja',
     push: 'Push obaveštenja',
     pushSubtitle: 'Primajte obaveštenja na ovom uređaju',
@@ -631,7 +639,8 @@ const sr: TranslationDict = {
     quietHours: 'Tihi sati',
     dnd: 'Ne uznemiravaj',
     dndSubtitle: 'Utišaj nehitna obaveštenja od {range}',
-    customizeSchedule: 'Prilagodi raspored',
+    quietStart: 'Počinje',
+    quietEnd: 'Završava se',
     deviceSettingsHint:
       'Dozvole za obaveštenja možete u svakom trenutku promeniti u podešavanjima uređaja.',
     enableTitle: 'Uključite push obaveštenja',
