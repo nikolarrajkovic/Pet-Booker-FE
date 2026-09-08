@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
@@ -29,13 +29,16 @@ import {
   NotificationType,
 } from '../../../services/app-notifications';
 import { getBooking } from '../../../services/bookings';
+import {
+  followNotificationRoute,
+  routeForNotification,
+} from '../../../navigation/notificationRoute';
 
 // One screenful plus headroom. Small enough that the first page is fast on a phone, large enough
 // that most users never need a second.
 const PAGE_SIZE = 25;
 
 export default function NotificationsScreen() {
-  const navigation = useNavigation();
   const { currentUser } = useAuth();
   const { subscribe, refreshUnreadCount } = useNotifications();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
@@ -191,28 +194,14 @@ export default function NotificationsScreen() {
   const handlePress = async (n: AppNotificationDto) => {
     // Mark read optimistically; persist best-effort.
     markRead(n);
-    // TESTING ONLY: tapping a "Provider profile approved" (type 3) notification
-    // re-opens the partner celebration screen every time, bypassing the
-    // once-per-user flag. Remove this block when done testing.
-    if (n.type === NotificationType.ProviderProfileApproved) {
-      (navigation as any).navigate('PartnerWelcome');
-      return;
+    // "Service completed" is an invitation to review, and this screen is the only one that can
+    // offer the modal — so it is tried here rather than in the route table.
+    if (n.type === NotificationType.ServiceCompleted && (await openReviewForNotification(n))) {
+      return; // modal is showing; don't also navigate
     }
-    // "Live tracking started" → straight to the live map (user-mode LiveSession).
-    if (n.type === NotificationType.LiveTrackingStarted) {
-      (navigation as any).navigate('LiveSession', { mode: 'user' });
-      return;
-    }
-    const bookingId = notificationBookingId(n);
-    // "Service completed" → offer the review modal (unless already reviewed).
-    if (n.type === NotificationType.ServiceCompleted && bookingId != null) {
-      const opened = await openReviewForNotification(n);
-      if (opened) return; // modal is showing; don't also navigate
-    }
-    // Otherwise deep-link to the related booking when the payload carries one.
-    if (bookingId != null) {
-      (navigation as any).navigate('BookingDetails', { bookingId });
-    }
+    // Everything else — and a completed booking that turns out to be reviewed already — follows
+    // the shared route table, so a tap lands exactly where the same notification's push would.
+    followNotificationRoute(routeForNotification(n, { reviewHandled: true }));
   };
 
   const handleMarkAll = () => {
