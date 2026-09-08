@@ -29,7 +29,7 @@ export default function ServicePreviewScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: ServicePreviewRouteParams }, 'params'>>();
   const { service } = route.params;
-  const { isDarkMode, bgColor } = useThemeColors();
+  const { isDarkMode, hex } = useThemeColors();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
 
@@ -41,7 +41,10 @@ export default function ServicePreviewScreen() {
     : undefined;
 
   return (
-    <Root className={`flex-1 ${bgColor}`}>
+    // Styled, not classed: `Root` is a variable component and NativeWind resolves `className`
+    // per JSX element, so a class here is dropped in silence — taking the flex and the ground
+    // with it, and leaving the page on the shell's pattern.
+    <Root style={{ flex: 1, backgroundColor: hex.bg }}>
       {/* Header */}
       <View
         className={`bg-brand-500 px-6 pb-6 ${isWebLayout ? '' : 'rounded-b-3xl'}`}
