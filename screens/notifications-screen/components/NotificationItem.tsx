@@ -5,38 +5,72 @@ import { AppNotificationDto, NotificationType } from '../../../services/app-noti
 import { useLocale } from '../../../context/LocaleContext';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
+type Accent = 'brand' | 'danger' | 'warning' | 'info';
 type Visual = { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string };
 
-// Per-type icon + accent. Falls back to a generic bell for unknown types.
+// Four accents carry the whole feed: something good happened, something went wrong, something
+// needs you, something about money. The tinted circle is 12% of the same hue.
+const ACCENTS: Record<Accent, { color: string; bg: string }> = {
+  brand: { color: BRAND_GREEN, bg: 'rgba(0,200,112,0.12)' },
+  danger: { color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
+  warning: { color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+  info: { color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
+};
+
+/**
+ * Icon + accent for every notification type the backend can send.
+ *
+ * Keyed by NAME rather than by value so it is `Record<keyof typeof NotificationType, …>`: adding a
+ * type to the enum without giving it a look here is then a compile error, instead of a row that
+ * quietly renders as a generic bell. The numeric index the renderer actually uses is derived from
+ * it once, below.
+ */
+const VISUAL_BY_NAME: Record<
+  keyof typeof NotificationType,
+  { icon: Visual['icon']; accent: Accent }
+> = {
+  // Booking lifecycle, the happy path.
+  BookingRequested: { icon: 'calendar-outline', accent: 'brand' },
+  BookingConfirmed: { icon: 'checkmark-circle-outline', accent: 'brand' },
+  ServiceStarted: { icon: 'navigate-outline', accent: 'brand' },
+  LiveTrackingStarted: { icon: 'navigate-outline', accent: 'brand' },
+  ServiceCompleted: { icon: 'checkmark-done-outline', accent: 'brand' },
+  // …and the ways it ends early. Same red for all three: to the reader they are one event.
+  BookingDeclined: { icon: 'close-circle-outline', accent: 'danger' },
+  BookingCancelled: { icon: 'close-circle-outline', accent: 'danger' },
+  // Something changed under an agreement already made — both sides have to re-read the terms,
+  // so these get the "needs you" amber rather than a neutral tone.
+  BookingUpdated: { icon: 'create-outline', accent: 'warning' },
+  BookingReminder: { icon: 'alarm-outline', accent: 'warning' },
+  // Money. A receipt is information; an amount owed is an action.
+  BookingPriceAdjusted: { icon: 'pricetag-outline', accent: 'info' },
+  PaymentReceived: { icon: 'card-outline', accent: 'info' },
+  PaymentDue: { icon: 'wallet-outline', accent: 'warning' },
+  // Partner verification.
+  ServiceProviderApproved: { icon: 'shield-checkmark-outline', accent: 'brand' },
+  ServiceProviderDeclined: { icon: 'close-circle-outline', accent: 'danger' },
+  CertificateApproved: { icon: 'ribbon-outline', accent: 'brand' },
+  CertificateDeclined: { icon: 'close-circle-outline', accent: 'danger' },
+  // Reviews keep the star whichever way moderation went, so the row reads as being about a
+  // review at a glance; the accent says which way.
+  ReviewReceived: { icon: 'star-outline', accent: 'warning' },
+  ReviewApproved: { icon: 'star-outline', accent: 'brand' },
+  ReviewDeclined: { icon: 'star-outline', accent: 'danger' },
+  // Never reaches this feed (chat has its own inbox), but a row is cheap and an older backend
+  // that doesn't filter would otherwise render a message as a bare bell.
+  NewChatMessage: { icon: 'chatbubble-ellipses-outline', accent: 'info' },
+};
+
+const VISUAL_BY_TYPE = new Map<number, Visual>(
+  Object.entries(VISUAL_BY_NAME).map(([name, { icon, accent }]) => [
+    NotificationType[name as keyof typeof NotificationType],
+    { icon, ...ACCENTS[accent] },
+  ])
+);
+
+// Per-type icon + accent. Falls back to a generic bell for a type this build predates.
 function notificationVisual(type: number): Visual {
-  switch (type) {
-    case NotificationType.NewBookingRequest:
-      return { icon: 'calendar-outline', color: BRAND_GREEN, bg: 'rgba(0,200,112,0.12)' };
-    case NotificationType.BookingConfirmed:
-      return { icon: 'checkmark-circle-outline', color: BRAND_GREEN, bg: 'rgba(0,200,112,0.12)' };
-    case NotificationType.ServiceCompleted:
-      return { icon: 'checkmark-done-outline', color: BRAND_GREEN, bg: 'rgba(0,200,112,0.12)' };
-    case NotificationType.ProviderProfileApproved:
-      return { icon: 'shield-checkmark-outline', color: BRAND_GREEN, bg: 'rgba(0,200,112,0.12)' };
-    case NotificationType.CertificateApproved:
-      return { icon: 'ribbon-outline', color: BRAND_GREEN, bg: 'rgba(0,200,112,0.12)' };
-    case NotificationType.ProviderProfileDeclined:
-    case NotificationType.CertificateDeclined:
-    case NotificationType.BookingDeclined:
-      return { icon: 'close-circle-outline', color: '#EF4444', bg: 'rgba(239,68,68,0.12)' };
-    case NotificationType.UpcomingBookingReminder:
-      return { icon: 'alarm-outline', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' };
-    case NotificationType.LiveTrackingStarted:
-    case NotificationType.ServiceStarted:
-      return { icon: 'navigate-outline', color: BRAND_GREEN, bg: 'rgba(0,200,112,0.12)' };
-    case NotificationType.BookingCancelled:
-      return { icon: 'close-circle-outline', color: '#EF4444', bg: 'rgba(239,68,68,0.12)' };
-    case NotificationType.BookingPriceAdjusted:
-    case NotificationType.PaymentReceived:
-      return { icon: 'card-outline', color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' };
-    default:
-      return { icon: 'notifications-outline', color: BRAND_GREEN, bg: 'rgba(0,200,112,0.12)' };
-  }
+  return VISUAL_BY_TYPE.get(type) ?? { icon: 'notifications-outline', ...ACCENTS.brand };
 }
 
 // ISO date-time → "Just now" / "5m ago" / "3h ago" / "2d ago" / "Jun 3".

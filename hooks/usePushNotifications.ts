@@ -6,7 +6,9 @@ import {
   registerPushDevice,
   unregisterPushDevice,
 } from '../services/push-registration';
-import { followNotificationRoute, routeForNotificationData } from '../navigation/notificationRoute';
+import { followNotificationRoute, routeForPayload } from '../navigation/notificationRoute';
+import { markNotificationRead, pushNotificationPayload } from '../services/app-notifications';
+import { useNotifications } from '../context/NotificationsContext';
 
 /**
  * Device push, end to end: registers this device while signed in, retires it on sign-out, and
@@ -18,6 +20,7 @@ import { followNotificationRoute, routeForNotificationData } from '../navigation
  */
 export function usePushNotifications(navReady: boolean): void {
   const { currentUser } = useAuth();
+  const { refreshUnreadCount } = useNotifications();
   // A ProviderProfile session has no Domain.User, so it has no devices to register — the
   // backend only pushes to users. Keyed off the same id the registration writes.
   const userId = currentUser?.id ?? null;
@@ -53,9 +56,18 @@ export function usePushNotifications(navReady: boolean): void {
 
     // Where a tap leads is defined once, in navigation/notificationRoute, and shared with the
     // in-app toast — so the same notification lands in the same place whether the app was open.
-    const navigate = (data: Record<string, unknown> | undefined) => {
+    const handleTap = (data: Record<string, unknown> | undefined) => {
       if (!data) return;
-      followNotificationRoute(routeForNotificationData(data));
+      const payload = pushNotificationPayload(data);
+      // Acting on a notification is reading it. Without this the row stays unread, so a user who
+      // deals with everything from the lock screen comes back to a badge with nothing new behind
+      // it. Best-effort — the count is re-seeded from the API either way.
+      if (payload.notificationId) {
+        markNotificationRead(payload.notificationId)
+          .catch(() => {})
+          .finally(refreshUnreadCount);
+      }
+      followNotificationRoute(routeForPayload(payload));
     };
 
     // A notification that launched the app from cold is not delivered as an event — it is
@@ -64,17 +76,17 @@ export function usePushNotifications(navReady: boolean): void {
     Notifications.getLastNotificationResponseAsync()
       .then((response) => {
         if (cancelled || !response) return;
-        navigate(response.notification.request.content.data as Record<string, unknown>);
+        handleTap(response.notification.request.content.data as Record<string, unknown>);
       })
       .catch(() => {});
 
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      navigate(response.notification.request.content.data as Record<string, unknown>);
+      handleTap(response.notification.request.content.data as Record<string, unknown>);
     });
 
     return () => {
       cancelled = true;
       subscription.remove();
     };
-  }, [navReady]);
+  }, [navReady, refreshUnreadCount]);
 }
