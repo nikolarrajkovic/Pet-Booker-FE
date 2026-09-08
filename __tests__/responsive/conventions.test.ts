@@ -79,6 +79,9 @@ describe('Platform.OS is not used for layout', () => {
     'components/shared/PatternBackground.tsx':
       'ImageBackground resizeMode="repeat" does not tile on react-native-web — it draws one tile ' +
       'in the corner — so web tiles through CSS background-repeat instead',
+    'components/layout/SideNav.tsx':
+      'the sidebar sizes to its own labels via CSS width:fit-content, which Yoga has no ' +
+      'equivalent for — native falls back to a fixed width',
   };
 
   it('only appears where a capability genuinely differs', () => {
