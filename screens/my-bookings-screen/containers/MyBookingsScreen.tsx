@@ -6,7 +6,6 @@ import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
-import { useResponsive } from '../../../hooks/useResponsive';
 import ListState from '../../../components/shared/ListState';
 import ReviewModal from '../../../components/shared/ReviewModal';
 import { useReviewModal } from '../../../hooks/useReviewModal';
@@ -24,7 +23,6 @@ export default function MyBookingsScreen() {
   const { currentUser } = useAuth();
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
-  const { isWebLayout } = useResponsive();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [bookings, setBookings] = useState<BookingViewModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -186,10 +184,8 @@ export default function MyBookingsScreen() {
         headerVariant="standard"
         headerTitle={t('myBookings.title')}
         contentBg={bgColor}
-        width="wide"
-        // Back is a drill-down affordance; on the web design My Bookings is a sidebar
-        // destination, so there is nothing above it to return to.
-        showBackButton={!isWebLayout}>
+        showBackButton
+        width="default">
         <ScrollView
           className="flex-1"
           contentContainerStyle={{ paddingTop: 16, paddingBottom: 24 }}>
