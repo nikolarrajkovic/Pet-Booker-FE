@@ -339,6 +339,9 @@ const sr: TranslationDict = {
     verificationProgress: 'Tok verifikacije',
   },
   pets: {
+    emptyTitle: 'Još nema ljubimaca',
+    emptyBody: 'Dodajte svoje ljubimce da biste im rezervisali usluge.',
+    addFirst: 'Dodajte prvog ljubimca',
     title: 'Moji ljubimci',
     noPets: 'Još nema ljubimaca. Dodirnite + da dodate!',
     loadError: 'Učitavanje ljubimaca nije uspelo.',

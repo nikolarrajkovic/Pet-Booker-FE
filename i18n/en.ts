@@ -351,6 +351,9 @@ const en = {
     verificationProgress: 'Verification Progress',
   },
   pets: {
+    emptyTitle: 'No pets yet',
+    emptyBody: 'Add your pets so you can book services for them.',
+    addFirst: 'Add your first pet',
     title: 'My Pets',
     noPets: 'No pets yet. Tap + to add one!',
     loadError: 'Failed to load pets.',

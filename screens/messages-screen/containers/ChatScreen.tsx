@@ -73,8 +73,7 @@ export default function ChatScreen() {
   const { goUp } = useAppNavigation();
   const route = useRoute<RouteProp<{ params: ChatRouteParams }, 'params'>>();
   const params = route.params ?? {};
-  const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor, hex } =
-    useThemeColors();
+  const { isDarkMode, cardBg, textColor, subtextColor, borderColor, hex } = useThemeColors();
   const { showError } = useToast();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
@@ -331,8 +330,17 @@ export default function ChatScreen() {
     ? { width: '100%' as const, maxWidth: CONTENT_WIDTHS.narrow, alignSelf: 'center' as const }
     : undefined;
 
+  /**
+   * Styled, not classed. `Root` is a *variable* component, and NativeWind resolves `className`
+   * statically per JSX element — so a class on this tag is dropped without a warning. It took
+   * both the flex and the background with it: the thread had no surface of its own, leaving the
+   * bubbles sitting straight on the shell's pet pattern, and it did not fill the height, so the
+   * composer floated in the middle of the page with wallpaper beneath it.
+   */
+  const root = { flex: 1, backgroundColor: hex.bg };
+
   return (
-    <Root className={`flex-1 ${bgColor}`} style={column}>
+    <Root style={[root, column]}>
       {/* Header — avatar + who, mirroring the design. No call button: voice calling is
           deliberately out of scope, and a dead icon is worse than none. */}
       <View className={`flex-row items-center border-b px-3 py-2.5 ${borderColor} ${cardBg}`}>
