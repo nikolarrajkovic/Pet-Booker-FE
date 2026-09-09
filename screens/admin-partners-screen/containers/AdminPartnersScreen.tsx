@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import ListState from '../../../components/shared/ListState';
+import BackLink from '../../../components/shared/BackLink';
 import { PartnerCard } from '../components';
 import type { Partner, PartnerStatus } from '../components';
 import {
@@ -227,23 +228,26 @@ export default function AdminPartnersScreen() {
           maxWidth: isWebLayout ? CONTENT_WIDTHS.wide : undefined,
           alignSelf: 'center',
         }}>
+        {isWebLayout && (
+          <BackLink onPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })} />
+        )}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: isWebLayout ? hex.card : 'rgba(255,255,255,0.25)',
-              borderWidth: isWebLayout ? 1 : 0,
-              borderColor: hex.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: 12,
-            }}>
-            <Ionicons name="arrow-back" size={20} color={isWebLayout ? hex.subtext : 'white'} />
-          </TouchableOpacity>
+          {!isWebLayout && (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: 'rgba(255,255,255,0.25)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 12,
+              }}>
+              <Ionicons name="arrow-back" size={20} color="white" />
+            </TouchableOpacity>
+          )}
           <Text
             style={{
               color: isWebLayout ? hex.text : 'white',

@@ -90,7 +90,7 @@ export default function MyScheduleScreen() {
       // A calendar wants width — a week view squeezed into 720px is why the day view exists.
       width="wide"
       headerTitle={isWebLayout ? title : undefined}
-      showBackButton={!isWebLayout}
+      showBackButton
       headerChildren={
         isWebLayout ? undefined : (
           <View className="mb-4 flex-row items-center">
