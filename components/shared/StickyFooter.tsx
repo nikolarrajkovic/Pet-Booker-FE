@@ -2,6 +2,7 @@ import React, { ReactNode } from 'react';
 import { View, ViewStyle } from 'react-native';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import { useResponsive } from '../../hooks/useResponsive';
+import { useBottomInset, useBottomInsetReserved } from '../../hooks/useSafeAreaSpacing';
 
 type StickyFooterProps = {
   children: ReactNode;
@@ -52,6 +53,10 @@ export default function StickyFooter({
 }: StickyFooterProps) {
   const isKeyboardVisible = useKeyboardState((state) => state.isVisible);
   const { isWebLayout } = useResponsive();
+  // Zero when ScreenLayout's content sheet already reserved it — see BottomInsetReservedContext.
+  const bottomInset = useBottomInset();
+  const insetAlreadyReserved = useBottomInsetReserved();
+  const reservedHere = insetAlreadyReserved ? 0 : bottomInset;
 
   if (hideOnKeyboard && isKeyboardVisible) return null;
 
@@ -63,9 +68,17 @@ export default function StickyFooter({
     );
   }
 
+  // Pinned over the screen, so — like the tab bar — it has to reserve the Android navigation bar
+  // for itself, or the CTA sits under the system buttons on a three-button handset.
+  //
+  // A spacer rather than `paddingBottom`: callers pass their own padding through `className`
+  // (`px-6 py-4` and friends), and an inline `paddingBottom` would replace it — leaving the button
+  // flush against the bar's edge on any device whose inset is 0. This adds to that padding instead
+  // of competing with it, and the bar's background still extends behind the system buttons.
   return (
     <View className={`absolute bottom-0 left-0 right-0 ${className}`} style={style}>
       {children}
+      <View style={{ height: reservedHere }} />
     </View>
   );
 }

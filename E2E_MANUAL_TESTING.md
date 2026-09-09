@@ -71,7 +71,8 @@ Verified live on 2026-08-06. Fixing any of these should also delete its row here
 
 | #   | Step                                     | Expected                                                                                                                                        |
 | --- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2.1 | Home loads                               | Four rails render — Near You, Most Popular, Special Deals, Recently Booked. One failing rail must not blank the page                            |
+| 2.1 | Home loads                               | Up to four rails render — Near You, Most Popular, Special Deals, Recently Booked. A rail with no data (empty **or** failed) is absent entirely, not a placeholder; one failing rail must not blank the page |
+| 2.1b | Home with no data anywhere at all       | Exactly one placeholder, in the Near You rail — "couldn't load" + Retry (reloads every row) after a failure, "nothing near you yet" otherwise. No greeting/tagline card above the pills |
 | 2.2 | Deny location permission, reload         | Near You falls back to the Belgrade default rather than spinning                                                                                |
 | 2.3 | Tap a service card                       | **ServiceDetail** (not a provider screen) — hero, rating, price, About, provider block, add-ons, accepted pets, working hours, approved reviews |
 | 2.4 | Check the reviews list                   | Only `Approved` reviews appear (the embed carries all statuses; filtering is client-side)                                                       |

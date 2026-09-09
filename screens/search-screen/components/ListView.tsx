@@ -8,6 +8,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import { useResponsive } from '../../../hooks/useResponsive';
+import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 
 export interface ServiceSearchItem {
   id: number;
@@ -58,6 +59,7 @@ export default function ListView({
   paging,
 }: ListViewProps) {
   const navigation = useNavigation();
+  const tabBarSpacing = useTabBarSpacing();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
 
@@ -132,6 +134,9 @@ export default function ListView({
     <ScrollView
       className="flex-1"
       scrollEventThrottle={16}
+      // Search is a tab screen, and the tab bar is an absolutely-positioned overlay — nothing in
+      // the flow reserves room for it, so without this the last result sits underneath it.
+      contentContainerStyle={{ paddingBottom: tabBarSpacing }}
       onScroll={paging ? (e) => (isNearBottom(e) ? paging.onLoadMore() : undefined) : undefined}>
       <View className="px-6 pt-8">
         <Text className={`text-sm ${subtextColor} mb-4`}>{services.length} services found</Text>

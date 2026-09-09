@@ -1,7 +1,8 @@
 import React, { ReactNode } from 'react';
-import { SafeAreaView, View } from 'react-native';
+import { View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { BottomInsetReservedContext, useBottomInset } from '../../hooks/useSafeAreaSpacing';
 import { useResponsive } from '../../hooks/useResponsive';
 import AppHeader from './AppHeader';
 import PageHeader from './PageHeader';
@@ -51,8 +52,12 @@ type ScreenLayoutProps = {
 /**
  * The root of every screen, in **both** designs.
  *
- * - **Mobile** — unchanged from what ships today: `SafeAreaView` → `KeyboardAvoidingView` →
- *   green `AppHeader` → content sheet pulled up over it with a rounded top → footer.
+ * - **Mobile** — `KeyboardAvoidingView` → green `AppHeader` → content sheet pulled up over it
+ *   with a rounded top → footer. There is no `SafeAreaView` here: React Native's insets on iOS
+ *   only, so it was doing nothing on Android at all. The top inset belongs to `AppHeader`, which
+ *   paints the green up to the top of the window and pads its content below the status bar; the
+ *   bottom inset belongs to whatever sits at the bottom — `TabBar`, `StickyFooter`, or, when a
+ *   screen has no footer, the content sheet itself.
  * - **Web** — a page: `PageHeader` (plain title + back link) above the body, both centred in a
  *   width-capped column, with no safe-area padding, no coloured slab and no rounded sheet. The
  *   chrome that used to live in the header — the notification bell, the account menu — is in the
@@ -91,6 +96,7 @@ export default function ScreenLayout({
 }: ScreenLayoutProps) {
   const { bgColor, hex } = useThemeColors();
   const { isWebLayout } = useResponsive();
+  const bottomInset = useBottomInset();
 
   const finalSafeAreaBg = safeAreaBg || bgColor;
   const finalContentBg = contentBg || bgColor;
@@ -151,7 +157,7 @@ export default function ScreenLayout({
 
   // ── Mobile design (unchanged) ──────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView className={`flex-1 ${finalSafeAreaBg}`}>
+    <View className={`flex-1 ${finalSafeAreaBg}`}>
       {/*
         Android has drawn edge-to-edge since Expo SDK 54, which makes the manifest's
         `adjustResize` a no-op — the window no longer shrinks when the keyboard opens, so the IME
@@ -175,20 +181,33 @@ export default function ScreenLayout({
           {headerChildren}
         </AppHeader>
 
-        {/* Content area with rounded top */}
-        {contentRounded ? (
-          <View
-            className={`-mt-8 ${finalContentBg} flex-1 rounded-t-3xl`}
-            style={{ overflow: 'hidden' }}>
-            {children}
-          </View>
-        ) : (
-          <View className="flex-1">{children}</View>
-        )}
+        {/*
+          Content area with a rounded top, pulled 32px up over the header so the green shows as a
+          band above it. That overlap is why this sheet MUST paint an opaque background: it is what
+          hides scrolled content behind the header. When `finalContentBg` resolved to a class with
+          no generated CSS rule the sheet went transparent, and rows scrolling past stayed visible
+          over the green instead of disappearing behind it.
+
+          A screen with no footer takes the bottom inset here, so its last row clears the Android
+          navigation bar / iOS home indicator. With a footer, that bar owns the inset instead.
+        */}
+        <BottomInsetReservedContext.Provider value={!footer}>
+          {contentRounded ? (
+            <View
+              className={`-mt-8 ${finalContentBg} flex-1 rounded-t-3xl`}
+              style={{ overflow: 'hidden', paddingBottom: footer ? 0 : bottomInset }}>
+              {children}
+            </View>
+          ) : (
+            <View className="flex-1" style={{ paddingBottom: footer ? 0 : bottomInset }}>
+              {children}
+            </View>
+          )}
+        </BottomInsetReservedContext.Provider>
 
         {/* Footer (e.g., TabBar) */}
         {footer}
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }

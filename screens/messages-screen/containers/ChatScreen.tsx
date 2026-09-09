@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, Image, ScrollView, TouchableOpacity } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, RouteProp } from '@react-navigation/native';
@@ -13,6 +13,7 @@ import { MessageBubble, MessageComposer, ComposerLockedNotice } from '../compone
 import { getErrorMessage } from '../../../services/http';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { useResponsive } from '../../../hooks/useResponsive';
+import { useTopInset, useBottomInset } from '../../../hooks/useSafeAreaSpacing';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 import {
   ChatAccessReason,
@@ -77,6 +78,8 @@ export default function ChatScreen() {
   const { showError } = useToast();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
+  const topInset = useTopInset();
+  const bottomInset = useBottomInset();
   const {
     subscribe,
     subscribeToReads,
@@ -325,22 +328,27 @@ export default function ChatScreen() {
   // A chat thread is a reading column, not a dashboard: message bubbles stretched to 1400px are
   // unreadable, and the composer ends up a metre wide. Capped like a document, and centred so the
   // thread sits under the page rather than hugging the sidebar.
-  const Root: any = isWebLayout ? View : SafeAreaView;
   const column = isWebLayout
     ? { width: '100%' as const, maxWidth: CONTENT_WIDTHS.narrow, alignSelf: 'center' as const }
     : undefined;
 
   /**
-   * Styled, not classed. `Root` is a *variable* component, and NativeWind resolves `className`
-   * statically per JSX element — so a class on this tag is dropped without a warning. It took
-   * both the flex and the background with it: the thread had no surface of its own, leaving the
-   * bubbles sitting straight on the shell's pet pattern, and it did not fill the height, so the
-   * composer floated in the middle of the page with wallpaper beneath it.
+   * Styled, not classed — the ground and the flex ride in the same style array as the safe-area
+   * padding below, rather than half in a className and half here. Both matter: without the
+   * background the bubbles sit straight on the shell's pet pattern, and without the flex the
+   * composer floats in the middle of the page with wallpaper beneath it.
    */
   const root = { flex: 1, backgroundColor: hex.bg };
 
   return (
-    <Root style={[root, column]}>
+    <View
+      style={[
+        root,
+        // The thread's own chrome, not a screen header, so it pads for the status bar and the
+        // navigation bar itself. Zero in a browser and on the web design.
+        isWebLayout ? undefined : { paddingTop: topInset, paddingBottom: bottomInset },
+        column,
+      ]}>
       {/* Header — avatar + who, mirroring the design. No call button: voice calling is
           deliberately out of scope, and a dead icon is worse than none. */}
       <View className={`flex-row items-center border-b px-3 py-2.5 ${borderColor} ${cardBg}`}>
@@ -454,6 +462,6 @@ export default function ChatScreen() {
             />
           ))}
       </KeyboardAvoidingView>
-    </Root>
+    </View>
   );
 }

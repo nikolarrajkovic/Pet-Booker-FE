@@ -1,13 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  Text,
-  View,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-} from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -17,6 +9,7 @@ import { formatMoney } from '../../../services/currency';
 import { getReviews, ReviewDto } from '../../../services/reviews';
 import { ApprovalStatus } from '../../../services/service-providers';
 import { getErrorMessage } from '../../../services/http';
+import { useTopInset } from '../../../hooks/useSafeAreaSpacing';
 import type { ProviderViewModel } from '../../../services/service-providers';
 
 type ProviderDetailRouteParams = {
@@ -31,6 +24,7 @@ export default function ProviderDetailScreen() {
   const { provider } = route.params;
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { showError } = useToast();
+  const topInset = useTopInset();
 
   const [services, setServices] = useState<ServiceDto[]>([]);
   const [reviews, setReviews] = useState<ReviewDto[]>([]);
@@ -81,7 +75,7 @@ export default function ProviderDetailScreen() {
     : null;
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
+    <View className={`flex-1 ${bgColor}`} style={{ paddingTop: topInset }}>
       {/* Hero image */}
       <View className="relative">
         <Image
@@ -267,6 +261,6 @@ export default function ProviderDetailScreen() {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import TabBar from '../../../components/shared/TabBar';
@@ -8,7 +8,9 @@ import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
+import Avatar from '../../../components/shared/Avatar';
 import { useResponsive } from '../../../hooks/useResponsive';
+import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
 import { getBookings, parseBookingDate, BookingStatusType } from '../../../services/bookings';
@@ -96,9 +98,9 @@ export default function ProfileScreen() {
   const { signOut, isPartner, currentUser } = useAuth();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
+  const tabBarSpacing = useTabBarSpacing();
 
   const [user, setUser] = useState<UserDto | null>(null);
-  const [avatarError, setAvatarError] = useState(false);
   // Surfaces the "Live Session" menu item while one of the user's own bookings is
   // in progress — or confirmed and still upcoming, so they can open the screen
   // early and (on live-tracked services) watch the provider head out.
@@ -111,10 +113,7 @@ export default function ProfileScreen() {
       if (currentUser?.id) {
         getUser(currentUser.id)
           .then((u) => {
-            if (!cancelled) {
-              setUser(u);
-              setAvatarError(false);
-            }
+            if (!cancelled) setUser(u);
           })
           .catch(() => {});
         getBookings({ userId: currentUser.id })
@@ -147,10 +146,8 @@ export default function ProfileScreen() {
     currentUser?.userName ||
     t('profile.yourProfile');
   const email = user?.email ?? currentUser?.email ?? '';
-  const avatarUri = avatarError ? '' : resolveImageUrl(user?.avatarUrl);
-  const initials = (
-    (user?.firstName ?? currentUser?.firstName ?? email ?? '?').trim()[0] ?? '?'
-  ).toUpperCase();
+  const avatarUri = resolveImageUrl(user?.avatarUrl);
+  const avatarName = user?.firstName ?? currentUser?.firstName ?? email;
 
   const baseMenu = isPartner ? PARTNER_MENU_ITEMS : USER_MENU_ITEMS;
   const menuItems =
@@ -203,17 +200,7 @@ export default function ProfileScreen() {
             <Text className="mb-6 text-2xl font-bold text-white">{t('profile.title')}</Text>
             <View
               className={`${isDarkMode ? 'bg-[#243447]' : 'bg-brand-400'} mb-8 flex-row items-center rounded-2xl p-4`}>
-              {avatarUri ? (
-                <Image
-                  source={{ uri: avatarUri }}
-                  className="mr-4 h-16 w-16 rounded-full"
-                  onError={() => setAvatarError(true)}
-                />
-              ) : (
-                <View className="mr-4 h-16 w-16 items-center justify-center rounded-full bg-white/25">
-                  <Text className="text-2xl font-bold text-white">{initials}</Text>
-                </View>
-              )}
+              <Avatar uri={avatarUri} name={avatarName} size={64} className="mr-4" />
               <View className="flex-1">
                 <Text className="text-lg font-bold text-white">{fullName}</Text>
                 {email ? <Text className="mt-1 text-sm text-brand-100">{email}</Text> : null}
@@ -224,7 +211,7 @@ export default function ProfileScreen() {
       }>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: isWebLayout ? 32 : 100 }}>
+        contentContainerStyle={{ paddingTop: 24, paddingBottom: isWebLayout ? 32 : tabBarSpacing }}>
         {/* Become a Partner Banner — only for non-partners */}
         {!isPartner && (
           <View className="mx-6 mb-6 rounded-2xl bg-brand-500 p-6">

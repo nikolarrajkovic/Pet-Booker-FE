@@ -6,14 +6,12 @@ import ServiceCard from '../../../components/shared/ServiceCard';
 import SeeMoreCard from '../../../components/shared/SeeMoreCard';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import Rail from '../../../components/shared/Rail';
-import WelcomeBanner from '../../../components/shared/WelcomeBanner';
-import { useShowOnce } from '../../../hooks/useShowOnce';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useLocation } from '../../../hooks/useLocation';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useResponsive } from '../../../hooks/useResponsive';
-import { useAuth } from '../../../context/AuthContext';
+import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { useLocale } from '../../../context/LocaleContext';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getErrorMessage } from '../../../services/http';
@@ -118,12 +116,9 @@ const toItems = (dtos: ServiceDto[]): ServiceItem[] =>
 export default function HomeScreen() {
   const navigation = useNavigation();
   const location = useLocation();
-  const { isDarkMode, textColor } = useThemeColors();
+  const { isDarkMode, textColor, subtextColor } = useThemeColors();
   const { isWebLayout } = useResponsive();
-  // Greets you when you open the app, then gets out of the way. Tab screens stay mounted, but
-  // returning from a booking flow remounts Home often enough that a permanent banner is clutter.
-  const showWelcome = useShowOnce('home-welcome');
-  const { currentUser } = useAuth();
+  const tabBarSpacing = useTabBarSpacing();
   const { t, tEnum } = useLocale();
 
   const [nearYou, setNearYou] = useState<ServiceItem[]>([]);
@@ -131,20 +126,17 @@ export default function HomeScreen() {
   const [recentlyBooked, setRecentlyBooked] = useState<ServiceItem[]>([]);
   const [specialDeals, setSpecialDeals] = useState<ServiceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // Near You answers on its own clock, so it settles separately. Both flags gate the single
+  // placeholder this screen still draws, which may only appear once every row has answered.
+  const [nearYouLoading, setNearYouLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  // Near You resolves on its own clock, so it needs its own failure flag. Folding it into
-  // `loadError` would let one dead row blank the three that loaded fine.
   const [nearYouFailed, setNearYouFailed] = useState(false);
-  // Same distinction for the deals row. "No deals right now" is a claim about the catalogue, so
-  // it must not be made on behalf of a request that never answered.
-  const [dealsFailed, setDealsFailed] = useState(false);
-  const [nearYouReloads, setNearYouReloads] = useState(0);
+  const [reloads, setReloads] = useState(0);
   // Live badge counts — kept current by the SignalR pushes in the two providers.
   const { unreadCount, refreshUnreadCount } = useNotifications();
   const { unreadCount: unreadMessages, refreshUnreadCount: refreshUnreadMessages } = useMessages();
 
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
-  const sectionTitleColor = textColor;
   const subtitleColor = isDarkMode ? 'text-gray-400' : 'text-brand-100';
 
   const { latitude, longitude, loading: locating } = location;
@@ -160,12 +152,10 @@ export default function HomeScreen() {
       const load = async () => {
         setIsLoading(true);
         setLoadError(null);
-        // Each Home row is its own backend endpoint. Settle each independently so
-        // one failing section doesn't blank the whole page — but if EVERY content
-        // row fails, surface a single inline error instead of a misleading
-        // "No services found". Each rail row already carries its own applied
-        // discount, rating, image and post-discount price, so there is nothing
-        // else to fetch to render a card.
+        // Each Home row is its own backend endpoint. Settle each independently so one failing
+        // section doesn't blank the whole page — a row that answers with nothing is simply not
+        // drawn. Each rail row already carries its own applied discount, rating, image and
+        // post-discount price, so there is nothing else to fetch to render a card.
         const val = <T,>(r: PromiseSettledResult<T[]>): T[] =>
           r.status === 'fulfilled' ? r.value : [];
         const results = await Promise.allSettled([
@@ -179,20 +169,15 @@ export default function HomeScreen() {
           const amount = dealLabel(item.dto);
           return amount ? { ...item, dealAmount: amount } : item;
         });
-        setDealsFailed(saleR.status === 'rejected');
         setMostPopular(toItems(val(popularR)));
         setSpecialDeals(deals);
         setRecentlyBooked(toItems(val(recentR)));
 
-        // A page-level failure, not a row-level one: Near You is reported separately below,
-        // since it resolves on its own schedule.
-        const allFailed = results.every((r) => r.status === 'rejected');
-        if (allFailed) {
-          const firstError = results.find(
-            (r): r is PromiseRejectedResult => r.status === 'rejected'
-          );
-          setLoadError(getErrorMessage(firstError?.reason, t('home.loadError')));
-        }
+        // A row that failed draws nothing, exactly like a row that came back empty, so the only
+        // place left to report a failure is the all-rows-empty placeholder — which is why any one
+        // rejection is enough to record a message for it.
+        const firstError = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+        setLoadError(firstError ? getErrorMessage(firstError.reason, t('home.loadError')) : null);
         setIsLoading(false);
       };
 
@@ -203,7 +188,7 @@ export default function HomeScreen() {
       // `t` is stable for a given language and re-running on a language change would refetch
       // rows the server returns identically — the labels around them re-render on their own.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [reloads])
   );
 
   // Near You, on its own clock. Waits for a real fix rather than firing against the Belgrade
@@ -215,23 +200,25 @@ export default function HomeScreen() {
       if (locating) return;
       let cancelled = false;
       setNearYouFailed(false);
+      setNearYouLoading(true);
       getNearMe({ lat: latitude, lng: longitude })
         .then((rows) => {
-          if (!cancelled) setNearYou(toItems(rows));
+          if (cancelled) return;
+          setNearYou(toItems(rows));
+          setNearYouLoading(false);
         })
         .catch(() => {
-          // Row-level failure: the rest of the page is unaffected, so it stays out of the
-          // page-wide error state. It still has to SAY so — an empty array and a dead request
-          // used to render identically, i.e. as no row at all, so a failure here was silent.
-          if (!cancelled) {
-            setNearYou([]);
-            setNearYouFailed(true);
-          }
+          // A dead request and an empty neighbourhood both draw no row; this flag only decides
+          // which message the all-rows-empty placeholder carries.
+          if (cancelled) return;
+          setNearYou([]);
+          setNearYouFailed(true);
+          setNearYouLoading(false);
         });
       return () => {
         cancelled = true;
       };
-    }, [locating, latitude, longitude, nearYouReloads])
+    }, [locating, latitude, longitude, reloads])
   );
 
   // Unread badges on the bell and the chat icon — pushed live over SignalR; the focus
@@ -263,15 +250,17 @@ export default function HomeScreen() {
     items: ServiceItem[],
     category: string,
     badge?: 'popular' | 'deal',
-    empty?: React.ReactNode
+    empty?: React.ReactNode,
+    /** Which clock this row is on. Near You has its own; the other three share the page's. */
+    loading = isLoading
   ) => {
-    // No cards and nothing to say about it: the row stays away entirely. That is right for a
-    // history rail (someone with no bookings does not need to be told on a browse screen) and
-    // wrong for a row the reader came looking for, which passes `empty`.
-    if (!isLoading && items.length === 0 && !empty) return null;
+    // A row that loaded nothing is not drawn at all — no heading, no explanatory card. A browse
+    // screen is better off showing what it has than narrating what it hasn't. The one exception
+    // is the row that passes `empty`: Near You, and only when the whole page came back empty.
+    if (!loading && items.length === 0 && !empty) return null;
 
     // Skeletons match the real cards' shape, so the row does not resize when the data lands.
-    const cards = isLoading
+    const cards = loading
       ? Array.from({ length: isWebLayout ? 3 : 3 }).map((_, i) => (
           <View
             key={`skeleton-${i}`}
@@ -309,7 +298,7 @@ export default function HomeScreen() {
         icon={icon as any}
         onSeeAll={() => handleSeeAll(category)}
         mobileTrailing={
-          !isLoading ? (
+          !loading ? (
             // Named after the row it ends — every rail has one of these, and four identical
             // "See more" buttons on a screen are indistinguishable without it.
             <SeeMoreCard
@@ -325,9 +314,9 @@ export default function HomeScreen() {
   };
 
   /**
-   * What a rail shows instead of cards. Deliberately quiet — one line, the row's own width, no
-   * illustration: it explains a gap in a page that still has content elsewhere, so it must not
-   * out-shout the rows that did load.
+   * The one placeholder left on this screen: what the Near You rail shows when the page as a
+   * whole came back empty. Deliberately quiet — a card the row's own width rather than a
+   * full-screen illustration — because it stands in for the content, it is not an announcement.
    */
   const emptyRow = (icon: string, title: string, sub: string, action?: () => void) => (
     <View
@@ -349,22 +338,30 @@ export default function HomeScreen() {
     </View>
   );
 
-  // Everything empty is a different situation from one row being empty: it gets the single
-  // page-level message below, and the per-row notes stay out of its way rather than stacking
-  // four "nothing here" cards on top of it.
-  const allRowsEmpty =
+  // An empty row hides itself, so a page whose every row is empty would otherwise be nothing but
+  // category pills. That — and only that — is when a placeholder is drawn, in the Near You rail.
+  // It waits on both clocks: calling the page empty while Near You is still in flight would flash
+  // a wrong message at everyone whose location takes a moment to resolve.
+  const nothingLoaded =
     !isLoading &&
+    !nearYouLoading &&
     nearYou.length === 0 &&
     mostPopular.length === 0 &&
     recentlyBooked.length === 0 &&
     specialDeals.length === 0;
 
-  // The greeting is the web page's title. The phone design's header slab carries the brand mark,
-  // the bell and the messages icon — on the web design the sidebar shows the brand and the TopBar
-  // owns both icons, so repeating any of it here would put two of each on the page.
-  const webTitle = currentUser?.firstName
-    ? t('home.webGreeting', { name: currentUser.firstName })
-    : t('tabs.home');
+  // A failure and an empty catalogue are both "no cards", but only one of them is worth retrying,
+  // so the placeholder says which it is. Any one row failing is enough: with the others drawing
+  // nothing either, this card is the only place a failure can still be reported.
+  const nothingLoadedRow =
+    loadError || nearYouFailed
+      ? emptyRow(
+          'cloud-offline-outline',
+          t('home.couldntLoad'),
+          loadError ?? t('home.loadError'),
+          () => setReloads((n) => n + 1)
+        )
+      : emptyRow('location-outline', t('home.nothingNearby'), t('home.nothingNearbySub'));
 
   return (
     <ScreenLayout
@@ -444,24 +441,29 @@ export default function HomeScreen() {
       <ScrollView
         className="flex-1"
         // The tall bottom padding exists to clear the pinned tab bar; the web design has no bar
-        // across the bottom, so there is nothing to clear.
-        contentContainerStyle={{ paddingBottom: isWebLayout ? 40 : 100 }}>
-        {showWelcome && (
-          <View className="px-6 pt-4">
-            <WelcomeBanner
-              title={webTitle}
-              subtitle={t('home.tagline')}
-              // The phone design already shows the location in its green header, so repeating it
-              // here would print the same place twice on one screen. On the web design that
-              // header is gone and the card is the only thing carrying it.
-              locationLabel={isWebLayout ? location.address : null}
-              locationLoading={isWebLayout && location.loading}
-            />
+        // across the bottom, so there is nothing to clear. The number is derived from the bar's
+        // real height rather than hardcoded — it grows with the system navigation bar and with
+        // the user's text-size setting.
+        contentContainerStyle={{ paddingBottom: isWebLayout ? 40 : tabBarSpacing }}>
+        {/*
+          Where the rails are ranked from. The phone design already prints it in the green header,
+          so this is the web design's only copy of it — one line, and no greeting card around it.
+        */}
+        {isWebLayout && (
+          <View className="flex-row items-center px-6 pt-4">
+            <Ionicons name="location-outline" size={16} color={BRAND_GREEN} />
+            {location.loading ? (
+              <ActivityIndicator size="small" color={BRAND_GREEN} style={{ marginLeft: 8 }} />
+            ) : (
+              <Text className={`ml-2 text-sm ${subtextColor}`} numberOfLines={1}>
+                {location.address}
+              </Text>
+            )}
           </View>
         )}
 
         {/* Service Type Pills */}
-        <View className={`px-6 pb-4 ${showWelcome ? '' : 'pt-4'}`}>
+        <View className="px-6 pb-4 pt-4">
           {/*
             Six pills fit comfortably across a desktop column, so they wrap into place instead of
             hiding behind a horizontal scrollbar — a sideways scroller is a phone affordance, and
@@ -499,16 +501,8 @@ export default function HomeScreen() {
           nearYou,
           'near-you',
           undefined,
-          allRowsEmpty
-            ? undefined
-            : nearYouFailed
-              ? emptyRow(
-                  'cloud-offline-outline',
-                  t('home.nearYouFailed'),
-                  t('home.loadError'),
-                  () => setNearYouReloads((n) => n + 1)
-                )
-              : emptyRow('location-outline', t('home.nothingNearby'), t('home.nothingNearbySub'))
+          nothingLoaded ? nothingLoadedRow : undefined,
+          nearYouLoading
         )}
         {renderSection(
           t('home.mostPopular'),
@@ -522,36 +516,8 @@ export default function HomeScreen() {
           'pricetag-outline',
           specialDeals,
           'special-deals',
-          'deal',
-          allRowsEmpty || dealsFailed
-            ? undefined
-            : emptyRow('pricetag-outline', t('home.noDeals'), t('home.noDealsSub'))
+          'deal'
         )}
-
-        {allRowsEmpty &&
-          (loadError ? (
-            <View className="flex-1 items-center justify-center px-6 py-20">
-              <Ionicons name="alert-circle-outline" size={48} color="#9CA3AF" />
-              <Text className={`text-lg font-semibold ${sectionTitleColor} mt-4 text-center`}>
-                {t('home.couldntLoad')}
-              </Text>
-              <Text
-                className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2 text-center`}>
-                {loadError}
-              </Text>
-            </View>
-          ) : (
-            <View className="flex-1 items-center justify-center px-6 py-20">
-              <Ionicons name="paw-outline" size={48} color="#9CA3AF" />
-              <Text className={`text-lg font-semibold ${sectionTitleColor} mt-4 text-center`}>
-                {t('home.noServices')}
-              </Text>
-              <Text
-                className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mt-2 text-center`}>
-                {t('home.noServicesSub')}
-              </Text>
-            </View>
-          ))}
       </ScrollView>
     </ScreenLayout>
   );

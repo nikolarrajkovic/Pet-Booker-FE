@@ -4,6 +4,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useResponsive } from '../../hooks/useResponsive';
+import { useBottomInset } from '../../hooks/useSafeAreaSpacing';
 import { useAuth } from '../../context/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
 import { primaryNavItems } from '../../navigation/navItems';
@@ -25,6 +26,7 @@ export default function TabBar() {
   const currentRoute = route.name;
   const { isDarkMode, cardBg: bgColor, borderColor } = useThemeColors();
   const { isMobile } = useResponsive();
+  const bottomInset = useBottomInset();
   const { isPartner, isAdmin } = useAuth();
   const { t } = useLocale();
 
@@ -38,7 +40,14 @@ export default function TabBar() {
   return (
     <View
       accessibilityRole="tablist"
-      className={`absolute bottom-0 left-0 right-0 ${bgColor} border-t ${borderColor}`}>
+      className={`absolute bottom-0 left-0 right-0 ${bgColor} border-t ${borderColor}`}
+      // Android has drawn edge-to-edge since Expo SDK 54, so the system navigation bar is painted
+      // OVER the app rather than beside it. Without this the tab labels sit under it — barely
+      // noticeable behind a gesture pill (~16–24dp), badly wrong behind three-button navigation
+      // (~48dp). It is the number that changes when you swap handsets. The bar's background
+      // extends into the inset, so the strip behind the system buttons stays the bar's colour
+      // rather than showing the screen scrolling past underneath.
+      style={{ paddingBottom: bottomInset }}>
       <View className="flex-row items-center justify-around py-2">
         {tabs.map((tab) => {
           const isSelected = currentRoute === tab.route;

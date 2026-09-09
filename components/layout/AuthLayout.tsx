@@ -1,9 +1,10 @@
 import React, { ReactNode } from 'react';
-import { SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BRAND, useThemeColors } from '../../hooks/useThemeColors';
 import { useResponsive } from '../../hooks/useResponsive';
+import { useTopInset, useBottomInset } from '../../hooks/useSafeAreaSpacing';
 import PatternBackground from '../shared/PatternBackground';
 
 type AuthLayoutProps = {
@@ -38,14 +39,20 @@ type AuthLayoutProps = {
 export default function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   const { isWebLayout } = useResponsive();
   const { isDarkMode, bgColor, hex, borderColor } = useThemeColors();
+  const topInset = useTopInset();
+  const bottomInset = useBottomInset();
 
   const bandBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
 
   const band = (
     <View
       className={`${bandBg} items-center px-6 ${
-        isWebLayout ? 'pb-8 pt-10' : 'rounded-b-3xl pb-12 pt-16'
-      }`}>
+        isWebLayout ? 'pb-8 pt-10' : 'rounded-b-3xl pb-12'
+      }`}
+      // The band runs to the top of the window so the brand colour fills the status bar, and pads
+      // its content below it. Fixed at 64pt before, which cleared a 24pt status bar and not much
+      // more; inside a card on the web design there is no status bar to clear.
+      style={isWebLayout ? undefined : { paddingTop: topInset + 40 }}>
       <View className="mb-4 h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg">
         <MaterialCommunityIcons name="paw" size={40} color={BRAND[600]} />
       </View>
@@ -60,17 +67,21 @@ export default function AuthLayout({ title, subtitle, children }: AuthLayoutProp
 
   if (!isWebLayout) {
     return (
-      <SafeAreaView className={`flex-1 ${bgColor}`}>
+      <View className={`flex-1 ${bgColor}`}>
         <KeyboardAvoidingView behavior="padding" className="flex-1">
           {band}
           <ScrollView
             className="flex-1"
-            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 32, paddingBottom: 40 }}
+            contentContainerStyle={{
+              paddingHorizontal: 24,
+              paddingTop: 32,
+              paddingBottom: 40 + bottomInset,
+            }}
             keyboardShouldPersistTaps="handled">
             {children}
           </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </View>
     );
   }
 

@@ -5,7 +5,6 @@ import {
   View,
   TouchableOpacity,
   TextInput,
-  Image,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -17,6 +16,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import Avatar from '../../../components/shared/Avatar';
 import FormCard from '../../../components/shared/FormCard';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import PhoneInput from '../../../components/shared/PhoneInput';
@@ -67,7 +67,6 @@ export default function AccountScreen() {
   const [email, setEmail] = useState(''); // read-only
 
   const [newPhoto, setNewPhoto] = useState<PickedPhoto | null>(null);
-  const [avatarError, setAvatarError] = useState(false);
 
   const [address, setAddress] = useState<AddressDto | null>(null); // newly picked
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -122,7 +121,6 @@ export default function AccountScreen() {
         fileName: asset.fileName ?? undefined,
         mimeType: asset.mimeType ?? undefined,
       });
-      setAvatarError(false);
     }
   };
 
@@ -169,14 +167,12 @@ export default function AccountScreen() {
     }
   };
 
-  // Avatar to display: the freshly-picked photo, else the saved avatar, else initials.
   // First -> last -> save. Email is read-only and phone is a composite control, so neither joins
   // the chain — Enter would land on a field the user cannot type in.
   const form = useFormChain(['firstName', 'lastName'], handleSave);
 
-  const savedAvatar = avatarError ? '' : resolveImageUrl(original?.avatarUrl);
-  const avatarUri = newPhoto?.uri || savedAvatar;
-  const initials = ((firstName || email || '?').trim()[0] ?? '?').toUpperCase();
+  // The freshly-picked photo, else the saved avatar. Avatar falls back to the initial itself.
+  const avatarUri = newPhoto?.uri || resolveImageUrl(original?.avatarUrl);
 
   const currentAddress = address ?? original?.address ?? null;
 
@@ -227,18 +223,13 @@ export default function AccountScreen() {
           {/* Profile Photo */}
           <View className="items-center py-8">
             <View className="relative">
-              {avatarUri ? (
-                <Image
-                  source={{ uri: avatarUri }}
-                  className="h-32 w-32 rounded-full"
-                  onError={() => setAvatarError(true)}
-                />
-              ) : (
-                <View
-                  className={`h-32 w-32 rounded-full ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-100'} items-center justify-center`}>
-                  <Text className="text-5xl font-bold text-brand-600">{initials}</Text>
-                </View>
-              )}
+              <Avatar
+                uri={avatarUri}
+                name={firstName || email}
+                size={128}
+                placeholderClassName={isDarkMode ? 'bg-[#243447]' : 'bg-brand-100'}
+                textClassName="text-5xl font-bold text-brand-600"
+              />
               <TouchableOpacity
                 accessibilityRole="button"
                 onPress={pickProfilePhoto}

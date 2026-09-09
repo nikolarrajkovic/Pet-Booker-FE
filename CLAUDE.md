@@ -58,6 +58,7 @@ hooks/          # Custom hooks
   useEscapeToClose.ts # Esc closes a dialog on web — <Modal onRequestClose> never fires for a key press
   useLocation.ts      # Geolocation + reverse geocode
   useThemeColors.ts   # Single source of truth for the dark/light palette (see Styling System)
+  useSafeAreaSpacing.ts # Status bar / navigation bar insets as layout numbers (see Safe areas)
   useAppNavigation.ts # Back-vs-Up navigation helpers: resetToTab/resetToScreen/resetToAuth/goUp (see Navigation)
   useReviewModal.ts   # "Leave a review" modal lifecycle: { target, submitting, open, close, submit } + createReview POST (pairs with components/shared/ReviewModal)
   useCurrency.ts      # Resolves which currency to render an amount in + the helpers to render it: { code, money, perUnit, wrap, prefix, suffix } (see Money & Currency)
@@ -511,7 +512,7 @@ Implementation notes (`App.tsx`):
 
 | Screen | Container | Purpose |
 |---|---|---|
-| HomeScreen | `screens/home-screen/containers/HomeScreen.tsx` | **API-wired** — each row is its own backend endpoint (`services/home.ts`): Near You → `getNearMe({lat,lng})`, Most Popular → `getMostPopular()`, Recently Booked → `getRecentlyBooked()`, Special Deals → `getOnSale()`, all fetched in parallel in `useFocusEffect` (each wrapped so one failing row doesn't blank the page; re-runs when location resolves). Each returns the full service read shape, so a card renders from the rail alone — `price` (post-discount), `appliedDiscountType`/`Amount` (the "-25% OFF" badge), `rating`, `imageUrl`, `currency` — with no second request. **Card tap → ServiceDetail for that specific service** (service-centric — no provider step; the booker reads the full service before BookService); pills match `serviceProviderType` enum labels. |
+| HomeScreen | `screens/home-screen/containers/HomeScreen.tsx` | **API-wired** — each row is its own backend endpoint (`services/home.ts`): Near You → `getNearMe({lat,lng})`, Most Popular → `getMostPopular()`, Recently Booked → `getRecentlyBooked()`, Special Deals → `getOnSale()`, all fetched in parallel in `useFocusEffect` (each wrapped so one failing row doesn't blank the page; re-runs when location resolves). Each returns the full service read shape, so a card renders from the rail alone — `price` (post-discount), `appliedDiscountType`/`Amount` (the "-25% OFF" badge), `rating`, `imageUrl`, `currency` — with no second request. **A row that loaded nothing is not drawn at all** — empty and failed look the same to a browser, and a browse screen is better off showing what it has than narrating what it hasn't. The **only** placeholder left is in the Near You rail, and only when *every* row came back empty (otherwise the page would be bare pills); it says "couldn't load" + Retry — which reloads the whole page — when any row failed, and "nothing near you yet" when they simply had nothing. **Card tap → ServiceDetail for that specific service** (service-centric — no provider step; the booker reads the full service before BookService); pills match `serviceProviderType` enum labels. There is no greeting/tagline card. |
 | SearchScreen | `screens/search-screen/` | **API-wired (service-centric)** — `getServices({ isActive: true })`; client-side filter (type/price/rating); list/map toggle; **card tap → ServiceDetail for that service** (no provider step). ListView/MapView take `services: ServiceSearchItem[]`. **Map pins come from the service's `address`**: `address.location` coords directly; addresses without coords are forward-geocoded lazily when map view opens (sequential, cached by id, fail-soft — see the geocode effect); services with no resolvable location get **no pin** (lat/lng are `number \| null`, no more 0,0 markers). Both maps hide POI labels + transit (`MAP_DECLUTTER_STYLE`); the web map uses classic `maps.Marker` with SVG icons and **no mapId** — inline `styles` are ignored with one (the other web maps keep AdvancedMarkerElement + DEV_MAP_ID). |
 | PartnerHubScreen | `screens/partner-hub-screen/containers/` | **API-wired** — partner dashboard (partner-only). Pills/badges come from `getProviderOverviewStats` (earnings, clients, upcoming appointments, rating — shown only when `totalReviews > 0`, pending requests, `inProgressAppointments > 0` → live-session banner); the ±% badge from `getProviderEarnings(id, 2)` + `monthOverMonthChangePct`; the activity feed from `getProviderRecentActivity(id, 4)`. Two things the stats API doesn't cover stay local: the "today" count (a **day-scoped** `getBookings` range query, not a full-list fetch) and active promos (`countActivePromos`). |
 | AdminDashboardScreen | `screens/admin-dashboard-screen/containers/` | **API-wired** — admin panel (admin-only). Tiles from `getAdminOverviewStats()` (all-time revenue, revenue this month, services scheduled, new partners this month, active partners) and the bar chart from `getAdminRevenueByServiceType()`. **The month/year toggle and ±% badges were removed** — the server exposes no period buckets or prior-period baselines, so the screen shows the figures the API actually reports rather than deltas derived from a truncated page. Quick-action badges use the exact ApprovalStatus queues, **not** `/admin/banner` (see `services/stats.ts`). |
@@ -559,13 +560,14 @@ Always check this folder before creating a new component. If a new component is 
 |---|---|---|
 | `Button` | `text?`, `children?`, `onPress`, `variant?` ('primary'\|'secondary'\|'outline'\|'ghost'), `icon?`, `iconPosition?`, `disabled?`, `className?` | Primary CTA button |
 | `AppHeader` | `variant?` ('large'\|'standard'\|'compact'), `title?`, `subtitle?`, `showBackButton?`, `onBackPress?`, `showNotificationButton?`, `rightAction?`, `rounded?` | Navigation header, safe-area aware |
-| `ScreenLayout` | `headerVariant?`, `headerTitle?`, `showBackButton?`, `onBackPress?`, `children`, `footer?`, `contentRounded?`, `safeAreaBg?`, `contentBg?` — **web-only, all inert on mobile:** `width?`, `webHeaderRight?`, `webBare?` | The root of every screen, in **both designs**. Mobile: SafeAreaView + green `AppHeader` + rounded content sheet (unchanged). Web: `PageHeader` + width-capped `ContentContainer`, no safe area, no coloured slab — and `showNotificationButton` is **ignored**, because `TopBar` owns the bell. |
-| `TabBar` | (none) | Bottom tab bar of the **mobile design** — destinations from `navigation/navItems.ts`, role-gated via `useAuth()`. **Renders `null` above 768px**, where `SideNav` is the navigation. |
+| `ScreenLayout` | `headerVariant?`, `headerTitle?`, `showBackButton?`, `onBackPress?`, `children`, `footer?`, `contentRounded?`, `safeAreaBg?`, `contentBg?` — **web-only, all inert on mobile:** `width?`, `webHeaderRight?`, `webBare?` | The root of every screen, in **both designs**. Mobile: green `AppHeader` (which owns the top inset) + rounded content sheet, which **must** stay opaque — it is pulled 32px up over the header and is what hides scrolled content behind it — and which reserves the bottom inset when the screen has no `footer`. There is deliberately no `SafeAreaView`: see Safe areas. Web: `PageHeader` + width-capped `ContentContainer`, no safe area, no coloured slab — and `showNotificationButton` is **ignored**, because `TopBar` owns the bell. |
+| `TabBar` | (none) | Bottom tab bar of the **mobile design** — destinations from `navigation/navItems.ts`, role-gated via `useAuth()`. **Renders `null` above 768px**, where `SideNav` is the navigation. Reserves the bottom safe-area inset itself; content clears it with `useTabBarSpacing()`, never a hardcoded number. |
 | `ContentContainer` | `width?` ('narrow' 720 \| 'default' 1120 \| 'wide' 1400 \| 'full'), `noPadding?` | The centred, width-capped column the web design lays content in. Plain padded `View` on mobile. Use this instead of a hand-written `maxWidth`. |
 | `ResponsiveGrid` | `columns?` ({mobile,tablet,desktop,wide}), `gap?` | Card lists as a breakpoint-driven grid — 1 column on a phone, 2 on a tablet, 3–4 on a desktop. **Every card list on the web design goes through here** so gutters and column counts are decided once. |
 | `ResponsiveModal` | `visible`, `onClose`, `dialogWidth?`, `mobilePresentation?` ('fullScreen' \| 'centered'), `dismissOnBackdropPress?` | Full-screen sheet on a phone, centred dialog on a desktop, with scrim-click and **Esc** dismissal. Use instead of a bare `<Modal>` — an unmodified one covers a 27" display to ask one question. |
 | `TwoColumn` | `aside`, `asideWidth?`, `gap?`, `asideFirstOnMobile?` | Main content beside a sticky side panel on web; stacked on mobile. The shape most detail/form screens want on a wide window. Used **inside** a screen's body, not as a `ScreenLayout` prop — on mobile the panel has to live inside the screen's own ScrollView. |
 | `PageHeader` | `title?`, `subtitle?`, `showBackButton?`, `onBackPress?`, `actions?` | The web design's page-title block — what replaces the green `AppHeader` slab. Rendered by `ScreenLayout`; rarely used directly. |
+| `Avatar` | `uri?`, `name?`, `size`, `placeholderClassName?`, `textClassName?`, `className?` | Profile photo with the initial **layered behind it**, never swapped for it. A swap makes the placeholder blink: it shows while the user record loads, is torn down the instant an `avatarUrl` arrives, then comes back via `onError` if the photo 404s. Pass an already-resolved `uri` (`resolveImageUrl`, or a locally-picked file); a failed or absent one just leaves the initial showing, and a new `uri` retries. **Use this for every avatar** — ProfileScreen and AccountScreen each had their own copy of the swap. |
 | `ServiceCard` | `image`, `name`, `service`, `rating`, `reviews`, `price`, `distance?`, `badge?` ('popular'\|'deal'), `onPress` | 200px-wide provider card |
 | `SeeMoreCard` | `onPress` | Trailing card in horizontal lists |
 | `ServiceBubble` | `label`, `bg?`, `icon?`, `onPress?` | Circular icon + label (service type pill) |
@@ -578,7 +580,7 @@ Always check this folder before creating a new component. If a new component is 
 | `Toast` (`Toast.tsx`) | `toast`, `isDarkMode`, `onDismiss` | Single presentational toast row (icon + message + dismiss) for the global overlay. **Don't render directly** — use `useToast()` (`context/ToastContext.tsx`) to show app-wide error/success/info toasts. See Context Providers. |
 | `ListState` | `isLoading?`, `error?`, `isEmpty?`, `emptyIcon?`, `emptyMessage?`, `children` | The loading → error → empty → content ladder every list screen needs; renders `children` only once all three are ruled out. **Use this instead of hand-writing the spinner/icon/message blocks** — they had drifted into two icon sizes and two greys across the screens that copied them. Also exports `LoadingState` and `MessageState` for a state needed on its own. |
 | `FilterTabs` | `tabs`, `activeKey`, `onChange`, `counts` | Pill filter bar (icon + label + count badge, selected tab tinted with its status color) above a moderation list. `moderationTabs(rejectedLabelKey)` from the same file returns the shared pending/approved/rejected triad — the last tab's wording is a parameter because an application is *rejected* while a review is *declined*. |
-| `StickyFooter` | `className?`, `style?`, `hideOnKeyboard?`, `pinnedOnWeb?`, `children` | A bottom CTA bar pinned over a screen's ScrollView. **On the web design it stops being pinned** and renders in the flow — a bar welded across a 1440px window is a phone artefact; screens needing a persistent action put it in a `TwoColumn` aside, which is sticky without spanning anything. Pass `pinnedOnWeb` for the exceptions. Owns the `absolute bottom-0 left-0 right-0` positioning **and unmounts itself while the keyboard is open** — the bar sits exactly where the ScrollView parks the focused input, so a pinned bar covered the field being typed into. Pass `hideOnKeyboard={false}` for a bar that must stay reachable above the keyboard. **Never hand-write another `absolute bottom-0` bar** — and read the sticky-vs-in-flow rule under Key Conventions before reaching for this at all, because most screens should not have one. |
+| `StickyFooter` | `className?`, `style?`, `hideOnKeyboard?`, `pinnedOnWeb?`, `children` | A bottom CTA bar pinned over a screen's ScrollView. **On the web design it stops being pinned** and renders in the flow — a bar welded across a 1440px window is a phone artefact; screens needing a persistent action put it in a `TwoColumn` aside, which is sticky without spanning anything. Pass `pinnedOnWeb` for the exceptions. Owns the `absolute bottom-0 left-0 right-0` positioning **and unmounts itself while the keyboard is open** — the bar sits exactly where the ScrollView parks the focused input, so a pinned bar covered the field being typed into. Pass `hideOnKeyboard={false}` for a bar that must stay reachable above the keyboard. Reserves the bottom safe-area inset **only when nothing above it already has** (`BottomInsetReservedContext` — see Safe areas). **Never hand-write another `absolute bottom-0` bar** — and read the sticky-vs-in-flow rule under Key Conventions before reaching for this at all, because most screens should not have one. |
 
 ---
 
@@ -634,6 +636,16 @@ them, since a sidebar of destinations behind a login is a list of dead links.
 ## Styling System
 
 **NativeWind (Tailwind) — `tailwind.config.js`**
+
+**`content` must list every folder that can hold a class NAME, not just the ones that hold JSX.**
+It scans `App.tsx`, `components/`, `screens/`, `hooks/`, `context/`, `navigation/` and
+`services/`. Tailwind only emits a rule for a class it has seen, and a `className` with no matching
+rule is not an error — the element just renders unstyled. `hooks/useThemeColors.ts` **returns class
+names**, and while `hooks/` was unscanned eleven of its twelve tokens survived only because the same
+literal was also typed under `screens/`; the twelfth, light mode's `bg-[#F1F8F4]`, existed nowhere
+else and resolved to transparent — which is what let scrolled content show through
+`ScreenLayout`'s sheet and over the green header. `__tests__/responsive/tailwindContent.test.ts`
+fails if a folder holding class names drops out of the list again.
 
 Custom brand palette (green):
 | Token | Hex | Usage |
@@ -763,6 +775,33 @@ paying only where the action is the point of the screen:
   Account ("Save Changes"), PartnerApplication and AdminAddPartner (which were always in-flow).
   Give it `mt-2` and drop the ScrollView's `paddingBottom` back to `32` — the tall bottom padding
   exists only to clear a pinned bar.
+
+### Safe areas — `hooks/useSafeAreaSpacing.ts` owns the numbers
+- **Android draws edge-to-edge from Expo SDK 54 on**: the status bar and the system navigation bar
+  are painted OVER the app, so nothing is kept clear unless the app keeps it clear.
+- **Never use `SafeAreaView` from `react-native`** — it insets on **iOS only**, so on Android it is a
+  plain `View` doing nothing. Every use of it has been removed. Take the inset explicitly instead:
+  `useTopInset()` / `useBottomInset()` report the real value on both platforms (and 0 in a browser),
+  so one expression is correct on every device.
+- **The top inset belongs to whatever paints the top edge.** For a `ScreenLayout` screen that is
+  `AppHeader`, which runs its green to the top of the window and pads its content by
+  `insets.top + <variant spacing>`. A screen drawing its own coloured header (PartnerHub, Admin
+  Dashboard, Admin Partners, ChatScreen, ServicePreview) does the same with `useTopInset()`.
+  **Do not add it twice** — a screen inside `ScreenLayout` must not pad for the status bar itself.
+- **The bottom inset is reserved exactly once per screen**, and `BottomInsetReservedContext` is what
+  makes that checkable: `ScreenLayout` pads its content sheet when the screen has no `footer`, and a
+  `StickyFooter` rendered inside that sheet then adds nothing. A `TabBar` passed as `footer` sits
+  outside the sheet and keeps its own. Two reservations float the CTA a whole navigation bar off the
+  bottom; none puts it under the system buttons.
+- **A pinned bar's height is derived, never typed.** `useTabBarHeight()` / `useTabBarSpacing()`
+  compute it from the bar's chrome, the label's line box scaled by the user's text-size setting, and
+  the bottom inset. `paddingBottom: 100` had been copied across the tab screens; that number is what
+  `useTabBarSpacing()` returns at text scale 1 with no navigation bar, and it grows correctly
+  everywhere else.
+- **This is the class of bug that only appears when you change handsets** — a gesture pill is ~16–24dp
+  where three-button navigation is ~48dp — so it is invisible in day-to-day testing on one device.
+  `__tests__/responsive/safeArea.test.tsx` asserts the geometry against fixed metrics (top 47,
+  bottom 34) instead.
 
 ### Keyboard avoidance
 - **Android draws edge-to-edge from Expo SDK 54 on, so the manifest's `adjustResize` is a no-op** — the window no longer shrinks when the IME opens, and the keyboard simply covers the focused field. Nothing about `softwareKeyboardLayoutMode` fixes this; the app has to handle the inset itself.
