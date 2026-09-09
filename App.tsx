@@ -1,5 +1,6 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import './global.css';
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
@@ -319,20 +320,34 @@ function MainTabs() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <LocaleProvider>
-        <ToastProvider>
-          <AuthProvider>
-            <NotificationsProvider>
-              <MessagesProvider>
-                <EnumsProvider>
-                  <AppContent />
-                </EnumsProvider>
-              </MessagesProvider>
-            </NotificationsProvider>
-          </AuthProvider>
-        </ToastProvider>
-      </LocaleProvider>
-    </ThemeProvider>
+    /*
+      Safe-area insets are read all over the app — by AppHeader for the status bar and camera
+      cutout, by TabBar and StickyFooter for the Android navigation bar — and until now nothing
+      here provided them. They resolved only because NativeStackView happens to mount a
+      SafeAreaProviderCompat internally, which is an implementation detail of a navigator rather
+      than a contract; anything rendered outside the navigator (the toast overlay, the first-run
+      language chooser) had no insets at all.
+
+      initialWindowMetrics is what makes the FIRST frame correct. Without it the provider starts at
+      zero insets and corrects itself once native reports them, so a screen mounts with its header
+      under the status bar and then jumps.
+    */
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <ThemeProvider>
+        <LocaleProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <NotificationsProvider>
+                <MessagesProvider>
+                  <EnumsProvider>
+                    <AppContent />
+                  </EnumsProvider>
+                </MessagesProvider>
+              </NotificationsProvider>
+            </AuthProvider>
+          </ToastProvider>
+        </LocaleProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

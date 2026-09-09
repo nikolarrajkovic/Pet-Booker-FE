@@ -266,7 +266,7 @@ export default function PartnerDetailsScreen() {
                   maxWidth: CONTENT_WIDTHS.default,
                   alignSelf: 'center',
                 }
-              : { paddingBottom: 100 }
+              : { paddingBottom: 100 + insets.bottom }
           }
           showsVerticalScrollIndicator={false}>
           {/* ── Profile card ── */}

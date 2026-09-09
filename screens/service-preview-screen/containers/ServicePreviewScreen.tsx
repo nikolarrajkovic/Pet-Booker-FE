@@ -1,11 +1,12 @@
 import React from 'react';
-import { SafeAreaView, View, TouchableOpacity, Text } from 'react-native';
+import { View, TouchableOpacity, Text } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import ServiceDetailView from '../../../components/shared/ServiceDetailView';
 import { useResponsive } from '../../../hooks/useResponsive';
+import { useTopInset } from '../../../hooks/useSafeAreaSpacing';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 
 type ServicePreviewRouteParams = {
@@ -32,20 +33,20 @@ export default function ServicePreviewScreen() {
   const { isDarkMode, bgColor } = useThemeColors();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
+  const topInset = useTopInset();
 
   // A preview of what a customer will see, so it is capped to the same column the real service
   // page uses — previewing at 1440px would show the provider a layout no booker ever gets.
-  const Root: any = isWebLayout ? View : SafeAreaView;
   const capped = isWebLayout
     ? { width: '100%' as const, maxWidth: CONTENT_WIDTHS.default, alignSelf: 'center' as const }
     : undefined;
 
   return (
-    <Root className={`flex-1 ${bgColor}`}>
+    <View className={`flex-1 ${bgColor}`}>
       {/* Header */}
       <View
         className={`bg-brand-500 px-6 pb-6 ${isWebLayout ? '' : 'rounded-b-3xl'}`}
-        style={{ paddingTop: isWebLayout ? 24 : 48, zIndex: 1, ...capped }}>
+        style={{ paddingTop: isWebLayout ? 24 : topInset + 24, zIndex: 1, ...capped }}>
         <View className="flex-row items-center justify-between">
           <View className="flex-1 flex-row items-center">
             <TouchableOpacity
@@ -88,6 +89,6 @@ export default function ServicePreviewScreen() {
           onBookPress={undefined} // Disabled in preview
         />
       </View>
-    </Root>
+    </View>
   );
 }

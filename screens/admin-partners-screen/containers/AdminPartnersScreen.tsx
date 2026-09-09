@@ -1,16 +1,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  SafeAreaView,
-  Platform,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTopInset, useBottomInset } from '../../../hooks/useSafeAreaSpacing';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import ListState from '../../../components/shared/ListState';
@@ -96,12 +88,11 @@ export default function AdminPartnersScreen() {
   const { isDarkMode, hex } = useThemeColors();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
-  const insets = useSafeAreaInsets();
-
-  // React Native's own SafeAreaView insets on iOS only. Android has drawn edge-to-edge since Expo
-  // SDK 54, so nothing there keeps content clear of the status bar and camera cutout — the header
-  // has to pad for it itself, or the title sits under the front camera.
-  const headerTopInset = Platform.OS === 'android' ? insets.top : 0;
+  // The real inset on both platforms. React Native's SafeAreaView pads on iOS only, so this used
+  // to be an Android-only branch bolted on beside it — two ways of doing one thing, and only ever
+  // right on the platform whose turn it was.
+  const topInset = useTopInset();
+  const bottomInset = useBottomInset();
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
   const [providers, setProviders] = useState<Partner[]>([]);
@@ -207,10 +198,9 @@ export default function AdminPartnersScreen() {
 
   // Same treatment as the Partner Hub and Admin Dashboard: the green slab and the sheet riding up
   // over it are phone chrome, and the sidebar frames the page on the web design instead.
-  const Root: any = isWebLayout ? View : SafeAreaView;
 
   return (
-    <Root
+    <View
       // Transparent on the web design, not the page ground: the shell already paints that ground
       // and the pattern texture behind every screen, and repainting it here covers both.
       style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
@@ -219,7 +209,7 @@ export default function AdminPartnersScreen() {
         style={{
           backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
           paddingHorizontal: isWebLayout ? 32 : 20,
-          paddingTop: isWebLayout ? 32 : headerTopInset + (insets.top > 0 ? 8 : 16),
+          paddingTop: isWebLayout ? 32 : topInset + 16,
           paddingBottom: 16,
           width: '100%',
           maxWidth: isWebLayout ? CONTENT_WIDTHS.wide : undefined,
@@ -373,7 +363,7 @@ export default function AdminPartnersScreen() {
                   maxWidth: CONTENT_WIDTHS.wide,
                   alignSelf: 'center',
                 }
-              : { paddingHorizontal: 16, paddingBottom: 32 }
+              : { paddingHorizontal: 16, paddingBottom: 32 + bottomInset }
           }
           showsVerticalScrollIndicator={false}>
           <ListState
@@ -400,6 +390,6 @@ export default function AdminPartnersScreen() {
           </ListState>
         </ScrollView>
       </View>
-    </Root>
+    </View>
   );
 }

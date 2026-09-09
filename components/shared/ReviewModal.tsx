@@ -6,10 +6,11 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
 } from 'react-native';
+// From the keyboard-controller, never React Native's own: with `behavior: undefined` on Android
+// that one relies on the window resizing for the IME, which stopped happening under edge-to-edge.
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
@@ -84,9 +85,7 @@ export default function ReviewModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         {/* Dim backdrop — tap to dismiss (unless mid-submit) */}
         <Pressable
           accessible={false}

@@ -8,6 +8,7 @@ import { serviceCurrency } from '../../../services/services';
 import type { ServiceSearchItem } from './ListView';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
+import { useTabBarHeight } from '../../../hooks/useSafeAreaSpacing';
 interface LocationData {
   latitude: number;
   longitude: number;
@@ -39,6 +40,7 @@ export default function MapViewComponent({
   isDarkMode,
 }: MapViewComponentProps) {
   const navigation = useNavigation();
+  const tabBarHeight = useTabBarHeight();
   const [selected, setSelected] = useState<ServiceSearchItem | null>(null);
 
   if (location.loading) {
@@ -114,10 +116,13 @@ export default function MapViewComponent({
           accessibilityRole="button"
           activeOpacity={0.9}
           onPress={() => (navigation as any).navigate('ServiceDetail', { service: selected.dto })}
-          className={`absolute bottom-4 left-4 right-4 flex-row items-center rounded-2xl p-3 shadow-lg ${
+          className={`absolute left-4 right-4 flex-row items-center rounded-2xl p-3 shadow-lg ${
             isDarkMode ? 'bg-[#1a2332]' : 'bg-white'
           }`}
-          style={{ elevation: 6 }}>
+          // Sits above the tab bar rather than behind it. `bottom-4` measured from the screen edge,
+          // which put the card under the bar on a phone — and under the system navigation buttons
+          // below that.
+          style={{ elevation: 6, bottom: tabBarHeight + 16 }}>
           <Image source={{ uri: selected.image }} className="h-16 w-16 rounded-xl" />
           <View className="ml-3 flex-1">
             <Text

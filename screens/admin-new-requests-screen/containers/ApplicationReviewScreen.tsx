@@ -222,7 +222,7 @@ export default function ApplicationReviewScreen() {
                   maxWidth: CONTENT_WIDTHS.default,
                   alignSelf: 'center',
                 }
-              : { padding: 20, paddingBottom: 100 }
+              : { padding: 20, paddingBottom: 100 + insets.bottom }
           }
           showsVerticalScrollIndicator={false}>
           {/* ── Applicant summary card ── */}

@@ -3,6 +3,7 @@ import { Modal, View, Text, TextInput, TouchableOpacity, ActivityIndicator } fro
 import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
+import { useTopInset } from '../../hooks/useSafeAreaSpacing';
 import { useLocale } from '../../context/LocaleContext';
 import {
   reverseGeocodeToAddress,
@@ -40,6 +41,7 @@ export default function MapAddressPicker({
 }: MapAddressPickerProps) {
   const { t } = useLocale();
   const { hex } = themeColors(isDarkMode);
+  const topInset = useTopInset();
   const mapRef = useRef<MapView>(null);
   const [center, setCenter] = useState<GeoPoint>(initialRegion);
   const [query, setQuery] = useState('');
@@ -102,7 +104,10 @@ export default function MapAddressPicker({
         {/* Header */}
         <View
           style={{
-            paddingTop: 48,
+            // A full-screen Modal covers the status bar, so its own header has to clear it. This
+            // was a fixed 48 here and a Platform ternary in DirectionsModal — one device's status
+            // bar written down as a constant.
+            paddingTop: topInset + 12,
             paddingHorizontal: 16,
             paddingBottom: 12,
             flexDirection: 'row',
