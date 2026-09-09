@@ -18,6 +18,7 @@ import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import FormCard from '../../../components/shared/FormCard';
+import FormRow from '../../../components/shared/FormRow';
 import { PetPhotoUploader, PetTypeSelector, SexSelector } from '../components';
 import DatePicker from '../../../components/shared/DatePicker';
 import { createPet, updatePet } from '../../../services/pets';
@@ -266,23 +267,43 @@ export default function AddPetScreen() {
             error={errors.photos}
           />
 
-          {/* Pet Name */}
-          <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-              {t('addPet.petName')} <Text className="text-red-500">*</Text>
-            </Text>
-            <TextInput
-              {...form.field('petName')}
-              placeholder={t('addPet.petNamePlaceholder')}
-              placeholderTextColor={placeholderColor}
-              value={petName}
-              onChangeText={setPetName}
-              className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${errors.petName ? 'border-2 border-red-500' : ''}`}
-            />
-            {errors.petName ? (
-              <Text className="mt-1 text-xs text-red-500">{errors.petName}</Text>
-            ) : null}
-          </View>
+          {/* Name and breed are both short free text and are filled in one thought. */}
+          <FormRow>
+            {/* Pet Name */}
+            <View className="mb-4">
+              <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                {t('addPet.petName')} <Text className="text-red-500">*</Text>
+              </Text>
+              <TextInput
+                {...form.field('petName')}
+                placeholder={t('addPet.petNamePlaceholder')}
+                placeholderTextColor={placeholderColor}
+                value={petName}
+                onChangeText={setPetName}
+                className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${errors.petName ? 'border-2 border-red-500' : ''}`}
+              />
+              {errors.petName ? (
+                <Text className="mt-1 text-xs text-red-500">{errors.petName}</Text>
+              ) : null}
+            </View>
+            {/* Breed */}
+            <View className="mb-4">
+              <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                {t('addPet.breed')} <Text className="text-red-500">*</Text>
+              </Text>
+              <TextInput
+                {...form.field('breed')}
+                placeholder={t('addPet.breedPlaceholder')}
+                placeholderTextColor={placeholderColor}
+                value={breed}
+                onChangeText={setBreed}
+                className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${errors.breed ? 'border-2 border-red-500' : ''}`}
+              />
+              {errors.breed ? (
+                <Text className="mt-1 text-xs text-red-500">{errors.breed}</Text>
+              ) : null}
+            </View>
+          </FormRow>
 
           <PetTypeSelector
             selectedType={petType}
@@ -293,99 +314,83 @@ export default function AddPetScreen() {
             error={errors.petType}
           />
 
-          {/* Breed */}
-          <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-              {t('addPet.breed')} <Text className="text-red-500">*</Text>
-            </Text>
-            <TextInput
-              {...form.field('breed')}
-              placeholder={t('addPet.breedPlaceholder')}
-              placeholderTextColor={placeholderColor}
-              value={breed}
-              onChangeText={setBreed}
-              className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${errors.breed ? 'border-2 border-red-500' : ''}`}
+          {/* Two compact controls: the sex chips and a date picker sit on one row. */}
+          <FormRow>
+            <SexSelector
+              selectedSex={sex}
+              onSelectSex={setSex}
+              isDarkMode={isDarkMode}
+              textColor={textColor}
+              inputBg={inputBg}
+              error={errors.sex}
             />
-            {errors.breed ? (
-              <Text className="mt-1 text-xs text-red-500">{errors.breed}</Text>
-            ) : null}
-          </View>
-
-          <SexSelector
-            selectedSex={sex}
-            onSelectSex={setSex}
-            isDarkMode={isDarkMode}
-            textColor={textColor}
-            inputBg={inputBg}
-            error={errors.sex}
-          />
-
-          {/* Birth Date */}
-          <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-              {t('addPet.birthDate')} <Text className="text-red-500">*</Text>
-            </Text>
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => setShowBirthDatePicker((v) => !v)}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                borderRadius: 12,
-                paddingHorizontal: 16,
-                paddingVertical: 13,
-                borderWidth: errors.birthDate ? 2 : 0,
-                borderColor: errors.birthDate ? '#EF4444' : undefined,
-              }}
-              className={`${inputBg}`}>
-              <Ionicons
-                name="calendar-outline"
-                size={20}
-                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-              />
-              <Text
-                style={{
-                  marginLeft: 10,
-                  fontSize: 15,
-                  color: birthDate
-                    ? isDarkMode
-                      ? '#ffffff'
-                      : '#111827'
-                    : isDarkMode
-                      ? '#6B7280'
-                      : '#9CA3AF',
-                  flex: 1,
-                }}>
-                {birthDate
-                  ? birthDate.toLocaleDateString('en-GB', {
-                      day: '2-digit',
-                      month: 'long',
-                      year: 'numeric',
-                    })
-                  : t('addPet.selectBirthDate')}
+            {/* Birth Date */}
+            <View className="mb-4">
+              <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                {t('addPet.birthDate')} <Text className="text-red-500">*</Text>
               </Text>
-              <Ionicons
-                name={showBirthDatePicker ? 'chevron-up' : 'chevron-down'}
-                size={18}
-                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-              />
-            </TouchableOpacity>
-            {showBirthDatePicker && (
-              <DatePicker
-                value={birthDate ?? new Date()}
-                maxDate={new Date()}
-                isDarkMode={isDarkMode}
-                onChange={(date) => {
-                  setBirthDate(date);
-                  setShowBirthDatePicker(false);
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => setShowBirthDatePicker((v) => !v)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  borderRadius: 12,
+                  paddingHorizontal: 16,
+                  paddingVertical: 13,
+                  borderWidth: errors.birthDate ? 2 : 0,
+                  borderColor: errors.birthDate ? '#EF4444' : undefined,
                 }}
-                onClose={() => setShowBirthDatePicker(false)}
-              />
-            )}
-            {errors.birthDate ? (
-              <Text className="mt-1 text-xs text-red-500">{errors.birthDate}</Text>
-            ) : null}
-          </View>
+                className={`${inputBg}`}>
+                <Ionicons
+                  name="calendar-outline"
+                  size={20}
+                  color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                />
+                <Text
+                  style={{
+                    marginLeft: 10,
+                    fontSize: 15,
+                    color: birthDate
+                      ? isDarkMode
+                        ? '#ffffff'
+                        : '#111827'
+                      : isDarkMode
+                        ? '#6B7280'
+                        : '#9CA3AF',
+                    flex: 1,
+                  }}>
+                  {birthDate
+                    ? birthDate.toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'long',
+                        year: 'numeric',
+                      })
+                    : t('addPet.selectBirthDate')}
+                </Text>
+                <Ionicons
+                  name={showBirthDatePicker ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                />
+              </TouchableOpacity>
+              {showBirthDatePicker && (
+                <DatePicker
+                  value={birthDate ?? new Date()}
+                  maxDate={new Date()}
+                  isDarkMode={isDarkMode}
+                  onChange={(date) => {
+                    setBirthDate(date);
+                    setShowBirthDatePicker(false);
+                  }}
+                  onClose={() => setShowBirthDatePicker(false)}
+                />
+              )}
+              {errors.birthDate ? (
+                <Text className="mt-1 text-xs text-red-500">{errors.birthDate}</Text>
+              ) : null}
+            </View>
+          </FormRow>
 
           {/* Weight, Height */}
           <View className="mb-4 flex-row gap-3">
@@ -425,35 +430,36 @@ export default function AddPetScreen() {
             </View>
           </View>
 
-          {/* Dietary Notes */}
-          <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-              {t('addPet.dietaryNotes')}
-            </Text>
-            <TextInput
-              {...form.field('dietaryNotes')}
-              placeholder={t('addPet.dietaryPlaceholder')}
-              placeholderTextColor={placeholderColor}
-              value={dietaryNotes}
-              onChangeText={setDietaryNotes}
-              className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
-            />
-          </View>
-
-          {/* Favorite Food */}
-          <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-              {t('addPet.favoriteFood')}
-            </Text>
-            <TextInput
-              {...form.field('favoriteFood')}
-              placeholder={t('addPet.favoritePlaceholder')}
-              placeholderTextColor={placeholderColor}
-              value={favoriteFood}
-              onChangeText={setFavoriteFood}
-              className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
-            />
-          </View>
+          <FormRow>
+            {/* Dietary Notes */}
+            <View className="mb-4">
+              <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                {t('addPet.dietaryNotes')}
+              </Text>
+              <TextInput
+                {...form.field('dietaryNotes')}
+                placeholder={t('addPet.dietaryPlaceholder')}
+                placeholderTextColor={placeholderColor}
+                value={dietaryNotes}
+                onChangeText={setDietaryNotes}
+                className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
+              />
+            </View>
+            {/* Favorite Food */}
+            <View className="mb-4">
+              <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                {t('addPet.favoriteFood')}
+              </Text>
+              <TextInput
+                {...form.field('favoriteFood')}
+                placeholder={t('addPet.favoritePlaceholder')}
+                placeholderTextColor={placeholderColor}
+                value={favoriteFood}
+                onChangeText={setFavoriteFood}
+                className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
+              />
+            </View>
+          </FormRow>
 
           {/* Additional Notes */}
           <View className="mb-4">
