@@ -156,6 +156,49 @@ describe('the nav bars cannot drift apart', () => {
   });
 });
 
+describe('there is one back affordance on the web design', () => {
+  /**
+   * `BackLink` is it. The web design puts the way back in the page flow above the title, as a
+   * labelled link; the phone design keeps the white arrow on `AppHeader`'s green slab.
+   *
+   * This is pinned because it had already drifted: `PageHeader` drew the link while the three
+   * admin screens that hand-roll a header drew a bordered circle beside the title instead, so
+   * which shape you got depended on which screen you were looking at.
+   *
+   * A file may still draw `arrow-back` for the phone design or for a genuinely different
+   * surface — listed here with the reason, as elsewhere in this file.
+   */
+  const ALLOWED: Record<string, string> = {
+    'components/shared/BackLink.tsx': 'the web affordance itself',
+    'components/shared/AppHeader.tsx': "the phone design's arrow, on the green slab",
+    'screens/admin-partners-screen/containers/AdminPartnersScreen.tsx': 'phone branch only',
+    'screens/admin-partners-screen/containers/PartnerDetailsScreen.tsx': 'phone branch only',
+    'screens/admin-new-requests-screen/containers/ApplicationReviewScreen.tsx': 'phone branch only',
+    'screens/my-schedule-screen/containers/MyScheduleScreen.tsx': 'phone branch only',
+    'screens/messages-screen/containers/ChatScreen.tsx':
+      'a chat thread header is a toolbar beside the avatar, not a page title block',
+    'screens/service-preview-screen/containers/ServicePreviewScreen.tsx':
+      'draws a green header on both designs, so the arrow is on green either way',
+    'screens/provider-detail-screen/containers/ProviderDetailScreen.tsx':
+      'orphaned and unreachable, see CLAUDE.md',
+  };
+
+  it('screens do not hand-roll one', () => {
+    const offenders = [...screenFiles, ...componentFiles]
+      .filter((f) => /name="arrow-back"/.test(read(f)))
+      .map(rel)
+      .filter((f) => !(f in ALLOWED));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('PageHeader delegates rather than drawing its own', () => {
+    const pageHeader = read(path.join(ROOT, 'components', 'shared', 'PageHeader.tsx'));
+    expect(pageHeader).toMatch(/<BackLink/);
+    expect(/name="arrow-back"/.test(pageHeader)).toBe(false);
+  });
+});
+
 describe('the native gate stays shut', () => {
   it('RESPONSIVE_ON_NATIVE is false and lives in exactly one place', () => {
     // Flipping it is a decision about every screen in the app, so it should be a visible diff in

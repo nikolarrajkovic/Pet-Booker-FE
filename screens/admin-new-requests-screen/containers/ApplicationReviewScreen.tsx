@@ -22,6 +22,7 @@ import { providerTypeValue } from '../../../services/service-providers';
 import type { PartnerApplication, ApplicationStatus, ApplicationImage } from '../components';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
+import BackLink from '../../../components/shared/BackLink';
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 import {
   approveServiceProvider,
@@ -166,23 +167,24 @@ export default function ApplicationReviewScreen() {
           maxWidth: isWebLayout ? CONTENT_WIDTHS.default : undefined,
           alignSelf: 'center',
         }}>
+        {isWebLayout && <BackLink />}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => navigation.goBack()}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: isWebLayout ? hex.card : 'rgba(255,255,255,0.25)',
-              borderWidth: isWebLayout ? 1 : 0,
-              borderColor: hex.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: 12,
-            }}>
-            <Ionicons name="arrow-back" size={20} color={isWebLayout ? hex.subtext : 'white'} />
-          </TouchableOpacity>
+          {!isWebLayout && (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => navigation.goBack()}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: 'rgba(255,255,255,0.25)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 12,
+              }}>
+              <Ionicons name="arrow-back" size={20} color="white" />
+            </TouchableOpacity>
+          )}
           <View style={{ flex: 1 }}>
             <Text
               style={{

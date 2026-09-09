@@ -13,6 +13,7 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import TabBar from '../../../components/shared/TabBar';
+import BackLink from '../../../components/shared/BackLink';
 import { getAdminOverviewStats, getAdminRevenueByServiceType } from '../../../services/stats';
 import { countServiceProviders, ApprovalStatus } from '../../../services/service-providers';
 import { countReviews } from '../../../services/reviews';
@@ -183,6 +184,7 @@ export default function AdminDashboardScreen() {
           maxWidth: isWebLayout ? CONTENT_WIDTHS.wide : undefined,
           alignSelf: 'center',
         }}>
+        {isWebLayout && <BackLink />}
         <Text
           style={{
             color: isWebLayout ? hex.text : 'white',

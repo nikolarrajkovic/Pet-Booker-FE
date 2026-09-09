@@ -189,6 +189,7 @@ export default function ProfileScreen() {
   return (
     <ScreenLayout
       headerVariant="large"
+      showBackButton
       contentBg={contentBg}
       footer={<TabBar />}
       width="wide"
