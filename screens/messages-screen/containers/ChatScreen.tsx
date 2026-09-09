@@ -15,6 +15,7 @@ import { resolveImageUrl } from '../../../services/service-providers';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { useTopInset, useBottomInset } from '../../../hooks/useSafeAreaSpacing';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
+import { TOPBAR_HEIGHT } from '../../../components/layout/TopBar';
 import {
   ChatAccessReason,
   ChatParticipant,
@@ -338,7 +339,19 @@ export default function ChatScreen() {
    * background the bubbles sit straight on the shell's pet pattern, and without the flex the
    * composer floats in the middle of the page with wallpaper beneath it.
    */
-  const root = { flex: 1, backgroundColor: hex.bg };
+  /**
+   * A definite height on the web design, not just `flex: 1`.
+   *
+   * The composer belongs at the foot of the view with only the messages moving above it, and
+   * that needs the column to be exactly as tall as the space under the top bar. Leaning on
+   * `flex: 1` left it at the mercy of the whole chain above — the shell, the pattern layer, the
+   * navigator's card — and any one of those sizing to its content dropped the composer directly
+   * under the last message with empty page beneath. Pinning the height here depends on nothing
+   * but the viewport.
+   */
+  const root = isWebLayout
+    ? { height: `calc(100vh - ${TOPBAR_HEIGHT}px)` as any, backgroundColor: hex.bg }
+    : { flex: 1, backgroundColor: hex.bg };
 
   return (
     <View
@@ -397,7 +410,12 @@ export default function ChatScreen() {
         </View>
       </View>
 
-      <KeyboardAvoidingView className="flex-1" behavior="padding">
+      {/* Styled, not classed: `KeyboardAvoidingView` comes from react-native-keyboard-controller,
+          which NativeWind does not process, so a `className` on it is dropped in silence. It
+          wraps both the message list and the composer, so losing the flex collapsed the pair to
+          their content height and left the composer sitting under the last message with the rest
+          of the thread empty beneath it. */}
+      <KeyboardAvoidingView style={{ flex: 1, minHeight: 0 }} behavior="padding">
         <ScrollView
           ref={scrollRef}
           className="flex-1"
