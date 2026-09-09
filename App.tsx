@@ -67,6 +67,7 @@ import { linking } from './navigation/linking';
 import { navigationRef } from './navigation/navigationRef';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { hasSeenPartnerWelcome, markPartnerWelcomeSeen } from './services/onboarding';
+import { enableDocumentScroll } from './styles/document-scroll';
 import { Ionicons } from '@expo/vector-icons';
 import { enableScreens } from 'react-native-screens';
 
@@ -316,6 +317,10 @@ function MainTabs() {
     </Tab.Navigator>
   );
 }
+
+// Keeps the page's scrollbar on the window edge on web; a no-op on native.
+// See styles/document-scroll.web.ts.
+enableDocumentScroll();
 
 export default function App() {
   return (
