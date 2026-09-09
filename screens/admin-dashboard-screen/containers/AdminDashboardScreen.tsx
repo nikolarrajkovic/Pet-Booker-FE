@@ -168,11 +168,9 @@ export default function AdminDashboardScreen() {
 
   return (
     <Root
-      // The page ground on the web design, not transparent. These screens draw their own root
-      // instead of going through `ScreenLayout`, so nothing paints the content column for them —
-      // left transparent, the shell's pet pattern ran straight behind the headings and stat
-      // tiles. The phone design keeps its green header slab.
-      style={{ flex: 1, backgroundColor: isWebLayout ? hex.bg : BRAND_GREEN }}>
+      // Transparent on the web design so the shell's pattern shows through, as on every other
+      // page; the phone design keeps its green header slab.
+      style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{

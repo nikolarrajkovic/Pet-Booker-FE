@@ -212,11 +212,9 @@ export default function AdminPartnersScreen() {
 
   return (
     <Root
-      // The page ground on the web design, not transparent. These screens draw their own root
-      // instead of going through `ScreenLayout`, so nothing paints the content column for them —
-      // left transparent, the shell's pet pattern ran straight behind the headings and stat
-      // tiles. The phone design keeps its green header slab.
-      style={{ flex: 1, backgroundColor: isWebLayout ? hex.bg : BRAND_GREEN }}>
+      // Transparent on the web design so the shell's pattern shows through, as on every other
+      // page; the phone design keeps its green header slab.
+      style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{
@@ -309,11 +307,27 @@ export default function AdminPartnersScreen() {
           marginTop: isWebLayout ? 0 : -8,
         }}>
         {/* Filter tabs */}
-        <View style={{ height: 60 }}>
+        <View
+          // The cap goes on the scroll *viewport*, not its content container: a horizontal
+          // ScrollView lays its content out from the scroll origin, so centring the container
+          // does nothing and the row stayed pinned to the window while the cards beside it
+          // centred on the content column.
+          style={[
+            { height: 60 },
+            isWebLayout && {
+              width: '100%' as const,
+              maxWidth: CONTENT_WIDTHS.wide,
+              alignSelf: 'center' as const,
+            },
+          ]}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10, gap: 8 }}>
+            contentContainerStyle={{
+              paddingHorizontal: isWebLayout ? 32 : 16,
+              paddingVertical: 10,
+              gap: 8,
+            }}>
             {TABS.map((tab) => {
               const isActive = activeTab === tab.key;
               return (

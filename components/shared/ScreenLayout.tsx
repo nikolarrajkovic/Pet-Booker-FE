@@ -95,20 +95,6 @@ export default function ScreenLayout({
   const finalSafeAreaBg = safeAreaBg || bgColor;
   const finalContentBg = contentBg || bgColor;
 
-  /**
-   * The content column's own ground, on the web design.
-   *
-   * `PatternBackground` exists to fill the empty space *around* capped content, but the shell
-   * paints it full-bleed — so it also showed through the column, behind everything that is not
-   * on a card. Cards were fine; page titles, section labels and filter tabs were text on
-   * wallpaper, which is legible at a glance and tiring to actually read.
-   *
-   * Painting the column with the page ground puts the texture back where it was meant to be:
-   * in the margins. Cards keep their contrast, because they are white on this same tint
-   * everywhere else in the app — nothing about the card treatment changes.
-   */
-  const columnGround = { backgroundColor: hex.bg };
-
   // ── Web design ─────────────────────────────────────────────────────────────────────────────
   if (isWebLayout) {
     if (webBare) {
@@ -121,8 +107,9 @@ export default function ScreenLayout({
     }
 
     return (
-      // The screen root stays transparent so the shell's pattern shows through *beside* the
-      // column; the column itself is opaque — see the note on `columnGround` above.
+      // Transparent: the shell paints the page ground and the pattern texture behind this, and
+      // an opaque screen root would cover both. Content that must stay readable paints its own
+      // surface — every card, sheet and empty state in the app does.
       <View style={{ flex: 1 }}>
         {/*
           Two containers, not one: the header needs the column's horizontal gutters, but the body
@@ -130,10 +117,8 @@ export default function ScreenLayout({
           container around that would double every gutter on every screen at once. So the body
           gets the width cap and centring without the padding, and screens keep owning their own.
 
-          Both paint `columnGround`, so together they read as one continuous surface rather than
-          two.
         */}
-        <ContentContainer width={width} style={columnGround}>
+        <ContentContainer width={width}>
           <PageHeader
             title={headerTitle}
             subtitle={headerSubtitle}
@@ -144,10 +129,7 @@ export default function ScreenLayout({
           </PageHeader>
         </ContentContainer>
 
-        <ContentContainer
-          width={width}
-          noPadding
-          style={{ ...columnGround, flex: 1, minHeight: 0 }}>
+        <ContentContainer width={width} noPadding style={{ flex: 1, minHeight: 0 }}>
           {children}
         </ContentContainer>
 
