@@ -110,6 +110,12 @@ function AppContent() {
   // notification arrives before any screen is mounted.
   usePushNotifications(navReady);
 
+  // After first render, not at import: RNW injects its own stylesheet lazily, and this rule
+  // carries no `!important`, so it has to land after that to win. A no-op on native.
+  useEffect(() => {
+    enableDocumentScroll();
+  }, []);
+
   // Celebrate once, the first time we observe a user is an approved partner
   // (the backend adds them to the ServiceProvider group → `isPartner` flips
   // true on the next getMe). A per-user flag keeps it to a single showing.
@@ -317,10 +323,6 @@ function MainTabs() {
     </Tab.Navigator>
   );
 }
-
-// Keeps the page's scrollbar on the window edge on web; a no-op on native.
-// See styles/document-scroll.web.ts.
-enableDocumentScroll();
 
 export default function App() {
   return (
