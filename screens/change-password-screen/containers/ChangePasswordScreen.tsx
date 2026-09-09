@@ -14,6 +14,8 @@ import { useFormChain } from '../../../hooks/useFormChain';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import FormCard from '../../../components/shared/FormCard';
+import FormRow from '../../../components/shared/FormRow';
 import { changePassword } from '../../../services/auth';
 import { getErrorMessage } from '../../../services/http';
 
@@ -83,24 +85,39 @@ export default function ChangePasswordScreen() {
         className="flex-1"
         contentContainerStyle={{ padding: 24 }}
         keyboardShouldPersistTaps="handled">
-        {field('current', t('changePassword.currentPassword'), currentPassword, setCurrentPassword)}
-        {field('new', t('changePassword.newPassword'), newPassword, setNewPassword)}
-        {field('confirm', t('changePassword.confirmPassword'), confirmPassword, setConfirmPassword)}
-
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={handleSubmit}
-          disabled={isSubmitting}
-          className="mt-2 items-center rounded-2xl bg-brand-500 py-4"
-          style={{ opacity: isSubmitting ? 0.7 : 1 }}>
-          {isSubmitting ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text className="text-lg font-bold text-white">
-              {t('changePassword.updatePassword')}
-            </Text>
+        <FormCard>
+          {field(
+            'current',
+            t('changePassword.currentPassword'),
+            currentPassword,
+            setCurrentPassword
           )}
-        </TouchableOpacity>
+          {/* The new password and its confirmation are one thought, and both are short. */}
+          <FormRow>
+            {field('new', t('changePassword.newPassword'), newPassword, setNewPassword)}
+            {field(
+              'confirm',
+              t('changePassword.confirmPassword'),
+              confirmPassword,
+              setConfirmPassword
+            )}
+          </FormRow>
+
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+            className="mt-2 items-center rounded-2xl bg-brand-500 py-4"
+            style={{ opacity: isSubmitting ? 0.7 : 1 }}>
+            {isSubmitting ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text className="text-lg font-bold text-white">
+                {t('changePassword.updatePassword')}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </FormCard>
       </ScrollView>
     </ScreenLayout>
   );

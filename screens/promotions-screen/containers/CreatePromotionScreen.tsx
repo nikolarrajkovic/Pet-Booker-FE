@@ -16,6 +16,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import FormCard from '../../../components/shared/FormCard';
 import DatePicker from '../../../components/shared/DatePicker';
 import { getServices, ServiceDto, serviceCurrency } from '../../../services/services';
 import { formatMoney } from '../../../services/currency';
@@ -142,231 +143,233 @@ export default function CreatePromotionScreen() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
-        {/* Intro banner */}
-        <View
-          className={`${cardBg} mb-5 rounded-2xl border p-4 ${borderColor} flex-row items-center`}>
-          <View className="mr-3 h-11 w-11 items-center justify-center rounded-xl bg-green-100">
-            <MaterialCommunityIcons name="gift-outline" size={22} color="#16A34A" />
+        <FormCard>
+          {/* Intro banner */}
+          <View
+            className={`${cardBg} mb-5 rounded-2xl border p-4 ${borderColor} flex-row items-center`}>
+            <View className="mr-3 h-11 w-11 items-center justify-center rounded-xl bg-green-100">
+              <MaterialCommunityIcons name="gift-outline" size={22} color="#16A34A" />
+            </View>
+            <View className="flex-1">
+              <Text className={`text-base font-bold ${textColor}`}>
+                {t('promotions.specialOffer')}
+              </Text>
+              <Text className={`text-xs ${subtextColor} mt-0.5`}>
+                {t('promotions.specialOfferText')}
+              </Text>
+            </View>
           </View>
-          <View className="flex-1">
-            <Text className={`text-base font-bold ${textColor}`}>
-              {t('promotions.specialOffer')}
-            </Text>
-            <Text className={`text-xs ${subtextColor} mt-0.5`}>
-              {t('promotions.specialOfferText')}
-            </Text>
-          </View>
-        </View>
 
-        {/* Service selector */}
-        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
-          {t('promotions.service')}
-        </Text>
-        {isLoadingServices ? (
-          <View className={`${cardBg} mb-5 rounded-xl border p-6 ${borderColor} items-center`}>
-            <ActivityIndicator color={BRAND_GREEN} />
-          </View>
-        ) : services.length === 0 ? (
-          <View className={`${cardBg} mb-5 rounded-xl border p-5 ${borderColor} items-center`}>
-            <Ionicons
-              name="briefcase-outline"
-              size={28}
-              color={isDarkMode ? '#4B5563' : '#9CA3AF'}
-            />
-            <Text className={`${subtextColor} mt-2 text-center text-sm`}>
-              {t('promotions.noServicesYet')}
-            </Text>
-          </View>
-        ) : (
-          <View className="mb-5">
-            {services.map((s) => {
-              const selected = serviceId === s.id;
+          {/* Service selector */}
+          <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
+            {t('promotions.service')}
+          </Text>
+          {isLoadingServices ? (
+            <View className={`${cardBg} mb-5 rounded-xl border p-6 ${borderColor} items-center`}>
+              <ActivityIndicator color={BRAND_GREEN} />
+            </View>
+          ) : services.length === 0 ? (
+            <View className={`${cardBg} mb-5 rounded-xl border p-5 ${borderColor} items-center`}>
+              <Ionicons
+                name="briefcase-outline"
+                size={28}
+                color={isDarkMode ? '#4B5563' : '#9CA3AF'}
+              />
+              <Text className={`${subtextColor} mt-2 text-center text-sm`}>
+                {t('promotions.noServicesYet')}
+              </Text>
+            </View>
+          ) : (
+            <View className="mb-5">
+              {services.map((s) => {
+                const selected = serviceId === s.id;
+                return (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    key={s.id}
+                    activeOpacity={0.75}
+                    onPress={() => setServiceId(s.id ?? null)}
+                    className={`mb-2 flex-row items-center rounded-xl border px-4 py-3.5 ${
+                      selected ? 'border-brand-500 bg-brand-50' : `${borderColor} ${cardBg}`
+                    }`}>
+                    <View
+                      className={`mr-3 h-5 w-5 items-center justify-center rounded-full border-2 ${
+                        selected ? 'border-brand-500 bg-brand-500' : 'border-gray-400'
+                      }`}>
+                      {selected && <Ionicons name="checkmark" size={12} color="white" />}
+                    </View>
+                    <View className="flex-1">
+                      <Text
+                        className={`text-sm font-semibold ${selected ? 'text-brand-700' : textColor}`}>
+                        {s.name ?? t('promotions.service')}
+                      </Text>
+                      {s.pricing?.basePrice != null && (
+                        <Text className={`text-xs ${subtextColor} mt-0.5`}>
+                          {t('promotions.basePrice', {
+                            price: formatMoney(s.pricing.basePrice, serviceCurrency(s)),
+                          })}
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Discount type toggle */}
+          <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
+            {t('promotions.discountTypeLabel')}
+          </Text>
+          <View
+            className={`mb-5 flex-row rounded-xl p-1 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
+            {[
+              {
+                type: DiscountType.Percent,
+                label: t('promotions.percentage'),
+                icon: 'percent' as const,
+              },
+              {
+                type: DiscountType.Fixed,
+                label: t('promotions.fixedAmount'),
+                icon: 'currency-usd' as const,
+              },
+            ].map((opt) => {
+              const active = discountType === opt.type;
               return (
                 <TouchableOpacity
                   accessibilityRole="button"
-                  key={s.id}
-                  activeOpacity={0.75}
-                  onPress={() => setServiceId(s.id ?? null)}
-                  className={`mb-2 flex-row items-center rounded-xl border px-4 py-3.5 ${
-                    selected ? 'border-brand-500 bg-brand-50' : `${borderColor} ${cardBg}`
-                  }`}>
-                  <View
-                    className={`mr-3 h-5 w-5 items-center justify-center rounded-full border-2 ${
-                      selected ? 'border-brand-500 bg-brand-500' : 'border-gray-400'
-                    }`}>
-                    {selected && <Ionicons name="checkmark" size={12} color="white" />}
-                  </View>
-                  <View className="flex-1">
-                    <Text
-                      className={`text-sm font-semibold ${selected ? 'text-brand-700' : textColor}`}>
-                      {s.name ?? t('promotions.service')}
-                    </Text>
-                    {s.pricing?.basePrice != null && (
-                      <Text className={`text-xs ${subtextColor} mt-0.5`}>
-                        {t('promotions.basePrice', {
-                          price: formatMoney(s.pricing.basePrice, serviceCurrency(s)),
-                        })}
-                      </Text>
-                    )}
-                  </View>
+                  key={opt.type}
+                  activeOpacity={0.8}
+                  onPress={() => setDiscountType(opt.type)}
+                  className={`flex-1 flex-row items-center justify-center rounded-lg py-2.5 ${active ? 'bg-brand-500' : ''}`}>
+                  <MaterialCommunityIcons
+                    name={opt.icon}
+                    size={16}
+                    color={active ? 'white' : '#9CA3AF'}
+                  />
+                  <Text
+                    className={`ml-1.5 text-sm font-semibold ${active ? 'text-white' : subtextColor}`}>
+                    {opt.label}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-        )}
 
-        {/* Discount type toggle */}
-        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
-          {t('promotions.discountTypeLabel')}
-        </Text>
-        <View
-          className={`mb-5 flex-row rounded-xl p-1 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
-          {[
-            {
-              type: DiscountType.Percent,
-              label: t('promotions.percentage'),
-              icon: 'percent' as const,
-            },
-            {
-              type: DiscountType.Fixed,
-              label: t('promotions.fixedAmount'),
-              icon: 'currency-usd' as const,
-            },
-          ].map((opt) => {
-            const active = discountType === opt.type;
-            return (
+          {/* Amount */}
+          <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
+            {isPercent ? t('promotions.discountPercentage') : t('promotions.discountAmount')}
+          </Text>
+          <View
+            className={`${inputBg} border ${borderColor} mb-5 flex-row items-center rounded-xl px-4`}>
+            {/* The currency sits on whichever side its convention calls for; a percentage
+              keeps its own trailing "%". */}
+            {!isPercent && currencyPrefix ? (
+              <Text className={`text-sm font-semibold ${subtextColor} mr-1`}>{currencyPrefix}</Text>
+            ) : null}
+            <TextInput
+              className={`flex-1 py-3.5 text-sm ${textColor}`}
+              // See CurrencyInput: an <input> won't shrink below its intrinsic width in a
+              // flex row without this, pushing the affix outside the box on web.
+              style={{ minWidth: 0 }}
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="numeric"
+              placeholder={isPercent ? 'e.g. 20' : 'e.g. 10'}
+              placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
+            />
+            {isPercent && <Text className={`text-sm font-semibold ${subtextColor}`}>%</Text>}
+            {!isPercent && currencySuffix ? (
+              <Text className={`text-sm font-semibold ${subtextColor}`}>{currencySuffix}</Text>
+            ) : null}
+          </View>
+
+          {/* Date range */}
+          <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
+            {t('promotions.activePeriod')}
+          </Text>
+          <View className="mb-2 flex-row gap-3">
+            <View className="flex-1">
+              <Text className={`text-xs ${subtextColor} mb-1.5`}>{t('promotions.startDate')}</Text>
               <TouchableOpacity
                 accessibilityRole="button"
-                key={opt.type}
-                activeOpacity={0.8}
-                onPress={() => setDiscountType(opt.type)}
-                className={`flex-1 flex-row items-center justify-center rounded-lg py-2.5 ${active ? 'bg-brand-500' : ''}`}>
-                <MaterialCommunityIcons
-                  name={opt.icon}
-                  size={16}
-                  color={active ? 'white' : '#9CA3AF'}
-                />
-                <Text
-                  className={`ml-1.5 text-sm font-semibold ${active ? 'text-white' : subtextColor}`}>
-                  {opt.label}
-                </Text>
+                className={dateField}
+                activeOpacity={0.75}
+                onPress={() => setShowStartPicker((v) => !v)}>
+                <Text className={`text-sm ${textColor}`}>{fmtDate(startDate)}</Text>
+                <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
               </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Amount */}
-        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
-          {isPercent ? t('promotions.discountPercentage') : t('promotions.discountAmount')}
-        </Text>
-        <View
-          className={`${inputBg} border ${borderColor} mb-5 flex-row items-center rounded-xl px-4`}>
-          {/* The currency sits on whichever side its convention calls for; a percentage
-              keeps its own trailing "%". */}
-          {!isPercent && currencyPrefix ? (
-            <Text className={`text-sm font-semibold ${subtextColor} mr-1`}>{currencyPrefix}</Text>
-          ) : null}
-          <TextInput
-            className={`flex-1 py-3.5 text-sm ${textColor}`}
-            // See CurrencyInput: an <input> won't shrink below its intrinsic width in a
-            // flex row without this, pushing the affix outside the box on web.
-            style={{ minWidth: 0 }}
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
-            placeholder={isPercent ? 'e.g. 20' : 'e.g. 10'}
-            placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
-          />
-          {isPercent && <Text className={`text-sm font-semibold ${subtextColor}`}>%</Text>}
-          {!isPercent && currencySuffix ? (
-            <Text className={`text-sm font-semibold ${subtextColor}`}>{currencySuffix}</Text>
-          ) : null}
-        </View>
-
-        {/* Date range */}
-        <Text className={`text-sm font-semibold ${labelColor} mb-2`}>
-          {t('promotions.activePeriod')}
-        </Text>
-        <View className="mb-2 flex-row gap-3">
-          <View className="flex-1">
-            <Text className={`text-xs ${subtextColor} mb-1.5`}>{t('promotions.startDate')}</Text>
-            <TouchableOpacity
-              accessibilityRole="button"
-              className={dateField}
-              activeOpacity={0.75}
-              onPress={() => setShowStartPicker((v) => !v)}>
-              <Text className={`text-sm ${textColor}`}>{fmtDate(startDate)}</Text>
-              <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
-            </TouchableOpacity>
+            </View>
+            <View className="flex-1">
+              <Text className={`text-xs ${subtextColor} mb-1.5`}>{t('promotions.endDate')}</Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                className={dateField}
+                activeOpacity={0.75}
+                onPress={() => setShowEndPicker((v) => !v)}>
+                <Text className={`text-sm ${endDate ? textColor : subtextColor}`}>
+                  {endDate ? fmtDate(endDate) : t('promotions.noEndDate')}
+                </Text>
+                <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
           </View>
-          <View className="flex-1">
-            <Text className={`text-xs ${subtextColor} mb-1.5`}>{t('promotions.endDate')}</Text>
+          {endDate && (
             <TouchableOpacity
               accessibilityRole="button"
-              className={dateField}
-              activeOpacity={0.75}
-              onPress={() => setShowEndPicker((v) => !v)}>
-              <Text className={`text-sm ${endDate ? textColor : subtextColor}`}>
-                {endDate ? fmtDate(endDate) : t('promotions.noEndDate')}
+              onPress={() => setEndDate(null)}
+              activeOpacity={0.7}
+              className="mb-2 self-start">
+              <Text className="text-xs font-semibold text-brand-600">
+                {t('promotions.clearEndDate')}
               </Text>
-              <Ionicons name="calendar-outline" size={18} color="#9CA3AF" />
             </TouchableOpacity>
-          </View>
-        </View>
-        {endDate && (
+          )}
+
+          {showStartPicker && (
+            <DatePicker
+              value={startDate}
+              isDarkMode={isDarkMode}
+              onChange={(date) => {
+                if (date) {
+                  const d = startOfDay(date);
+                  setStartDate(d);
+                  if (endDate && endDate < d) setEndDate(null);
+                }
+                setShowStartPicker(false);
+              }}
+              onClose={() => setShowStartPicker(false)}
+            />
+          )}
+          {showEndPicker && (
+            <DatePicker
+              value={endDate ?? startDate}
+              minDate={startDate}
+              isDarkMode={isDarkMode}
+              onChange={(date) => {
+                if (date) setEndDate(startOfDay(date));
+                setShowEndPicker(false);
+              }}
+              onClose={() => setShowEndPicker(false)}
+            />
+          )}
+
+          {/* Create */}
           <TouchableOpacity
             accessibilityRole="button"
-            onPress={() => setEndDate(null)}
-            activeOpacity={0.7}
-            className="mb-2 self-start">
-            <Text className="text-xs font-semibold text-brand-600">
-              {t('promotions.clearEndDate')}
-            </Text>
+            onPress={handleCreate}
+            disabled={isSubmitting || !canSubmit}
+            activeOpacity={0.8}
+            className="mt-4 items-center rounded-2xl bg-brand-500 py-4"
+            style={{ opacity: isSubmitting || !canSubmit ? 0.6 : 1 }}>
+            {isSubmitting ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text className="text-base font-bold text-white">{t('promotions.createOffer')}</Text>
+            )}
           </TouchableOpacity>
-        )}
-
-        {showStartPicker && (
-          <DatePicker
-            value={startDate}
-            isDarkMode={isDarkMode}
-            onChange={(date) => {
-              if (date) {
-                const d = startOfDay(date);
-                setStartDate(d);
-                if (endDate && endDate < d) setEndDate(null);
-              }
-              setShowStartPicker(false);
-            }}
-            onClose={() => setShowStartPicker(false)}
-          />
-        )}
-        {showEndPicker && (
-          <DatePicker
-            value={endDate ?? startDate}
-            minDate={startDate}
-            isDarkMode={isDarkMode}
-            onChange={(date) => {
-              if (date) setEndDate(startOfDay(date));
-              setShowEndPicker(false);
-            }}
-            onClose={() => setShowEndPicker(false)}
-          />
-        )}
-
-        {/* Create */}
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={handleCreate}
-          disabled={isSubmitting || !canSubmit}
-          activeOpacity={0.8}
-          className="mt-4 items-center rounded-2xl bg-brand-500 py-4"
-          style={{ opacity: isSubmitting || !canSubmit ? 0.6 : 1 }}>
-          {isSubmitting ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text className="text-base font-bold text-white">{t('promotions.createOffer')}</Text>
-          )}
-        </TouchableOpacity>
+        </FormCard>
       </ScrollView>
     </ScreenLayout>
   );
