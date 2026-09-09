@@ -5,6 +5,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocation } from '../../../hooks/useLocation';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import FormCard from '../../../components/shared/FormCard';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { AddressDto } from '../../../services/service-providers';
 import { PersonalInfoStep, ServiceInfoStep } from '../../partner-application-screen/components';
@@ -114,24 +115,26 @@ export default function AdminAddPartnerScreen() {
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingTop: 24, paddingBottom: 100, paddingHorizontal: 24 }}>
-        {step === 1 && (
-          <PersonalInfoStep
-            onContinue={handleContinue}
-            formData={formData}
-            setFormData={setFormData}
-            onOpenAddressMap={() => setAddressPickerVisible(true)}
-            {...themeProps}
-          />
-        )}
+        <FormCard>
+          {step === 1 && (
+            <PersonalInfoStep
+              onContinue={handleContinue}
+              formData={formData}
+              setFormData={setFormData}
+              onOpenAddressMap={() => setAddressPickerVisible(true)}
+              {...themeProps}
+            />
+          )}
 
-        {step === 2 && (
-          <ServiceInfoStep
-            formData={formData}
-            setFormData={setFormData}
-            onContinue={handleContinue}
-            {...themeProps}
-          />
-        )}
+          {step === 2 && (
+            <ServiceInfoStep
+              formData={formData}
+              setFormData={setFormData}
+              onContinue={handleContinue}
+              {...themeProps}
+            />
+          )}
+        </FormCard>
       </ScrollView>
 
       {/* Fixed Bottom Button */}

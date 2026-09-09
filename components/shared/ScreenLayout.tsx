@@ -110,7 +110,15 @@ export default function ScreenLayout({
       // Transparent: the shell paints the page ground and the pattern texture behind this, and
       // an opaque screen root would cover both. Content that must stay readable paints its own
       // surface — every card, sheet and empty state in the app does.
-      <View style={{ flex: 1 }}>
+      //
+      // `flexBasis: 'auto'` so the screen sizes to its content: the page is what scrolls now, and
+      // a zero basis would cap it at the viewport with the overflow hidden below the fold.
+      // The page's one scroller, and deliberately full width: its scrollbar then lands on the
+      // window edge, where a page scrollbar belongs. Capping this instead (as the column below
+      // is capped) is what used to leave a scrollbar floating in the middle of the page.
+      // Screens' own ScrollViews are flattened on web so this is the only scroll pane —
+      // see styles/document-scroll.web.ts.
+      <View style={{ flex: 1, minHeight: 0, overflowY: 'auto' } as any}>
         {/*
           Two containers, not one: the header needs the column's horizontal gutters, but the body
           does not — screens already pad their own ScrollViews (`px-6`), and nesting a padded
@@ -129,7 +137,7 @@ export default function ScreenLayout({
           </PageHeader>
         </ContentContainer>
 
-        <ContentContainer width={width} noPadding style={{ flex: 1, minHeight: 0 }}>
+        <ContentContainer width={width} noPadding>
           {children}
         </ContentContainer>
 

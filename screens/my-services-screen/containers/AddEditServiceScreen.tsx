@@ -21,6 +21,7 @@ import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import TimePicker, { formatTime24 } from '../../../components/shared/TimePicker';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import FormCard from '../../../components/shared/FormCard';
 import CurrencyInput from '../../../components/shared/CurrencyInput';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { useLocation } from '../../../hooks/useLocation';
@@ -496,606 +497,625 @@ export default function AddEditServiceScreen() {
       // away from the input it names.
       width="narrow">
       <ScrollView className="flex-1 px-6 py-6" showsVerticalScrollIndicator={false}>
-        {/* Service Type */}
-        <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-            {t('addEditService.serviceType')}
-          </Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => setShowServiceTypeModal(true)}
-            className={`${inputBg} flex-row items-center justify-between rounded-xl px-4 py-3`}>
-            <Text className={serviceType ? textColor : `${subtextColor}`}>
-              {serviceType ? typeLabel(serviceType) : t('addEditService.selectServiceType')}
+        <FormCard>
+          {/* Service Type */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('addEditService.serviceType')}
             </Text>
-            <Ionicons name="chevron-down" size={20} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Service Name */}
-        <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-            {t('addEditService.serviceName')}
-          </Text>
-          <TextInput
-            placeholder={t('addEditService.serviceNamePlaceholder')}
-            placeholderTextColor={placeholderColor}
-            className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
-            {...form.field('serviceName')}
-            value={serviceName}
-            onChangeText={setServiceName}
-          />
-        </View>
-
-        {/* Description */}
-        <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-            {t('addEditService.descriptionLabel')}
-          </Text>
-          <TextInput
-            placeholder={t('addEditService.descriptionPlaceholder')}
-            placeholderTextColor={placeholderColor}
-            className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
-            {...form.field('description')}
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
-        </View>
-
-        {/* Service Location — picked on a map, or copied from the profile */}
-        <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-            {t('addEditService.serviceLocation')}
-          </Text>
-          <Text className={`${subtextColor} mb-3 text-sm`}>
-            {t('addEditService.serviceLocationHint')}
-          </Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => setShowAddressPicker(true)}
-            className={`${inputBg} flex-row items-center rounded-xl px-4 py-3`}>
-            <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
-            <Text
-              className={`ml-3 flex-1 ${currentAddress ? inputText : subtextColor}`}
-              numberOfLines={2}>
-              {currentAddress ? addressLabel(currentAddress) : t('bookService.pickOnMap')}
-            </Text>
-            <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
-          </TouchableOpacity>
-          {profileAddress && (
             <TouchableOpacity
               accessibilityRole="button"
-              onPress={useProfileAddress}
-              className="mt-2 flex-row items-center">
-              <Ionicons name="home-outline" size={16} color={BRAND_GREEN} />
-              <Text className="ml-2 text-sm font-semibold text-brand-500">
-                {t('addEditService.useProfileAddress')}
+              onPress={() => setShowServiceTypeModal(true)}
+              className={`${inputBg} flex-row items-center justify-between rounded-xl px-4 py-3`}>
+              <Text className={serviceType ? textColor : `${subtextColor}`}>
+                {serviceType ? typeLabel(serviceType) : t('addEditService.selectServiceType')}
               </Text>
+              <Ionicons name="chevron-down" size={20} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
 
-        {/* Service Images */}
-        <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-            {t('addEditService.serviceImages')}
-          </Text>
-          <Text className={`${subtextColor} mb-3 text-sm`}>
-            {t('addEditService.serviceImagesHint')}
-          </Text>
-          <View className="flex-row flex-wrap gap-2">
-            {serviceImages.map((img, index) => (
-              <View key={index} className="relative" style={{ width: 80, height: 80 }}>
+          {/* Service Name */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('addEditService.serviceName')}
+            </Text>
+            <TextInput
+              placeholder={t('addEditService.serviceNamePlaceholder')}
+              placeholderTextColor={placeholderColor}
+              className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
+              {...form.field('serviceName')}
+              value={serviceName}
+              onChangeText={setServiceName}
+            />
+          </View>
+
+          {/* Description */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('addEditService.descriptionLabel')}
+            </Text>
+            <TextInput
+              placeholder={t('addEditService.descriptionPlaceholder')}
+              placeholderTextColor={placeholderColor}
+              className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
+              {...form.field('description')}
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+          </View>
+
+          {/* Service Location — picked on a map, or copied from the profile */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('addEditService.serviceLocation')}
+            </Text>
+            <Text className={`${subtextColor} mb-3 text-sm`}>
+              {t('addEditService.serviceLocationHint')}
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => setShowAddressPicker(true)}
+              className={`${inputBg} flex-row items-center rounded-xl px-4 py-3`}>
+              <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
+              <Text
+                className={`ml-3 flex-1 ${currentAddress ? inputText : subtextColor}`}
+                numberOfLines={2}>
+                {currentAddress ? addressLabel(currentAddress) : t('bookService.pickOnMap')}
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+              />
+            </TouchableOpacity>
+            {profileAddress && (
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={useProfileAddress}
+                className="mt-2 flex-row items-center">
+                <Ionicons name="home-outline" size={16} color={BRAND_GREEN} />
+                <Text className="ml-2 text-sm font-semibold text-brand-500">
+                  {t('addEditService.useProfileAddress')}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Service Images */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('addEditService.serviceImages')}
+            </Text>
+            <Text className={`${subtextColor} mb-3 text-sm`}>
+              {t('addEditService.serviceImagesHint')}
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {serviceImages.map((img, index) => (
+                <View key={index} className="relative" style={{ width: 80, height: 80 }}>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    activeOpacity={0.8}
+                    onPress={() => setMainImageIndex(index)}>
+                    <Image
+                      source={{ uri: img.uri }}
+                      style={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: 12,
+                        borderWidth: index === mainImageIndex ? 2 : 0,
+                        borderColor: BRAND_GREEN,
+                      }}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                  {index === mainImageIndex && (
+                    <View
+                      className="absolute bottom-0 left-0 right-0 items-center bg-brand-500"
+                      style={{
+                        paddingVertical: 2,
+                        borderBottomLeftRadius: 12,
+                        borderBottomRightRadius: 12,
+                      }}>
+                      <Text style={{ color: 'white', fontSize: 9, fontWeight: '700' }}>
+                        {t('addPet.profileBadge')}
+                      </Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.close')}
+                    onPress={() => removeImage(index)}
+                    className="absolute -right-1.5 -top-1.5 h-5 w-5 items-center justify-center rounded-full bg-red-500"
+                    style={{ elevation: 3 }}>
+                    <Ionicons name="close" size={12} color="white" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={handleAddPhoto}
+                className={`${inputBg} border ${borderColor} items-center justify-center rounded-xl border-dashed`}
+                style={{ width: 80, height: 80 }}>
+                <Ionicons name="camera-outline" size={24} color="#6B7280" />
+                <Text className={`${subtextColor} mt-1 text-xs`}>
+                  {t('addEditService.addPhoto')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Pricing & Duration */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-1`}>
+              {t('addEditService.pricingDuration')}
+            </Text>
+            <Text className={`${subtextColor} mb-3 text-sm`}>
+              {t('addEditService.pricingDurationHint')}
+            </Text>
+            {pricingTiers.map((tier, index) => (
+              <View key={index} className="mb-3 flex-row items-center" style={{ gap: 8 }}>
+                {/* Duration picker */}
                 <TouchableOpacity
                   accessibilityRole="button"
-                  activeOpacity={0.8}
-                  onPress={() => setMainImageIndex(index)}>
-                  <Image
-                    source={{ uri: img.uri }}
-                    style={{
-                      width: 80,
-                      height: 80,
-                      borderRadius: 12,
-                      borderWidth: index === mainImageIndex ? 2 : 0,
-                      borderColor: BRAND_GREEN,
-                    }}
-                    resizeMode="cover"
+                  onPress={() => {
+                    setDurationModalIndex(index);
+                    setShowDurationModal(true);
+                  }}
+                  className={`${inputBg} flex-1 flex-row items-center justify-between rounded-xl px-3 py-3`}>
+                  <Text
+                    className={`${tier.duration ? inputText : subtextColor} text-sm`}
+                    numberOfLines={1}>
+                    {tier.duration || t('addEditService.duration')}
+                  </Text>
+                  <Ionicons
+                    name="chevron-down"
+                    size={16}
+                    color={isDarkMode ? '#9CA3AF' : '#6B7280'}
                   />
                 </TouchableOpacity>
-                {index === mainImageIndex && (
-                  <View
-                    className="absolute bottom-0 left-0 right-0 items-center bg-brand-500"
-                    style={{
-                      paddingVertical: 2,
-                      borderBottomLeftRadius: 12,
-                      borderBottomRightRadius: 12,
-                    }}>
-                    <Text style={{ color: 'white', fontSize: 9, fontWeight: '700' }}>
-                      {t('addPet.profileBadge')}
+
+                {/* Price input — flex-1 fills remaining space before Remove */}
+                <CurrencyInput
+                  currency={currencyCode}
+                  containerClassName={`${inputBg} flex-1 rounded-xl px-3 py-3`}
+                  inputClassName={`${inputText} text-sm`}
+                  affixClassName={subtextColor}
+                  placeholder="25"
+                  placeholderTextColor={placeholderColor}
+                  style={{ padding: 0, outlineStyle: 'none' } as any}
+                  value={tier.price}
+                  onChangeText={(value) => updatePricingTier(index, 'price', value)}
+                  maxLength={5}
+                />
+
+                {/* Remove — fixed width so it always sits at the right edge */}
+                {pricingTiers.length > 1 ? (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => removePricingTier(index)}
+                    style={{ width: 56, alignItems: 'flex-end' }}>
+                    <Text className="text-sm font-medium text-red-500">
+                      {t('addEditService.remove')}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={{ width: 56 }} />
                 )}
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  accessibilityLabel={t('common.close')}
-                  onPress={() => removeImage(index)}
-                  className="absolute -right-1.5 -top-1.5 h-5 w-5 items-center justify-center rounded-full bg-red-500"
-                  style={{ elevation: 3 }}>
-                  <Ionicons name="close" size={12} color="white" />
-                </TouchableOpacity>
               </View>
             ))}
             <TouchableOpacity
               accessibilityRole="button"
-              onPress={handleAddPhoto}
-              className={`${inputBg} border ${borderColor} items-center justify-center rounded-xl border-dashed`}
-              style={{ width: 80, height: 80 }}>
-              <Ionicons name="camera-outline" size={24} color="#6B7280" />
-              <Text className={`${subtextColor} mt-1 text-xs`}>{t('addEditService.addPhoto')}</Text>
+              onPress={addPricingTier}
+              className="items-center rounded-xl py-3"
+              style={{
+                borderWidth: 2,
+                borderStyle: 'dashed',
+                borderColor: isDarkMode ? '#374151' : '#D1D5DB',
+              }}>
+              <View className="flex-row items-center">
+                <Ionicons name="add-circle-outline" size={20} color={BRAND_GREEN} />
+                <Text className="ml-2 font-semibold text-brand-500">
+                  {t('addEditService.addPriceTier')}
+                </Text>
+              </View>
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Pricing & Duration */}
-        <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-1`}>
-            {t('addEditService.pricingDuration')}
-          </Text>
-          <Text className={`${subtextColor} mb-3 text-sm`}>
-            {t('addEditService.pricingDurationHint')}
-          </Text>
-          {pricingTiers.map((tier, index) => (
-            <View key={index} className="mb-3 flex-row items-center" style={{ gap: 8 }}>
-              {/* Duration picker */}
-              <TouchableOpacity
-                accessibilityRole="button"
-                onPress={() => {
-                  setDurationModalIndex(index);
-                  setShowDurationModal(true);
-                }}
-                className={`${inputBg} flex-1 flex-row items-center justify-between rounded-xl px-3 py-3`}>
-                <Text
-                  className={`${tier.duration ? inputText : subtextColor} text-sm`}
-                  numberOfLines={1}>
-                  {tier.duration || t('addEditService.duration')}
-                </Text>
-                <Ionicons
-                  name="chevron-down"
-                  size={16}
-                  color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-                />
-              </TouchableOpacity>
-
-              {/* Price input — flex-1 fills remaining space before Remove */}
-              <CurrencyInput
-                currency={currencyCode}
-                containerClassName={`${inputBg} flex-1 rounded-xl px-3 py-3`}
-                inputClassName={`${inputText} text-sm`}
-                affixClassName={subtextColor}
-                placeholder="25"
-                placeholderTextColor={placeholderColor}
-                style={{ padding: 0, outlineStyle: 'none' } as any}
-                value={tier.price}
-                onChangeText={(value) => updatePricingTier(index, 'price', value)}
-                maxLength={5}
-              />
-
-              {/* Remove — fixed width so it always sits at the right edge */}
-              {pricingTiers.length > 1 ? (
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={() => removePricingTier(index)}
-                  style={{ width: 56, alignItems: 'flex-end' }}>
-                  <Text className="text-sm font-medium text-red-500">
-                    {t('addEditService.remove')}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={{ width: 56 }} />
-              )}
-            </View>
-          ))}
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={addPricingTier}
-            className="items-center rounded-xl py-3"
-            style={{
-              borderWidth: 2,
-              borderStyle: 'dashed',
-              borderColor: isDarkMode ? '#374151' : '#D1D5DB',
-            }}>
-            <View className="flex-row items-center">
-              <Ionicons name="add-circle-outline" size={20} color={BRAND_GREEN} />
-              <Text className="ml-2 font-semibold text-brand-500">
-                {t('addEditService.addPriceTier')}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Maximum Pet Capacity */}
-        <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-            {t('addEditService.maxCapacity')}
-          </Text>
-          <Text className={`${subtextColor} mb-2 text-sm`}>
-            {t('addEditService.maxCapacityHint')}
-          </Text>
-          <View className={`${inputBg} flex-row items-center rounded-xl px-4 py-3`}>
-            <Ionicons name="paw-outline" size={18} color={BRAND_GREEN} />
-            <TextInput
-              placeholder="1"
-              placeholderTextColor={placeholderColor}
-              className={`${inputText} ml-2 flex-1`}
-              style={{ padding: 0, outlineStyle: 'none' } as any}
-              value={maxPetCapacity}
-              onChangeText={(value) => setMaxPetCapacity(value.replace(/[^0-9]/g, ''))}
-              keyboardType="numeric"
-              maxLength={3}
-              selectionColor={BRAND_GREEN}
-              cursorColor={BRAND_GREEN}
-            />
-          </View>
-        </View>
-
-        {/* Additional Services */}
-        <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-1`}>
-            {t('addEditService.additionalServicesOffered')}
-          </Text>
-          <Text className={`${subtextColor} mb-3 text-sm`}>
-            {t('addEditService.additionalServicesHint')}
-          </Text>
-
-          {additionalServices.length === 0 && (
-            <Text className={`${subtextColor} mb-3 text-sm italic`}>
-              {t('addEditService.extraNoneYet')}
+          {/* Maximum Pet Capacity */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('addEditService.maxCapacity')}
             </Text>
-          )}
+            <Text className={`${subtextColor} mb-2 text-sm`}>
+              {t('addEditService.maxCapacityHint')}
+            </Text>
+            <View className={`${inputBg} flex-row items-center rounded-xl px-4 py-3`}>
+              <Ionicons name="paw-outline" size={18} color={BRAND_GREEN} />
+              <TextInput
+                placeholder="1"
+                placeholderTextColor={placeholderColor}
+                className={`${inputText} ml-2 flex-1`}
+                style={{ padding: 0, outlineStyle: 'none' } as any}
+                value={maxPetCapacity}
+                onChangeText={(value) => setMaxPetCapacity(value.replace(/[^0-9]/g, ''))}
+                keyboardType="numeric"
+                maxLength={3}
+                selectionColor={BRAND_GREEN}
+                cursorColor={BRAND_GREEN}
+              />
+            </View>
+          </View>
 
-          {additionalServices.map((service, index) => {
-            const perDistance = service.chargeType === AdditionalServiceChargeType.PerDistance;
-            return (
-              <View
-                key={service.id ?? `new-${index}`}
-                className={`${inputBg} mb-3 rounded-xl border-2 border-brand-300 p-4`}>
-                {/* Derived title + remove. The provider doesn't name an extra — a per-distance
+          {/* Additional Services */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-1`}>
+              {t('addEditService.additionalServicesOffered')}
+            </Text>
+            <Text className={`${subtextColor} mb-3 text-sm`}>
+              {t('addEditService.additionalServicesHint')}
+            </Text>
+
+            {additionalServices.length === 0 && (
+              <Text className={`${subtextColor} mb-3 text-sm italic`}>
+                {t('addEditService.extraNoneYet')}
+              </Text>
+            )}
+
+            {additionalServices.map((service, index) => {
+              const perDistance = service.chargeType === AdditionalServiceChargeType.PerDistance;
+              return (
+                <View
+                  key={service.id ?? `new-${index}`}
+                  className={`${inputBg} mb-3 rounded-xl border-2 border-brand-300 p-4`}>
+                  {/* Derived title + remove. The provider doesn't name an extra — a per-distance
                     one is named for its journey and a flat one takes the service's name — so this
                     previews what the customer will see on their bill instead of asking for it. */}
-                <View className="mb-3 flex-row items-center justify-between">
-                  <Text className={`${inputText} mr-2 flex-1 font-medium`} numberOfLines={1}>
-                    {extraTitle(service)}
-                  </Text>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => removeAdditionalService(index)}
-                    accessibilityLabel={t('addEditService.removeExtra')}>
-                    <Ionicons name="trash-outline" size={20} color={isDarkMode ? '#fff' : '#000'} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Offered on/off — keeps the config but hides it from new bookings */}
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={() => patchAdditionalService(index, { enabled: !service.enabled })}
-                  className="mb-3 flex-row items-center">
-                  <Ionicons
-                    name={service.enabled ? 'checkbox' : 'square-outline'}
-                    size={20}
-                    color={service.enabled ? BRAND_GREEN : isDarkMode ? '#8b9cb3' : '#6b7280'}
-                  />
-                  <Text className={`${subtextColor} ml-2 text-sm`}>
-                    {service.enabled
-                      ? t('addEditService.extraActive')
-                      : t('addEditService.extraInactive')}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Charge type: flat fee vs priced by trip distance */}
-                <Text className={`${subtextColor} mb-2 text-sm`}>
-                  {t('addEditService.chargeTypeHint')}
-                </Text>
-                <View className="mb-3 flex-row gap-2">
-                  {[
-                    {
-                      value: AdditionalServiceChargeType.Flat,
-                      label: t('addEditService.chargeFlat'),
-                    },
-                    {
-                      value: AdditionalServiceChargeType.PerDistance,
-                      label: t('addEditService.chargePerDistance'),
-                    },
-                  ].map((opt) => (
+                  <View className="mb-3 flex-row items-center justify-between">
+                    <Text className={`${inputText} mr-2 flex-1 font-medium`} numberOfLines={1}>
+                      {extraTitle(service)}
+                    </Text>
                     <TouchableOpacity
                       accessibilityRole="button"
-                      key={opt.value}
-                      onPress={() => setChargeType(index, opt.value)}
-                      className={`flex-1 rounded-xl px-3 py-2 ${
-                        service.chargeType === opt.value
-                          ? 'bg-brand-500'
-                          : `${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}`
-                      }`}>
-                      <Text
-                        className={`text-center text-sm ${
-                          service.chargeType === opt.value ? 'font-medium text-white' : textColor
-                        }`}>
-                        {opt.label}
-                      </Text>
+                      onPress={() => removeAdditionalService(index)}
+                      accessibilityLabel={t('addEditService.removeExtra')}>
+                      <Ionicons
+                        name="trash-outline"
+                        size={20}
+                        color={isDarkMode ? '#fff' : '#000'}
+                      />
                     </TouchableOpacity>
-                  ))}
-                </View>
+                  </View>
 
-                {/* Flat price */}
-                {!perDistance && (
-                  <>
-                    <Text className={`${subtextColor} mb-2 text-sm`}>
-                      {t('addEditService.priceFreeHint')}
-                    </Text>
-                    <CurrencyInput
-                      currency={currencyCode}
-                      containerClassName={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} rounded-xl px-4 py-3`}
-                      inputClassName={inputText}
-                      affixClassName={subtextColor}
-                      placeholder="0"
-                      placeholderTextColor={placeholderColor}
-                      value={service.price}
-                      onChangeText={(value) => updateAdditionalServiceField(index, 'price', value)}
+                  {/* Offered on/off — keeps the config but hides it from new bookings */}
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => patchAdditionalService(index, { enabled: !service.enabled })}
+                    className="mb-3 flex-row items-center">
+                    <Ionicons
+                      name={service.enabled ? 'checkbox' : 'square-outline'}
+                      size={20}
+                      color={service.enabled ? BRAND_GREEN : isDarkMode ? '#8b9cb3' : '#6b7280'}
                     />
-                  </>
-                )}
-
-                {/* Distance-based pricing */}
-                {perDistance && (
-                  <View>
-                    {/* Which journey — decides which of the booking's two measured legs this bills */}
-                    <Text className={`${subtextColor} mb-2 text-sm`}>
-                      {t('addEditService.journeyHint')}
+                    <Text className={`${subtextColor} ml-2 text-sm`}>
+                      {service.enabled
+                        ? t('addEditService.extraActive')
+                        : t('addEditService.extraInactive')}
                     </Text>
-                    <View className="mb-3">
-                      {[
-                        { value: DistanceLeg.Pickup, label: t('addEditService.legPickup') },
-                        { value: DistanceLeg.DropOff, label: t('addEditService.legDropOff') },
-                        { value: DistanceLeg.RoundTrip, label: t('addEditService.legRoundTrip') },
-                      ].map((opt) => (
-                        <TouchableOpacity
-                          accessibilityRole="button"
-                          key={opt.value}
-                          onPress={() => patchAdditionalService(index, { distanceLeg: opt.value })}
-                          className="mb-1 flex-row items-center">
-                          <Ionicons
-                            name={
-                              service.distanceLeg === opt.value
-                                ? 'radio-button-on'
-                                : 'radio-button-off'
+                  </TouchableOpacity>
+
+                  {/* Charge type: flat fee vs priced by trip distance */}
+                  <Text className={`${subtextColor} mb-2 text-sm`}>
+                    {t('addEditService.chargeTypeHint')}
+                  </Text>
+                  <View className="mb-3 flex-row gap-2">
+                    {[
+                      {
+                        value: AdditionalServiceChargeType.Flat,
+                        label: t('addEditService.chargeFlat'),
+                      },
+                      {
+                        value: AdditionalServiceChargeType.PerDistance,
+                        label: t('addEditService.chargePerDistance'),
+                      },
+                    ].map((opt) => (
+                      <TouchableOpacity
+                        accessibilityRole="button"
+                        key={opt.value}
+                        onPress={() => setChargeType(index, opt.value)}
+                        className={`flex-1 rounded-xl px-3 py-2 ${
+                          service.chargeType === opt.value
+                            ? 'bg-brand-500'
+                            : `${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}`
+                        }`}>
+                        <Text
+                          className={`text-center text-sm ${
+                            service.chargeType === opt.value ? 'font-medium text-white' : textColor
+                          }`}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Flat price */}
+                  {!perDistance && (
+                    <>
+                      <Text className={`${subtextColor} mb-2 text-sm`}>
+                        {t('addEditService.priceFreeHint')}
+                      </Text>
+                      <CurrencyInput
+                        currency={currencyCode}
+                        containerClassName={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} rounded-xl px-4 py-3`}
+                        inputClassName={inputText}
+                        affixClassName={subtextColor}
+                        placeholder="0"
+                        placeholderTextColor={placeholderColor}
+                        value={service.price}
+                        onChangeText={(value) =>
+                          updateAdditionalServiceField(index, 'price', value)
+                        }
+                      />
+                    </>
+                  )}
+
+                  {/* Distance-based pricing */}
+                  {perDistance && (
+                    <View>
+                      {/* Which journey — decides which of the booking's two measured legs this bills */}
+                      <Text className={`${subtextColor} mb-2 text-sm`}>
+                        {t('addEditService.journeyHint')}
+                      </Text>
+                      <View className="mb-3">
+                        {[
+                          { value: DistanceLeg.Pickup, label: t('addEditService.legPickup') },
+                          { value: DistanceLeg.DropOff, label: t('addEditService.legDropOff') },
+                          { value: DistanceLeg.RoundTrip, label: t('addEditService.legRoundTrip') },
+                        ].map((opt) => (
+                          <TouchableOpacity
+                            accessibilityRole="button"
+                            key={opt.value}
+                            onPress={() =>
+                              patchAdditionalService(index, { distanceLeg: opt.value })
                             }
-                            size={18}
-                            color={
-                              service.distanceLeg === opt.value
-                                ? BRAND_GREEN
-                                : isDarkMode
-                                  ? '#8b9cb3'
-                                  : '#6b7280'
-                            }
-                          />
-                          <Text className={`${textColor} ml-2 text-sm`}>{opt.label}</Text>
-                        </TouchableOpacity>
-                      ))}
+                            className="mb-1 flex-row items-center">
+                            <Ionicons
+                              name={
+                                service.distanceLeg === opt.value
+                                  ? 'radio-button-on'
+                                  : 'radio-button-off'
+                              }
+                              size={18}
+                              color={
+                                service.distanceLeg === opt.value
+                                  ? BRAND_GREEN
+                                  : isDarkMode
+                                    ? '#8b9cb3'
+                                    : '#6b7280'
+                              }
+                            />
+                            <Text className={`${textColor} ml-2 text-sm`}>{opt.label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+
+                      <Text className={`${subtextColor} mb-2 text-sm`}>
+                        {t('addEditService.baseFeeHint')}
+                      </Text>
+                      <CurrencyInput
+                        currency={currencyCode}
+                        containerClassName={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} mb-3 rounded-xl px-4 py-3`}
+                        inputClassName={inputText}
+                        affixClassName={subtextColor}
+                        placeholder="0"
+                        placeholderTextColor={placeholderColor}
+                        value={service.baseFee}
+                        onChangeText={(value) =>
+                          updateAdditionalServiceField(index, 'baseFee', value)
+                        }
+                      />
+
+                      <Text className={`${subtextColor} mb-2 text-sm`}>
+                        {t('addEditService.distancePricingHint')}
+                      </Text>
+
+                      {/* Per-km fee */}
+                      <Text className={`${textColor} mb-1 text-sm font-medium`}>
+                        {t('addEditService.perKmFee')}
+                      </Text>
+                      <CurrencyInput
+                        currency={currencyCode}
+                        containerClassName={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} mb-3 rounded-xl px-4 py-3`}
+                        inputClassName={inputText}
+                        affixClassName={subtextColor}
+                        placeholder="0"
+                        placeholderTextColor={placeholderColor}
+                        value={service.perKmFee}
+                        onChangeText={(value) =>
+                          updateAdditionalServiceField(index, 'perKmFee', value)
+                        }
+                      />
+
+                      {/* Free distance + Max distance side by side */}
+                      <View className="flex-row gap-3">
+                        <View className="flex-1">
+                          <Text className={`${textColor} mb-1 text-sm font-medium`}>
+                            {t('addEditService.freeDistance')}
+                          </Text>
+                          <View
+                            className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
+                            <TextInput
+                              placeholder="0"
+                              placeholderTextColor={placeholderColor}
+                              className={`${inputText} flex-1`}
+                              // minWidth:0 lets the input shrink within its
+                              // flex-1 column so the "km" suffix stays inside the
+                              // box on web (without it the input keeps its content
+                              // width and pushes "km" past the card edge).
+                              style={{ minWidth: 0 } as any}
+                              value={service.freeDistanceKm}
+                              onChangeText={(value) =>
+                                updateAdditionalServiceField(index, 'freeDistanceKm', value)
+                              }
+                              keyboardType="numeric"
+                            />
+                            <Text className={`${subtextColor} ml-1`}>{t('addEditService.km')}</Text>
+                          </View>
+                        </View>
+                        <View className="flex-1">
+                          <Text className={`${textColor} mb-1 text-sm font-medium`}>
+                            {t('addEditService.maxDistance')}
+                          </Text>
+                          <View
+                            className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
+                            <TextInput
+                              placeholder="∞"
+                              placeholderTextColor={placeholderColor}
+                              className={`${inputText} flex-1`}
+                              // See freeDistanceKm above — minWidth:0 keeps "km" inside the box.
+                              style={{ minWidth: 0 } as any}
+                              value={service.maxDistanceKm}
+                              onChangeText={(value) =>
+                                updateAdditionalServiceField(index, 'maxDistanceKm', value)
+                              }
+                              keyboardType="numeric"
+                            />
+                            <Text className={`${subtextColor} ml-1`}>{t('addEditService.km')}</Text>
+                          </View>
+                        </View>
+                      </View>
                     </View>
+                  )}
+                </View>
+              );
+            })}
 
-                    <Text className={`${subtextColor} mb-2 text-sm`}>
-                      {t('addEditService.baseFeeHint')}
-                    </Text>
-                    <CurrencyInput
-                      currency={currencyCode}
-                      containerClassName={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} mb-3 rounded-xl px-4 py-3`}
-                      inputClassName={inputText}
-                      affixClassName={subtextColor}
-                      placeholder="0"
-                      placeholderTextColor={placeholderColor}
-                      value={service.baseFee}
-                      onChangeText={(value) =>
-                        updateAdditionalServiceField(index, 'baseFee', value)
-                      }
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={addAdditionalService}
+              className={`${cardBg} border ${borderColor} flex-row items-center justify-center rounded-xl px-4 py-3`}>
+              <Ionicons name="add" size={18} color={BRAND_GREEN} />
+              <Text className="ml-1 font-medium text-brand-500">
+                {t('addEditService.addExtra')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Working Hours */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-1`}>
+              {t('addEditService.workingHours')}
+            </Text>
+            <Text className={`${subtextColor} mb-3 text-sm`}>
+              {t('addEditService.workingHoursHint')}
+            </Text>
+
+            {!anyDayEnabled && (
+              <View className={`${inputBg} mb-3 flex-row items-center rounded-xl p-4`}>
+                <View className="mr-3 h-2 w-2 rounded-full bg-gray-400" />
+                <View className="flex-1">
+                  <Text className={`${subtextColor} font-medium`}>
+                    {t('addEditService.currentlyUnavailable')}
+                  </Text>
+                  <Text className={`${subtextColor} mt-1 text-xs`}>
+                    {t('addEditService.basedOnSchedule')}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {Object.entries(workingHours).map(([day, hours]) => (
+              <View key={day}>
+                <TouchableOpacity
+                  // The row is the control, so it carries the semantics: a switch, and whether it
+                  // is on. The Switch beside the label is a picture of that state with its pointer
+                  // events off — announcing it separately would report the day twice, the second
+                  // time as a control that cannot be operated.
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: hours.enabled }}
+                  onPress={() => toggleWorkingDay(day)}
+                  className={`${cardBg} border ${borderColor} mb-2 flex-row items-center justify-between rounded-xl px-4 py-3`}>
+                  <Text className={textColor}>{t(`days.${day.toLowerCase()}` as any)}</Text>
+                  {/* Display-only — the row's onPress is the single toggle source
+                    (a Switch onValueChange here would fire toggle a second time). */}
+                  <View pointerEvents="none">
+                    <Switch
+                      accessible={false}
+                      value={hours.enabled}
+                      trackColor={{ false: '#D1D5DB', true: '#86EFAC' }}
+                      thumbColor={hours.enabled ? BRAND_GREEN : '#f4f3f4'}
                     />
+                  </View>
+                </TouchableOpacity>
 
-                    <Text className={`${subtextColor} mb-2 text-sm`}>
-                      {t('addEditService.distancePricingHint')}
-                    </Text>
-
-                    {/* Per-km fee */}
-                    <Text className={`${textColor} mb-1 text-sm font-medium`}>
-                      {t('addEditService.perKmFee')}
-                    </Text>
-                    <CurrencyInput
-                      currency={currencyCode}
-                      containerClassName={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} mb-3 rounded-xl px-4 py-3`}
-                      inputClassName={inputText}
-                      affixClassName={subtextColor}
-                      placeholder="0"
-                      placeholderTextColor={placeholderColor}
-                      value={service.perKmFee}
-                      onChangeText={(value) =>
-                        updateAdditionalServiceField(index, 'perKmFee', value)
-                      }
-                    />
-
-                    {/* Free distance + Max distance side by side */}
+                {hours.enabled && (
+                  <View
+                    className={`${inputBg} -mt-1 mb-3 rounded-xl border-2 border-brand-300 p-4`}>
                     <View className="flex-row gap-3">
                       <View className="flex-1">
-                        <Text className={`${textColor} mb-1 text-sm font-medium`}>
-                          {t('addEditService.freeDistance')}
+                        <Text className={`${subtextColor} mb-2 text-sm`}>
+                          {t('addEditService.startTime')}
                         </Text>
-                        <View
-                          className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
-                          <TextInput
-                            placeholder="0"
-                            placeholderTextColor={placeholderColor}
-                            className={`${inputText} flex-1`}
-                            // minWidth:0 lets the input shrink within its
-                            // flex-1 column so the "km" suffix stays inside the
-                            // box on web (without it the input keeps its content
-                            // width and pushes "km" past the card edge).
-                            style={{ minWidth: 0 } as any}
-                            value={service.freeDistanceKm}
-                            onChangeText={(value) =>
-                              updateAdditionalServiceField(index, 'freeDistanceKm', value)
-                            }
-                            keyboardType="numeric"
-                          />
-                          <Text className={`${subtextColor} ml-1`}>{t('addEditService.km')}</Text>
-                        </View>
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          onPress={() => openTimePicker(day, 'start')}
+                          className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
+                          <Text className={textColor}>{hours.startTime}</Text>
+                          <Ionicons name="time-outline" size={20} color="#6B7280" />
+                        </TouchableOpacity>
                       </View>
                       <View className="flex-1">
-                        <Text className={`${textColor} mb-1 text-sm font-medium`}>
-                          {t('addEditService.maxDistance')}
+                        <Text className={`${subtextColor} mb-2 text-sm`}>
+                          {t('addEditService.endTime')}
                         </Text>
-                        <View
-                          className={`${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'} flex-row items-center rounded-xl px-4 py-3`}>
-                          <TextInput
-                            placeholder="∞"
-                            placeholderTextColor={placeholderColor}
-                            className={`${inputText} flex-1`}
-                            // See freeDistanceKm above — minWidth:0 keeps "km" inside the box.
-                            style={{ minWidth: 0 } as any}
-                            value={service.maxDistanceKm}
-                            onChangeText={(value) =>
-                              updateAdditionalServiceField(index, 'maxDistanceKm', value)
-                            }
-                            keyboardType="numeric"
-                          />
-                          <Text className={`${subtextColor} ml-1`}>{t('addEditService.km')}</Text>
-                        </View>
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          onPress={() => openTimePicker(day, 'end')}
+                          className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
+                          <Text className={textColor}>{hours.endTime}</Text>
+                          <Ionicons name="time-outline" size={20} color="#6B7280" />
+                        </TouchableOpacity>
                       </View>
                     </View>
                   </View>
                 )}
               </View>
-            );
-          })}
+            ))}
+          </View>
 
+          {/* Save / Update Button */}
           <TouchableOpacity
             accessibilityRole="button"
-            onPress={addAdditionalService}
-            className={`${cardBg} border ${borderColor} flex-row items-center justify-center rounded-xl px-4 py-3`}>
-            <Ionicons name="add" size={18} color={BRAND_GREEN} />
-            <Text className="ml-1 font-medium text-brand-500">{t('addEditService.addExtra')}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Working Hours */}
-        <View className="mb-4">
-          <Text className={`text-sm font-semibold ${textColor} mb-1`}>
-            {t('addEditService.workingHours')}
-          </Text>
-          <Text className={`${subtextColor} mb-3 text-sm`}>
-            {t('addEditService.workingHoursHint')}
-          </Text>
-
-          {!anyDayEnabled && (
-            <View className={`${inputBg} mb-3 flex-row items-center rounded-xl p-4`}>
-              <View className="mr-3 h-2 w-2 rounded-full bg-gray-400" />
-              <View className="flex-1">
-                <Text className={`${subtextColor} font-medium`}>
-                  {t('addEditService.currentlyUnavailable')}
-                </Text>
-                <Text className={`${subtextColor} mt-1 text-xs`}>
-                  {t('addEditService.basedOnSchedule')}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {Object.entries(workingHours).map(([day, hours]) => (
-            <View key={day}>
-              <TouchableOpacity
-                // The row is the control, so it carries the semantics: a switch, and whether it
-                // is on. The Switch beside the label is a picture of that state with its pointer
-                // events off — announcing it separately would report the day twice, the second
-                // time as a control that cannot be operated.
-                accessibilityRole="switch"
-                accessibilityState={{ checked: hours.enabled }}
-                onPress={() => toggleWorkingDay(day)}
-                className={`${cardBg} border ${borderColor} mb-2 flex-row items-center justify-between rounded-xl px-4 py-3`}>
-                <Text className={textColor}>{t(`days.${day.toLowerCase()}` as any)}</Text>
-                {/* Display-only — the row's onPress is the single toggle source
-                    (a Switch onValueChange here would fire toggle a second time). */}
-                <View pointerEvents="none">
-                  <Switch
-                    accessible={false}
-                    value={hours.enabled}
-                    trackColor={{ false: '#D1D5DB', true: '#86EFAC' }}
-                    thumbColor={hours.enabled ? BRAND_GREEN : '#f4f3f4'}
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {hours.enabled && (
-                <View className={`${inputBg} -mt-1 mb-3 rounded-xl border-2 border-brand-300 p-4`}>
-                  <View className="flex-row gap-3">
-                    <View className="flex-1">
-                      <Text className={`${subtextColor} mb-2 text-sm`}>
-                        {t('addEditService.startTime')}
-                      </Text>
-                      <TouchableOpacity
-                        accessibilityRole="button"
-                        onPress={() => openTimePicker(day, 'start')}
-                        className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
-                        <Text className={textColor}>{hours.startTime}</Text>
-                        <Ionicons name="time-outline" size={20} color="#6B7280" />
-                      </TouchableOpacity>
-                    </View>
-                    <View className="flex-1">
-                      <Text className={`${subtextColor} mb-2 text-sm`}>
-                        {t('addEditService.endTime')}
-                      </Text>
-                      <TouchableOpacity
-                        accessibilityRole="button"
-                        onPress={() => openTimePicker(day, 'end')}
-                        className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
-                        <Text className={textColor}>{hours.endTime}</Text>
-                        <Ionicons name="time-outline" size={20} color="#6B7280" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              )}
-            </View>
-          ))}
-        </View>
-
-        {/* Save / Update Button */}
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={handleSave}
-          disabled={isSaving}
-          className={`mt-4 items-center rounded-2xl bg-brand-500 py-4 ${isEdit ? 'mb-3' : 'mb-6'}`}
-          style={{ opacity: isSaving ? 0.7 : 1 }}>
-          {isSaving ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text className="text-lg font-bold text-white">
-              {isEdit ? t('addEditService.updateService') : t('addEditService.saveService')}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Delete Button — edit mode only */}
-        {isEdit && (
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={handleDelete}
+            onPress={handleSave}
             disabled={isSaving}
-            className="mb-6 flex-row items-center justify-center rounded-2xl border-2 border-red-500 py-4"
+            className={`mt-4 items-center rounded-2xl bg-brand-500 py-4 ${isEdit ? 'mb-3' : 'mb-6'}`}
             style={{ opacity: isSaving ? 0.7 : 1 }}>
-            <Ionicons name="trash-outline" size={18} color="#EF4444" />
-            <Text className="ml-2 text-lg font-bold text-red-500">
-              {t('addEditService.deleteService')}
-            </Text>
+            {isSaving ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text className="text-lg font-bold text-white">
+                {isEdit ? t('addEditService.updateService') : t('addEditService.saveService')}
+              </Text>
+            )}
           </TouchableOpacity>
-        )}
+
+          {/* Delete Button — edit mode only */}
+          {isEdit && (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={handleDelete}
+              disabled={isSaving}
+              className="mb-6 flex-row items-center justify-center rounded-2xl border-2 border-red-500 py-4"
+              style={{ opacity: isSaving ? 0.7 : 1 }}>
+              <Ionicons name="trash-outline" size={18} color="#EF4444" />
+              <Text className="ml-2 text-lg font-bold text-red-500">
+                {t('addEditService.deleteService')}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </FormCard>
       </ScrollView>
 
       {/* Service Type Modal */}

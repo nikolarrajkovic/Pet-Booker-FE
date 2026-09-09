@@ -17,6 +17,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import FormCard from '../../../components/shared/FormCard';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import PhoneInput from '../../../components/shared/PhoneInput';
 import { getUser, updateUser, UserDto } from '../../../services/users';
@@ -222,167 +223,178 @@ export default function AccountScreen() {
       headerTitle={t('account.title')}
       contentBg={bgColor}>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
-        {/* Profile Photo */}
-        <View className="items-center py-8">
-          <View className="relative">
-            {avatarUri ? (
-              <Image
-                source={{ uri: avatarUri }}
-                className="h-32 w-32 rounded-full"
-                onError={() => setAvatarError(true)}
-              />
-            ) : (
-              <View
-                className={`h-32 w-32 rounded-full ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-100'} items-center justify-center`}>
-                <Text className="text-5xl font-bold text-brand-600">{initials}</Text>
-              </View>
-            )}
+        <FormCard>
+          {/* Profile Photo */}
+          <View className="items-center py-8">
+            <View className="relative">
+              {avatarUri ? (
+                <Image
+                  source={{ uri: avatarUri }}
+                  className="h-32 w-32 rounded-full"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                <View
+                  className={`h-32 w-32 rounded-full ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-100'} items-center justify-center`}>
+                  <Text className="text-5xl font-bold text-brand-600">{initials}</Text>
+                </View>
+              )}
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={pickProfilePhoto}
+                className="absolute bottom-0 right-0 h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-brand-500"
+                style={{
+                  elevation: 3,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 3.84,
+                }}>
+                <Ionicons name="camera" size={20} color="white" />
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
               accessibilityRole="button"
               onPress={pickProfilePhoto}
-              className="absolute bottom-0 right-0 h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-brand-500"
-              style={{
-                elevation: 3,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.25,
-                shadowRadius: 3.84,
-              }}>
-              <Ionicons name="camera" size={20} color="white" />
+              className="mt-3">
+              <Text className="font-semibold text-brand-600">{t('account.changePhoto')}</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity accessibilityRole="button" onPress={pickProfilePhoto} className="mt-3">
-            <Text className="font-semibold text-brand-600">{t('account.changePhoto')}</Text>
-          </TouchableOpacity>
-        </View>
 
-        <View className="px-6">
-          <Text className={`text-lg font-bold ${textColor} mb-4`}>{t('account.personalInfo')}</Text>
-
-          {/* First Name */}
-          <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-              {t('account.firstName')}
+          <View className="px-6">
+            <Text className={`text-lg font-bold ${textColor} mb-4`}>
+              {t('account.personalInfo')}
             </Text>
-            <TextInput
-              {...form.field('firstName')}
-              value={firstName}
-              onChangeText={setFirstName}
-              className={`${inputBg} rounded-xl px-4 py-3 ${inputText} border ${borderColor}`}
-              placeholderTextColor={placeholderColor}
-            />
-          </View>
 
-          {/* Last Name */}
-          <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-              {t('account.lastName')}
-            </Text>
-            <TextInput
-              {...form.field('lastName')}
-              value={lastName}
-              onChangeText={setLastName}
-              className={`${inputBg} rounded-xl px-4 py-3 ${inputText} border ${borderColor}`}
-              placeholderTextColor={placeholderColor}
-            />
-          </View>
+            {/* First Name */}
+            <View className="mb-4">
+              <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                {t('account.firstName')}
+              </Text>
+              <TextInput
+                {...form.field('firstName')}
+                value={firstName}
+                onChangeText={setFirstName}
+                className={`${inputBg} rounded-xl px-4 py-3 ${inputText} border ${borderColor}`}
+                placeholderTextColor={placeholderColor}
+              />
+            </View>
 
-          {/* Email — read-only */}
-          <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>{t('account.email')}</Text>
-            <TextInput
-              value={email}
-              editable={false}
-              autoCapitalize="none"
-              className={`${inputBg} rounded-xl px-4 py-3 ${inputText} border ${borderColor}`}
-              style={{ opacity: 0.6 }}
-              placeholderTextColor={placeholderColor}
-            />
-            <Text className={`text-xs ${subtextColor} mt-1`}>{t('account.emailReadOnly')}</Text>
-          </View>
+            {/* Last Name */}
+            <View className="mb-4">
+              <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                {t('account.lastName')}
+              </Text>
+              <TextInput
+                {...form.field('lastName')}
+                value={lastName}
+                onChangeText={setLastName}
+                className={`${inputBg} rounded-xl px-4 py-3 ${inputText} border ${borderColor}`}
+                placeholderTextColor={placeholderColor}
+              />
+            </View>
 
-          {/* Phone Number — country flag/dial-code dropdown + national number */}
-          <View className="mb-4">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-              {t('account.phoneNumber')}
-            </Text>
-            <PhoneInput
-              value={phone}
-              onChangeText={setPhone}
-              isDarkMode={isDarkMode}
-              textColor={textColor}
-              subtextColor={subtextColor}
-              inputBg={inputBg}
-              inputText={inputText}
-              borderColor={borderColor}
-              placeholderColor={placeholderColor}
-              cardBg={cardBg}
-            />
-          </View>
+            {/* Email — read-only */}
+            <View className="mb-4">
+              <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                {t('account.email')}
+              </Text>
+              <TextInput
+                value={email}
+                editable={false}
+                autoCapitalize="none"
+                className={`${inputBg} rounded-xl px-4 py-3 ${inputText} border ${borderColor}`}
+                style={{ opacity: 0.6 }}
+                placeholderTextColor={placeholderColor}
+              />
+              <Text className={`text-xs ${subtextColor} mt-1`}>{t('account.emailReadOnly')}</Text>
+            </View>
 
-          {/* Address — picked on a map */}
-          <View className="mb-6">
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-              {t('account.address')}
-            </Text>
+            {/* Phone Number — country flag/dial-code dropdown + national number */}
+            <View className="mb-4">
+              <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                {t('account.phoneNumber')}
+              </Text>
+              <PhoneInput
+                value={phone}
+                onChangeText={setPhone}
+                isDarkMode={isDarkMode}
+                textColor={textColor}
+                subtextColor={subtextColor}
+                inputBg={inputBg}
+                inputText={inputText}
+                borderColor={borderColor}
+                placeholderColor={placeholderColor}
+                cardBg={cardBg}
+              />
+            </View>
+
+            {/* Address — picked on a map */}
+            <View className="mb-6">
+              <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                {t('account.address')}
+              </Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => setPickerVisible(true)}
+                className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor} flex-row items-center`}>
+                <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
+                <Text
+                  className={`ml-3 flex-1 ${currentAddress ? inputText : subtextColor}`}
+                  numberOfLines={2}>
+                  {currentAddress ? addressLabel(currentAddress) : t('bookService.pickOnMap')}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Payment Methods (mock — no backend) */}
+            <View className="mb-3 flex-row items-center justify-between">
+              <Text className={`text-lg font-bold ${textColor}`}>
+                {t('account.paymentMethods')}
+              </Text>
+              <TouchableOpacity>
+                <Text className="font-semibold text-brand-600">{t('account.addCard')}</Text>
+              </TouchableOpacity>
+            </View>
+            <View
+              className={`${cardBg} mb-4 rounded-xl border p-4 ${borderColor} flex-row items-center justify-between`}>
+              <View className="flex-1 flex-row items-center">
+                <View className="mr-3 rounded-lg bg-blue-600 px-3 py-2">
+                  <Text className="text-xs font-bold text-white">VISA</Text>
+                </View>
+                <View className="flex-1">
+                  <Text className={`text-sm font-semibold ${textColor}`}>•••• •••• •••• 4242</Text>
+                  <Text className={`text-xs ${subtextColor} mt-1`}>
+                    {t('account.expires', { date: '12/25' })}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity>
+                <Text className="font-semibold text-red-500">{t('account.remove')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Save — in the flow of the form, not a bar hovering over it. See the note in
+              AddPetScreen for why an edit form does not earn a permanent strip of screen. */}
             <TouchableOpacity
               accessibilityRole="button"
-              onPress={() => setPickerVisible(true)}
-              className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor} flex-row items-center`}>
-              <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
-              <Text
-                className={`ml-3 flex-1 ${currentAddress ? inputText : subtextColor}`}
-                numberOfLines={2}>
-                {currentAddress ? addressLabel(currentAddress) : t('bookService.pickOnMap')}
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-              />
+              onPress={handleSave}
+              disabled={isSaving}
+              className="mt-2 items-center rounded-2xl bg-brand-500 py-4"
+              style={{ opacity: isSaving ? 0.7 : 1 }}>
+              {isSaving ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-lg font-bold text-white">{t('account.saveChanges')}</Text>
+              )}
             </TouchableOpacity>
           </View>
-
-          {/* Payment Methods (mock — no backend) */}
-          <View className="mb-3 flex-row items-center justify-between">
-            <Text className={`text-lg font-bold ${textColor}`}>{t('account.paymentMethods')}</Text>
-            <TouchableOpacity>
-              <Text className="font-semibold text-brand-600">{t('account.addCard')}</Text>
-            </TouchableOpacity>
-          </View>
-          <View
-            className={`${cardBg} mb-4 rounded-xl border p-4 ${borderColor} flex-row items-center justify-between`}>
-            <View className="flex-1 flex-row items-center">
-              <View className="mr-3 rounded-lg bg-blue-600 px-3 py-2">
-                <Text className="text-xs font-bold text-white">VISA</Text>
-              </View>
-              <View className="flex-1">
-                <Text className={`text-sm font-semibold ${textColor}`}>•••• •••• •••• 4242</Text>
-                <Text className={`text-xs ${subtextColor} mt-1`}>
-                  {t('account.expires', { date: '12/25' })}
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity>
-              <Text className="font-semibold text-red-500">{t('account.remove')}</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Save — in the flow of the form, not a bar hovering over it. See the note in
-              AddPetScreen for why an edit form does not earn a permanent strip of screen. */}
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={handleSave}
-            disabled={isSaving}
-            className="mt-2 items-center rounded-2xl bg-brand-500 py-4"
-            style={{ opacity: isSaving ? 0.7 : 1 }}>
-            {isSaving ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text className="text-lg font-bold text-white">{t('account.saveChanges')}</Text>
-            )}
-          </TouchableOpacity>
-        </View>
+        </FormCard>
       </ScrollView>
 
       {/* Map picker for the address — opens on the user's current location */}
