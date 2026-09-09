@@ -68,7 +68,9 @@ export default function AuthLayout({ title, subtitle, children }: AuthLayoutProp
   if (!isWebLayout) {
     return (
       <View className={`flex-1 ${bgColor}`}>
-        <KeyboardAvoidingView behavior="padding" className="flex-1">
+        {/* Styled, not classed: this comes from react-native-keyboard-controller, which
+            NativeWind does not process, so a `className` here is dropped without a warning. */}
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1, minHeight: 0 }}>
           {band}
           <ScrollView
             className="flex-1"

@@ -27,16 +27,21 @@
  * Kept in a `.web` module so it lives with the code that depends on it, and so Metro leaves it
  * out of the native bundle entirely — which is also why no `Platform.OS` branch is needed.
  */
-// Deliberately not `!important`. A screen that genuinely needs its own scroll pane — the chat
-// thread, whose header and composer belong at the top and bottom of the view — opts out with an
-// inline style, and an inline style only beats a stylesheet rule when that rule is not
-// `!important`. There is no DOM hook to exempt it with instead: RNW forwards neither `id`,
-// `nativeID` nor `dataSet` through a ScrollView.
+// Scoped to `ScreenLayout`'s scroller rather than applied globally, which is what leaves room for
+// a screen that genuinely needs a scroll pane of its own. The chat thread is the one: its header
+// and composer belong at the top and bottom of the view with only the messages moving between
+// them, and it does not go through `ScreenLayout` — so it is exempt by construction rather than
+// by carving out an exception.
 //
-// Injected from an effect rather than at import for the same reason: RNW injects its own sheet
-// lazily at first render, and with no `!important` to lean on, this has to land after it.
+// The marker rides a plain View because RNW forwards `dataSet` on one and drops it on a
+// ScrollView, along with `id` and `nativeID`. That is also why the exemption could not live on
+// the chat's ScrollView, and why an inline style could not override this: RNW compiles the
+// `style` prop into generated classes rather than inline styles.
+//
+// Injected from an effect rather than at import: RNW injects its own sheet lazily at first
+// render, and this carries no `!important`, so it has to land after it to win on source order.
 const CSS = [
-  '[class*="r-WebkitOverflowScrolling"] {',
+  '[data-page-scroll] [class*="r-WebkitOverflowScrolling"] {',
   '  flex: none;',
   '  height: auto;',
   '  max-height: none;',

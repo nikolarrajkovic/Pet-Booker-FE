@@ -124,7 +124,9 @@ export default function ScreenLayout({
       // is capped) is what used to leave a scrollbar floating in the middle of the page.
       // Screens' own ScrollViews are flattened on web so this is the only scroll pane —
       // see styles/document-scroll.web.ts.
-      <View style={{ flex: 1, minHeight: 0, overflowY: 'auto' } as any}>
+      <View
+        style={{ flex: 1, minHeight: 0, overflowY: 'auto' } as any}
+        {...({ dataSet: { pageScroll: 'true' } } as any)}>
         {/*
           Two containers, not one: the header needs the column's horizontal gutters, but the body
           does not — screens already pad their own ScrollViews (`px-6`), and nesting a padded
