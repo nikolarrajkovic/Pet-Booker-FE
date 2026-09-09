@@ -25,6 +25,7 @@ import {
 } from '../../../services/stats';
 import { getServices } from '../../../services/services';
 import TabBar from '../../../components/shared/TabBar';
+import BackLink from '../../../components/shared/BackLink';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 
@@ -468,8 +469,8 @@ export default function PartnerHubScreen() {
 
   return (
     <View
-      // Transparent on the web design, not the page ground: the shell already paints that ground
-      // and the pattern texture behind every screen, and repainting it here covers both.
+      // Transparent on the web design so the shell's pattern shows through, as on every other
+      // page; the phone design keeps its green header slab.
       style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
@@ -482,6 +483,7 @@ export default function PartnerHubScreen() {
           maxWidth: isWebLayout ? CONTENT_WIDTHS.wide : undefined,
           alignSelf: 'center',
         }}>
+        {isWebLayout && <BackLink />}
         <View
           style={{
             flexDirection: 'row',

@@ -9,6 +9,7 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PetCard } from '../components';
 import { getPets, deletePet, PetResponse } from '../../../services/pets';
 import ActionPopup from '../../../components/shared/ActionPopup';
+import IllustratedEmptyState from '../../../components/shared/IllustratedEmptyState';
 
 function resolveUrl(path: string | null | undefined): string | null {
   if (!path) return null;
@@ -130,7 +131,13 @@ export default function MyPetsScreen() {
         ) : error ? (
           <Text className={`mt-10 text-center ${subtextColor}`}>{error}</Text>
         ) : pets.length === 0 ? (
-          <Text className={`mt-10 text-center ${subtextColor}`}>{t('pets.noPets')}</Text>
+          <IllustratedEmptyState
+            image={require('../../../assets/empty-pets.png')}
+            title={t('pets.emptyTitle')}
+            body={t('pets.emptyBody')}
+            actionLabel={t('pets.addFirst')}
+            onAction={() => (navigation as any).navigate('AddPet')}
+          />
         ) : (
           pets.map((pet) => (
             <PetCard

@@ -68,6 +68,7 @@ import { linking } from './navigation/linking';
 import { navigationRef } from './navigation/navigationRef';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { hasSeenPartnerWelcome, markPartnerWelcomeSeen } from './services/onboarding';
+import { enableDocumentScroll } from './styles/document-scroll';
 import { Ionicons } from '@expo/vector-icons';
 import { enableScreens } from 'react-native-screens';
 
@@ -109,6 +110,12 @@ function AppContent() {
   // screen it is about. Lives here rather than in a screen because a cold start from a
   // notification arrives before any screen is mounted.
   usePushNotifications(navReady);
+
+  // After first render, not at import: RNW injects its own stylesheet lazily, and this rule
+  // carries no `!important`, so it has to land after that to win. A no-op on native.
+  useEffect(() => {
+    enableDocumentScroll();
+  }, []);
 
   // Celebrate once, the first time we observe a user is an approved partner
   // (the backend adds them to the ServiceProvider group → `isPartner` flips

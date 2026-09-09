@@ -119,6 +119,30 @@ export default function MyServicesScreen() {
     </TouchableOpacity>
   );
 
+  /**
+   * The same action, with contrast that suits the surface it lands on.
+   *
+   * The phone header is a green slab, so the button above is white-on-translucent. The web page
+   * header sits on the light page ground, where exactly that styling is white on near-white — the
+   * control was there and legible to nobody.
+   */
+  const addNewButtonWeb = (
+    <TouchableOpacity
+      accessibilityRole="button"
+      disabled={!providerId}
+      onPress={() =>
+        (navigation as any).navigate('AddEditService', {
+          mode: 'add',
+          serviceProviderId: providerId,
+        })
+      }
+      className="flex-row items-center rounded-full bg-brand-500 px-4 py-2"
+      style={{ opacity: providerId ? 1 : 0.5 }}>
+      <Ionicons name="add" size={16} color="white" />
+      <Text className="ml-1 text-sm font-semibold text-white">{t('myServices.addNew')}</Text>
+    </TouchableOpacity>
+  );
+
   const subtitle = isLoading
     ? t('myServices.loading')
     : services.length === 1
@@ -131,7 +155,7 @@ export default function MyServicesScreen() {
       headerTitle={t('myServices.title')}
       headerSubtitle={subtitle}
       rightAction={addNewButton}
-      webHeaderRight={addNewButton}
+      webHeaderRight={addNewButtonWeb}
       contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50'}
       width="wide">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>

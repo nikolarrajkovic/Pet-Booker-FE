@@ -362,7 +362,7 @@ export default function SearchScreen() {
       width="wide"
       // Back is a phone affordance here — on the web design Search is a sidebar destination, not
       // somewhere you drilled into, so there is nothing above it to go back to.
-      showBackButton={!isWebLayout}
+      showBackButton
       rightAction={
         <TouchableOpacity
           accessibilityRole="button"

@@ -30,7 +30,7 @@ export default function ServicePreviewScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: ServicePreviewRouteParams }, 'params'>>();
   const { service } = route.params;
-  const { isDarkMode, bgColor } = useThemeColors();
+  const { isDarkMode, hex } = useThemeColors();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
   const topInset = useTopInset();
@@ -42,7 +42,9 @@ export default function ServicePreviewScreen() {
     : undefined;
 
   return (
-    <View className={`flex-1 ${bgColor}`}>
+    // Styled, not classed: the ground is what stops the preview rendering on the shell's pet
+    // pattern, and it is worth being explicit about here rather than riding on a class.
+    <View style={{ flex: 1, backgroundColor: hex.bg }}>
       {/* Header */}
       <View
         className={`bg-brand-500 px-6 pb-6 ${isWebLayout ? '' : 'rounded-b-3xl'}`}

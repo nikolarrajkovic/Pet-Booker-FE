@@ -6,6 +6,7 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import TabBar from '../../../components/shared/TabBar';
+import BackLink from '../../../components/shared/BackLink';
 import { getAdminOverviewStats, getAdminRevenueByServiceType } from '../../../services/stats';
 import { countServiceProviders, ApprovalStatus } from '../../../services/service-providers';
 import { countReviews } from '../../../services/reviews';
@@ -162,8 +163,8 @@ export default function AdminDashboardScreen() {
 
   return (
     <View
-      // Transparent on the web design, not the page ground: the shell already paints that ground
-      // and the pattern texture behind every screen, and repainting it here covers both.
+      // Transparent on the web design so the shell's pattern shows through, as on every other
+      // page; the phone design keeps its green header slab.
       style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
@@ -176,6 +177,7 @@ export default function AdminDashboardScreen() {
           maxWidth: isWebLayout ? CONTENT_WIDTHS.wide : undefined,
           alignSelf: 'center',
         }}>
+        {isWebLayout && <BackLink />}
         <Text
           style={{
             color: isWebLayout ? hex.text : 'white',

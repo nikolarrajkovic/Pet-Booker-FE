@@ -74,8 +74,7 @@ export default function ChatScreen() {
   const { goUp } = useAppNavigation();
   const route = useRoute<RouteProp<{ params: ChatRouteParams }, 'params'>>();
   const params = route.params ?? {};
-  const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor, hex } =
-    useThemeColors();
+  const { isDarkMode, cardBg, textColor, subtextColor, borderColor, hex } = useThemeColors();
   const { showError } = useToast();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
@@ -333,12 +332,20 @@ export default function ChatScreen() {
     ? { width: '100%' as const, maxWidth: CONTENT_WIDTHS.narrow, alignSelf: 'center' as const }
     : undefined;
 
+  /**
+   * Styled, not classed — the ground and the flex ride in the same style array as the safe-area
+   * padding below, rather than half in a className and half here. Both matter: without the
+   * background the bubbles sit straight on the shell's pet pattern, and without the flex the
+   * composer floats in the middle of the page with wallpaper beneath it.
+   */
+  const root = { flex: 1, backgroundColor: hex.bg };
+
   return (
     <View
-      className={`flex-1 ${bgColor}`}
-      // The thread's own chrome, not a screen header, so it pads for the status bar and the
-      // navigation bar itself. Zero in a browser and on the web design.
       style={[
+        root,
+        // The thread's own chrome, not a screen header, so it pads for the status bar and the
+        // navigation bar itself. Zero in a browser and on the web design.
         isWebLayout ? undefined : { paddingTop: topInset, paddingBottom: bottomInset },
         column,
       ]}>
