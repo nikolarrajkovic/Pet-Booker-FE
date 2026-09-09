@@ -27,12 +27,20 @@
  * Kept in a `.web` module so it lives with the code that depends on it, and so Metro leaves it
  * out of the native bundle entirely — which is also why no `Platform.OS` branch is needed.
  */
+// Deliberately not `!important`. A screen that genuinely needs its own scroll pane — the chat
+// thread, whose header and composer belong at the top and bottom of the view — opts out with an
+// inline style, and an inline style only beats a stylesheet rule when that rule is not
+// `!important`. There is no DOM hook to exempt it with instead: RNW forwards neither `id`,
+// `nativeID` nor `dataSet` through a ScrollView.
+//
+// Injected from an effect rather than at import for the same reason: RNW injects its own sheet
+// lazily at first render, and with no `!important` to lean on, this has to land after it.
 const CSS = [
   '[class*="r-WebkitOverflowScrolling"] {',
-  '  flex: none !important;',
-  '  height: auto !important;',
-  '  max-height: none !important;',
-  '  overflow-y: visible !important;',
+  '  flex: none;',
+  '  height: auto;',
+  '  max-height: none;',
+  '  overflow-y: visible;',
   '}',
 ].join('\n');
 
