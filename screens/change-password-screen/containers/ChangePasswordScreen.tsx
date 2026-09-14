@@ -5,7 +5,6 @@ import {
   View,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -18,6 +17,7 @@ import FormCard from '../../../components/shared/FormCard';
 import FormRow from '../../../components/shared/FormRow';
 import { changePassword } from '../../../services/auth';
 import { getErrorMessage } from '../../../services/http';
+import { showAlert } from '../../../services/alert';
 
 export default function ChangePasswordScreen() {
   const navigation = useNavigation();
@@ -33,17 +33,17 @@ export default function ChangePasswordScreen() {
 
   const handleSubmit = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert(t('changePassword.missingFieldsTitle'), t('changePassword.missingFieldsBody'));
+      showAlert(t('changePassword.missingFieldsTitle'), t('changePassword.missingFieldsBody'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert(t('changePassword.mismatchTitle'), t('changePassword.mismatchBody'));
+      showAlert(t('changePassword.mismatchTitle'), t('changePassword.mismatchBody'));
       return;
     }
     setIsSubmitting(true);
     try {
       await changePassword({ currentPassword, newPassword, confirmPassword });
-      Alert.alert(t('changePassword.changedTitle'), t('changePassword.changedBody'), [
+      showAlert(t('changePassword.changedTitle'), t('changePassword.changedBody'), [
         { text: t('common.ok'), onPress: () => navigation.goBack() },
       ]);
     } catch (e) {

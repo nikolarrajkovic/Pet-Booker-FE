@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Pressable,
   Linking,
-  Alert,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +21,7 @@ import { useResponsive } from '../../../hooks/useResponsive';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 import BackLink from '../../../components/shared/BackLink';
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
+import { showAlert } from '../../../services/alert';
 import {
   getServiceProvider,
   extractProviderDocuments,
@@ -78,7 +78,7 @@ async function openDownload(
   try {
     await Linking.openURL(url);
   } catch {
-    Alert.alert(t('admin.fileOpenErrorTitle'), t('admin.fileOpenErrorMsg'));
+    showAlert(t('admin.fileOpenErrorTitle'), t('admin.fileOpenErrorMsg'));
   }
 }
 

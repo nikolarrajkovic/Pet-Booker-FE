@@ -4,7 +4,6 @@ import {
   Text,
   View,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Platform,
 } from 'react-native';
@@ -23,6 +22,7 @@ import type { CertificateEntry } from '../components/DocumentsStep';
 import { createServiceProvider, AddressDto } from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
 import { getErrorMessage } from '../../../services/http';
+import { showAlert } from '../../../services/alert';
 
 // Reads a native File object as a base64 data URI using FileReader — pure memory, no network.
 function fileToDataUri(file: File): Promise<string> {
@@ -145,7 +145,7 @@ export default function PartnerApplicationScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== 'granted') {
-      Alert.alert(t('account.permissionNeededTitle'), t('partnerApplication.permissionDocsMsg'));
+      showAlert(t('account.permissionNeededTitle'), t('partnerApplication.permissionDocsMsg'));
       return;
     }
 
@@ -196,7 +196,7 @@ export default function PartnerApplicationScreen() {
     // Government ID photos are always images — use ImagePicker with base64
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(t('account.permissionNeededTitle'), t('partnerApplication.permissionDocsMsg'));
+      showAlert(t('account.permissionNeededTitle'), t('partnerApplication.permissionDocsMsg'));
       return;
     }
 
@@ -227,7 +227,7 @@ export default function PartnerApplicationScreen() {
   const pickPetPhoto = async (slotIndex: number) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(t('account.permissionNeededTitle'), t('partnerApplication.permissionPhotosMsg'));
+      showAlert(t('account.permissionNeededTitle'), t('partnerApplication.permissionPhotosMsg'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({

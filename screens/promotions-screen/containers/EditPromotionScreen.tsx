@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -25,6 +24,7 @@ import {
   endOfDayIso,
 } from '../../../services/service-discounts';
 import { getErrorMessage } from '../../../services/http';
+import { showAlert } from '../../../services/alert';
 
 // Labels are translation keys, resolved with t() at render.
 const TYPE_META: Record<
@@ -143,17 +143,17 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
     } // boost/featured: mock, no persistence
     const val = parseFloat(discount) || 0;
     if (val <= 0) {
-      Alert.alert(t('promotions.enterAmountTitle'), t('promotions.enterAmountMsg'));
+      showAlert(t('promotions.enterAmountTitle'), t('promotions.enterAmountMsg'));
       return;
     }
     if (isPercent && val > 100) {
-      Alert.alert(t('promotions.invalidPctTitle'), t('promotions.invalidPctMsg'));
+      showAlert(t('promotions.invalidPctTitle'), t('promotions.invalidPctMsg'));
       return;
     }
     // Compare against the start actually sent below (an unparsed start falls back to now), or a
     // backwards window slips through and comes back as a 422 the partner can't act on.
     if (endDate && endDate < startOfDay(startDate ?? new Date())) {
-      Alert.alert(t('promotions.invalidDatesTitle'), t('promotions.invalidDatesMsg'));
+      showAlert(t('promotions.invalidDatesTitle'), t('promotions.invalidDatesMsg'));
       return;
     }
     setIsSubmitting(true);
@@ -183,7 +183,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
       navigation.goBack();
       return;
     }
-    Alert.alert(t('promotions.deletePromoTitle'), t('promotions.deletePromoMsg'), [
+    showAlert(t('promotions.deletePromoTitle'), t('promotions.deletePromoMsg'), [
       { text: t('promotions.cancel'), style: 'cancel' },
       {
         text: t('promotions.delete'),

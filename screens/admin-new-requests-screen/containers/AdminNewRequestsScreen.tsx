@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { ScrollView, BackHandler, Alert } from 'react-native';
+import { ScrollView, BackHandler } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
@@ -11,6 +11,7 @@ import FilterTabs, { moderationTabs } from '../../../components/shared/FilterTab
 import { PartnerApplicationCard } from '../components';
 import type { PartnerApplication } from '../components';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
+import { showAlert } from '../../../services/alert';
 import {
   getServiceProviders,
   providerTypeLabel,
@@ -155,7 +156,7 @@ export default function AdminNewRequestsScreen() {
   const handleReject = (id: string) => {
     const app = applications.find((a) => a.id === id);
     if (!app?.providerId) return;
-    Alert.alert(t('admin.rejectTitle'), t('admin.rejectMsg', { name: app.applicantName }), [
+    showAlert(t('admin.rejectTitle'), t('admin.rejectMsg', { name: app.applicantName }), [
       { text: t('admin.cancel'), style: 'cancel' },
       {
         text: t('admin.reject'),

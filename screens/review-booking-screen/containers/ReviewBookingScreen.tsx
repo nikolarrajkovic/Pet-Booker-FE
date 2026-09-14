@@ -1,13 +1,5 @@
 import React, { useState } from 'react';
-import {
-  ScrollView,
-  Text,
-  View,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -27,6 +19,7 @@ import { addressLabel } from '../../../services/geocoding';
 import { ServiceDto, serviceCurrency } from '../../../services/services';
 import { DiscountType } from '../../../services/service-discounts';
 import { createBooking, parseBookingDate, PaymentType } from '../../../services/bookings';
+import { showAlert } from '../../../services/alert';
 import {
   getPaymentMethods,
   createPaymentMethod,
@@ -185,7 +178,7 @@ export default function ReviewBookingScreen() {
 
   const handleConfirm = async () => {
     if (!currentUser?.id) {
-      Alert.alert(t('reviewBooking.notSignedInTitle'), t('reviewBooking.notSignedInMsg'));
+      showAlert(t('reviewBooking.notSignedInTitle'), t('reviewBooking.notSignedInMsg'));
       return;
     }
     setIsSubmitting(true);
