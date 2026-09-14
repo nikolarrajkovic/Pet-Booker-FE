@@ -29,12 +29,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
+  // Both collections are optional-chained. `groups` always was; `roles` was not, and an
+  // `/auth/me` body without it threw here — inside the provider that wraps the whole tree, with no
+  // error boundary above it, so the app rendered a blank white page and nothing said why. The
+  // type says `string[]`, but that is an assertion about JSON off the wire, not a guarantee.
   const isAdmin =
-    (currentUser?.roles.includes('Admin') || currentUser?.groups?.includes('Admin')) ?? false;
+    (currentUser?.roles?.includes('Admin') || currentUser?.groups?.includes('Admin')) ?? false;
   // The backend marks an approved partner by adding them to the 'ServiceProvider'
   // group (there is no 'Partner' role); keep the role check as a fallback.
   const isPartner =
-    (currentUser?.groups?.includes('ServiceProvider') || currentUser?.roles.includes('Partner')) ??
+    (currentUser?.groups?.includes('ServiceProvider') || currentUser?.roles?.includes('Partner')) ??
     false;
 
   const [, googleResponse, googlePromptAsync] = Google.useAuthRequest({

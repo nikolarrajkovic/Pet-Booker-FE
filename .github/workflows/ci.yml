@@ -45,3 +45,53 @@ jobs:
 
       - name: Test
         run: npx jest --ci
+
+  # Pixel regression for the web design. Kept a separate job so a diff in a screenshot reports as
+  # its own failure rather than hiding behind the lint step, and so it can be re-run alone.
+  visual:
+    runs-on: ubuntu-latest
+    # Runs *inside* the Playwright image, not on the bare runner. Font rendering is what a
+    # screenshot comparison actually measures, and the runner's font set is not the image's —
+    # the goldens were captured in this exact container, so CI has to be that container or every
+    # baseline fails for a reason that has nothing to do with the change.
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.0-noble
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # The screenshots are taken against the dev server, the same way they were captured.
+      # The API behind it is mocked in-browser (visual/mock-api.ts), so no backend, database or
+      # seed data is involved — only the bundle.
+      # `nohup ... &` rather than a bare `&`: a step's shell exits the moment its last command
+      # returns, and the server has to outlive it to be there for the next step.
+      - name: Start the web app
+        run: nohup npx expo start --web --port 8081 > /tmp/expo.log 2>&1 &
+
+      - name: Wait for it
+        run: |
+          for i in $(seq 1 90); do
+            curl -sf http://localhost:8081 > /dev/null && exit 0
+            sleep 2
+          done
+          echo "dev server never came up:"; cat /tmp/expo.log; exit 1
+
+      - name: Visual regression
+        run: npx playwright test --config visual/playwright.config.ts
+
+      # The diff images are the whole point of the failure — without them the log says a number
+      # of pixels changed and nothing about what.
+      - name: Upload diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-diffs
+          path: test-results/
+          retention-days: 7
