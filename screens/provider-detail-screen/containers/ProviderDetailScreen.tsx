@@ -55,7 +55,7 @@ export default function ProviderDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [provider.id]);
+  }, [provider.id, showError]);
 
   // Derive real rating + starting price from fetched data when available
   const avgRating = reviews.length

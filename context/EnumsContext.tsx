@@ -55,7 +55,7 @@ export const EnumsProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, [isLoggedIn]);
+  }, [isLoggedIn, enums, showError]);
 
   return <EnumsContext.Provider value={{ enums, isLoading }}>{children}</EnumsContext.Provider>;
 };

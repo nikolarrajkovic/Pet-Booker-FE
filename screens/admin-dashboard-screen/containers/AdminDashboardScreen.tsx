@@ -144,7 +144,7 @@ export default function AdminDashboardScreen() {
       return () => {
         cancelled = true;
       };
-    }, [])
+    }, [showError, t])
   );
 
   const maxRevenue = Math.max(1, ...metrics.revenueByType.map((r) => r.value));

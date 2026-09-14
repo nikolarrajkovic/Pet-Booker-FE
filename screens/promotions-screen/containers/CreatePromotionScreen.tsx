@@ -76,7 +76,7 @@ export default function CreatePromotionScreen() {
     return () => {
       cancelled = true;
     };
-  }, [providerId]);
+  }, [providerId, showError, t]);
 
   const amountNum = useMemo(() => parseFloat(amount), [amount]);
   const canSubmit =

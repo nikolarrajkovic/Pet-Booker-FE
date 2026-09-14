@@ -146,7 +146,7 @@ export default function ServiceDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, service]);
 
   // Prices belong to the service's provider, so they render in the service's currency.
   // Resolved before the early return below — a hook cannot sit behind one.

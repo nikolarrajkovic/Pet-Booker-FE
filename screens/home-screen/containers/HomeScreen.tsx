@@ -218,6 +218,10 @@ export default function HomeScreen() {
       return () => {
         cancelled = true;
       };
+      // `reloads` is not read in the body above; it is a counter the retry control bumps *so
+      // that* this effect runs again. Dropping it, which is what the rule asks for, would leave
+      // retry doing nothing at all.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [locating, latitude, longitude, reloads])
   );
 

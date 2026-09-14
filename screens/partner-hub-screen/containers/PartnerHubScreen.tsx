@@ -408,7 +408,7 @@ export default function PartnerHubScreen() {
       return () => {
         cancelled = true;
       };
-    }, [currentUser?.serviceProviderId, t])
+    }, [currentUser?.serviceProviderId, t, showError])
   );
 
   const hasLiveSession = hub.hasLiveSession;

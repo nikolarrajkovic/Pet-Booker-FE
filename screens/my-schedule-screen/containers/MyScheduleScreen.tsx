@@ -67,7 +67,7 @@ export default function MyScheduleScreen() {
         cancelled = true;
         clearLiveScheduleData();
       };
-    }, [mode, currentUser?.id, currentUser?.serviceProviderId])
+    }, [mode, currentUser?.id, currentUser?.serviceProviderId, t])
   );
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
