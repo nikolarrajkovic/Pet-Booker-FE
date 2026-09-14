@@ -13,7 +13,7 @@ import type { PartnerApplication } from '../components';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import { showAlert } from '../../../services/alert';
 import {
-  getServiceProviders,
+  getAllServiceProviders,
   providerTypeLabel,
   extractProviderDocuments,
   ApprovalStatus,
@@ -89,7 +89,11 @@ export default function AdminNewRequestsScreen() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const dtos = await getServiceProviders({ perPage: 200 });
+      // Every provider, not the first 200 of 420: this screen sorts them into its own
+      // pending/approved/rejected tabs on the client, so a capped page made each tab an
+      // arbitrary slice — the pending tab showed 7 of 42, and the missing 35 applications were
+      // unreachable from anywhere in the app.
+      const dtos = await getAllServiceProviders();
       setApplications(dtos.map(providerToApplication));
     } catch (e) {
       setLoadError(getErrorMessage(e, t('admin.applicationsLoadFailed')));

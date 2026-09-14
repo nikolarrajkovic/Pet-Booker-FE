@@ -316,6 +316,47 @@ export function getServiceProviders(
 }
 
 /**
+ * Every provider matching a filter, not just the first page.
+ *
+ * The server caps a page at 200 rows. Both admin screens were asking for `perPage: 200` and then
+ * counting or filtering the result on the client, which is only correct while there are fewer
+ * than 200 providers in total. There are 420:
+ *
+ *  - Partners listed 200 of the 377 approved, and its own filter chips reported "200" because
+ *    they counted the array rather than asking the server.
+ *  - New Requests filtered for "pending" *inside* an arbitrary 200-row window and found 7 of 42.
+ *    The other 35 applications were unreachable, so those providers were never reviewed.
+ *
+ * Paging here rather than at each call site so a third screen cannot reintroduce it. The page
+ * ceiling is a guard, not a limit anyone should hit: at 200 a page it is 10,000 providers, and
+ * past that this should be a server-side search rather than a full read.
+ */
+export async function getAllServiceProviders(
+  params?: GetServiceProvidersParams
+): Promise<ServiceProviderDto[]> {
+  const perPage = 200;
+  const maxPages = 50;
+
+  const first = await apiPage<ServiceProviderDto>('/api/service-providers', {
+    ...providersRequest({ ...params, page: 1, perPage }),
+    context: 'getAllServiceProviders',
+  });
+
+  const items = [...first.items];
+  const pages = Math.min(Math.ceil((first.totalItems || 0) / perPage), maxPages);
+
+  for (let page = 2; page <= pages; page += 1) {
+    const next = await apiPage<ServiceProviderDto>('/api/service-providers', {
+      ...providersRequest({ ...params, page, perPage }),
+      context: 'getAllServiceProviders',
+    });
+    items.push(...next.items);
+  }
+
+  return items;
+}
+
+/**
  * How many providers match a filter, without reading them.
  *
  * Asks for a single row and returns the wrapper's `totalItems`. A moderation badge needs the

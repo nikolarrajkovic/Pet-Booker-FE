@@ -10,7 +10,7 @@ import BackLink from '../../../components/shared/BackLink';
 import { PartnerCard } from '../components';
 import type { Partner, PartnerStatus } from '../components';
 import {
-  getServiceProviders,
+  getAllServiceProviders,
   providerTypeLabel,
   resolveImageUrl,
   ApprovalStatus,
@@ -117,7 +117,7 @@ export default function AdminPartnersScreen() {
           // by provider id client-side, so the cost stays flat however many partners there are.
           // Both tallies are fail-soft — a partner still renders if either list call fails.
           const [dtos, services, reviews] = await Promise.all([
-            getServiceProviders({ approvalStatus: ApprovalStatus.Approved, perPage: 200 }),
+            getAllServiceProviders({ approvalStatus: ApprovalStatus.Approved }),
             getServices({ perPage: 200 }).catch(() => []),
             getReviews({ approvalStatus: ApprovalStatus.Approved, perPage: 200 }).catch(() => []),
           ]);
