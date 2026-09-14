@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocale } from '../../../context/LocaleContext';
@@ -164,8 +164,6 @@ export default function BecomePartnerScreen() {
           : []),
       ]
     : [];
-
-  const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
 
   return (
     <ScreenLayout

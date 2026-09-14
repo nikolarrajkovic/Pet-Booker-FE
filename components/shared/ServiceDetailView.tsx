@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
@@ -42,8 +42,6 @@ export default function ServiceDetailView({
   const { t } = useLocale();
   const money = (n: number) => formatMoney(n, currency);
   const { textColor, subtextColor, cardBg } = themeColors(isDarkMode);
-
-  const hasImage = service.images && service.images.length > 0;
 
   return (
     <ScrollView

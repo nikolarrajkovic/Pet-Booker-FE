@@ -199,6 +199,85 @@ describe('there is one back affordance on the web design', () => {
   });
 });
 
+describe('className only goes where NativeWind can see it', () => {
+  /**
+   * NativeWind rewrites `className` for the core React Native components it knows about. On
+   * anything else — a third-party component, or a component held in a variable — the prop is
+   * passed straight through and **dropped in silence**: no type error, no lint error, no warning.
+   * The element renders unstyled, which for a layout class means a collapsed or full-bleed box
+   * rather than anything that looks like a mistake.
+   *
+   * That has cost this codebase three real bugs, all found in one week:
+   *
+   *  - `ChatScreen`'s root was `<Root className={...}>` with `Root` a variable, so the thread lost
+   *    its background and its flex — bubbles on the pet pattern, composer stranded mid-page.
+   *  - `ServicePreviewScreen` had the same shape and the same result.
+   *  - `<KeyboardAvoidingView className="flex-1">` in `ChatScreen` and `AuthLayout`: it comes from
+   *    react-native-keyboard-controller, so the flex vanished and the composer sat under the last
+   *    message instead of at the foot of the view.
+   *
+   * The fix in every case is `style` instead. This pins it, because the failure is invisible until
+   * someone looks at the screen.
+   */
+  const ALLOWED = new Set([
+    // Core RN components NativeWind handles.
+    'View',
+    'Text',
+    'ScrollView',
+    'Image',
+    'ImageBackground',
+    'TextInput',
+    'Pressable',
+    'TouchableOpacity',
+    'TouchableHighlight',
+    'TouchableWithoutFeedback',
+    'SafeAreaView',
+    'ActivityIndicator',
+    'Modal',
+    'FlatList',
+    'SectionList',
+    'Switch',
+    // Project components that take a `className` prop and forward it onto a core one.
+    'StickyFooter',
+    'Avatar',
+    'Button',
+  ]);
+
+  /**
+   * The tag a `className` belongs to: walk back to the `<` that opened the tag it sits in.
+   *
+   * Deliberately not a regex over the whole element — `className` is often several lines below
+   * its tag name, and matching that across newlines while still stopping at the right `>` is
+   * exactly the kind of pattern that silently matches nothing.
+   */
+  function owningTag(src: string, at: number): string | null {
+    const open = src.lastIndexOf('<', at);
+    if (open === -1) return null;
+    // A `>` between the tag and the attribute means they belong to different elements.
+    if (src.slice(open, at).includes('>')) return null;
+    const name = /^<([A-Za-z][A-Za-z0-9_.]*)/.exec(src.slice(open, at));
+    return name ? name[1] : null;
+  }
+
+  it('is not passed to a component NativeWind does not process', () => {
+    const offenders: string[] = [];
+
+    for (const file of [...screenFiles, ...componentFiles, path.join(ROOT, 'App.tsx')]) {
+      if (!fs.existsSync(file)) continue;
+      const src = read(file);
+
+      for (let i = src.indexOf('className='); i !== -1; i = src.indexOf('className=', i + 1)) {
+        const tag = owningTag(src, i);
+        // No tag means this is a `className` prop being declared or forwarded, not applied.
+        if (!tag || ALLOWED.has(tag)) continue;
+        offenders.push(`${rel(file)}: <${tag} className=…>`);
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe('the native gate stays shut', () => {
   it('RESPONSIVE_ON_NATIVE is false and lives in exactly one place', () => {
     // Flipping it is a decision about every screen in the app, so it should be a visible diff in
