@@ -19,6 +19,10 @@ module.exports = defineConfig([
     files: ['__tests__/**/*.{ts,tsx}'],
     rules: {
       'import/first': 'off',
+      // A test that asserts on module *loading* — resetting modules and re-reading a file to see
+      // what it exports under different conditions — has to use `require()`. A static import is
+      // hoisted and evaluated once, which is exactly the thing being tested.
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
   {

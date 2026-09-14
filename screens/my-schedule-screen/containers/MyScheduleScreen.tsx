@@ -67,7 +67,7 @@ export default function MyScheduleScreen() {
         cancelled = true;
         clearLiveScheduleData();
       };
-    }, [mode, currentUser?.id, currentUser?.serviceProviderId])
+    }, [mode, currentUser?.id, currentUser?.serviceProviderId, t])
   );
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';
@@ -90,7 +90,7 @@ export default function MyScheduleScreen() {
       // A calendar wants width — a week view squeezed into 720px is why the day view exists.
       width="wide"
       headerTitle={isWebLayout ? title : undefined}
-      showBackButton={!isWebLayout}
+      showBackButton
       headerChildren={
         isWebLayout ? undefined : (
           <View className="mb-4 flex-row items-center">

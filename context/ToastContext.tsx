@@ -7,8 +7,9 @@ import React, {
   useState,
   ReactNode,
 } from 'react';
-import { Platform, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTheme } from './ThemeContext';
+import { useTopInset } from '../hooks/useSafeAreaSpacing';
 import ToastView, { ToastItem, ToastVariant } from '../components/shared/Toast';
 
 export type ToastOptions = {
@@ -43,6 +44,7 @@ const MAX_TOASTS = 3;
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const { isDarkMode } = useTheme();
+  const topInset = useTopInset();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const idRef = useRef(0);
   const timers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -100,18 +102,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ showToast, showError, showSuccess, showInfo }}>
       {children}
       <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-        <SafeAreaView style={{ flex: 1 }} pointerEvents="box-none">
-          <View
-            pointerEvents="box-none"
-            style={{
-              paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : 8,
-              paddingHorizontal: 16,
-            }}>
-            {toasts.map((t) => (
-              <ToastView key={t.id} toast={t} isDarkMode={isDarkMode} onDismiss={dismiss} />
-            ))}
-          </View>
-        </SafeAreaView>
+        {/*
+          Toasts hang outside the navigator, so they get no safe-area treatment from it — hence
+          the real inset here rather than `StatusBar.currentHeight`, which is Android-only and
+          unreliable under edge-to-edge. There is no SafeAreaView around this any more: React
+          Native's insets on iOS only, so on Android the first toast landed under the status bar.
+        */}
+        <View pointerEvents="box-none" style={{ paddingTop: topInset + 8, paddingHorizontal: 16 }}>
+          {toasts.map((t) => (
+            <ToastView key={t.id} toast={t} isDarkMode={isDarkMode} onDismiss={dismiss} />
+          ))}
+        </View>
       </View>
     </ToastContext.Provider>
   );

@@ -12,15 +12,26 @@ import { useResponsive, byMode } from '../../hooks/useResponsive';
 export const CONTENT_WIDTHS = {
   /** Forms and auth — a single column of fields nobody wants to be 1400px wide. */
   narrow: 720,
-  /** The default: reading pages, detail screens, lists of cards. */
-  default: 1240,
+  /**
+   * The default: reading pages, detail screens, lists of cards.
+   *
+   * 1360 rather than a tighter reading measure because the cap applies to what is left of the
+   * window *after* the sidebar. At 1240 a 1500px window put ~130px of gutter either side of
+   * every list, which read as the page failing to fill its space — while `wide` pages beside it
+   * ran edge to edge, so the two looked like different applications.
+   */
+  default: 1360,
   /**
    * Dashboards and grids, where more columns genuinely help.
    *
-   * 1600 rather than a more conventional ~1400: this app has a 244px sidebar, so the cap applies
-   * to what is *left* of the window, and centring that inside the remaining region adds a second
-   * gutter on top of the container's own padding. At 1920 a 1400 cap put 180px of dead space on
-   * each side of every dashboard — enough that the page read as under-filled rather than tidy.
+   * 1600 rather than a more conventional ~1400: the cap applies to what is *left* of the window
+   * after the sidebar, and centring that inside the remaining region adds a second gutter on top
+   * of the container's own padding. At 1920 a 1400 cap put 180px of dead space on each side of
+   * every dashboard — enough that the page read as under-filled rather than tidy.
+   *
+   * Reserve it for genuine grids and dashboards. A single column of cards belongs on `default`,
+   * whatever its length — My Bookings sat here once, and next to My Pets and Messages the two
+   * caps read as two different page widths rather than one design.
    */
   wide: 1600,
   /** No cap — maps and anything that should bleed to the window edge. */

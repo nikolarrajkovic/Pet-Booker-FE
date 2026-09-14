@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Text, Pressable, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -15,8 +15,19 @@ import {
 } from '../../navigation/navItems';
 import { navigateToNavItem } from '../../navigation/navigateToNavItem';
 
-/** Full sidebar on desktop; an icon-only rail on tablet, where 240px of nav is too much. */
-export const SIDENAV_WIDTH = { desktop: 244, tablet: 72 } as const;
+/**
+ * Full sidebar on desktop; an icon-only rail on tablet, where a labelled nav is too much.
+ *
+ * Only the rail is a fixed number. The desktop panel sizes itself to its own labels
+ * (`fit-content`), so it is exactly as wide as the longest item in whatever language is loaded,
+ * plus padding — no constant to re-measure when a translation changes or a language is added.
+ *
+ * `desktop` is the fallback for a *native* tablet build, which has no `fit-content`. No native
+ * build draws this design today — `useResponsive` pins them all to the phone one — but that gate
+ * is meant to be flippable on its own, so this keeps a sane width waiting behind it rather than
+ * an invalid Yoga value.
+ */
+export const SIDENAV_WIDTH = { desktop: 216, tablet: 72 } as const;
 
 type SideNavProps = {
   /** The route currently showing, so the matching item can be marked selected. */
@@ -47,6 +58,11 @@ export default function SideNav({ activeRoute }: SideNavProps) {
 
   const collapsed = isTablet;
   const inactiveIcon = isDarkMode ? '#9CA3AF' : '#6B7280';
+
+  // `fit-content` is a CSS keyword React Native's `width` type has no room for, and Yoga has no
+  // equivalent — hence the cast, and the fixed fallback off the web.
+  const expandedWidth =
+    Platform.OS === 'web' ? ('fit-content' as unknown as number) : SIDENAV_WIDTH.desktop;
 
   /** The count badge an item carries, if any. Only two destinations have one. */
   const badgeFor = (item: NavItem): number => {
@@ -108,7 +124,11 @@ export default function SideNav({ activeRoute }: SideNavProps) {
           <>
             <Text
               numberOfLines={1}
-              className={`ml-3 flex-1 text-sm ${
+              // Grows to push the badge to the edge, but on an `auto` basis rather than the `0`
+              // that `flex-1` compiles to: a zero basis contributes nothing to the row's
+              // intrinsic width, which would collapse the `fit-content` panel to its icons.
+              style={{ flexGrow: 1, flexShrink: 1, flexBasis: 'auto' }}
+              className={`ml-3 text-sm ${
                 isSelected ? 'font-semibold text-brand-600' : `font-medium ${textColor}`
               }`}>
               {t(item.labelKey)}
@@ -132,7 +152,10 @@ export default function SideNav({ activeRoute }: SideNavProps) {
       accessibilityLabel={t('nav.mainNavigation')}
       className={`${cardBg} border-r ${borderColor}`}
       style={{
-        width: collapsed ? SIDENAV_WIDTH.tablet : SIDENAV_WIDTH.desktop,
+        width: collapsed ? SIDENAV_WIDTH.tablet : expandedWidth,
+        // A guard, not a layout: if some language's labels run very long they ellipsize here
+        // instead of eating the content column.
+        maxWidth: collapsed ? undefined : 280,
         height: '100%',
       }}>
       {/* Brand mark — doubles as the "go home" affordance every web app has in this corner.

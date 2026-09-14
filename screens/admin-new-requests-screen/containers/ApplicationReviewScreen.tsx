@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert,
   Linking,
   Modal,
   Pressable,
@@ -22,7 +21,9 @@ import { providerTypeValue } from '../../../services/service-providers';
 import type { PartnerApplication, ApplicationStatus, ApplicationImage } from '../components';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
+import BackLink from '../../../components/shared/BackLink';
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
+import { showAlert } from '../../../services/alert';
 import {
   approveServiceProvider,
   declineServiceProvider,
@@ -43,7 +44,7 @@ async function openDownload(
   try {
     await Linking.openURL(url);
   } catch {
-    Alert.alert(t('admin.fileOpenErrorTitle'), t('admin.fileOpenErrorMsg'));
+    showAlert(t('admin.fileOpenErrorTitle'), t('admin.fileOpenErrorMsg'));
   }
 }
 
@@ -102,7 +103,6 @@ export default function ApplicationReviewScreen() {
 
   const cfg = STATUS_CONFIG[status];
   const bgColor = hex.bg;
-  const cardBg = hex.card;
   const textColor = hex.text;
   const subTextColor = hex.subtext;
   const borderColor = hex.border;
@@ -129,7 +129,7 @@ export default function ApplicationReviewScreen() {
 
   const handleReject = () => {
     if (!providerId) return;
-    Alert.alert(t('admin.rejectTitle'), t('admin.rejectMsg', { name: application.applicantName }), [
+    showAlert(t('admin.rejectTitle'), t('admin.rejectMsg', { name: application.applicantName }), [
       { text: t('admin.cancel'), style: 'cancel' },
       {
         text: t('admin.reject'),
@@ -166,23 +166,24 @@ export default function ApplicationReviewScreen() {
           maxWidth: isWebLayout ? CONTENT_WIDTHS.default : undefined,
           alignSelf: 'center',
         }}>
+        {isWebLayout && <BackLink />}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => navigation.goBack()}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: isWebLayout ? hex.card : 'rgba(255,255,255,0.25)',
-              borderWidth: isWebLayout ? 1 : 0,
-              borderColor: hex.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: 12,
-            }}>
-            <Ionicons name="arrow-back" size={20} color={isWebLayout ? hex.subtext : 'white'} />
-          </TouchableOpacity>
+          {!isWebLayout && (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => navigation.goBack()}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: 'rgba(255,255,255,0.25)',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 12,
+              }}>
+              <Ionicons name="arrow-back" size={20} color="white" />
+            </TouchableOpacity>
+          )}
           <View style={{ flex: 1 }}>
             <Text
               style={{
@@ -222,7 +223,7 @@ export default function ApplicationReviewScreen() {
                   maxWidth: CONTENT_WIDTHS.default,
                   alignSelf: 'center',
                 }
-              : { padding: 20, paddingBottom: 100 }
+              : { padding: 20, paddingBottom: 100 + insets.bottom }
           }
           showsVerticalScrollIndicator={false}>
           {/* ── Applicant summary card ── */}

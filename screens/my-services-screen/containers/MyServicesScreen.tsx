@@ -1,13 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
-  Image,
-} from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors, themeColors } from '../../../hooks/useThemeColors';
@@ -27,6 +19,7 @@ import { serviceDtoToUi, UiService, additionalServiceTitle } from '../serviceMod
 import { providerTypeValue } from '../../../services/service-providers';
 import { AdditionalServiceChargeType } from '../../../services/service-addons';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
+import { showAlert } from '../../../services/alert';
 
 // Extras are provider-named free text now, so there's no fixed name→icon table to key off.
 // A per-distance extra is a trip, everything else is a generic service.
@@ -77,7 +70,7 @@ export default function MyServicesScreen() {
   );
 
   const handleDelete = (id: string) => {
-    Alert.alert(t('myServices.deleteTitle'), t('myServices.deleteMsg'), [
+    showAlert(t('myServices.deleteTitle'), t('myServices.deleteMsg'), [
       { text: t('myServices.cancel'), style: 'cancel' },
       {
         text: t('myServices.delete'),
@@ -119,6 +112,30 @@ export default function MyServicesScreen() {
     </TouchableOpacity>
   );
 
+  /**
+   * The same action, with contrast that suits the surface it lands on.
+   *
+   * The phone header is a green slab, so the button above is white-on-translucent. The web page
+   * header sits on the light page ground, where exactly that styling is white on near-white — the
+   * control was there and legible to nobody.
+   */
+  const addNewButtonWeb = (
+    <TouchableOpacity
+      accessibilityRole="button"
+      disabled={!providerId}
+      onPress={() =>
+        (navigation as any).navigate('AddEditService', {
+          mode: 'add',
+          serviceProviderId: providerId,
+        })
+      }
+      className="flex-row items-center rounded-full bg-brand-500 px-4 py-2"
+      style={{ opacity: providerId ? 1 : 0.5 }}>
+      <Ionicons name="add" size={16} color="white" />
+      <Text className="ml-1 text-sm font-semibold text-white">{t('myServices.addNew')}</Text>
+    </TouchableOpacity>
+  );
+
   const subtitle = isLoading
     ? t('myServices.loading')
     : services.length === 1
@@ -131,7 +148,7 @@ export default function MyServicesScreen() {
       headerTitle={t('myServices.title')}
       headerSubtitle={subtitle}
       rightAction={addNewButton}
-      webHeaderRight={addNewButton}
+      webHeaderRight={addNewButtonWeb}
       contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50'}
       width="wide">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>

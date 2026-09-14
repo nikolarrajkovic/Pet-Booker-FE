@@ -1,6 +1,25 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ['./App.{js,ts,tsx}', './components/**/*.{js,ts,tsx}', './screens/**/*.{js,ts,tsx}'],
+  // Every folder that can hold a Tailwind class name, not just the ones that hold JSX.
+  //
+  // `hooks/useThemeColors.ts` is the app palette and it returns *class names*, so a token defined
+  // only there (`bg-[#F1F8F4]`) got no CSS rule generated and silently resolved to transparent.
+  // That is what let scrolled content show through ScreenLayout sheet and over the green header.
+  // The other eleven tokens in that file worked purely because the same literal happened to be
+  // typed somewhere under screens/ or components/ as well.
+  //
+  // A class-name string is data; it does not have to sit next to a `className` prop. Keep this
+  // list matching the source folders --- `__tests__/responsive/tailwindContent.test.ts` fails
+  // when a folder holding class names is missing from it.
+  content: [
+    './App.{js,ts,tsx}',
+    './components/**/*.{js,ts,tsx}',
+    './screens/**/*.{js,ts,tsx}',
+    './hooks/**/*.{js,ts,tsx}',
+    './context/**/*.{js,ts,tsx}',
+    './navigation/**/*.{js,ts,tsx}',
+    './services/**/*.{js,ts,tsx}',
+  ],
 
   presets: [require('nativewind/preset')],
   theme: {

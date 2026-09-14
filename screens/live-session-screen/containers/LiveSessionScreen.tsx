@@ -305,7 +305,7 @@ export default function LiveSessionScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser?.id, currentUser?.serviceProviderId, isPartner, t]);
+  }, [currentUser?.id, currentUser?.serviceProviderId, isPartner, t, showError]);
 
   useFocusEffect(
     useCallback(() => {

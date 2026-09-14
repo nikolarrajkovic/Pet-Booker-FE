@@ -1,16 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-  Platform,
-  Linking,
-} from 'react-native';
+import { Modal, View, Text, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, Marker, Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
+import { useTopInset } from '../../hooks/useSafeAreaSpacing';
 import { useLocale } from '../../context/LocaleContext';
 import { getCurrentPosition, GeoPoint } from '../../services/geocoding';
 
@@ -81,6 +74,7 @@ export default function DirectionsModal({
 }: DirectionsModalProps) {
   const { t } = useLocale();
   const { hex } = themeColors(isDarkMode);
+  const topInset = useTopInset();
   const mapRef = useRef<MapView>(null);
   const [origin, setOrigin] = useState<GeoPoint | null>(null);
   const [route, setRoute] = useState<GeoPoint[] | null>(null);
@@ -147,7 +141,10 @@ export default function DirectionsModal({
         {/* Header */}
         <View
           style={{
-            paddingTop: Platform.OS === 'ios' ? 48 : 24,
+            // A full-screen Modal covers the status bar, so its own header has to clear it. This
+            // was a fixed 48 here and a Platform ternary in DirectionsModal — one device's status
+            // bar written down as a constant.
+            paddingTop: topInset + 12,
             paddingHorizontal: 16,
             paddingBottom: 12,
             flexDirection: 'row',

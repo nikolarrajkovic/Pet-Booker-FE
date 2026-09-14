@@ -62,7 +62,7 @@ export default function BookingDetailsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [bookingId]);
+  }, [bookingId, t]);
 
   const vm = dto ? bookingToViewModel(dto) : null;
   const heroImage = vm?.image || '';

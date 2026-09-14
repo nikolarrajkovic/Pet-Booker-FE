@@ -270,17 +270,21 @@ export default function NotificationsScreen() {
                 </TouchableOpacity>
               </View>
             ) : notifications.length === 0 ? (
-              <View className="flex-1 items-center justify-center px-6 py-20">
-                <View
-                  className={`mb-4 h-20 w-20 items-center justify-center rounded-full ${isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-50'}`}>
-                  <Ionicons name="notifications-off-outline" size={36} color={BRAND_GREEN} />
+              // On a card, like every other empty state. Uncontained, this was words and an icon
+              // straight on the pet pattern — the one screen where the state had no surface.
+              <View className="flex-1 items-center justify-center py-16">
+                <View className={`${cardBg} w-full items-center rounded-2xl px-6 py-12`}>
+                  <View
+                    className={`mb-4 h-20 w-20 items-center justify-center rounded-full ${isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-50'}`}>
+                    <Ionicons name="notifications-off-outline" size={36} color={BRAND_GREEN} />
+                  </View>
+                  <Text className={`text-lg font-semibold ${textColor} text-center`}>
+                    {t('notifications.emptyTitle')}
+                  </Text>
+                  <Text className={`text-sm ${subtextColor} mt-2 text-center`}>
+                    {t('notifications.emptyText')}
+                  </Text>
                 </View>
-                <Text className={`text-lg font-semibold ${textColor} text-center`}>
-                  {t('notifications.emptyTitle')}
-                </Text>
-                <Text className={`text-sm ${subtextColor} mt-2 text-center`}>
-                  {t('notifications.emptyText')}
-                </Text>
               </View>
             ) : (
               notifications.map((n) => (

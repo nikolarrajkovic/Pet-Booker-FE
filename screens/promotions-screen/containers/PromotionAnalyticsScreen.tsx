@@ -26,8 +26,6 @@ const dailyData: DailyStats[] = [
 ];
 
 const maxViews = Math.max(...dailyData.map((d) => d.views));
-const maxClicks = Math.max(...dailyData.map((d) => d.clicks));
-const maxBookings = Math.max(...dailyData.map((d) => d.bookings));
 
 interface PromotionAnalyticsScreenProps {
   route?: {
@@ -55,7 +53,6 @@ export default function PromotionAnalyticsScreen({ route }: PromotionAnalyticsSc
     'Premium Dog Walking in Golden Gate Park';
 
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]';
-  const rowBg = cardBg;
 
   const STAT_CARDS = [
     {

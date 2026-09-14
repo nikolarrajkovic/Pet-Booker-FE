@@ -2,7 +2,6 @@ import { Animated } from 'react-native';
 import { renderHook } from '@testing-library/react-native';
 
 import { useTabSlideOptions } from '../../navigation/tabTransition';
-import { SIDENAV_WIDTH } from '../../components/layout/SideNav';
 import { VIEWPORTS, setViewport, setPlatform } from '../test-utils';
 
 /**
@@ -10,7 +9,7 @@ import { VIEWPORTS, setViewport, setPlatform } from '../test-utils';
  *
  * Tabs cross-faded before this and it looked wrong: the two scenes are siblings, so mid-switch
  * both are partly transparent and each screen's borders and shadows ghost through the other. A
- * slide avoids that **only while the two scenes stay exactly one scene-width apart** — shorten
+ * slide avoids that **only while the two scenes stay at least one scene-width apart** — shorten
  * the travel and they overlap, and the ghosting is back with no fade in sight. So the distance is
  * asserted here rather than left to be eyeballed on one window size.
  */
@@ -45,21 +44,22 @@ describe('useTabSlideOptions', () => {
     expect(translateAt(result.current, 1)).toBe(VIEWPORTS.mobile.width);
   });
 
-  it('measures the scene, not the window, once the sidebar takes part of it', () => {
-    // A scene on the web design is the window minus the sidebar. Travelling the whole window
-    // width instead would leave the incoming screen off-screen for the first stretch of the
-    // animation, which reads as lag rather than as motion.
-    setViewport('desktop');
-    const desktop = renderHook(() => useTabSlideOptions());
-    expect(translateAt(desktop.result.current, 1)).toBe(
-      VIEWPORTS.desktop.width - SIDENAV_WIDTH.desktop
-    );
+  it('never travels less than a scene-width, whatever the sidebar is doing', () => {
+    // On the web design a scene is the window minus the sidebar, so the window width overshoots
+    // slightly — deliberately. The sidebar is `fit-content` (sized by its labels, so it varies
+    // with the language and is only capped), and a travel computed by subtracting a guess at its
+    // width can come out SHORT, which puts the two scenes back on top of each other. Overshooting
+    // cannot: it is bounded by the sidebar's width and hidden by the easing.
+    for (const size of ['desktop', 'tablet'] as const) {
+      setViewport(size);
+      const { result } = renderHook(() => useTabSlideOptions());
 
-    setViewport('tablet');
-    const tablet = renderHook(() => useTabSlideOptions());
-    expect(translateAt(tablet.result.current, 1)).toBe(
-      VIEWPORTS.tablet.width - SIDENAV_WIDTH.tablet
-    );
+      // The window is the widest a scene can possibly be — a scene is the window minus a
+      // sidebar of some width, and that width is never negative. Clearing this bar clears
+      // every real scene, which is the property that matters.
+      expect(translateAt(result.current, 1)).toBeGreaterThanOrEqual(VIEWPORTS[size].width);
+      expect(translateAt(result.current, -1)).toBeLessThanOrEqual(-VIEWPORTS[size].width);
+    }
   });
 
   it('animates over a real duration rather than snapping', () => {

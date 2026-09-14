@@ -1,9 +1,7 @@
 import React, { ReactNode } from 'react';
-import { View, Text, Pressable } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text } from 'react-native';
 import { useThemeColors } from '../../hooks/useThemeColors';
-import { useLocale } from '../../context/LocaleContext';
+import BackLink from './BackLink';
 
 type PageHeaderProps = {
   title?: string;
@@ -37,15 +35,7 @@ export default function PageHeader({
   actions,
   children,
 }: PageHeaderProps) {
-  const navigation = useNavigation();
-  const { textColor, subtextColor, hex } = useThemeColors();
-  const { t } = useLocale();
-
-  const handleBack = () => {
-    if (onBackPress) return onBackPress();
-    if (navigation.canGoBack()) return navigation.goBack();
-    (navigation as any).navigate('MainTabs', { screen: 'Home' });
-  };
+  const { textColor, subtextColor } = useThemeColors();
 
   const hasTitleRow = Boolean(title || actions);
 
@@ -57,25 +47,7 @@ export default function PageHeader({
 
   return (
     <View className="pb-6 pt-8">
-      {showBackButton && (
-        <Pressable
-          onPress={handleBack}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.back')}
-          // A text link with an arrow, not a circular icon button: on web the back affordance
-          // sits in the page flow next to the title rather than being a thumb target in a bar.
-          style={({ hovered }: any) => ({
-            flexDirection: 'row',
-            alignItems: 'center',
-            alignSelf: 'flex-start',
-            marginBottom: 12,
-            opacity: hovered ? 0.7 : 1,
-            cursor: 'pointer',
-          })}>
-          <Ionicons name="arrow-back" size={18} color={hex.subtext} />
-          <Text className={`ml-2 text-sm font-medium ${subtextColor}`}>{t('common.back')}</Text>
-        </Pressable>
-      )}
+      {showBackButton && <BackLink onPress={onBackPress} />}
 
       {hasTitleRow && (
         <View className="flex-row items-start justify-between">

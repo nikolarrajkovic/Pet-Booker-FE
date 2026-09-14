@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Switch } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../context/ThemeContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { useAuth } from '../../../context/AuthContext';
@@ -206,35 +206,13 @@ export default function SettingsScreen() {
           <TouchableOpacity
             accessibilityRole="button"
             onPress={() => (navigation as any).navigate('ChangePassword')}
-            className="flex-row items-center border-b border-gray-100 p-4">
+            className="flex-row items-center p-4">
             <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-red-50">
               <Ionicons name="lock-closed" size={24} color="#EF4444" />
             </View>
             <View className="flex-1">
               <Text className={`text-base font-semibold ${textColor}`}>
                 {t('settings.changePassword')}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-          <TouchableOpacity className="flex-row items-center border-b border-gray-100 p-4">
-            <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-green-50">
-              <Ionicons name="shield-checkmark" size={24} color={BRAND_GREEN} />
-            </View>
-            <View className="flex-1">
-              <Text className={`text-base font-semibold ${textColor}`}>
-                {t('settings.twoFactor')}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
-          <TouchableOpacity className="flex-row items-center p-4">
-            <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-blue-50">
-              <Ionicons name="eye-off" size={24} color="#3B82F6" />
-            </View>
-            <View className="flex-1">
-              <Text className={`text-base font-semibold ${textColor}`}>
-                {t('settings.privacySettings')}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />

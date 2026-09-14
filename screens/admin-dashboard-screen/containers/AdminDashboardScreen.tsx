@@ -1,23 +1,18 @@
 import React, { useCallback, useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  SafeAreaView,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
+import BackLink from '../../../components/shared/BackLink';
 import { getAdminOverviewStats, getAdminRevenueByServiceType } from '../../../services/stats';
 import { countServiceProviders, ApprovalStatus } from '../../../services/service-providers';
 import { countReviews } from '../../../services/reviews';
 import { formatMoney } from '../../../services/currency';
 import { getErrorMessage } from '../../../services/http';
 import { useResponsive } from '../../../hooks/useResponsive';
+import { useTopInset, useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
@@ -119,6 +114,8 @@ export default function AdminDashboardScreen() {
   const { showError } = useToast();
   const { t, tEnum } = useLocale();
   const { isWebLayout } = useResponsive();
+  const topInset = useTopInset();
+  const tabBarSpacing = useTabBarSpacing();
 
   const [metrics, setMetrics] = useState<AdminMetrics>(EMPTY_METRICS);
   const [loaded, setLoaded] = useState(false);
@@ -146,7 +143,7 @@ export default function AdminDashboardScreen() {
       return () => {
         cancelled = true;
       };
-    }, [])
+    }, [showError, t])
   );
 
   const maxRevenue = Math.max(1, ...metrics.revenueByType.map((r) => r.value));
@@ -159,27 +156,27 @@ export default function AdminDashboardScreen() {
   const subText = hex.subtext;
   const borderColor = hex.border;
 
-  // Same treatment as the Partner Hub: the green slab, its safe-area padding and the rounded
-  // sheet riding up over it are phone chrome. On the web design the sidebar frames the page, so
-  // the header is a plain title and the tiles use the width instead of staying two-up.
-  const Root: any = isWebLayout ? View : SafeAreaView;
+  // Same treatment as the Partner Hub: the green slab and the rounded sheet riding up over it are
+  // phone chrome. On the web design the sidebar frames the page, so the header is a plain title
+  // and the tiles use the width instead of staying two-up.
 
   return (
-    <Root
-      // Transparent on the web design, not the page ground: the shell already paints that ground
-      // and the pattern texture behind every screen, and repainting it here covers both.
+    <View
+      // Transparent on the web design so the shell's pattern shows through, as on every other
+      // page; the phone design keeps its green header slab.
       style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{
           backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
           paddingHorizontal: isWebLayout ? 32 : 20,
-          paddingTop: isWebLayout ? 32 : 48,
+          paddingTop: isWebLayout ? 32 : topInset + 24,
           paddingBottom: isWebLayout ? 8 : 36,
           width: '100%',
           maxWidth: isWebLayout ? CONTENT_WIDTHS.wide : undefined,
           alignSelf: 'center',
         }}>
+        {isWebLayout && <BackLink />}
         <Text
           style={{
             color: isWebLayout ? hex.text : 'white',
@@ -220,7 +217,7 @@ export default function AdminDashboardScreen() {
                   maxWidth: CONTENT_WIDTHS.wide,
                   alignSelf: 'center',
                 }
-              : { paddingBottom: 100 }
+              : { paddingBottom: tabBarSpacing }
           }
           showsVerticalScrollIndicator={false}>
           {/* ── Stats grid ── */}
@@ -565,7 +562,7 @@ export default function AdminDashboardScreen() {
           </View>
         </ScrollView>
       </View>
-    </Root>
+    </View>
   );
 }
 

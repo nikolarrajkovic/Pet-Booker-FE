@@ -1,11 +1,12 @@
 import React from 'react';
-import { SafeAreaView, View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { useLocale } from '../../../context/LocaleContext';
 import AnimatedCheckmark from '../../../components/shared/AnimatedCheckmark';
 import { useResponsive } from '../../../hooks/useResponsive';
+import { useTopInset, useBottomInset } from '../../../hooks/useSafeAreaSpacing';
 
 type BookingConfirmedRouteParams = {
   serviceName: string;
@@ -19,9 +20,13 @@ export default function BookingConfirmedScreen() {
   const { isDarkMode, bgColor, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
+  const topInset = useTopInset();
+  const bottomInset = useBottomInset();
 
   return (
-    <SafeAreaView className={`flex-1 ${bgColor}`}>
+    <View
+      className={`flex-1 ${bgColor}`}
+      style={{ paddingTop: topInset, paddingBottom: bottomInset }}>
       {/*
         The confirmation is already centred vertically; on a wide window it also needs a width, or
         the two buttons stretch to 1400px and the message runs as a single line across the monitor.
@@ -55,6 +60,6 @@ export default function BookingConfirmedScreen() {
           </TouchableOpacity>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

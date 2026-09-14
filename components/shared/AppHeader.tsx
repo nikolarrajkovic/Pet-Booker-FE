@@ -1,8 +1,8 @@
 import React, { ReactNode } from 'react';
-import { View, Text, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTopInset } from '../../hooks/useSafeAreaSpacing';
 import { useTheme } from '../../context/ThemeContext';
 import { useLocale } from '../../context/LocaleContext';
 
@@ -45,16 +45,27 @@ export default function AppHeader({
   const navigation = useNavigation();
   const { isDarkMode } = useTheme();
   const { t } = useLocale();
-  const insets = useSafeAreaInsets();
+  const topInset = useTopInset();
 
   const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-brand-500';
 
-  // Base padding values (in pixels/points)
-  const basePaddingTop = variant === 'large' ? 16 : variant === 'standard' ? 48 : 32;
+  // Breathing room between the status bar and the header's own content. Pure spacing: clearing
+  // the status bar is the inset's job below, not a number baked into these.
+  //
+  // It used to be baked in — 48pt for 'standard' plus `insets.top * 0.4`, a fraction tuned by eye
+  // against one handset. That is only ever right for one status-bar height, and it was wrong in
+  // opposite directions on the two platforms: React Native's `SafeAreaView` insets on iOS only, so
+  // iOS got the full inset AND the 40% on top, while Android — drawing edge-to-edge since Expo SDK
+  // 54 — got nothing but the 40%. On 'large' (base 16) any device whose top inset exceeded ~27dp
+  // put the title under the status bar and camera cutout, which is why two screens ended up
+  // hand-rolling their own `Platform.OS === 'android' ? insets.top : 0`.
+  const contentPaddingTop = variant === 'large' ? 16 : variant === 'standard' ? 24 : 20;
   const paddingBottom = variant === 'large' ? 'pb-6' : variant === 'standard' ? 'pb-6' : 'pb-4';
 
-  // Add reduced safe area inset to top padding (only use 40% of the inset to avoid excessive spacing)
-  const totalPaddingTop = basePaddingTop + insets.top * 0.4;
+  // The header paints its own background up to the top of the window, so the green runs under the
+  // status bar and the content sits below it — on every device, and on both platforms. In a
+  // browser the inset is 0 and this is just the breathing room.
+  const totalPaddingTop = topInset + contentPaddingTop;
 
   const handleBackPress = () => {
     if (onBackPress) {

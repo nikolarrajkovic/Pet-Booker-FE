@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -25,6 +24,7 @@ import {
   endOfDayIso,
 } from '../../../services/service-discounts';
 import { getErrorMessage } from '../../../services/http';
+import { showAlert } from '../../../services/alert';
 
 // Labels are translation keys, resolved with t() at render.
 const TYPE_META: Record<
@@ -143,17 +143,17 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
     } // boost/featured: mock, no persistence
     const val = parseFloat(discount) || 0;
     if (val <= 0) {
-      Alert.alert(t('promotions.enterAmountTitle'), t('promotions.enterAmountMsg'));
+      showAlert(t('promotions.enterAmountTitle'), t('promotions.enterAmountMsg'));
       return;
     }
     if (isPercent && val > 100) {
-      Alert.alert(t('promotions.invalidPctTitle'), t('promotions.invalidPctMsg'));
+      showAlert(t('promotions.invalidPctTitle'), t('promotions.invalidPctMsg'));
       return;
     }
     // Compare against the start actually sent below (an unparsed start falls back to now), or a
     // backwards window slips through and comes back as a 422 the partner can't act on.
     if (endDate && endDate < startOfDay(startDate ?? new Date())) {
-      Alert.alert(t('promotions.invalidDatesTitle'), t('promotions.invalidDatesMsg'));
+      showAlert(t('promotions.invalidDatesTitle'), t('promotions.invalidDatesMsg'));
       return;
     }
     setIsSubmitting(true);
@@ -183,7 +183,7 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
       navigation.goBack();
       return;
     }
-    Alert.alert(t('promotions.deletePromoTitle'), t('promotions.deletePromoMsg'), [
+    showAlert(t('promotions.deletePromoTitle'), t('promotions.deletePromoMsg'), [
       { text: t('promotions.cancel'), style: 'cancel' },
       {
         text: t('promotions.delete'),
@@ -232,6 +232,24 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
           }
           className="h-10 w-10 items-center justify-center rounded-full bg-white/20">
           <Ionicons name="bar-chart-outline" size={18} color="white" />
+        </TouchableOpacity>
+      }
+      // The same control, tinted rather than translucent-white. `ScreenLayout` falls back to
+      // `rightAction` when no web variant is given, and white-on-translucent is authored for the
+      // phone's green header — on the web page header's light ground it disappears.
+      webHeaderRight={
+        <TouchableOpacity
+          accessibilityRole="button"
+          activeOpacity={0.7}
+          onPress={() =>
+            (navigation as any).replace('PromotionAnalytics', {
+              promotion,
+              promotionTitle: promotion.title,
+              promotionDescription: promotion.description,
+            })
+          }
+          className="h-10 w-10 items-center justify-center rounded-full bg-brand-50">
+          <Ionicons name="bar-chart-outline" size={18} color={BRAND_GREEN} />
         </TouchableOpacity>
       }
       // A form: one column of fields. Capped narrow so a label never sits a screen-width

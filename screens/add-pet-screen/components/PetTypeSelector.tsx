@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { PetSpecies } from '../../../services/pets';
 import { useLocale } from '../../../context/LocaleContext';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 // Values are PetSpeciesType FLAGS (1,2,4,8,16,32) — not sequential ints
 const petTypes = [
@@ -31,6 +32,7 @@ export default function PetTypeSelector({
   error,
 }: PetTypeSelectorProps) {
   const { t, tEnum } = useLocale();
+  const { isWebLayout } = useResponsive();
   return (
     <View className="mb-6">
       <Text className={`text-sm font-semibold ${textColor} mb-3`}>
@@ -42,15 +44,25 @@ export default function PetTypeSelector({
             accessibilityRole="button"
             key={type.value}
             onPress={() => onSelectType(type.value)}
-            className={`items-center justify-center rounded-xl border-2 px-4 py-3 ${
+            // A phone needs a thumb-sized target three to a row. A pointer does not, and at that
+            // size six of them fill a third of the form — so on the web they are chips that sit
+            // on one line, sized to their own label.
+            className={`justify-center rounded-xl border-2 ${
+              isWebLayout ? 'flex-row items-center px-3 py-2' : 'items-center px-4 py-3'
+            } ${
               selectedType === type.value
                 ? 'border-brand-500 bg-brand-500'
                 : error
                   ? `${inputBg} border-red-500`
                   : `${inputBg} ${isDarkMode ? 'border-gray-600' : 'border-gray-300'}`
             }`}
-            style={{ width: '30%' }}>
-            <Text style={{ fontSize: 32, marginBottom: 4 }}>{type.emoji}</Text>
+            style={isWebLayout ? undefined : { width: '30%' }}>
+            <Text
+              style={
+                isWebLayout ? { fontSize: 18, marginRight: 8 } : { fontSize: 32, marginBottom: 4 }
+              }>
+              {type.emoji}
+            </Text>
             <Text
               className={`text-xs font-medium ${selectedType === type.value ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               {tEnum('petSpeciesType', type.value, type.label)}

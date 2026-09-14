@@ -2,9 +2,6 @@ import type { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
 import { Easing, useWindowDimensions } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
-import { SIDENAV_WIDTH } from '../components/layout/SideNav';
-import { useResponsive } from '../hooks/useResponsive';
-
 /** How long a tab switch takes. Long enough to read as a direction, short enough not to wait. */
 export const TAB_SLIDE_MS = 260;
 
@@ -32,24 +29,34 @@ export type TabSlideOptions = Pick<
  * shell paints the ground behind it. The travel distance is therefore load-bearing: shorten it
  * (the way the built-in `'shift'` preset does, at 50px) and the screens overlap again.
  *
- * ## Distance
+ * ## Distance: the window width, which is never too short
  *
- * A scene is as wide as the window on the phone design, and the window minus the sidebar on the
- * web one. Getting this wrong is not subtle: too short and the scenes overlap, too long and the
- * incoming screen spends the first part of the animation still off-screen, which reads as lag.
+ * A scene is the whole window on the phone design, and the window minus the sidebar on the web
+ * one — so the window width is exactly right on a phone and slightly generous on the web. That
+ * asymmetry is deliberate, because the two ways of being wrong are not equally bad:
+ *
+ * - **Too short** and the scenes overlap, which is the ghosting this whole animation exists to
+ *   avoid. Unacceptable.
+ * - **Too long** and the incoming scene spends the start of the animation still off its own
+ *   edge, which reads as lag. With `Easing.out` almost all the distance is covered in the first
+ *   moments, so the sidebar's worth of overshoot hides in about 14ms of a 260ms slide.
+ *
+ * This used to subtract `SIDENAV_WIDTH.desktop` to get the web scene exactly. That was right
+ * while the sidebar was a fixed 244px and wrong the moment it became `fit-content` (it is sized
+ * by its labels now, so it varies with the language and is only capped at 280). Subtracting a
+ * guess risks subtracting *too little*, which lands on the unacceptable side; the window width
+ * cannot, whatever the sidebar does next.
  *
  * `useReducedMotion` opts out entirely rather than shortening the animation — someone who asked
  * the OS for less motion is not asking for a faster slide.
  */
 export function useTabSlideOptions(): TabSlideOptions {
   const { width } = useWindowDimensions();
-  const { isWebLayout, isDesktop } = useResponsive();
   const reduced = useReducedMotion();
 
   if (reduced) return { animation: 'none' };
 
-  const sidebar = isDesktop ? SIDENAV_WIDTH.desktop : SIDENAV_WIDTH.tablet;
-  const sceneWidth = Math.max(1, isWebLayout ? width - sidebar : width);
+  const sceneWidth = Math.max(1, width);
 
   return {
     // Deliberately no `animation` name: naming one would pull in that preset's interpolator as

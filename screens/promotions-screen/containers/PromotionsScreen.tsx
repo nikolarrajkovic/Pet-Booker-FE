@@ -203,7 +203,7 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser?.id, currentUser?.serviceProviderId, t]);
+  }, [currentUser?.id, currentUser?.serviceProviderId, t, showError]);
 
   useFocusEffect(
     useCallback(() => {

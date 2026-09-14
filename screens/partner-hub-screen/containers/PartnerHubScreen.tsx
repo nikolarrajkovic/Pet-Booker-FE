@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTopInset, useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -24,6 +24,7 @@ import {
   ActivityEntry,
 } from '../../../services/stats';
 import { getServices } from '../../../services/services';
+import BackLink from '../../../components/shared/BackLink';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 
@@ -322,12 +323,11 @@ export default function PartnerHubScreen() {
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
   const { unreadCount: unreadMessages, refreshUnreadCount: refreshUnreadMessages } = useMessages();
-  const insets = useSafeAreaInsets();
-
-  // React Native's own SafeAreaView insets on iOS only. Android has drawn edge-to-edge since Expo
-  // SDK 54, so nothing there keeps content clear of the status bar and camera cutout — the header
-  // has to pad for it itself, or the title sits under the front camera.
-  const headerTopInset = Platform.OS === 'android' ? insets.top : 0;
+  // The real inset on both platforms. React Native's SafeAreaView pads on iOS only, so this used
+  // to be an Android-only branch bolted on beside it — two ways of doing one thing, and only ever
+  // right on the platform whose turn it was.
+  const topInset = useTopInset();
+  const tabBarSpacing = useTabBarSpacing();
 
   const bgColor = hex.bg;
   const cardBg = hex.card;
@@ -407,7 +407,7 @@ export default function PartnerHubScreen() {
       return () => {
         cancelled = true;
       };
-    }, [currentUser?.serviceProviderId, t])
+    }, [currentUser?.serviceProviderId, t, showError])
   );
 
   const hasLiveSession = hub.hasLiveSession;
@@ -461,29 +461,28 @@ export default function PartnerHubScreen() {
     return null;
   };
 
-  // The green slab, its safe-area padding and the rounded sheet that rides up over it are all
-  // phone chrome: they exist to give the status bar a background and to separate a screen that
-  // fills the display. On the web design the sidebar already frames the page, so the header is
-  // just a title — and the stat pills stop being translucent-on-green (there is no green behind
-  // them any more) and become ordinary cards.
-  const Root: any = isWebLayout ? View : SafeAreaView;
+  // The green slab and the rounded sheet that rides up over it are phone chrome: they give the
+  // status bar a background and separate a screen that fills the display. On the web design the
+  // sidebar already frames the page, so the header is just a title — and the stat pills stop being
+  // translucent-on-green (there is no green behind them any more) and become ordinary cards.
 
   return (
-    <Root
-      // Transparent on the web design, not the page ground: the shell already paints that ground
-      // and the pattern texture behind every screen, and repainting it here covers both.
+    <View
+      // Transparent on the web design so the shell's pattern shows through, as on every other
+      // page; the phone design keeps its green header slab.
       style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
       {/* ── Header ── */}
       <View
         style={{
           backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
           paddingHorizontal: isWebLayout ? 32 : 20,
-          paddingTop: isWebLayout ? 32 : headerTopInset + (insets.top > 0 ? 8 : 16),
+          paddingTop: isWebLayout ? 32 : topInset + 16,
           paddingBottom: 24,
           width: '100%',
           maxWidth: isWebLayout ? CONTENT_WIDTHS.wide : undefined,
           alignSelf: 'center',
         }}>
+        {isWebLayout && <BackLink />}
         <View
           style={{
             flexDirection: 'row',
@@ -624,7 +623,7 @@ export default function PartnerHubScreen() {
                   maxWidth: CONTENT_WIDTHS.wide,
                   alignSelf: 'center',
                 }
-              : { paddingBottom: 100 }
+              : { paddingBottom: tabBarSpacing }
           }>
           {/* ── Active Live Session banner ── */}
           {hasLiveSession && (
@@ -901,6 +900,6 @@ export default function PartnerHubScreen() {
           </View>
         </ScrollView>
       </View>
-    </Root>
+    </View>
   );
 }

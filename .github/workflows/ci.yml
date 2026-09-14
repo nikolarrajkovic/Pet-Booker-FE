@@ -1,0 +1,47 @@
+name: CI
+
+# Runs on every push and pull request. The backend has had this since early on; the front end
+# had nothing, so until now the only thing standing between a broken build and `main` was
+# whoever opened the PR remembering to run four commands by hand.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run irrelevant — stop it rather than pay for it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `ci`, not `install`: it installs exactly what the lockfile says and fails if the lockfile
+      # and package.json disagree, which is the point of running this on a build machine.
+      - name: Install
+        run: npm ci
+
+      # Typecheck first. It is the fastest of the four and catches the widest class of mistake,
+      # so a broken build fails in under a minute rather than after the test run.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # `--max-warnings 0`: the tree is at zero, and a warning nobody has to act on is a warning
+      # everybody stops reading. It was 36 before this branch — the ones that could be fixed were,
+      # and the one that could not carries an eslint-disable with the reason beside it.
+      - name: Lint
+        run: npx eslint "**/*.{js,jsx,ts,tsx}" --max-warnings 0
+
+      - name: Format
+        run: npx prettier -c "**/*.{js,jsx,ts,tsx,json}"
+
+      - name: Test
+        run: npx jest --ci

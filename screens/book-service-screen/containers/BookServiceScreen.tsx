@@ -237,7 +237,15 @@ export default function BookServiceScreen() {
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.id, service.id]);
+  }, [
+    currentUser?.id,
+    service.id,
+    service.details,
+    service.schedules,
+    petToListItem,
+    showError,
+    t,
+  ]);
 
   // This screen stays mounted while AddPet is pushed on top of it, so a pet
   // created mid-booking isn't picked up by the mount fetch above. Refresh the
@@ -266,7 +274,7 @@ export default function BookServiceScreen() {
       return () => {
         cancelled = true;
       };
-    }, [currentUser?.id, petToListItem])
+    }, [currentUser?.id, petToListItem, showError, t])
   );
 
   // Fetch the availability for the whole month a date belongs to, once. This is the ONLY source
@@ -307,7 +315,7 @@ export default function BookServiceScreen() {
     return () => {
       cancelled = true;
     };
-  }, [serviceId, monthToLoad, loadedMonths]);
+  }, [serviceId, monthToLoad, loadedMonths, showError, t]);
 
   // Re-fetch from scratch if the service changes underneath us.
   useEffect(() => {

@@ -79,6 +79,9 @@ describe('Platform.OS is not used for layout', () => {
     'components/shared/PatternBackground.tsx':
       'ImageBackground resizeMode="repeat" does not tile on react-native-web — it draws one tile ' +
       'in the corner — so web tiles through CSS background-repeat instead',
+    'components/layout/SideNav.tsx':
+      'the sidebar sizes to its own labels via CSS width:fit-content, which Yoga has no ' +
+      'equivalent for — native falls back to a fixed width',
   };
 
   it('only appears where a capability genuinely differs', () => {
@@ -150,6 +153,128 @@ describe('the nav bars cannot drift apart', () => {
     // Two navigations on one screen is the obvious failure of running both designs from one tree.
     const tabBar = read(path.join(ROOT, 'components', 'shared', 'TabBar.tsx'));
     expect(tabBar).toMatch(/if \(!isMobile\) return null;/);
+  });
+});
+
+describe('there is one back affordance on the web design', () => {
+  /**
+   * `BackLink` is it. The web design puts the way back in the page flow above the title, as a
+   * labelled link; the phone design keeps the white arrow on `AppHeader`'s green slab.
+   *
+   * This is pinned because it had already drifted: `PageHeader` drew the link while the three
+   * admin screens that hand-roll a header drew a bordered circle beside the title instead, so
+   * which shape you got depended on which screen you were looking at.
+   *
+   * A file may still draw `arrow-back` for the phone design or for a genuinely different
+   * surface — listed here with the reason, as elsewhere in this file.
+   */
+  const ALLOWED: Record<string, string> = {
+    'components/shared/BackLink.tsx': 'the web affordance itself',
+    'components/shared/AppHeader.tsx': "the phone design's arrow, on the green slab",
+    'screens/admin-partners-screen/containers/AdminPartnersScreen.tsx': 'phone branch only',
+    'screens/admin-partners-screen/containers/PartnerDetailsScreen.tsx': 'phone branch only',
+    'screens/admin-new-requests-screen/containers/ApplicationReviewScreen.tsx': 'phone branch only',
+    'screens/my-schedule-screen/containers/MyScheduleScreen.tsx': 'phone branch only',
+    'screens/messages-screen/containers/ChatScreen.tsx':
+      'a chat thread header is a toolbar beside the avatar, not a page title block',
+    'screens/service-preview-screen/containers/ServicePreviewScreen.tsx':
+      'draws a green header on both designs, so the arrow is on green either way',
+    'screens/provider-detail-screen/containers/ProviderDetailScreen.tsx':
+      'orphaned and unreachable, see CLAUDE.md',
+  };
+
+  it('screens do not hand-roll one', () => {
+    const offenders = [...screenFiles, ...componentFiles]
+      .filter((f) => /name="arrow-back"/.test(read(f)))
+      .map(rel)
+      .filter((f) => !(f in ALLOWED));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('PageHeader delegates rather than drawing its own', () => {
+    const pageHeader = read(path.join(ROOT, 'components', 'shared', 'PageHeader.tsx'));
+    expect(pageHeader).toMatch(/<BackLink/);
+    expect(/name="arrow-back"/.test(pageHeader)).toBe(false);
+  });
+});
+
+describe('className only goes where NativeWind can see it', () => {
+  /**
+   * NativeWind rewrites `className` for the core React Native components it knows about. On
+   * anything else — a third-party component, or a component held in a variable — the prop is
+   * passed straight through and **dropped in silence**: no type error, no lint error, no warning.
+   * The element renders unstyled, which for a layout class means a collapsed or full-bleed box
+   * rather than anything that looks like a mistake.
+   *
+   * That has cost this codebase three real bugs, all found in one week:
+   *
+   *  - `ChatScreen`'s root was `<Root className={...}>` with `Root` a variable, so the thread lost
+   *    its background and its flex — bubbles on the pet pattern, composer stranded mid-page.
+   *  - `ServicePreviewScreen` had the same shape and the same result.
+   *  - `<KeyboardAvoidingView className="flex-1">` in `ChatScreen` and `AuthLayout`: it comes from
+   *    react-native-keyboard-controller, so the flex vanished and the composer sat under the last
+   *    message instead of at the foot of the view.
+   *
+   * The fix in every case is `style` instead. This pins it, because the failure is invisible until
+   * someone looks at the screen.
+   */
+  const ALLOWED = new Set([
+    // Core RN components NativeWind handles.
+    'View',
+    'Text',
+    'ScrollView',
+    'Image',
+    'ImageBackground',
+    'TextInput',
+    'Pressable',
+    'TouchableOpacity',
+    'TouchableHighlight',
+    'TouchableWithoutFeedback',
+    'SafeAreaView',
+    'ActivityIndicator',
+    'Modal',
+    'FlatList',
+    'SectionList',
+    'Switch',
+    // Project components that take a `className` prop and forward it onto a core one.
+    'StickyFooter',
+    'Avatar',
+    'Button',
+  ]);
+
+  /**
+   * The tag a `className` belongs to: walk back to the `<` that opened the tag it sits in.
+   *
+   * Deliberately not a regex over the whole element — `className` is often several lines below
+   * its tag name, and matching that across newlines while still stopping at the right `>` is
+   * exactly the kind of pattern that silently matches nothing.
+   */
+  function owningTag(src: string, at: number): string | null {
+    const open = src.lastIndexOf('<', at);
+    if (open === -1) return null;
+    // A `>` between the tag and the attribute means they belong to different elements.
+    if (src.slice(open, at).includes('>')) return null;
+    const name = /^<([A-Za-z][A-Za-z0-9_.]*)/.exec(src.slice(open, at));
+    return name ? name[1] : null;
+  }
+
+  it('is not passed to a component NativeWind does not process', () => {
+    const offenders: string[] = [];
+
+    for (const file of [...screenFiles, ...componentFiles, path.join(ROOT, 'App.tsx')]) {
+      if (!fs.existsSync(file)) continue;
+      const src = read(file);
+
+      for (let i = src.indexOf('className='); i !== -1; i = src.indexOf('className=', i + 1)) {
+        const tag = owningTag(src, i);
+        // No tag means this is a `className` prop being declared or forwarded, not applied.
+        if (!tag || ALLOWED.has(tag)) continue;
+        offenders.push(`${rel(file)}: <${tag} className=…>`);
+      }
+    }
+
+    expect(offenders).toEqual([]);
   });
 });
 

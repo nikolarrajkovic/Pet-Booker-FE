@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Text, View, TouchableOpacity } from 'react-native';
-import { useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
+import { useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Button from '../../../components/shared/Button';
 import PetLoader from '../../../components/shared/PetLoader';
@@ -361,7 +361,7 @@ export default function SearchScreen() {
       width="wide"
       // Back is a phone affordance here — on the web design Search is a sidebar destination, not
       // somewhere you drilled into, so there is nothing above it to go back to.
-      showBackButton={!isWebLayout}
+      showBackButton
       rightAction={
         <TouchableOpacity
           accessibilityRole="button"

@@ -1,5 +1,6 @@
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import './global.css';
 import React, { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
@@ -70,6 +71,7 @@ import { hasSeenPartnerWelcome, markPartnerWelcomeSeen } from './services/onboar
 import PetLoader from './components/shared/PetLoader';
 import TabBar from './components/shared/TabBar';
 import { useTabSlideOptions } from './navigation/tabTransition';
+import { enableDocumentScroll } from './styles/document-scroll';
 import { enableScreens } from 'react-native-screens';
 
 enableScreens();
@@ -112,6 +114,12 @@ function AppContent() {
   // screen it is about. Lives here rather than in a screen because a cold start from a
   // notification arrives before any screen is mounted.
   usePushNotifications(navReady);
+
+  // After first render, not at import: RNW injects its own stylesheet lazily, and this rule
+  // carries no `!important`, so it has to land after that to win. A no-op on native.
+  useEffect(() => {
+    enableDocumentScroll();
+  }, []);
 
   // Celebrate once, the first time we observe a user is an approved partner
   // (the backend adds them to the ServiceProvider group → `isPartner` flips
@@ -308,20 +316,34 @@ function MainTabs() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <LocaleProvider>
-        <ToastProvider>
-          <AuthProvider>
-            <NotificationsProvider>
-              <MessagesProvider>
-                <EnumsProvider>
-                  <AppContent />
-                </EnumsProvider>
-              </MessagesProvider>
-            </NotificationsProvider>
-          </AuthProvider>
-        </ToastProvider>
-      </LocaleProvider>
-    </ThemeProvider>
+    /*
+      Safe-area insets are read all over the app — by AppHeader for the status bar and camera
+      cutout, by TabBar and StickyFooter for the Android navigation bar — and until now nothing
+      here provided them. They resolved only because NativeStackView happens to mount a
+      SafeAreaProviderCompat internally, which is an implementation detail of a navigator rather
+      than a contract; anything rendered outside the navigator (the toast overlay, the first-run
+      language chooser) had no insets at all.
+
+      initialWindowMetrics is what makes the FIRST frame correct. Without it the provider starts at
+      zero insets and corrects itself once native reports them, so a screen mounts with its header
+      under the status bar and then jumps.
+    */
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <ThemeProvider>
+        <LocaleProvider>
+          <ToastProvider>
+            <AuthProvider>
+              <NotificationsProvider>
+                <MessagesProvider>
+                  <EnumsProvider>
+                    <AppContent />
+                  </EnumsProvider>
+                </MessagesProvider>
+              </NotificationsProvider>
+            </AuthProvider>
+          </ToastProvider>
+        </LocaleProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

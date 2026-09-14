@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useResponsive } from '../../hooks/useResponsive';
+import { useBottomInset } from '../../hooks/useSafeAreaSpacing';
 import { useAuth } from '../../context/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
 import { primaryNavItems } from '../../navigation/navItems';
@@ -32,7 +32,6 @@ import { primaryNavItems } from '../../navigation/navItems';
 export default function TabBar({
   state,
   navigation: tabNavigation,
-  insets,
 }: Partial<BottomTabBarProps> = {}) {
   // The navigator hands us its OWN navigation object, and that is the one that can reach the
   // tab routes. `useNavigation()` cannot: the `tabBar` renders outside every tab scene, so the
@@ -43,18 +42,15 @@ export default function TabBar({
   const screenNavigation = useNavigation();
   const navigation: any = tabNavigation ?? screenNavigation;
   const route = useRoute();
-  const safeInsets = useSafeAreaInsets();
   const { isDarkMode, cardBg: bgColor, borderColor } = useThemeColors();
   const { isMobile } = useResponsive();
+  const bottomInset = useBottomInset();
   const { isPartner, isAdmin } = useAuth();
   const { t } = useLocale();
 
   // From the navigator we are handed the tab state; rendered bare (tests, and any screen that
   // still mounts one) the enclosing route is the next best answer.
   const currentRoute = state ? state.routes[state.index]?.name : route.name;
-  // Outside a screen there is no SafeAreaView above us any more, so the bar owns its own
-  // bottom inset — without it the icons sit under the home indicator / gesture bar.
-  const bottomInset = insets?.bottom ?? safeInsets.bottom;
 
   const inactiveColor = isDarkMode ? '#6B7280' : '#9CA3AF';
   const inactiveTextColor = isDarkMode ? 'text-gray-500' : 'text-gray-400';
@@ -66,8 +62,14 @@ export default function TabBar({
   return (
     <View
       accessibilityRole="tablist"
-      style={{ paddingBottom: bottomInset }}
-      className={`absolute bottom-0 left-0 right-0 ${bgColor} border-t ${borderColor}`}>
+      className={`absolute bottom-0 left-0 right-0 ${bgColor} border-t ${borderColor}`}
+      // Android has drawn edge-to-edge since Expo SDK 54, so the system navigation bar is painted
+      // OVER the app rather than beside it. Without this the tab labels sit under it — barely
+      // noticeable behind a gesture pill (~16–24dp), badly wrong behind three-button navigation
+      // (~48dp). It is the number that changes when you swap handsets. The bar's background
+      // extends into the inset, so the strip behind the system buttons stays the bar's colour
+      // rather than showing the screen scrolling past underneath.
+      style={{ paddingBottom: bottomInset }}>
       <View className="flex-row items-center justify-around py-2">
         {tabs.map((tab) => {
           const isSelected = currentRoute === tab.route;
