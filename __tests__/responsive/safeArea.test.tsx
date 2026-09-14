@@ -40,6 +40,7 @@ jest.mock('@react-navigation/native', () => ({
   useRoute: () => ({ name: 'Home', key: 'k', params: undefined }),
 }));
 
+import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import AppHeader from '../../components/shared/AppHeader';
 import ScreenLayout from '../../components/shared/ScreenLayout';
 import StickyFooter from '../../components/shared/StickyFooter';
@@ -129,6 +130,25 @@ describe('the bottom inset is reserved exactly once', () => {
     // Exactly one thing in the tree reserves the inset — the bar. Two would float it a full
     // navigation bar's height off the bottom of the screen.
     expect(styleValues(tree, 'paddingBottom').filter((v) => v === INSET_BOTTOM)).toHaveLength(1);
+  });
+
+  it('leaves it to the tab bar on a tab screen, which passes no footer at all', () => {
+    // The five tab screens have a `TabBar` below them, but they no longer pass it as a `footer`
+    // — it is mounted on the tab navigator, so `footer` is undefined and the sheet would happily
+    // reserve the inset a second time underneath the bar that already did. `ScreenLayout` reads
+    // `BottomTabBarHeightContext` instead, which exists only inside the tab navigator.
+    setViewport('mobile');
+    const tree = render(
+      withProviders(
+        <BottomTabBarHeightContext.Provider value={76}>
+          <ScreenLayout headerTitle="Home">
+            <Text>body</Text>
+          </ScreenLayout>
+        </BottomTabBarHeightContext.Provider>
+      )
+    );
+
+    expect(styleValues(tree, 'paddingBottom')).not.toContain(INSET_BOTTOM);
   });
 
   it('StickyFooter reserves it on its own when nothing above it has', () => {

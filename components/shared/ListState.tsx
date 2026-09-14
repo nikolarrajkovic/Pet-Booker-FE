@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
+import PetLoader from './PetLoader';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -13,11 +14,17 @@ function StatePad({ children }: { children: React.ReactNode }) {
   return <View className="items-center justify-center py-16">{children}</View>;
 }
 
-/** Full-width spinner, for a list that has not loaded yet. */
-export function LoadingState() {
+/**
+ * Full-width loading state for a list that has not loaded yet.
+ *
+ * This is the one place the app's loading animation is chosen, which is why the dog lives here
+ * rather than in a dozen screens: every list screen already routes its spinner through
+ * `ListState`, so they all changed together.
+ */
+export function LoadingState({ label }: { label?: string }) {
   return (
     <StatePad>
-      <ActivityIndicator size="large" color={BRAND_GREEN} />
+      <PetLoader label={label} />
     </StatePad>
   );
 }
@@ -80,6 +87,8 @@ export interface ListStateProps {
   emptyIcon?: IoniconName;
   /** What to say when there is nothing to show — usually tab-specific. */
   emptyMessage?: string;
+  /** Caption under the loading animation. Optional — most lists need no words. */
+  loadingLabel?: string;
   /** Rendered only once loading, error and empty are all ruled out. */
   children?: React.ReactNode;
 }
@@ -110,9 +119,10 @@ export default function ListState({
   isEmpty,
   emptyIcon = 'clipboard-outline',
   emptyMessage,
+  loadingLabel,
   children,
 }: ListStateProps) {
-  if (isLoading) return <LoadingState />;
+  if (isLoading) return <LoadingState label={loadingLabel} />;
   if (error) return <MessageState icon="alert-circle-outline" message={error} tone="error" />;
   if (isEmpty && emptyMessage) return <MessageState icon={emptyIcon} message={emptyMessage} />;
   return <>{children}</>;

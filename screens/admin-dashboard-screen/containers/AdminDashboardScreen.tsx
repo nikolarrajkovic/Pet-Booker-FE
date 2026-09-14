@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
-import TabBar from '../../../components/shared/TabBar';
 import BackLink from '../../../components/shared/BackLink';
 import { getAdminOverviewStats, getAdminRevenueByServiceType } from '../../../services/stats';
 import { countServiceProviders, ApprovalStatus } from '../../../services/service-providers';
@@ -563,9 +562,6 @@ export default function AdminDashboardScreen() {
           </View>
         </ScrollView>
       </View>
-
-      {/* ── Tab bar ── */}
-      <TabBar />
     </View>
   );
 }

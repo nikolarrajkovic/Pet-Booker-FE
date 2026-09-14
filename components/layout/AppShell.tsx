@@ -24,11 +24,13 @@ type AppShellProps = {
  *
  * ## Why the shell wraps the navigator instead of living in `ScreenLayout`
  *
- * The obvious alternative is to have each screen draw its own sidebar, which is what the phone
- * does with `TabBar` today. That works on a phone because tab switches are instant
- * (`animation: 'none'`) — but stack pushes are not: they slide the incoming screen over the
- * outgoing one. A per-screen sidebar would slide in on top of the sidebar already on screen,
- * animating a second copy of the navigation across the window on every navigation.
+ * The obvious alternative is to have each screen draw its own sidebar. `TabBar` was mounted that
+ * way once, and it is instructive that it could not stay: a navigation bar drawn *inside* a scene
+ * travels with that scene, so it survives only as long as nothing animates. Stack pushes always
+ * did — they slide the incoming screen over the outgoing one, so a per-screen sidebar would slide
+ * a second copy of the navigation across the window on every push — and once tab switches became
+ * a slide too, the bar had to move onto the tab navigator for the same reason (see
+ * `navigation/tabTransition.ts`).
  *
  * Mounted here, the sidebar and top bar are outside the navigator entirely, so they never remount,
  * never animate, and hold their own state (an open account menu, the sidebar's scroll position)

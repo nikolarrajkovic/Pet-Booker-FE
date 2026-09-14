@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Text, View, TouchableOpacity } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import TabBar from '../../../components/shared/TabBar';
 import Button from '../../../components/shared/Button';
+import PetLoader from '../../../components/shared/PetLoader';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { useResponsive } from '../../../hooks/useResponsive';
 import FilterModal, { FilterState } from '../../../components/FilterModal';
@@ -358,7 +358,6 @@ export default function SearchScreen() {
             : t('search.allServices')
       }
       contentBg={contentBg}
-      footer={<TabBar />}
       width="wide"
       // Back is a phone affordance here — on the web design Search is a sidebar destination, not
       // somewhere you drilled into, so there is nothing above it to go back to.
@@ -420,8 +419,7 @@ export default function SearchScreen() {
       }>
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
-          <ActivityIndicator size="large" color={BRAND_GREEN} />
-          <Text className={`mt-4 text-sm ${subtextColor}`}>{t('search.findingServices')}</Text>
+          <PetLoader label={t('search.findingServices')} />
         </View>
       ) : loadError ? (
         <View className="flex-1 items-center justify-center px-8 py-20">
