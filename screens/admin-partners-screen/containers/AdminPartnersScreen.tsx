@@ -153,7 +153,7 @@ export default function AdminPartnersScreen() {
       return () => {
         cancelled = true;
       };
-    }, [])
+    }, [t])
   );
 
   // Receive status update back from PartnerDetailsScreen (local-only moderation)
@@ -165,7 +165,7 @@ export default function AdminPartnersScreen() {
         setStatusOverrides((prev) => ({ ...prev, [updatedId]: updatedStatus }));
         navigation.setParams({ updatedId: undefined, updatedStatus: undefined });
       }
-    }, [route.params?.updatedId, route.params?.updatedStatus])
+    }, [route.params?.updatedId, route.params?.updatedStatus, navigation])
   );
 
   // Merge fetched providers with any in-session status overrides

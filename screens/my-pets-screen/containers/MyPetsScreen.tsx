@@ -87,7 +87,7 @@ export default function MyPetsScreen() {
       return () => {
         cancelled = true;
       };
-    }, [currentUser, route.params])
+    }, [currentUser, route.params, t])
   );
 
   const handleDelete = (pet: PetResponse) => {

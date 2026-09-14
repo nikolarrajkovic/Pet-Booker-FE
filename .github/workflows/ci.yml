@@ -34,8 +34,11 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      # `--max-warnings 0`: the tree is at zero, and a warning nobody has to act on is a warning
+      # everybody stops reading. It was 36 before this branch — the ones that could be fixed were,
+      # and the one that could not carries an eslint-disable with the reason beside it.
       - name: Lint
-        run: npx eslint "**/*.{js,jsx,ts,tsx}"
+        run: npx eslint "**/*.{js,jsx,ts,tsx}" --max-warnings 0
 
       - name: Format
         run: npx prettier -c "**/*.{js,jsx,ts,tsx,json}"
