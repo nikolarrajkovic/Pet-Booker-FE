@@ -6,15 +6,14 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import TabBar from '../../../components/shared/TabBar';
-import BackLink from '../../../components/shared/BackLink';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { getAdminOverviewStats, getAdminRevenueByServiceType } from '../../../services/stats';
 import { countServiceProviders, ApprovalStatus } from '../../../services/service-providers';
 import { countReviews } from '../../../services/reviews';
 import { formatMoney } from '../../../services/currency';
 import { getErrorMessage } from '../../../services/http';
 import { useResponsive } from '../../../hooks/useResponsive';
-import { useTopInset, useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
-import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
+import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
 const fmtCount = (n: number) => n.toLocaleString('en-US');
@@ -115,7 +114,6 @@ export default function AdminDashboardScreen() {
   const { showError } = useToast();
   const { t, tEnum } = useLocale();
   const { isWebLayout } = useResponsive();
-  const topInset = useTopInset();
   const tabBarSpacing = useTabBarSpacing();
 
   const [metrics, setMetrics] = useState<AdminMetrics>(EMPTY_METRICS);
@@ -151,74 +149,51 @@ export default function AdminDashboardScreen() {
   const val = (s: string) => (loaded ? s : '—');
   const money = (n: number) => formatMoney(n, metrics.currency);
 
-  const bgColor = hex.bg;
   const cardBg = hex.card;
   const sectionTitle = hex.text;
   const subText = hex.subtext;
   const borderColor = hex.border;
 
-  // Same treatment as the Partner Hub: the green slab and the rounded sheet riding up over it are
-  // phone chrome. On the web design the sidebar frames the page, so the header is a plain title
-  // and the tiles use the width instead of staying two-up.
-
   return (
-    <View
-      // Transparent on the web design so the shell's pattern shows through, as on every other
-      // page; the phone design keeps its green header slab.
-      style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
-      {/* ── Header ── */}
-      <View
-        style={{
-          backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
-          paddingHorizontal: isWebLayout ? 32 : 20,
-          paddingTop: isWebLayout ? 32 : topInset + 24,
-          paddingBottom: isWebLayout ? 8 : 36,
-          width: '100%',
-          maxWidth: isWebLayout ? CONTENT_WIDTHS.wide : undefined,
-          alignSelf: 'center',
-        }}>
-        {isWebLayout && <BackLink />}
-        <Text
-          style={{
-            color: isWebLayout ? hex.text : 'white',
-            fontSize: isWebLayout ? 30 : 26,
-            fontWeight: '700',
-            letterSpacing: -0.5,
-          }}>
-          {t('admin.dashboardTitle')}
-        </Text>
-        <Text
-          style={{
-            color: isWebLayout ? hex.subtext : 'rgba(255,255,255,0.85)',
-            fontSize: 14,
-            marginTop: 2,
-          }}>
-          {t('admin.dashboardSubtitle')}
-        </Text>
-      </View>
-
-      {/* ── Main content ── */}
-      <View
-        style={{
-          flex: 1,
-          // Same reason as the root: on the web design the shell's ground and pattern show
-          // through, and an opaque sheet here would hide the texture on this screen only.
-          backgroundColor: isWebLayout ? 'transparent' : bgColor,
-          borderTopLeftRadius: isWebLayout ? 0 : 24,
-          borderTopRightRadius: isWebLayout ? 0 : 24,
-          marginTop: isWebLayout ? 0 : -20,
-          overflow: 'hidden',
-        }}>
+    // This screen drew its own root, its own green slab, its own back link, its own width cap and
+    // its own footer — every one of them a second copy of what `ScreenLayout` already provides,
+    // written as `isWebLayout ?` branches that had to be kept in step with the shared ones by
+    // hand. They were not, which is how this page ended up scrolling inside its own column
+    // instead of against the window edge: the rule that flattens a screen's ScrollView keys on
+    // ScreenLayout's scroller, so a screen outside it never got the fix.
+    //
+    // The phone header is kept verbatim in `headerChildren` rather than handed to `headerTitle`:
+    // AppHeader centres a bare title, and this one has always been left-aligned with its subtitle
+    // under it. Same split as ProfileScreen — the web design takes the shared page header, the
+    // phone design keeps the chrome it had.
+    <ScreenLayout
+      headerVariant="large"
+      // Web-only, as it was before this screen moved onto ScreenLayout: the page header carries a
+      // back link, and the phone design's header has never had one here — `showBackButton` would
+      // switch AppHeader to its nav-row branch and put a back circle where none belonged.
+      showBackButton={isWebLayout}
+      headerTitle={isWebLayout ? t('admin.dashboardTitle') : undefined}
+      headerSubtitle={isWebLayout ? t('admin.dashboardSubtitle') : undefined}
+      headerChildren={
+        isWebLayout ? undefined : (
+          <View>
+            <Text style={{ color: 'white', fontSize: 26, fontWeight: '700', letterSpacing: -0.5 }}>
+              {t('admin.dashboardTitle')}
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, marginTop: 2 }}>
+              {t('admin.dashboardSubtitle')}
+            </Text>
+          </View>
+        )
+      }
+      footer={<TabBar />}
+      width="wide">
+      <View style={{ flex: 1, overflow: 'hidden' }}>
+        {/* Padding only — ScreenLayout caps and centres the column, and its body container is
+            deliberately unpadded so screens keep owning their own gutters. */}
         <ScrollView
           contentContainerStyle={
-            isWebLayout
-              ? {
-                  paddingBottom: 40,
-                  width: '100%',
-                  maxWidth: CONTENT_WIDTHS.wide,
-                  alignSelf: 'center',
-                }
-              : { paddingBottom: tabBarSpacing }
+            isWebLayout ? { paddingBottom: 40 } : { paddingBottom: tabBarSpacing }
           }
           showsVerticalScrollIndicator={false}>
           {/* ── Stats grid ── */}
@@ -563,10 +538,7 @@ export default function AdminDashboardScreen() {
           </View>
         </ScrollView>
       </View>
-
-      {/* ── Tab bar ── */}
-      <TabBar />
-    </View>
+    </ScreenLayout>
   );
 }
 

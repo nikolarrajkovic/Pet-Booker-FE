@@ -2,11 +2,11 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTopInset, useBottomInset } from '../../../hooks/useSafeAreaSpacing';
+import { useBottomInset } from '../../../hooks/useSafeAreaSpacing';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import ListState from '../../../components/shared/ListState';
-import BackLink from '../../../components/shared/BackLink';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PartnerCard } from '../components';
 import type { Partner, PartnerStatus } from '../components';
 import {
@@ -21,7 +21,6 @@ import { getReviews } from '../../../services/reviews';
 import { getErrorMessage } from '../../../services/http';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import { useResponsive } from '../../../hooks/useResponsive';
-import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 
 // Maps a raw ServiceProviderDto into the Partner card/detail view shape.
 // The backend has no timeout/ban moderation concept, so every provider maps to
@@ -92,7 +91,6 @@ export default function AdminPartnersScreen() {
   // The real inset on both platforms. React Native's SafeAreaView pads on iOS only, so this used
   // to be an Android-only branch bolted on beside it — two ways of doing one thing, and only ever
   // right on the platform whose turn it was.
-  const topInset = useTopInset();
   const bottomInset = useBottomInset();
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
@@ -175,7 +173,6 @@ export default function AdminPartnersScreen() {
     [providers, statusOverrides]
   );
 
-  const bgColor = hex.bg;
   const cardBg = hex.card;
   const textColor = hex.text;
   const subTextColor = hex.subtext;
@@ -197,119 +194,64 @@ export default function AdminPartnersScreen() {
     });
   }, [partners, activeTab, search]);
 
-  // Same treatment as the Partner Hub and Admin Dashboard: the green slab and the sheet riding up
-  // over it are phone chrome, and the sidebar frames the page on the web design instead.
+  // The search field rides in the header on both designs: `headerChildren` puts it under the
+  // title inside the green slab on the phone, and under the page title on web. It is the one
+  // piece of this screen's old hand-rolled header that was not just a re-implementation of
+  // what ScreenLayout already draws.
+  const searchField = (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: inputBg,
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginTop: 14,
+      }}>
+      <Ionicons
+        name="search-outline"
+        size={18}
+        color={isDarkMode ? 'rgba(255,255,255,0.6)' : '#6B7280'}
+      />
+      <TextInput
+        value={search}
+        onChangeText={setSearch}
+        placeholder={t('admin.searchPartners')}
+        placeholderTextColor={isDarkMode ? 'rgba(255,255,255,0.5)' : '#9CA3AF'}
+        style={{ flex: 1, marginLeft: 8, fontSize: 14, color: isDarkMode ? 'white' : '#111827' }}
+      />
+      {search.length > 0 && (
+        <TouchableOpacity accessibilityRole="button" onPress={() => setSearch('')}>
+          <Ionicons
+            name="close-circle"
+            size={18}
+            color={isDarkMode ? 'rgba(255,255,255,0.5)' : '#9CA3AF'}
+          />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 
   return (
-    <View
-      // Transparent on the web design so the shell's pattern shows through, as on every other
-      // page; the phone design keeps its green header slab.
-      style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
-      {/* ── Header ── */}
-      <View
-        style={{
-          backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
-          paddingHorizontal: isWebLayout ? 32 : 20,
-          paddingTop: isWebLayout ? 32 : topInset + 16,
-          paddingBottom: 16,
-          width: '100%',
-          maxWidth: isWebLayout ? CONTENT_WIDTHS.wide : undefined,
-          alignSelf: 'center',
-        }}>
-        {isWebLayout && (
-          <BackLink onPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })} />
-        )}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-          {!isWebLayout && (
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: 'rgba(255,255,255,0.25)',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 12,
-              }}>
-              <Ionicons name="arrow-back" size={20} color="white" />
-            </TouchableOpacity>
-          )}
-          <Text
-            style={{
-              color: isWebLayout ? hex.text : 'white',
-              fontSize: isWebLayout ? 28 : 20,
-              fontWeight: '700',
-            }}>
-            {t('admin.partners')}
-          </Text>
-        </View>
-
-        {/* Search bar */}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: inputBg,
-            borderRadius: 12,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
-          }}>
-          <Ionicons
-            name="search-outline"
-            size={18}
-            color={isDarkMode ? 'rgba(255,255,255,0.6)' : '#6B7280'}
-          />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder={t('admin.searchPartners')}
-            placeholderTextColor={isDarkMode ? 'rgba(255,255,255,0.5)' : '#9CA3AF'}
-            style={{
-              flex: 1,
-              marginLeft: 8,
-              fontSize: 14,
-              color: isDarkMode ? 'white' : '#111827',
-            }}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity accessibilityRole="button" onPress={() => setSearch('')}>
-              <Ionicons
-                name="close-circle"
-                size={18}
-                color={isDarkMode ? 'rgba(255,255,255,0.5)' : '#9CA3AF'}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* ── Content ── */}
-      <View
-        style={{
-          flex: 1,
-          // Same reason as the root: on the web design the shell's ground and pattern show
-          // through, and an opaque sheet here would hide the texture on this screen only.
-          backgroundColor: isWebLayout ? 'transparent' : bgColor,
-          borderTopLeftRadius: isWebLayout ? 0 : 24,
-          borderTopRightRadius: isWebLayout ? 0 : 24,
-          marginTop: isWebLayout ? 0 : -8,
-        }}>
-        {/* Filter tabs */}
-        <View
-          // The cap goes on the scroll *viewport*, not its content container: a horizontal
-          // ScrollView lays its content out from the scroll origin, so centring the container
-          // does nothing and the row stayed pinned to the window while the cards beside it
-          // centred on the content column.
-          style={[
-            { height: 60 },
-            isWebLayout && {
-              width: '100%' as const,
-              maxWidth: CONTENT_WIDTHS.wide,
-              alignSelf: 'center' as const,
-            },
-          ]}>
+    // This screen used to draw its own root, its own green slab, its own back affordance and its
+    // own width cap on two separate children — all four of which `ScreenLayout` already owns, and
+    // each written as an `isWebLayout ?` branch that had to be kept in step with the shared one
+    // by hand. It was not, which is why the filter row here was still pinned to the window after
+    // the rest of the app had been centred, and why this page scrolled inside its own column
+    // instead of against the window edge (the flattening rule keys on ScreenLayout's scroller).
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      onBackPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })}
+      headerTitle={t('admin.partners')}
+      headerChildren={searchField}
+      width="wide">
+      <View style={{ flex: 1 }}>
+        {/* Filter tabs. No width cap of its own: it sits inside ScreenLayout's capped column
+            like everything else on the page, which is what keeps it in line with the cards
+            below rather than pinned to the window. */}
+        <View style={{ height: 60 }}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -373,16 +315,12 @@ export default function AdminPartnersScreen() {
             })}
           </ScrollView>
         </View>
+        {/* Padding only — ScreenLayout caps and centres the column, and its body container is
+            deliberately unpadded so screens keep owning their own gutters. */}
         <ScrollView
           contentContainerStyle={
             isWebLayout
-              ? {
-                  paddingHorizontal: 32,
-                  paddingBottom: 32,
-                  width: '100%',
-                  maxWidth: CONTENT_WIDTHS.wide,
-                  alignSelf: 'center',
-                }
+              ? { paddingHorizontal: 32, paddingBottom: 32 }
               : { paddingHorizontal: 16, paddingBottom: 32 + bottomInset }
           }
           showsVerticalScrollIndicator={false}>
@@ -410,6 +348,6 @@ export default function AdminPartnersScreen() {
           </ListState>
         </ScrollView>
       </View>
-    </View>
+    </ScreenLayout>
   );
 }

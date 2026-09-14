@@ -4,10 +4,8 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ServiceDetailView from '../../../components/shared/ServiceDetailView';
-import { useResponsive } from '../../../hooks/useResponsive';
-import { useTopInset } from '../../../hooks/useSafeAreaSpacing';
-import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 
 type ServicePreviewRouteParams = {
   service: {
@@ -30,60 +28,45 @@ export default function ServicePreviewScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: ServicePreviewRouteParams }, 'params'>>();
   const { service } = route.params;
-  const { isDarkMode, hex } = useThemeColors();
+  const { isDarkMode } = useThemeColors();
   const { t } = useLocale();
-  const { isWebLayout } = useResponsive();
-  const topInset = useTopInset();
 
-  // A preview of what a customer will see, so it is capped to the same column the real service
-  // page uses — previewing at 1440px would show the provider a layout no booker ever gets.
-  const capped = isWebLayout
-    ? { width: '100%' as const, maxWidth: CONTENT_WIDTHS.default, alignSelf: 'center' as const }
-    : undefined;
+  const editAction = (
+    <TouchableOpacity
+      accessibilityRole="button"
+      onPress={() => navigation.goBack()}
+      className="ml-2">
+      <Text className="font-semibold text-white">{t('myServices.edit')}</Text>
+    </TouchableOpacity>
+  );
 
   return (
-    // Styled, not classed: the ground is what stops the preview rendering on the shell's pet
-    // pattern, and it is worth being explicit about here rather than riding on a class.
-    <View style={{ flex: 1, backgroundColor: hex.bg }}>
-      {/* Header */}
-      <View
-        className={`bg-brand-500 px-6 pb-6 ${isWebLayout ? '' : 'rounded-b-3xl'}`}
-        style={{ paddingTop: isWebLayout ? 24 : topInset + 24, zIndex: 1, ...capped }}>
-        <View className="flex-row items-center justify-between">
-          <View className="flex-1 flex-row items-center">
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => navigation.goBack()}
-              className="mr-4">
-              <Ionicons name="arrow-back" size={24} color="white" />
-            </TouchableOpacity>
-            <View className="flex-1">
-              <Text className="text-2xl font-bold text-white">{t('myServices.title')}</Text>
-              <Text className="mt-1 text-sm text-brand-100">{t('myServices.previewSubtitle')}</Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => navigation.goBack()}
-            className="ml-2">
-            <Text className="font-semibold text-white">{t('myServices.edit')}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Image — pulled up to sit behind the rounded corners of the header */}
-      <View
-        className="items-center justify-center bg-gray-200"
-        // The -24 lifts the image behind the header's rounded corners; with square corners on the
-        // web design there is nothing to tuck it under.
-        style={{ height: 220, marginTop: isWebLayout ? 0 : -24, ...capped }}>
+    // This screen used to draw its own root, green header and width cap — the same three things
+    // `ScreenLayout` exists to provide. Every layout fix then had to be applied twice, and the
+    // ones that were not are why it kept looking a screen behind the rest of the app.
+    //
+    // Capped to `default`, the column the real service page uses: previewing at 1440px would show
+    // the provider a layout no booker ever gets.
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle={t('myServices.title')}
+      headerSubtitle={t('myServices.previewSubtitle')}
+      rightAction={editAction}
+      webHeaderRight={
+        <TouchableOpacity accessibilityRole="button" onPress={() => navigation.goBack()}>
+          <Text className="font-semibold text-brand-600">{t('myServices.edit')}</Text>
+        </TouchableOpacity>
+      }
+      width="default">
+      {/* Stands in for the photo a real service carries; the preview has no upload of its own. */}
+      <View className="items-center justify-center bg-gray-200" style={{ height: 220 }}>
         <View className="h-20 w-20 items-center justify-center rounded-full bg-gray-300">
           <Ionicons name="camera-outline" size={40} color="#9CA3AF" />
         </View>
       </View>
 
-      {/* Service Detail View */}
-      <View style={{ flex: 1, ...capped }}>
+      <View style={{ flex: 1 }}>
         <ServiceDetailView
           service={service}
           isDarkMode={isDarkMode}
@@ -91,6 +74,6 @@ export default function ServicePreviewScreen() {
           onBookPress={undefined} // Disabled in preview
         />
       </View>
-    </View>
+    </ScreenLayout>
   );
 }
