@@ -216,6 +216,33 @@ describe('TabBar', () => {
     expect(screen.queryByLabelText('Home')).toBeNull();
   });
 
+  it('navigates with the navigator’s own object, not the enclosing screen’s', () => {
+    // Mounted as the tab navigator’s `tabBar`, this bar renders OUTSIDE every tab scene, so
+    // `useNavigation()` resolves to the root stack — which has no `Search`, `Home` or
+    // `Profile` route. Tapping a tab then only logged "was not handled by any navigator" and
+    // went nowhere. The navigator passes its own navigation in; that is the one to use.
+    setViewport('mobile');
+    const tabNavigate = jest.fn();
+    render(
+      withProviders(
+        <TabBar
+          state={
+            {
+              index: 0,
+              routes: [{ name: 'Home', key: 'home' }],
+            } as any
+          }
+          navigation={{ navigate: tabNavigate } as any}
+        />
+      )
+    );
+
+    fireEvent.press(screen.getByLabelText('Search'));
+
+    expect(tabNavigate).toHaveBeenCalledWith('Search', expect.anything());
+    expect(mockTabNavigate).not.toHaveBeenCalled();
+  });
+
   it('gates the same routes the sidebar does', () => {
     // Both read navItems.ts. Asserting the gating twice is what would catch the two drifting
     // apart if one of them ever grew its own list.

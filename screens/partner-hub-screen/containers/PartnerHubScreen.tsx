@@ -24,7 +24,6 @@ import {
   ActivityEntry,
 } from '../../../services/stats';
 import { getServices } from '../../../services/services';
-import TabBar from '../../../components/shared/TabBar';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 
@@ -902,8 +901,6 @@ export default function PartnerHubScreen() {
           </View>
         </ScrollView>
       </View>
-
-      <TabBar />
     </Root>
   );
 }

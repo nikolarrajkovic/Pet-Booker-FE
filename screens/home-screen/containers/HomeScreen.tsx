@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import TabBar from '../../../components/shared/TabBar';
 import ServiceCard from '../../../components/shared/ServiceCard';
 import SeeMoreCard from '../../../components/shared/SeeMoreCard';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
@@ -370,7 +369,6 @@ export default function HomeScreen() {
     <ScreenLayout
       headerVariant="large"
       contentBg={contentBg}
-      footer={<TabBar />}
       width="wide"
       // The greeting, tagline and location now live in the WelcomeBanner card inside the content,
       // rather than as a page title, a subtitle and a stray row beneath them.

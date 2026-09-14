@@ -2,7 +2,6 @@ import React, { useCallback, useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import TabBar from '../../../components/shared/TabBar';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -190,7 +189,6 @@ export default function ProfileScreen() {
     <ScreenLayout
       headerVariant="large"
       contentBg={contentBg}
-      footer={<TabBar />}
       width="wide"
       // On the web design the account menu in the TopBar already names the signed-in user, so the
       // page needs a title rather than a second identity card.

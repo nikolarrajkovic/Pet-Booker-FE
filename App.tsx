@@ -2,7 +2,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import './global.css';
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
@@ -67,7 +67,9 @@ import { linking } from './navigation/linking';
 import { navigationRef } from './navigation/navigationRef';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { hasSeenPartnerWelcome, markPartnerWelcomeSeen } from './services/onboarding';
-import { Ionicons } from '@expo/vector-icons';
+import PetLoader from './components/shared/PetLoader';
+import TabBar from './components/shared/TabBar';
+import { useTabSlideOptions } from './navigation/tabTransition';
 import { enableScreens } from 'react-native-screens';
 
 enableScreens();
@@ -98,7 +100,9 @@ function AppContent() {
         // Transparent on the web design: the shell paints the page ground and the pattern texture
         // behind the navigator, and an opaque scene background covers both — the navigator paints
         // one surface per screen across the whole content region. Safe there because web stack
-        // transitions are `animation: 'none'`, so there is no in-between frame to hide.
+        // transitions are `animation: 'none'`, so there is no in-between frame to hide — and
+        // because the one thing that does animate, the tab slide, keeps the two scenes a full
+        // scene-width apart, so neither is ever drawn over the other.
         background: isWebLayout ? 'transparent' : isDarkMode ? '#0f1621' : '#F1F8F4',
       },
     };
@@ -127,19 +131,21 @@ function AppContent() {
     };
   }, [navReady, isLoggedIn, isPartner, userId]);
 
-  if (isLoading || localeLoading) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: isDarkMode ? '#0f1621' : '#ffffff',
-        }}>
-        <ActivityIndicator size="large" color="#00A85A" />
-      </View>
-    );
-  }
+  // The session restore and the deep-link resolve both show this, so a cold start on a link
+  // doesn't flash a different-looking screen halfway through.
+  const bootSplash = (
+    <View
+      style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: isDarkMode ? '#0f1621' : '#ffffff',
+      }}>
+      <PetLoader size={150} surface={isDarkMode ? '#0f1621' : '#ffffff'} />
+    </View>
+  );
+
+  if (isLoading || localeLoading) return bootSplash;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -158,19 +164,8 @@ function AppContent() {
           // it every screen shared `/`, so browser Back left the app rather than going back a
           // screen. See navigation/linking.ts for which screens are mapped and why some are not.
           linking={linking}
-          // Rendered while the initial URL is resolved. It is the same spinner the auth restore
-          // uses, so a cold load on a deep link doesn't flash a different-looking screen.
-          fallback={
-            <View
-              style={{
-                flex: 1,
-                justifyContent: 'center',
-                alignItems: 'center',
-                backgroundColor: isDarkMode ? '#0f1621' : '#ffffff',
-              }}>
-              <ActivityIndicator size="large" color="#00A85A" />
-            </View>
-          }>
+          // Rendered while the initial URL is resolved — the same splash the auth restore uses.
+          fallback={bootSplash}>
           {/*
             The web design's chrome — sidebar + top bar — wraps the navigator rather than being
             drawn per screen, so it is mounted once and never animates in over itself. Renders
@@ -286,28 +281,22 @@ function AppContent() {
 }
 
 function MainTabs() {
+  // Tabs slide horizontally in the direction they sit in the bar — Search → Home brings Home in
+  // from the left. See navigation/tabTransition.ts for why a slide, and why a full-width one.
+  const slide = useTabSlideOptions();
+
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
+      // The bar is rendered here, once, rather than by each of the five tab screens: inside a
+      // scene it would slide away with the page on every switch. See components/shared/TabBar.
+      tabBar={(props) => <TabBar {...props} />}
+      screenOptions={{
         headerShown: false,
-        tabBarShowLabel: false,
+        // Keeps the built-in bar's measured height at 0. Our `tabBar` above replaces it outright,
+        // but `BottomTabBarHeightContext` is still derived from this.
         tabBarStyle: { display: 'none' },
-        // Tabs swap instantly, the way a native tab bar does (and the way React Navigation 7
-        // defaults). Every animated alternative cross-fades the two scenes — they are siblings, so
-        // both are partly transparent at once — which makes each screen's card borders, shadows and
-        // section outlines show through the other and over the tab bar (which every screen draws
-        // itself, at the same spot). A hard swap has no frame where two scenes are visible at all.
-        // (`unmountOnBlur` used to sit here; React Navigation 7 dropped the option, so it did
-        // nothing — tab screens stay mounted and refresh through `useFocusEffect`.)
-        animation: 'none',
-        tabBarIcon: ({ color, size }) => {
-          if (route.name === 'Home') return <Ionicons name="home" size={size} color={color} />;
-          if (route.name === 'Search') return <Ionicons name="search" size={size} color={color} />;
-          if (route.name === 'PartnerHub')
-            return <Ionicons name="briefcase-outline" size={size} color={color} />;
-          return <Ionicons name="person" size={size} color={color} />;
-        },
-      })}>
+        ...slide,
+      }}>
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen name="PartnerHub" component={PartnerHubScreen} />
