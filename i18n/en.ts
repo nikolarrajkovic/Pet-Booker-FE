@@ -91,8 +91,6 @@ const en = {
     smsNotifications: 'SMS Notifications',
     privacySecurity: 'Privacy & Security',
     changePassword: 'Change Password',
-    twoFactor: 'Two-Factor Authentication',
-    privacySettings: 'Privacy Settings',
     general: 'General',
     language: 'Language',
     currency: 'Currency',

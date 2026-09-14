@@ -85,8 +85,6 @@ const sr: TranslationDict = {
     smsNotifications: 'SMS obaveštenja',
     privacySecurity: 'Privatnost i bezbednost',
     changePassword: 'Promeni lozinku',
-    twoFactor: 'Dvofaktorska autentifikacija',
-    privacySettings: 'Podešavanja privatnosti',
     general: 'Opšte',
     language: 'Jezik',
     currency: 'Valuta',
