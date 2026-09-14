@@ -1,12 +1,5 @@
 import React, { useState } from 'react';
-import {
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import { ScrollView, Text, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useFormChain } from '../../../hooks/useFormChain';
@@ -15,6 +8,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { forgotPassword, resetPassword } from '../../../services/auth';
 import { getErrorMessage } from '../../../services/http';
+import { showAlert } from '../../../services/alert';
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation<any>();
@@ -32,13 +26,13 @@ export default function ForgotPasswordScreen() {
 
   const sendEmail = async () => {
     if (!email.trim()) {
-      Alert.alert(t('forgotPassword.emailRequiredTitle'), t('forgotPassword.emailRequiredBody'));
+      showAlert(t('forgotPassword.emailRequiredTitle'), t('forgotPassword.emailRequiredBody'));
       return;
     }
     setIsSubmitting(true);
     try {
       await forgotPassword(email.trim());
-      Alert.alert(t('forgotPassword.checkEmailTitle'), t('forgotPassword.checkEmailBody'));
+      showAlert(t('forgotPassword.checkEmailTitle'), t('forgotPassword.checkEmailBody'));
       setStep('reset');
     } catch (e) {
       showError(getErrorMessage(e, t('forgotPassword.sendFailed')));
@@ -49,17 +43,17 @@ export default function ForgotPasswordScreen() {
 
   const submitReset = async () => {
     if (!resetToken || !newPassword || !confirmPassword) {
-      Alert.alert(t('forgotPassword.missingFieldsTitle'), t('forgotPassword.missingFieldsBody'));
+      showAlert(t('forgotPassword.missingFieldsTitle'), t('forgotPassword.missingFieldsBody'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert(t('forgotPassword.mismatchTitle'), t('forgotPassword.mismatchBody'));
+      showAlert(t('forgotPassword.mismatchTitle'), t('forgotPassword.mismatchBody'));
       return;
     }
     setIsSubmitting(true);
     try {
       await resetPassword({ resetToken: resetToken.trim(), newPassword, confirmPassword });
-      Alert.alert(t('forgotPassword.resetDoneTitle'), t('forgotPassword.resetDoneBody'), [
+      showAlert(t('forgotPassword.resetDoneTitle'), t('forgotPassword.resetDoneBody'), [
         // Terminal step — reset so back can't return to the reset form.
         {
           text: t('common.ok'),

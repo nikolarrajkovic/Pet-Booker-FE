@@ -5,7 +5,6 @@ import {
   View,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -24,6 +23,7 @@ import DatePicker from '../../../components/shared/DatePicker';
 import { createPet, updatePet } from '../../../services/pets';
 import { getErrorMessage } from '../../../services/http';
 import { useAuth } from '../../../context/AuthContext';
+import { showAlert } from '../../../services/alert';
 
 type AddPetRouteParams = {
   // Set by flows that push AddPet mid-task (e.g. BookService with no pets):
@@ -152,7 +152,7 @@ export default function AddPetScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== 'granted') {
-      Alert.alert(t('account.permissionNeededTitle'), t('addPet.permissionPhotoMsg'));
+      showAlert(t('account.permissionNeededTitle'), t('addPet.permissionPhotoMsg'));
       return;
     }
 

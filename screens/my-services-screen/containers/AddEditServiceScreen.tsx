@@ -8,7 +8,6 @@ import {
   Switch,
   Modal,
   Image,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -40,6 +39,7 @@ import { providerTypeValue } from '../../../services/service-providers';
 import { AdditionalServiceChargeType, DistanceLeg } from '../../../services/service-addons';
 import { clearServiceSchedules } from '../../../services/service-schedules';
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
+import { showAlert } from '../../../services/alert';
 import {
   serviceDtoToUi,
   uiToServiceDto,
@@ -324,7 +324,7 @@ export default function AddEditServiceScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== 'granted') {
-      Alert.alert(t('account.permissionNeededTitle'), t('addEditService.permissionPhotoMsg'));
+      showAlert(t('account.permissionNeededTitle'), t('addEditService.permissionPhotoMsg'));
       return;
     }
 
@@ -381,11 +381,11 @@ export default function AddEditServiceScreen() {
 
   const handleSave = async () => {
     if (!serviceType || !serviceName || !description) {
-      Alert.alert(t('addEditService.missingInfoTitle'), t('addEditService.missingInfoMsg'));
+      showAlert(t('addEditService.missingInfoTitle'), t('addEditService.missingInfoMsg'));
       return;
     }
     if (serviceProviderId == null) {
-      Alert.alert(t('addEditService.noProviderTitle'), t('addEditService.noProviderMsg'));
+      showAlert(t('addEditService.noProviderTitle'), t('addEditService.noProviderMsg'));
       return;
     }
     setIsSaving(true);
@@ -453,7 +453,7 @@ export default function AddEditServiceScreen() {
   const handleDelete = () => {
     const serviceId = params?.serviceDto?.id;
     if (serviceId == null) return;
-    Alert.alert(t('myServices.deleteTitle'), t('myServices.deleteMsg'), [
+    showAlert(t('myServices.deleteTitle'), t('myServices.deleteMsg'), [
       { text: t('myServices.cancel'), style: 'cancel' },
       {
         text: t('myServices.delete'),

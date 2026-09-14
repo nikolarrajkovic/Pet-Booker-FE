@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -21,6 +20,7 @@ import DatePicker from '../../../components/shared/DatePicker';
 import { getServices, ServiceDto, serviceCurrency } from '../../../services/services';
 import { formatMoney } from '../../../services/currency';
 import { getErrorMessage } from '../../../services/http';
+import { showAlert } from '../../../services/alert';
 import {
   createServiceDiscount,
   DiscountType,
@@ -88,19 +88,19 @@ export default function CreatePromotionScreen() {
 
   const handleCreate = async () => {
     if (serviceId == null) {
-      Alert.alert(t('promotions.pickServiceTitle'), t('promotions.pickServiceMsg'));
+      showAlert(t('promotions.pickServiceTitle'), t('promotions.pickServiceMsg'));
       return;
     }
     if (isNaN(amountNum) || amountNum <= 0) {
-      Alert.alert(t('promotions.enterAmountTitle'), t('promotions.enterAmountMsg'));
+      showAlert(t('promotions.enterAmountTitle'), t('promotions.enterAmountMsg'));
       return;
     }
     if (isPercent && amountNum > 100) {
-      Alert.alert(t('promotions.invalidPctTitle'), t('promotions.invalidPctMsg'));
+      showAlert(t('promotions.invalidPctTitle'), t('promotions.invalidPctMsg'));
       return;
     }
     if (endDate && endDate < startDate) {
-      Alert.alert(t('promotions.invalidDatesTitle'), t('promotions.invalidDatesMsg'));
+      showAlert(t('promotions.invalidDatesTitle'), t('promotions.invalidDatesMsg'));
       return;
     }
 

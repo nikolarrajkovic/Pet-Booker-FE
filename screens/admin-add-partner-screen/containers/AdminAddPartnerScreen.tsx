@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Alert } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocation } from '../../../hooks/useLocation';
@@ -9,6 +9,7 @@ import FormCard from '../../../components/shared/FormCard';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { AddressDto } from '../../../services/service-providers';
 import { PersonalInfoStep, ServiceInfoStep } from '../../partner-application-screen/components';
+import { showAlert } from '../../../services/alert';
 
 export default function AdminAddPartnerScreen() {
   const navigation = useNavigation();
@@ -69,7 +70,7 @@ export default function AdminAddPartnerScreen() {
   };
 
   const handleSubmit = () => {
-    Alert.alert(
+    showAlert(
       t('admin.partnerAddedTitle'),
       t('admin.partnerAddedMsg', { name: formData.fullName || t('admin.partner') }),
       [{ text: t('admin.ok'), onPress: () => navigation.goBack() }]

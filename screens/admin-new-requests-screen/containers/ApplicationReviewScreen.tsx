@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert,
   Linking,
   Modal,
   Pressable,
@@ -24,6 +23,7 @@ import { useResponsive } from '../../../hooks/useResponsive';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 import BackLink from '../../../components/shared/BackLink';
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
+import { showAlert } from '../../../services/alert';
 import {
   approveServiceProvider,
   declineServiceProvider,
@@ -44,7 +44,7 @@ async function openDownload(
   try {
     await Linking.openURL(url);
   } catch {
-    Alert.alert(t('admin.fileOpenErrorTitle'), t('admin.fileOpenErrorMsg'));
+    showAlert(t('admin.fileOpenErrorTitle'), t('admin.fileOpenErrorMsg'));
   }
 }
 
@@ -129,7 +129,7 @@ export default function ApplicationReviewScreen() {
 
   const handleReject = () => {
     if (!providerId) return;
-    Alert.alert(t('admin.rejectTitle'), t('admin.rejectMsg', { name: application.applicantName }), [
+    showAlert(t('admin.rejectTitle'), t('admin.rejectMsg', { name: application.applicantName }), [
       { text: t('admin.cancel'), style: 'cancel' },
       {
         text: t('admin.reject'),

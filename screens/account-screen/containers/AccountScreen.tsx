@@ -5,7 +5,6 @@ import {
   View,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +24,7 @@ import { getErrorMessage } from '../../../services/http';
 import { uploadFile } from '../../../services/files';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
+import { showAlert } from '../../../services/alert';
 
 type PickedPhoto = { uri: string; fileName?: string; mimeType?: string };
 
@@ -101,7 +101,7 @@ export default function AccountScreen() {
   const pickProfilePhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(t('account.permissionNeededTitle'), t('account.permissionPhotoMsg'));
+      showAlert(t('account.permissionNeededTitle'), t('account.permissionPhotoMsg'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
