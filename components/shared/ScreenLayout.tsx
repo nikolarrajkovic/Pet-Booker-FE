@@ -94,7 +94,7 @@ export default function ScreenLayout({
   webHeaderRight,
   webBare = false,
 }: ScreenLayoutProps) {
-  const { bgColor, hex } = useThemeColors();
+  const { bgColor } = useThemeColors();
   const { isWebLayout } = useResponsive();
   const bottomInset = useBottomInset();
 

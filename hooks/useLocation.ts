@@ -96,7 +96,7 @@ export function useLocation() {
           loading: false,
           error: null,
         });
-      } catch (error) {
+      } catch {
         setLocation((prev) => ({
           ...prev,
           loading: false,

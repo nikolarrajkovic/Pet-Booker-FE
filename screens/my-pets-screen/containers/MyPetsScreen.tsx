@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';

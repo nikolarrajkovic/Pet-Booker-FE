@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
+import { useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import TabBar from '../../../components/shared/TabBar';
 import Button from '../../../components/shared/Button';

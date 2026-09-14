@@ -103,7 +103,6 @@ export default function ApplicationReviewScreen() {
 
   const cfg = STATUS_CONFIG[status];
   const bgColor = hex.bg;
-  const cardBg = hex.card;
   const textColor = hex.text;
   const subTextColor = hex.subtext;
   const borderColor = hex.border;
