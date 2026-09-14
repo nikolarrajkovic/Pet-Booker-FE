@@ -85,8 +85,6 @@ const ru: TranslationDict = {
     smsNotifications: 'SMS-уведомления',
     privacySecurity: 'Конфиденциальность и безопасность',
     changePassword: 'Изменить пароль',
-    twoFactor: 'Двухфакторная аутентификация',
-    privacySettings: 'Настройки конфиденциальности',
     general: 'Общие',
     language: 'Язык',
     currency: 'Валюта',
