@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
-import TabBar from '../../../components/shared/TabBar';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { getAdminOverviewStats, getAdminRevenueByServiceType } from '../../../services/stats';
 import { countServiceProviders, ApprovalStatus } from '../../../services/service-providers';
@@ -155,12 +154,15 @@ export default function AdminDashboardScreen() {
   const borderColor = hex.border;
 
   return (
-    // This screen drew its own root, its own green slab, its own back link, its own width cap and
-    // its own footer — every one of them a second copy of what `ScreenLayout` already provides,
-    // written as `isWebLayout ?` branches that had to be kept in step with the shared ones by
-    // hand. They were not, which is how this page ended up scrolling inside its own column
-    // instead of against the window edge: the rule that flattens a screen's ScrollView keys on
+    // This screen drew its own root, its own green slab, its own back link and its own width cap
+    // — every one of them a second copy of what `ScreenLayout` already provides, written as
+    // `isWebLayout ?` branches that had to be kept in step with the shared ones by hand. They
+    // were not, which is how this page ended up scrolling inside its own column instead of
+    // against the window edge: the rule that flattens a screen's ScrollView keys on
     // ScreenLayout's scroller, so a screen outside it never got the fix.
+    //
+    // No `footer` here: the TabBar is mounted on the tab navigator, below every tab screen,
+    // so passing one would put a second bar on the page.
     //
     // The phone header is kept verbatim in `headerChildren` rather than handed to `headerTitle`:
     // AppHeader centres a bare title, and this one has always been left-aligned with its subtitle
@@ -176,7 +178,12 @@ export default function AdminDashboardScreen() {
       headerSubtitle={isWebLayout ? t('admin.dashboardSubtitle') : undefined}
       headerChildren={
         isWebLayout ? undefined : (
-          <View>
+          // `marginBottom: 32` is the sheet overlap, not a spacing choice: ScreenLayout pulls the
+          // content sheet up by `-mt-8` over the green slab, and AppHeader's own `pb-6` covers
+          // only 24 of those 32px. The last thing in `headerChildren` clears the remainder itself
+          // or the sheet cuts across it — which is what was slicing off this subtitle. Same
+          // reason ProfileScreen's header card carries `mb-8`.
+          <View style={{ marginBottom: 32 }}>
             <Text style={{ color: 'white', fontSize: 26, fontWeight: '700', letterSpacing: -0.5 }}>
               {t('admin.dashboardTitle')}
             </Text>
@@ -186,7 +193,6 @@ export default function AdminDashboardScreen() {
           </View>
         )
       }
-      footer={<TabBar />}
       width="wide">
       <View style={{ flex: 1, overflow: 'hidden' }}>
         {/* Padding only — ScreenLayout caps and centres the column, and its body container is

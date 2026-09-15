@@ -82,8 +82,8 @@ App.tsx
 ```
 
 **`components/layout/AppShell.tsx`** wraps the navigator, so the sidebar and top bar are mounted
-once and survive navigation. Rendering them per-screen (the way `TabBar` is rendered today) would
-paint a second sidebar over the first during every stack transition.
+once and survive navigation. Rendering them per-screen would paint a second sidebar over the
+first during every stack transition.
 
 **`navigation/navItems.ts`** is the single source of truth for destinations. `TabBar` and
 `SideNav` both read it, so a new destination is added once and appears in both designs with the
@@ -91,8 +91,9 @@ right role gating (`isPartner` / `isAdmin`). The mobile bar takes the `primary` 
 sidebar takes primary **plus** the secondary groups that have nowhere to live on a phone but the
 Profile menu.
 
-**`TabBar` renders `null` unless the layout is mobile.** Screens keep passing
-`footer={<TabBar />}` unchanged — there was no reason to edit five screens to say the same thing.
+**`TabBar` renders `null` unless the layout is mobile.** It is mounted once, as the tab
+navigator's `tabBar` prop, rather than by each of the five tab screens — otherwise the horizontal
+tab slide would drag the navigation off the screen along with the page.
 
 **`components/layout/AuthLayout.tsx`** is the shell for the signed-out screens (Login, Register,
 Verify Email), which are the only ones with no `AppShell` around them — there is no navigation to

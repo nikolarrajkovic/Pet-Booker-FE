@@ -1,6 +1,7 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useContext } from 'react';
 import { View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { BottomInsetReservedContext, useBottomInset } from '../../hooks/useSafeAreaSpacing';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -24,7 +25,7 @@ type ScreenLayoutProps = {
   children: ReactNode;
   contentRounded?: boolean; // default true
 
-  // Footer (e.g., TabBar)
+  // Footer — a CTA bar. NOT the TabBar, which the tab navigator mounts below every tab screen.
   footer?: ReactNode;
 
   // Background colors (can be overridden)
@@ -56,8 +57,9 @@ type ScreenLayoutProps = {
  *   with a rounded top → footer. There is no `SafeAreaView` here: React Native's insets on iOS
  *   only, so it was doing nothing on Android at all. The top inset belongs to `AppHeader`, which
  *   paints the green up to the top of the window and pads its content below the status bar; the
- *   bottom inset belongs to whatever sits at the bottom — `TabBar`, `StickyFooter`, or, when a
- *   screen has no footer, the content sheet itself.
+ *   bottom inset belongs to whatever sits at the bottom — the `TabBar` (mounted on the tab
+ *   navigator, so it is below every tab screen without being passed in), a `StickyFooter`, or,
+ *   when a screen has neither, the content sheet itself.
  * - **Web** — a page: `PageHeader` (plain title + back link) above the body, both centred in a
  *   width-capped column, with no safe-area padding, no coloured slab and no rounded sheet. The
  *   chrome that used to live in the header — the notification bell, the account menu — is in the
@@ -97,6 +99,15 @@ export default function ScreenLayout({
   const { bgColor } = useThemeColors();
   const { isWebLayout } = useResponsive();
   const bottomInset = useBottomInset();
+
+  // Is there a `TabBar` below this screen? It is mounted on the tab navigator rather than passed
+  // in as a `footer`, so `footer` no longer answers that question — a tab screen passes none and
+  // still has a bar under it. This context is defined only inside the tab navigator, which is
+  // exactly the set of screens that do. Without it both the bar and the sheet below reserve the
+  // bottom inset, and "exactly one thing may reserve it" is the whole rule (useSafeAreaSpacing).
+  const insideTabNavigator = useContext(BottomTabBarHeightContext) !== undefined;
+  // Something at the bottom already owns the inset: a footer this screen passed, or the tab bar.
+  const bottomOwnedBelow = !!footer || insideTabNavigator;
 
   const finalSafeAreaBg = safeAreaBg || bgColor;
   const finalContentBg = contentBg || bgColor;
@@ -190,24 +201,25 @@ export default function ScreenLayout({
           no generated CSS rule the sheet went transparent, and rows scrolling past stayed visible
           over the green instead of disappearing behind it.
 
-          A screen with no footer takes the bottom inset here, so its last row clears the Android
-          navigation bar / iOS home indicator. With a footer, that bar owns the inset instead.
+          A screen with nothing below it takes the bottom inset here, so its last row clears the
+          Android navigation bar / iOS home indicator. When a footer or the tab bar sits below,
+          that bar owns the inset instead — see `bottomOwnedBelow`.
         */}
-        <BottomInsetReservedContext.Provider value={!footer}>
+        <BottomInsetReservedContext.Provider value={!bottomOwnedBelow}>
           {contentRounded ? (
             <View
               className={`-mt-8 ${finalContentBg} flex-1 rounded-t-3xl`}
-              style={{ overflow: 'hidden', paddingBottom: footer ? 0 : bottomInset }}>
+              style={{ overflow: 'hidden', paddingBottom: bottomOwnedBelow ? 0 : bottomInset }}>
               {children}
             </View>
           ) : (
-            <View className="flex-1" style={{ paddingBottom: footer ? 0 : bottomInset }}>
+            <View className="flex-1" style={{ paddingBottom: bottomOwnedBelow ? 0 : bottomInset }}>
               {children}
             </View>
           )}
         </BottomInsetReservedContext.Provider>
 
-        {/* Footer (e.g., TabBar) */}
+        {/* Footer — a CTA bar. The TabBar is mounted on the tab navigator, not passed in here. */}
         {footer}
       </KeyboardAvoidingView>
     </View>

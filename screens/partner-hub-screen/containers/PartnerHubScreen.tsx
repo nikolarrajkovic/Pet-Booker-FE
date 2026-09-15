@@ -24,7 +24,6 @@ import {
   ActivityEntry,
 } from '../../../services/stats';
 import { getServices } from '../../../services/services';
-import TabBar from '../../../components/shared/TabBar';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { useResponsive } from '../../../hooks/useResponsive';
 
@@ -305,10 +304,15 @@ function PillRow({ isWebLayout, children }: { isWebLayout: boolean; children: Re
     );
   }
   return (
+    // `marginBottom: 32` is the sheet overlap, not a spacing choice: on the phone design
+    // `ScreenLayout` pulls the content sheet up by `-mt-8` over the green slab, and `AppHeader`'s
+    // own `pb-6` only covers 24 of those 32px. The last thing in `headerChildren` has to clear the
+    // remainder itself or the sheet cuts across it — which is what was slicing the bottom off
+    // these pills. Same reason `ProfileScreen`'s header card carries `mb-8`.
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      style={{ marginTop: 16 }}
+      style={{ marginTop: 16, marginBottom: 32 }}
       contentContainerStyle={{ gap: 10, paddingRight: 4 }}>
       {children}
     </ScrollView>
@@ -465,12 +469,15 @@ export default function PartnerHubScreen() {
   // translucent-on-green (there is no green behind them any more) and become ordinary cards.
 
   return (
-    // This screen drew its own root, its own green slab, its own back link, its own width cap on
-    // two separate children and its own footer — all of which `ScreenLayout` already provides,
-    // each written as an `isWebLayout ?` branch kept in step with the shared one by hand. They
-    // were not, which is why this page scrolled inside its own column rather than against the
-    // window edge: the rule that flattens a screen's ScrollView keys on ScreenLayout's scroller,
-    // so a screen outside it never got the fix.
+    // This screen drew its own root, its own green slab, its own back link and its own width cap
+    // on two separate children — all of which `ScreenLayout` already provides, each written as an
+    // `isWebLayout ?` branch kept in step with the shared one by hand. They were not, which is why
+    // this page scrolled inside its own column rather than against the window edge: the rule that
+    // flattens a screen's ScrollView keys on ScreenLayout's scroller, so a screen outside it
+    // never got the fix.
+    //
+    // No `footer` here: the TabBar is mounted on the tab navigator, below every tab screen, so
+    // passing one would put a second bar on the page.
     //
     // The phone header is kept verbatim in `headerChildren` — AppHeader centres a bare title,
     // and this one is left-aligned with a subtitle and a gear beside it. Same split as
@@ -624,7 +631,6 @@ export default function PartnerHubScreen() {
           </PillRow>
         </>
       }
-      footer={<TabBar />}
       width="wide">
       <View style={{ flex: 1, overflow: 'hidden' }}>
         {/* Padding only — ScreenLayout caps and centres the column, and its body container is

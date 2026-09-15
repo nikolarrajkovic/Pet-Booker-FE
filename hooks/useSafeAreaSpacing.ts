@@ -62,11 +62,15 @@ export function useBottomInset(): number {
  * Whether an ancestor has already reserved the bottom inset for whatever sits at the bottom of
  * this screen.
  *
- * Exactly one thing may reserve it. `ScreenLayout` pads its content sheet when the screen has no
- * `footer`, which covers the common case of a screen that just scrolls; a `StickyFooter` rendered
- * inside that sheet must then NOT add the inset a second time, or the CTA floats twice the
- * navigation bar's height above the bottom. A `TabBar` passed as `footer` sits outside the padded
- * sheet and keeps owning its own inset.
+ * Exactly one thing may reserve it. `ScreenLayout` pads its content sheet when the screen has
+ * nothing below it, which covers the common case of a screen that just scrolls; a `StickyFooter`
+ * rendered inside that sheet must then NOT add the inset a second time, or the CTA floats twice
+ * the navigation bar's height above the bottom.
+ *
+ * Two things count as "below it". A `footer` the screen passed is the obvious one. The other is
+ * the `TabBar`: it is mounted on the tab navigator, not passed in as a footer, so it sits below
+ * all five tab screens without appearing in their props — `ScreenLayout` detects that case with
+ * `BottomTabBarHeightContext` rather than by looking at `footer`.
  */
 export const BottomInsetReservedContext = createContext(false);
 
