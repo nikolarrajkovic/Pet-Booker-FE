@@ -62,6 +62,59 @@ describe('every screen opts into both designs', () => {
   });
 });
 
+describe('a screen that draws its own root is a named exception', () => {
+  /**
+   * The rule above lets a screen off with a `useResponsive` call, and five took it: they each
+   * hand-rolled a root, a green slab, a back affordance and a width cap - a second copy of what
+   * `ScreenLayout` draws, written as `isWebLayout ?` branches that then had to be kept in step
+   * with the shared ones by hand. They were not. That is how the filter row on Partners stayed
+   * pinned to the window after the rest of the app had been centred, and how these pages kept
+   * scrolling inside their own column: the rule that flattens a screen's ScrollView keys on
+   * ScreenLayout's scroller (styles/document-scroll.web.ts), so a screen outside it never got it.
+   *
+   * Consulting `useResponsive` is not the same as opting into the design, so the list itself is
+   * pinned here. A screen genuinely unlike a page may still draw its own root - it just has to
+   * say so, and say why, which makes joining this list a decision somebody reviews rather than
+   * the path of least resistance.
+   */
+  const OWN_ROOT: Record<string, string> = {
+    'screens/messages-screen/containers/ChatScreen.tsx':
+      'a thread, not a page: header and composer pinned with only the messages moving between ' +
+      'them, so it needs the scroll pane of its own that ScreenLayout exists to remove',
+    'screens/booking-confirmed-screen/containers/BookingConfirmedScreen.tsx':
+      'a full-bleed confirmation - one centred message, no page chrome to share',
+    'screens/partner-welcome-screen/containers/PartnerWelcomeScreen.tsx':
+      'same: a welcome splash, not a page',
+    'screens/provider-detail-screen/containers/ProviderDetailScreen.tsx':
+      'orphaned and unreachable, see CLAUDE.md',
+    // Debt, not design. Both carry the exact pattern removed from the five above, and both
+    // should move onto ScreenLayout - PartnerDetails needs its hand-rolled absolute footer
+    // resolved against StickyFooter first, which is a design decision rather than a rename.
+    'screens/admin-new-requests-screen/containers/ApplicationReviewScreen.tsx':
+      'TODO: same hand-rolled root as the migrated five',
+    'screens/admin-partners-screen/containers/PartnerDetailsScreen.tsx':
+      'TODO: same, plus an absolute footer to reconcile with StickyFooter',
+  };
+
+  it('and there are no unlisted ones', () => {
+    const offenders = containers
+      .filter((f) => !/\b(ScreenLayout|AuthLayout)\b/.test(read(f)))
+      .map(rel)
+      .filter((f) => !(f in OWN_ROOT));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('and the list has no stale entries', () => {
+    const stale = Object.keys(OWN_ROOT).filter((name) => {
+      const file = containers.find((f) => rel(f) === name);
+      return !file || /\b(ScreenLayout|AuthLayout)\b/.test(read(file));
+    });
+
+    expect(stale).toEqual([]);
+  });
+});
+
 describe('Platform.OS is not used for layout', () => {
   /**
    * `Platform.OS === 'web'` is for **capability** differences — storage, pickers, paste events,
@@ -171,14 +224,11 @@ describe('there is one back affordance on the web design', () => {
   const ALLOWED: Record<string, string> = {
     'components/shared/BackLink.tsx': 'the web affordance itself',
     'components/shared/AppHeader.tsx': "the phone design's arrow, on the green slab",
-    'screens/admin-partners-screen/containers/AdminPartnersScreen.tsx': 'phone branch only',
     'screens/admin-partners-screen/containers/PartnerDetailsScreen.tsx': 'phone branch only',
     'screens/admin-new-requests-screen/containers/ApplicationReviewScreen.tsx': 'phone branch only',
     'screens/my-schedule-screen/containers/MyScheduleScreen.tsx': 'phone branch only',
     'screens/messages-screen/containers/ChatScreen.tsx':
       'a chat thread header is a toolbar beside the avatar, not a page title block',
-    'screens/service-preview-screen/containers/ServicePreviewScreen.tsx':
-      'draws a green header on both designs, so the arrow is on green either way',
     'screens/provider-detail-screen/containers/ProviderDetailScreen.tsx':
       'orphaned and unreachable, see CLAUDE.md',
   };

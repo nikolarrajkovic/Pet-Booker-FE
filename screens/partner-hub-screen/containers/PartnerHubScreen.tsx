@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTopInset, useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
+import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -24,9 +24,8 @@ import {
   ActivityEntry,
 } from '../../../services/stats';
 import { getServices } from '../../../services/services';
-import BackLink from '../../../components/shared/BackLink';
+import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { useResponsive } from '../../../hooks/useResponsive';
-import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 
 // ─── Formatting / time helpers ───────────────────────────────────────────────
 const fmtPct = (p: number | null): string | undefined =>
@@ -305,10 +304,15 @@ function PillRow({ isWebLayout, children }: { isWebLayout: boolean; children: Re
     );
   }
   return (
+    // `marginBottom: 32` is the sheet overlap, not a spacing choice: on the phone design
+    // `ScreenLayout` pulls the content sheet up by `-mt-8` over the green slab, and `AppHeader`'s
+    // own `pb-6` only covers 24 of those 32px. The last thing in `headerChildren` has to clear the
+    // remainder itself or the sheet cuts across it — which is what was slicing the bottom off
+    // these pills. Same reason `ProfileScreen`'s header card carries `mb-8`.
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      style={{ marginTop: 16 }}
+      style={{ marginTop: 16, marginBottom: 32 }}
       contentContainerStyle={{ gap: 10, paddingRight: 4 }}>
       {children}
     </ScrollView>
@@ -326,10 +330,8 @@ export default function PartnerHubScreen() {
   // The real inset on both platforms. React Native's SafeAreaView pads on iOS only, so this used
   // to be an Android-only branch bolted on beside it — two ways of doing one thing, and only ever
   // right on the platform whose turn it was.
-  const topInset = useTopInset();
   const tabBarSpacing = useTabBarSpacing();
 
-  const bgColor = hex.bg;
   const cardBg = hex.card;
   const borderColor = hex.border;
   const activityBorder = isDarkMode ? '#2d3748' : '#F3F4F6';
@@ -467,163 +469,176 @@ export default function PartnerHubScreen() {
   // translucent-on-green (there is no green behind them any more) and become ordinary cards.
 
   return (
-    <View
-      // Transparent on the web design so the shell's pattern shows through, as on every other
-      // page; the phone design keeps its green header slab.
-      style={{ flex: 1, backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN }}>
-      {/* ── Header ── */}
-      <View
-        style={{
-          backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
-          paddingHorizontal: isWebLayout ? 32 : 20,
-          paddingTop: isWebLayout ? 32 : topInset + 16,
-          paddingBottom: 24,
-          width: '100%',
-          maxWidth: isWebLayout ? CONTENT_WIDTHS.wide : undefined,
-          alignSelf: 'center',
-        }}>
-        {isWebLayout && <BackLink />}
-        <View
+    // This screen drew its own root, its own green slab, its own back link and its own width cap
+    // on two separate children — all of which `ScreenLayout` already provides, each written as an
+    // `isWebLayout ?` branch kept in step with the shared one by hand. They were not, which is why
+    // this page scrolled inside its own column rather than against the window edge: the rule that
+    // flattens a screen's ScrollView keys on ScreenLayout's scroller, so a screen outside it
+    // never got the fix.
+    //
+    // No `footer` here: the TabBar is mounted on the tab navigator, below every tab screen, so
+    // passing one would put a second bar on the page.
+    //
+    // The phone header is kept verbatim in `headerChildren` — AppHeader centres a bare title,
+    // and this one is left-aligned with a subtitle and a gear beside it. Same split as
+    // ProfileScreen: the web design takes the shared page header, the phone design keeps its own.
+    <ScreenLayout
+      headerVariant="large"
+      // Web-only, as it was before this screen moved onto ScreenLayout: the page header carries a
+      // back link, and the phone design's header has never had one here — `showBackButton` would
+      // switch AppHeader to its nav-row branch and put a back circle where none belonged.
+      showBackButton={isWebLayout}
+      headerTitle={isWebLayout ? t('partnerHub.title') : undefined}
+      headerSubtitle={
+        isWebLayout
+          ? t('partnerHub.welcomeBack', {
+              name: currentUser?.firstName?.trim() || t('partnerHub.partner'),
+            })
+          : undefined
+      }
+      webHeaderRight={
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('profile.settings')}
+          onPress={() => (navigation as any).navigate('Settings')}
           style={{
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: hex.card,
+            borderWidth: 1,
+            borderColor: hex.border,
+            alignItems: 'center',
+            justifyContent: 'center',
           }}>
-          <View style={{ flex: 1 }}>
-            <Text
-              style={{
-                color: isWebLayout ? hex.text : 'white',
-                fontSize: isWebLayout ? 30 : 26,
-                fontWeight: '700',
-                letterSpacing: -0.5,
-              }}>
-              {t('partnerHub.title')}
-            </Text>
-            <Text
-              style={{
-                color: isWebLayout ? hex.subtext : 'rgba(255,255,255,0.85)',
-                fontSize: 14,
-                marginTop: 2,
-              }}>
-              {t('partnerHub.welcomeBack', {
-                name: currentUser?.firstName?.trim() || t('partnerHub.partner'),
-              })}
-            </Text>
-          </View>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => (navigation as any).navigate('Settings')}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: isWebLayout ? hex.card : 'rgba(255,255,255,0.25)',
-              borderWidth: isWebLayout ? 1 : 0,
-              borderColor: hex.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-            <Ionicons
-              name="settings-outline"
-              size={20}
-              color={isWebLayout ? hex.subtext : 'white'}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Stats Pills (horizontally scrollable) ── */}
-        <PillRow isWebLayout={isWebLayout}>
-          {pills.map((stat) => (
+          <Ionicons name="settings-outline" size={20} color={hex.subtext} />
+        </TouchableOpacity>
+      }
+      headerChildren={
+        <>
+          {!isWebLayout && (
             <View
-              key={stat.id}
               style={{
-                backgroundColor: isWebLayout ? cardBg : 'rgba(255,255,255,0.2)',
-                borderWidth: isWebLayout ? 1 : 0,
-                borderColor: hex.border,
-                flexGrow: isWebLayout ? 1 : 0,
-                flexBasis: isWebLayout ? 180 : undefined,
-                borderRadius: 14,
-                paddingHorizontal: 14,
-                paddingVertical: 10,
                 flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10,
-                minWidth: 150,
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
               }}>
-              <View
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    color: 'white',
+                    fontSize: 26,
+                    fontWeight: '700',
+                    letterSpacing: -0.5,
+                  }}>
+                  {t('partnerHub.title')}
+                </Text>
+                <Text
+                  style={{
+                    color: 'rgba(255,255,255,0.85)',
+                    fontSize: 14,
+                    marginTop: 2,
+                  }}>
+                  {t('partnerHub.welcomeBack', {
+                    name: currentUser?.firstName?.trim() || t('partnerHub.partner'),
+                  })}
+                </Text>
+              </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => (navigation as any).navigate('Settings')}
                 style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  backgroundColor: isWebLayout ? hex.chipBg : 'rgba(255,255,255,0.3)',
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: 'rgba(255,255,255,0.25)',
+
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                <Ionicons name={stat.icon} size={18} color={isWebLayout ? BRAND_GREEN : 'white'} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="settings-outline" size={20} color="white" />
+              </TouchableOpacity>
+            </View>
+          )}
+          <PillRow isWebLayout={isWebLayout}>
+            {pills.map((stat) => (
+              <View
+                key={stat.id}
+                style={{
+                  backgroundColor: isWebLayout ? cardBg : 'rgba(255,255,255,0.2)',
+                  borderWidth: isWebLayout ? 1 : 0,
+                  borderColor: hex.border,
+                  flexGrow: isWebLayout ? 1 : 0,
+                  flexBasis: isWebLayout ? 180 : undefined,
+                  borderRadius: 14,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  minWidth: 150,
+                }}>
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    backgroundColor: isWebLayout ? hex.chipBg : 'rgba(255,255,255,0.3)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                  <Ionicons
+                    name={stat.icon}
+                    size={18}
+                    color={isWebLayout ? BRAND_GREEN : 'white'}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text
+                      style={{
+                        color: isWebLayout ? hex.text : 'white',
+                        fontSize: 18,
+                        fontWeight: '700',
+                      }}>
+                      {stat.value}
+                    </Text>
+                    {stat.change && (
+                      <View
+                        style={{
+                          backgroundColor: 'rgba(255,255,255,0.3)',
+                          borderRadius: 6,
+                          paddingHorizontal: 5,
+                          paddingVertical: 1,
+                        }}>
+                        <Text style={{ color: 'white', fontSize: 10, fontWeight: '600' }}>
+                          {stat.change}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   <Text
                     style={{
-                      color: isWebLayout ? hex.text : 'white',
-                      fontSize: 18,
-                      fontWeight: '700',
+                      color: isWebLayout ? hex.subtext : 'rgba(255,255,255,0.8)',
+                      fontSize: 11,
+                      marginTop: 1,
                     }}>
-                    {stat.value}
+                    {stat.label}
                   </Text>
-                  {stat.change && (
-                    <View
-                      style={{
-                        backgroundColor: 'rgba(255,255,255,0.3)',
-                        borderRadius: 6,
-                        paddingHorizontal: 5,
-                        paddingVertical: 1,
-                      }}>
-                      <Text style={{ color: 'white', fontSize: 10, fontWeight: '600' }}>
-                        {stat.change}
-                      </Text>
-                    </View>
-                  )}
                 </View>
-                <Text
-                  style={{
-                    color: isWebLayout ? hex.subtext : 'rgba(255,255,255,0.8)',
-                    fontSize: 11,
-                    marginTop: 1,
-                  }}>
-                  {stat.label}
-                </Text>
               </View>
-            </View>
-          ))}
-        </PillRow>
-      </View>
-
-      {/* ── Main Content ── */}
-      <View
-        style={{
-          flex: 1,
-          // Same reason as the root: on the web design the shell's ground and pattern show
-          // through, and an opaque sheet here would hide the texture on this screen only.
-          backgroundColor: isWebLayout ? 'transparent' : bgColor,
-          // The rounded sheet slides up over the green header. With no green header there is
-          // nothing to slide over, and the radius would just clip the content's top corners.
-          borderTopLeftRadius: isWebLayout ? 0 : 24,
-          borderTopRightRadius: isWebLayout ? 0 : 24,
-          marginTop: isWebLayout ? 0 : -16,
-          overflow: 'hidden',
-        }}>
+            ))}
+          </PillRow>
+        </>
+      }
+      width="wide">
+      <View style={{ flex: 1, overflow: 'hidden' }}>
+        {/* Padding only — ScreenLayout caps and centres the column, and its body container is
+            deliberately unpadded so screens keep owning their own gutters. */}
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={
-            isWebLayout
-              ? {
-                  paddingBottom: 40,
-                  width: '100%',
-                  maxWidth: CONTENT_WIDTHS.wide,
-                  alignSelf: 'center',
-                }
-              : { paddingBottom: tabBarSpacing }
+            isWebLayout ? { paddingBottom: 40 } : { paddingBottom: tabBarSpacing }
           }>
           {/* ── Active Live Session banner ── */}
           {hasLiveSession && (
@@ -900,6 +915,6 @@ export default function PartnerHubScreen() {
           </View>
         </ScrollView>
       </View>
-    </View>
+    </ScreenLayout>
   );
 }
