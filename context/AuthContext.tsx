@@ -14,6 +14,7 @@ type AuthContextType = {
   isLoading: boolean;
   isPartner: boolean;
   isAdmin: boolean;
+  isProviderProfile: boolean;
   currentUser: CurrentUser | null;
   signIn: (accessToken: string, refreshToken?: string) => Promise<void>;
   signInWithCredentials: (email: string, password: string) => Promise<void>;
@@ -40,6 +41,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isPartner =
     (currentUser?.groups?.includes('ServiceProvider') || currentUser?.roles?.includes('Partner')) ??
     false;
+  // A managed ProviderProfile login: an account that has no Domain.User behind it at all. That
+  // is a different question from isPartner (a pet owner who also runs services is a User who
+  // owns a ServiceProvider), and it is the one that decides whether per-user rows — notification
+  // settings, pets, push devices — can exist for this session. /auth/me returns 0 here for every
+  // account that does have a user row.
+  const isProviderProfile = (currentUser?.providerProfileId ?? 0) > 0;
 
   const [, googleResponse, googlePromptAsync] = Google.useAuthRequest({
     androidClientId: 'YOUR_ANDROID_CLIENT_ID',
@@ -135,6 +142,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         isPartner,
         isAdmin,
+        isProviderProfile,
         currentUser,
         signIn,
         signInWithCredentials,

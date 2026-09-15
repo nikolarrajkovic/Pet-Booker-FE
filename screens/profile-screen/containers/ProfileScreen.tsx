@@ -84,6 +84,15 @@ const USER_MENU_ITEMS = [
 
 const PARTNER_MENU_ITEMS = USER_MENU_ITEMS;
 
+/**
+ * Notification settings are stored per Domain.User, and a managed ProviderProfile login has no
+ * such row — the ServiceProvider group carries none of the UserNotificationSettings permissions,
+ * so every read and write from that session is a 401. The screen used to be listed anyway and
+ * swallowed the failure, leaving toggles that looked applied and changed nothing.
+ */
+const withoutNotificationSettings = (items: typeof USER_MENU_ITEMS) =>
+  items.filter((item) => item.id !== 'notification-settings');
+
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const {
@@ -94,7 +103,7 @@ export default function ProfileScreen() {
     subtextColor,
     borderColor,
   } = useThemeColors();
-  const { signOut, isPartner, currentUser } = useAuth();
+  const { signOut, isPartner, isProviderProfile, currentUser } = useAuth();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
   const tabBarSpacing = useTabBarSpacing();
@@ -149,6 +158,7 @@ export default function ProfileScreen() {
   const avatarName = user?.firstName ?? currentUser?.firstName ?? email;
 
   const baseMenu = isPartner ? PARTNER_MENU_ITEMS : USER_MENU_ITEMS;
+  const scopedMenu = isProviderProfile ? withoutNotificationSettings(baseMenu) : baseMenu;
   const menuItems =
     liveSession !== 'none'
       ? [
@@ -163,9 +173,9 @@ export default function ProfileScreen() {
                 : 'profile.liveSessionUpcomingSub',
             color: liveSession === 'started' ? '#EF4444' : '#00A85A',
           },
-          ...baseMenu,
+          ...scopedMenu,
         ]
-      : baseMenu;
+      : scopedMenu;
 
   const handleMenuPress = (id: string) => {
     if (id === 'live-session') (navigation as any).navigate('LiveSession', { mode: 'user' });

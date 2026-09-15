@@ -24,6 +24,7 @@ import {
   getNotificationSettings,
   saveNotificationSettings,
   defaultNotificationSettings,
+  deviceTimezone,
   UserNotificationSettingsDto,
 } from '../../../services/notifications';
 
@@ -54,7 +55,7 @@ function dateToTime(date: Date): string {
 type QuietEdge = 'start' | 'end';
 
 export default function NotificationSettingsScreen() {
-  const { currentUser } = useAuth();
+  const { currentUser, isProviderProfile } = useAuth();
   const { isDarkMode, cardBg, textColor, subtextColor } = useThemeColors();
   const { t } = useLocale();
   const { showError } = useToast();
@@ -73,7 +74,10 @@ export default function NotificationSettingsScreen() {
       let cancelled = false;
       // The permission can have changed while the screen was in the background stack.
       refresh();
-      if (!userId) {
+      // A provider-profile session has no settings row to fetch and no permission to fetch it
+      // with — the guard below renders the explanation, and the request would only be a 401.
+      // The check has to live in here too: hooks can't be skipped by an early return.
+      if (!userId || isProviderProfile) {
         setIsLoading(false);
         return;
       }
@@ -91,7 +95,7 @@ export default function NotificationSettingsScreen() {
       return () => {
         cancelled = true;
       };
-    }, [userId, refresh])
+    }, [userId, isProviderProfile, refresh])
   );
 
   // Apply a change locally (responsive) and persist it. Persisting may fail for
@@ -99,7 +103,11 @@ export default function NotificationSettingsScreen() {
   const update = (partial: Partial<UserNotificationSettingsDto>) => {
     setSettings((prev) => {
       if (!prev) return prev;
-      const next = { ...prev, ...partial };
+      // Re-stamp the device's zone on every write. Quiet hours are stored as wall-clock times,
+      // so the zone is what makes 22:00 mean 22:00 where the user is; rows written before this
+      // was sent all say 'UTC', and a user who has since moved needs the new one. Touching any
+      // setting is the natural moment to correct it — cheaper than a write on every load.
+      const next = { ...prev, ...partial, timezone: deviceTimezone() };
       saveNotificationSettings(next)
         .then((saved) => {
           setSaveError(false);
@@ -180,6 +188,33 @@ export default function NotificationSettingsScreen() {
     to: formatTime(s.dndEndTime) || '08:00',
   });
 
+  // A managed ProviderProfile has no Domain.User, so it has no settings row and its group holds
+  // none of the UserNotificationSettings permissions — every read and write is a 401. The menu
+  // entry is hidden for these sessions; this covers the deep link, which the menu cannot.
+  if (isProviderProfile) {
+    return (
+      <ScreenLayout
+        headerVariant="standard"
+        showBackButton
+        headerTitle={t('notificationSettings.title')}
+        contentBg={bgColor}>
+        <View className="flex-1 items-center justify-center px-8">
+          <Ionicons
+            name="notifications-off-outline"
+            size={40}
+            color={isDarkMode ? '#6b7280' : '#9ca3af'}
+          />
+          <Text className={`text-base font-semibold ${textColor} mt-4 text-center`}>
+            {t('notificationSettings.unavailableForProviders')}
+          </Text>
+          <Text className={`text-sm ${subtextColor} mt-2 text-center`}>
+            {t('notificationSettings.unavailableForProvidersSub')}
+          </Text>
+        </View>
+      </ScreenLayout>
+    );
+  }
+
   return (
     <ScreenLayout
       headerVariant="standard"
@@ -245,64 +280,6 @@ export default function NotificationSettingsScreen() {
                 subtitle={t('notificationSettings.emailSubtitle')}
                 value={s.emailEnabled}
                 onValueChange={(v) => update({ emailEnabled: v })}
-                isDarkMode={isDarkMode}
-                textColor={textColor}
-                subtextColor={subtextColor}
-              />
-            </View>
-          </View>
-
-          {/* What You'll Receive */}
-          <View className="mt-6 px-4">
-            <Text className={`text-sm font-bold ${sectionHeaderColor} mb-3`}>
-              {t('notificationSettings.whatYouReceive')}
-            </Text>
-            <View className={`${cardBg} rounded-2xl border ${borderColor} overflow-hidden`}>
-              <NotificationToggle
-                title={t('notificationSettings.bookingUpdates')}
-                subtitle={t('notificationSettings.bookingUpdatesSubtitle')}
-                value={s.bookingUpdates}
-                onValueChange={(v) => update({ bookingUpdates: v })}
-                isDarkMode={isDarkMode}
-                textColor={textColor}
-                subtextColor={subtextColor}
-              />
-              {divider}
-              <NotificationToggle
-                title={t('notificationSettings.reminders')}
-                subtitle={t('notificationSettings.remindersSubtitle')}
-                value={s.appointmentReminders}
-                onValueChange={(v) => update({ appointmentReminders: v })}
-                isDarkMode={isDarkMode}
-                textColor={textColor}
-                subtextColor={subtextColor}
-              />
-              {divider}
-              <NotificationToggle
-                title={t('notificationSettings.messages')}
-                subtitle={t('notificationSettings.messagesSubtitle')}
-                value={s.messages}
-                onValueChange={(v) => update({ messages: v })}
-                isDarkMode={isDarkMode}
-                textColor={textColor}
-                subtextColor={subtextColor}
-              />
-              {divider}
-              <NotificationToggle
-                title={t('notificationSettings.promotions')}
-                subtitle={t('notificationSettings.promotionsSubtitle')}
-                value={s.promotionsOffers}
-                onValueChange={(v) => update({ promotionsOffers: v })}
-                isDarkMode={isDarkMode}
-                textColor={textColor}
-                subtextColor={subtextColor}
-              />
-              {divider}
-              <NotificationToggle
-                title={t('notificationSettings.newServices')}
-                subtitle={t('notificationSettings.newServicesSubtitle')}
-                value={s.newServices}
-                onValueChange={(v) => update({ newServices: v })}
                 isDarkMode={isDarkMode}
                 textColor={textColor}
                 subtextColor={subtextColor}

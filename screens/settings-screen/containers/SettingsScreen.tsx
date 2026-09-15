@@ -33,9 +33,6 @@ export default function SettingsScreen() {
   const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor } = useThemeColors();
   const sectionTextColor = textColor;
 
-  const [pushNotifications, setPushNotifications] = useState(true);
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [smsNotifications, setSmsNotifications] = useState(false);
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
 
@@ -128,70 +125,6 @@ export default function SettingsScreen() {
               accessibilityLabel={t('settings.darkMode')}
               value={isDarkMode}
               onValueChange={toggleDarkMode}
-              trackColor={{ false: '#D1D5DB', true: BRAND_GREEN }}
-              thumbColor="white"
-            />
-          </View>
-        </View>
-
-        {/* Notifications */}
-        <Text className={`text-base font-semibold ${sectionTextColor} mb-3`}>
-          {t('settings.notifications')}
-        </Text>
-        <View className={`${cardBg} mb-6 rounded-2xl`}>
-          <View className="flex-row items-center border-b border-gray-100 p-4">
-            <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-blue-50">
-              <Ionicons name="notifications" size={24} color="#3B82F6" />
-            </View>
-            <View className="flex-1">
-              <Text className={`text-base font-semibold ${textColor}`}>
-                {t('settings.pushNotifications')}
-              </Text>
-            </View>
-            <Switch
-              // Named after its row. A Switch renders with the value as its only accessible name,
-              // so all four here announced as "switch, on" — indistinguishable from each other.
-              accessibilityLabel={t('settings.pushNotifications')}
-              value={pushNotifications}
-              onValueChange={setPushNotifications}
-              trackColor={{ false: '#D1D5DB', true: BRAND_GREEN }}
-              thumbColor="white"
-            />
-          </View>
-          <View className="flex-row items-center border-b border-gray-100 p-4">
-            <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-purple-50">
-              <Ionicons name="mail" size={24} color="#A855F7" />
-            </View>
-            <View className="flex-1">
-              <Text className={`text-base font-semibold ${textColor}`}>
-                {t('settings.emailNotifications')}
-              </Text>
-            </View>
-            <Switch
-              // Named after its row. A Switch renders with the value as its only accessible name,
-              // so all four here announced as "switch, on" — indistinguishable from each other.
-              accessibilityLabel={t('settings.emailNotifications')}
-              value={emailNotifications}
-              onValueChange={setEmailNotifications}
-              trackColor={{ false: '#D1D5DB', true: BRAND_GREEN }}
-              thumbColor="white"
-            />
-          </View>
-          <View className="flex-row items-center p-4">
-            <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-orange-50">
-              <Ionicons name="chatbubble" size={24} color="#F97316" />
-            </View>
-            <View className="flex-1">
-              <Text className={`text-base font-semibold ${textColor}`}>
-                {t('settings.smsNotifications')}
-              </Text>
-            </View>
-            <Switch
-              // Named after its row. A Switch renders with the value as its only accessible name,
-              // so all four here announced as "switch, on" — indistinguishable from each other.
-              accessibilityLabel={t('settings.smsNotifications')}
-              value={smsNotifications}
-              onValueChange={setSmsNotifications}
               trackColor={{ false: '#D1D5DB', true: BRAND_GREEN }}
               thumbColor="white"
             />
