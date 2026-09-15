@@ -40,10 +40,11 @@ jest.mock('../services/notifications', () => {
   };
 });
 
-jest.mock('../context/AuthContext', () => {
-  const value = { currentUser: { id: 1 } };
-  return { useAuth: () => value };
-});
+const authValue: { currentUser: { id: number } | null; isProviderProfile: boolean } = {
+  currentUser: { id: 1 },
+  isProviderProfile: false,
+};
+jest.mock('../context/AuthContext', () => ({ useAuth: () => authValue }));
 
 const mockShowError = jest.fn();
 jest.mock('../context/ToastContext', () => ({
@@ -83,12 +84,6 @@ const storedSettings = (overrides = {}) => ({
   userId: 1,
   pushEnabled: true,
   emailEnabled: true,
-  smsEnabled: false,
-  bookingUpdates: true,
-  appointmentReminders: true,
-  messages: true,
-  promotionsOffers: false,
-  newServices: false,
   dndEnabled: false,
   dndStartTime: '22:00:00',
   dndEndTime: '08:00:00',
@@ -115,6 +110,8 @@ beforeEach(() => {
   mockSaveSettings.mockImplementation(async (s: unknown) => s);
   mockRegisterPushDevice.mockResolvedValue(true);
   mockGetPushPermission.mockResolvedValue(GRANTED);
+  authValue.currentUser = { id: 1 };
+  authValue.isProviderProfile = false;
 });
 
 describe('the push switch answers to the device, not just the account', () => {
@@ -229,6 +226,40 @@ describe('quiet hours are editable, not decorative', () => {
 
     expect(mockSaveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ dndStartTime: expect.stringMatching(/^\d{2}:\d{2}:00$/) })
+    );
+  });
+});
+
+describe('a provider login has no personal settings to show', () => {
+  // A managed ProviderProfile has no Domain.User behind it, so the ServiceProvider group holds
+  // none of the UserNotificationSettings permissions and every call 401s. The screen used to
+  // render anyway and swallow the failure, leaving toggles that looked applied and did nothing.
+  it('shows the explanation instead of toggles, and asks the API for nothing', async () => {
+    authValue.isProviderProfile = true;
+
+    await renderScreen();
+
+    expect(screen.getByText('notificationSettings.unavailableForProviders')).toBeTruthy();
+    expect(screen.UNSAFE_queryAllByType(Switch)).toHaveLength(0);
+    expect(mockGetSettings).not.toHaveBeenCalled();
+    expect(mockSaveSettings).not.toHaveBeenCalled();
+  });
+});
+
+describe('quiet hours are read in the device zone, not UTC', () => {
+  // The window is stored as wall-clock times, so the zone is what makes 22:00 mean 22:00 where
+  // the user is. The app used to hardcode 'UTC', which moved the whole window by the local
+  // offset — a Belgrade user asking for 22:00-08:00 was muted 00:00-10:00.
+  it('stamps the live device zone on every save, replacing a stale stored one', async () => {
+    mockGetSettings.mockResolvedValue(storedSettings({ timezone: 'UTC' }));
+    await renderScreen();
+
+    fireEvent(screen.UNSAFE_getAllByType(Switch)[1], 'valueChange', false);
+    await flush();
+
+    const deviceZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    expect(mockSaveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ emailEnabled: false, timezone: deviceZone })
     );
   });
 });
