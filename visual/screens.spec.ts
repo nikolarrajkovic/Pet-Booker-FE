@@ -35,6 +35,10 @@ test.describe('signed in', () => {
     ['pets-empty', '/pets'],
     ['account', '/account'],
     ['notifications-empty', '/notifications'],
+    // The notification preferences themselves, which had no baseline at all while being the
+    // screen that changes most often — it has now been through a nine-toggle version, a
+    // duplicate set of dead switches on /settings, and the two-channel trim.
+    ['notification-settings', '/notifications/settings'],
   ] as const) {
     test(name, async ({ page }, testInfo) => {
       await signIn(page);
@@ -45,6 +49,50 @@ test.describe('signed in', () => {
       });
     });
   }
+
+  /**
+   * The same screen as a managed ProviderProfile, which is a different screen entirely.
+   *
+   * Those accounts have no Domain.User, so the ServiceProvider group carries none of the
+   * UserNotificationSettings permissions and every call is a 401. The app used to render the
+   * toggles anyway and swallow the failure, leaving switches that looked applied and changed
+   * nothing; it now renders an explanation instead. A baseline is what stops that quietly
+   * becoming a row of dead switches again.
+   */
+  test('notification settings as a provider', async ({ page }, testInfo) => {
+    await signIn(page);
+    // A partner session that has not seen the celebration is redirected to PartnerWelcome the
+    // moment it signs in, so without this the baseline photographs "You're Approved!" instead of
+    // the screen under test — a golden that passes forever while covering nothing.
+    // Key shape from services/onboarding.ts, for the id the /auth/me override below returns.
+    await page.addInitScript(() => localStorage.setItem('partner_welcome_seen_12', '1'));
+    await mockApi(page, {
+      '/auth/me': {
+        id: 12,
+        userName: 'test_partner',
+        firstName: 'Test',
+        lastName: 'Partner',
+        email: 'partner@example.com',
+        emailConfirmed: true,
+        roles: ['ServiceProvider'],
+        groups: ['ServiceProvider'],
+        phone: '+381641234567',
+        serviceProviderId: 7,
+        // Non-zero is the whole point: it is how the app knows there is no user behind this
+        // session, and therefore no personal settings to manage.
+        providerProfileId: 12,
+        preferredLanguage: 'en',
+        preferredCurrency: 'RSD',
+      },
+    });
+    await open(page, '/notifications/settings');
+    await expect(page).toHaveScreenshot(
+      `notification-settings-provider-${testInfo.project.name}.png`,
+      {
+        fullPage: true,
+      }
+    );
+  });
 
   // Dark mode had never been looked at once until it was checked by hand. A baseline is the only
   // thing that keeps it from drifting again unnoticed.
