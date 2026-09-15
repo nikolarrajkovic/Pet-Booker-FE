@@ -71,7 +71,11 @@ export function routeForPayload(
     // "Service completed" is an invitation to review, and the inbox is the only place that can
     // offer the modal — it auto-opens for exactly this notification. Once the inbox has tried
     // (and the booking turns out to be reviewed already) the booking itself is the destination.
+    // The review nudge is the same invitation, one follow-up later, so it routes identically —
+    // ServiceCompleted is marked read the moment the modal opens, which is why a customer who
+    // dismisses it needs a second ask at all.
     case NotificationType.ServiceCompleted:
+    case NotificationType.ReviewReminder:
       return options.reviewHandled ? bookingRoute(p.bookingId) : [{ name: 'Notifications' }];
 
     // Moderation ruled on the review this user wrote. Approved, it is live on the service page;
@@ -109,14 +113,29 @@ export function routeForPayload(
     case NotificationType.ServiceProviderDeclined:
     case NotificationType.CertificateApproved:
     case NotificationType.CertificateDeclined:
+    // An expiring certificate is renewed from the same place it was uploaded.
+    case NotificationType.CertificateExpiring:
       return [PARTNER_TAB];
+
+    // ── Admin-facing ──────────────────────────────────────────────────────────────────────
+    // The digest reports how full the moderation queues are; the applications screen is where
+    // they are actually worked. "All caught up" has nothing to open, so it stays in the feed.
+    //
+    // AdminNewRequests (admin/requests), NOT NewRequests — that one is the PARTNER's booking
+    // request inbox (partner/requests). Sending an admin there showed them "0 pending requests"
+    // next to a digest saying 45 were waiting.
+    case NotificationType.AdminPendingQueue:
+      return [{ name: 'AdminNewRequests' }];
+    case NotificationType.AdminQueueCleared:
+      return [{ name: 'Notifications' }];
 
     // ── Either side ───────────────────────────────────────────────────────────────────────
     case NotificationType.NewChatMessage:
       return chatRoute(p.conversationId);
 
-    // Confirmed / declined / started / reminded / re-priced / paid / due: the booking recap
-    // answers all of them, and it is the same screen for whichever side received it.
+    // Confirmed / declined / started / reminded / re-priced / paid / due / overdue / unanswered:
+    // the booking recap answers all of them, and it is the same screen for whichever side
+    // received it.
     default:
       return p.conversationId ? chatRoute(p.conversationId) : bookingRoute(p.bookingId);
   }

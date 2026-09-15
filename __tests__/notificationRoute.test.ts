@@ -112,6 +112,36 @@ describe('routeForNotification — one destination per type', () => {
     ]);
   });
 
+  // The review nudge is the same invitation as ServiceCompleted, one follow-up later, so it must
+  // reach the inbox — the only screen that can offer the rating modal — rather than the recap.
+  it('sends the review nudge to the inbox too, and to the booking once the modal has been offered', () => {
+    expect(routeOf(routeForNotification(stored('ReviewReminder', { bookingId: 3 })))).toEqual([
+      'Notifications',
+    ]);
+    expect(
+      routeOf(
+        routeForNotification(stored('ReviewReminder', { bookingId: 3 }), { reviewHandled: true })
+      )
+    ).toContain('BookingDetails');
+  });
+
+  // The admin digest must land on the ADMIN application queue. 'NewRequests' is the partner's
+  // booking inbox under a confusingly similar name, and routing the digest there showed an admin
+  // "0 pending requests" next to a digest saying 45 were waiting.
+  it('sends the admin queue digest to the admin application queue, not the partner inbox', () => {
+    expect(routeOf(routeForNotification(stored('AdminPendingQueue')))).toEqual([
+      'AdminNewRequests',
+    ]);
+    // Nothing to open once the queue is empty, so it stays in the feed.
+    expect(routeOf(routeForNotification(stored('AdminQueueCleared')))).toEqual(['Notifications']);
+  });
+
+  it('renews an expiring certificate from the same hub the others use', () => {
+    expect(
+      routeOf(routeForNotification(stored('CertificateExpiring', { certificateId: 2 })))
+    ).toEqual(['MainTabs']);
+  });
+
   it('answers every remaining booking event with the booking recap', () => {
     for (const name of [
       'BookingConfirmed',
@@ -123,6 +153,8 @@ describe('routeForNotification — one destination per type', () => {
       'BookingUpdated',
       'PaymentReceived',
       'PaymentDue',
+      'PaymentOverdue',
+      'BookingRequestStale',
     ] as const) {
       expect(routeOf(routeForNotification(stored(name, { bookingId: 3 })))).toContain(
         'BookingDetails'

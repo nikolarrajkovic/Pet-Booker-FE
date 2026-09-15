@@ -59,6 +59,17 @@ const VISUAL_BY_NAME: Record<
   // Never reaches this feed (chat has its own inbox), but a row is cheap and an older backend
   // that doesn't filter would otherwise render a message as a bare bell.
   NewChatMessage: { icon: 'chatbubble-ellipses-outline', accent: 'info' },
+  // The review nudge is the same invitation as ServiceCompleted, so it keeps the review star
+  // rather than the completion tick — the row is about rating, not about the service ending.
+  ReviewReminder: { icon: 'star-outline', accent: 'warning' },
+  // Deadlines the recipient still has time to act on.
+  PaymentOverdue: { icon: 'wallet-outline', accent: 'danger' },
+  CertificateExpiring: { icon: 'ribbon-outline', accent: 'warning' },
+  BookingRequestStale: { icon: 'hourglass-outline', accent: 'warning' },
+  // Admin queue digest. The pending one is work to do; "all caught up" is the opposite, and
+  // the accent is the whole difference between them at a glance.
+  AdminPendingQueue: { icon: 'file-tray-full-outline', accent: 'warning' },
+  AdminQueueCleared: { icon: 'checkmark-done-outline', accent: 'brand' },
 };
 
 const VISUAL_BY_TYPE = new Map<number, Visual>(
