@@ -54,6 +54,24 @@ export const NotificationType = {
   /** Money is now owed and payable — the deposit once the provider confirms, the balance once
    *  the service ends. Customer-facing, and the ask where PaymentReceived is the receipt. */
   PaymentDue: 19,
+  /** The admin moderation queues are not empty — one rolled-up digest, admin-facing;
+   *  { providers, certificates, reviews }. In-app only: never pushed, never emailed. */
+  AdminPendingQueue: 20,
+  /** Every admin queue is empty again. Sent once on the transition, so the digest thread ends
+   *  with an answer instead of just going quiet. */
+  AdminQueueCleared: 21,
+  /** A completed booking the customer never rated. ServiceCompleted already invited the review,
+   *  but it is marked read the moment the rating modal opens — this is the one follow-up.
+   *  Customer-facing; { bookingId }, and it opens the same modal. */
+  ReviewReminder: 22,
+  /** A provider certificate is approaching its expiry date. Provider-facing;
+   *  { certificateId, serviceProviderId }. */
+  CertificateExpiring: 23,
+  /** A confirmed booking whose deposit is still unpaid with the date approaching.
+   *  Customer-facing; { bookingId }. */
+  PaymentOverdue: 24,
+  /** A booking request the provider has not answered. Sent to BOTH sides; { bookingId }. */
+  BookingRequestStale: 25,
 } as const;
 
 /**

@@ -38,6 +38,16 @@ import {
 // that most users never need a second.
 const PAGE_SIZE = 25;
 
+/**
+ * The two notifications that are an invitation to rate a booking. ServiceCompleted is the first
+ * ask and is marked read the moment the modal opens, so a customer who dismisses it is never
+ * asked again — ReviewReminder is the single follow-up, and it opens the same modal rather than
+ * navigating somewhere that would make them find the booking themselves.
+ */
+function isReviewInvitation(type: number): boolean {
+  return type === NotificationType.ServiceCompleted || type === NotificationType.ReviewReminder;
+}
+
 export default function NotificationsScreen() {
   const { currentUser } = useAuth();
   const { subscribe, refreshUnreadCount } = useNotifications();
@@ -141,10 +151,7 @@ export default function NotificationsScreen() {
     async (items: AppNotificationDto[]) => {
       if (reviewOpenRef.current) return; // a modal is already open
       const candidates = items.filter(
-        (n) =>
-          !n.isRead &&
-          n.type === NotificationType.ServiceCompleted &&
-          notificationBookingId(n) != null
+        (n) => !n.isRead && isReviewInvitation(n.type) && notificationBookingId(n) != null
       );
       for (const n of candidates) {
         const opened = await openReviewForNotification(n);
@@ -196,7 +203,7 @@ export default function NotificationsScreen() {
     markRead(n);
     // "Service completed" is an invitation to review, and this screen is the only one that can
     // offer the modal — so it is tried here rather than in the route table.
-    if (n.type === NotificationType.ServiceCompleted && (await openReviewForNotification(n))) {
+    if (isReviewInvitation(n.type) && (await openReviewForNotification(n))) {
       return; // modal is showing; don't also navigate
     }
     // Everything else — and a completed booking that turns out to be reviewed already — follows
