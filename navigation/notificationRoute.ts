@@ -120,8 +120,12 @@ export function routeForPayload(
     // ── Admin-facing ──────────────────────────────────────────────────────────────────────
     // The digest reports how full the moderation queues are; the applications screen is where
     // they are actually worked. "All caught up" has nothing to open, so it stays in the feed.
+    //
+    // AdminNewRequests (admin/requests), NOT NewRequests — that one is the PARTNER's booking
+    // request inbox (partner/requests). Sending an admin there showed them "0 pending requests"
+    // next to a digest saying 45 were waiting.
     case NotificationType.AdminPendingQueue:
-      return [{ name: 'NewRequests' }];
+      return [{ name: 'AdminNewRequests' }];
     case NotificationType.AdminQueueCleared:
       return [{ name: 'Notifications' }];
 
