@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { ScrollView, BackHandler } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -76,6 +77,7 @@ const TABS = moderationTabs('admin.statusRejected');
 
 export default function AdminNewRequestsScreen() {
   const navigation = useNavigation<any>();
+  const { goUp } = useAppNavigation();
   const { isDarkMode, hex } = useThemeColors();
   const { showError } = useToast();
   const { t } = useLocale();
@@ -102,11 +104,15 @@ export default function AdminNewRequestsScreen() {
     }
   }, [t]);
 
-  // Always navigate to AdminDashboard on Android hardware back
+  // Android hardware back, kept in step with the header button above
   useFocusEffect(
     useCallback(() => {
       const onBack = () => {
-        navigation.navigate('MainTabs', { screen: 'AdminDashboard' });
+        // Same rule as the header's back button: pop real history when there is some, so a
+        // notification that opened this screen leads back to the feed, and fall back to the
+        // admin home only when there is nothing to pop.
+        if (navigation.canGoBack()) navigation.goBack();
+        else navigation.navigate('MainTabs', { screen: 'AdminDashboard' });
         return true;
       };
       const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
@@ -184,7 +190,11 @@ export default function AdminNewRequestsScreen() {
     <ScreenLayout
       headerVariant="standard"
       showBackButton
-      onBackPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })}
+      // Pops real history when there is any, so arriving here from the notification feed and
+      // pressing Back returns to the feed; the admin home is only the FALLBACK, for when this
+      // screen was opened directly (tab to tab) and there is nothing to pop. Hardcoding the
+      // destination made every arrival behave like the second case.
+      onBackPress={() => goUp('AdminDashboard')}
       headerTitle={t('admin.requestsTitle')}
       headerSubtitle={t('admin.requestsSubtitle')}
       contentBg={contentBg}

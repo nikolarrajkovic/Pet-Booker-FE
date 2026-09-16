@@ -4,7 +4,7 @@ import {
   type AppNotificationDto,
   type NotificationPayload,
 } from '../services/app-notifications';
-import { navigateFromOutside } from './navigationRef';
+import { navigateFromOutside, navigationRef } from './navigationRef';
 
 /**
  * Where a notification leads when it is tapped.
@@ -149,7 +149,23 @@ export function routeForNotification(
   return routeForPayload(notificationPayload(n), options);
 }
 
-/** Walks a resolved route, from outside the navigator. */
+/**
+ * Walks a resolved route, from outside the navigator.
+ *
+ * The leading steps are a *synthetic* parent — they exist so a tap that arrives with nothing
+ * behind it (a cold start from a device push) still lands somewhere with a way out. When the app
+ * is already open there is real history instead, and replaying the parent destroys it: the parent
+ * step is usually `MainTabs`, which is already the root of the stack, and navigating to a route
+ * that is already in the stack POPS back to it — taking the Notifications screen the user tapped
+ * from with it. That is why opening a request from the feed and pressing Back landed on a tab
+ * rather than returning to the feed.
+ *
+ * So: with history, go straight to the destination and let the real history be the way back;
+ * without it, walk the whole route and synthesize one.
+ */
 export function followNotificationRoute(route: NotificationRoute): void {
-  route.forEach((step) => navigateFromOutside(step.name, step.params));
+  if (route.length === 0) return;
+  const hasHistory = navigationRef.isReady() && navigationRef.canGoBack();
+  const steps = hasHistory ? route.slice(-1) : route;
+  steps.forEach((step) => navigateFromOutside(step.name, step.params));
 }

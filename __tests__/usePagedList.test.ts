@@ -106,15 +106,39 @@ describe('usePagedList', () => {
     act(() => result.current.loadMore());
     await f.settleAll();
     expect(f.fetchPage).toHaveBeenLastCalledWith(2);
-    expect(result.current.items).toEqual(['q1-p1-a', 'q1-p1-b', 'q1-p2-a', 'q1-p2-b']);
+    // Awaited rather than asserted outright: an append holds its rows back until the footer
+    // spinner has been on screen long enough to read (APPEND_SPINNER_MIN_MS).
+    await waitFor(() =>
+      expect(result.current.items).toEqual(['q1-p1-a', 'q1-p1-b', 'q1-p2-a', 'q1-p2-b'])
+    );
 
     act(() => result.current.loadMore());
     await f.settleAll();
-    expect(result.current.hasMore).toBe(false);
+    await waitFor(() => expect(result.current.hasMore).toBe(false));
 
     const callsAtEnd = f.calls;
     act(() => result.current.loadMore());
     expect(f.calls).toBe(callsAtEnd); // nothing left to fetch
+  });
+
+  // The append spinner is a floor, not a delay: a page that answers instantly must still show
+  // progress the reader can register, and the rows arrive WITH the spinner stopping rather than
+  // under one that carries on turning.
+  it('holds the append spinner, and its rows, until it has been visible long enough', async () => {
+    const f = deferredFetcher('q1');
+    const { result } = renderHook(() => usePagedList(f.fetchPage));
+    await f.settleAll();
+
+    act(() => result.current.loadMore());
+    await f.settleAll(); // page 2 has answered — instantly, as an empty database does
+
+    // Still spinning, and page 2 is not on screen yet.
+    expect(result.current.isLoadingMore).toBe(true);
+    expect(result.current.items).toEqual(['q1-p1-a', 'q1-p1-b']);
+
+    // Then both land together.
+    await waitFor(() => expect(result.current.isLoadingMore).toBe(false), { timeout: 3000 });
+    expect(result.current.items).toEqual(['q1-p1-a', 'q1-p1-b', 'q1-p2-a', 'q1-p2-b']);
   });
 
   it('a reload during an append still supersedes it', async () => {

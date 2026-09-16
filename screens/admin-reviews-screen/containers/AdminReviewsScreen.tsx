@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, BackHandler, TextInput } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -58,6 +59,7 @@ const TABS = moderationTabs('admin.statusDeclined');
 
 export default function AdminReviewsScreen() {
   const navigation = useNavigation<any>();
+  const { goUp } = useAppNavigation();
   const {
     isDarkMode,
     hex,
@@ -96,7 +98,11 @@ export default function AdminReviewsScreen() {
   useFocusEffect(
     useCallback(() => {
       const onBack = () => {
-        navigation.navigate('MainTabs', { screen: 'AdminDashboard' });
+        // Same rule as the header's back button: pop real history when there is some, so a
+        // notification that opened this screen leads back to the feed, and fall back to the
+        // admin home only when there is nothing to pop.
+        if (navigation.canGoBack()) navigation.goBack();
+        else navigation.navigate('MainTabs', { screen: 'AdminDashboard' });
         return true;
       };
       const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
@@ -179,7 +185,11 @@ export default function AdminReviewsScreen() {
     <ScreenLayout
       headerVariant="standard"
       showBackButton
-      onBackPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })}
+      // Pops real history when there is any, so arriving here from the notification feed and
+      // pressing Back returns to the feed; the admin home is only the FALLBACK, for when this
+      // screen was opened directly (tab to tab) and there is nothing to pop. Hardcoding the
+      // destination made every arrival behave like the second case.
+      onBackPress={() => goUp('AdminDashboard')}
       headerTitle={t('admin.reviewsTitle')}
       headerSubtitle={t('admin.reviewsSubtitle')}
       contentBg={contentBg}

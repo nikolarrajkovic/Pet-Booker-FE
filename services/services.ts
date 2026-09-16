@@ -240,6 +240,24 @@ export function serviceCurrency(svc?: ServiceDto | null): string | undefined {
   return svc?.currency ?? undefined;
 }
 
+/**
+ * Row order for a service search (`SortBy`). Mirrors the backend `ServiceSortBy`.
+ *
+ * `Default` is the historical id order — every sort is total (each ends on the service id), which
+ * is what keeps a list that pages as you scroll from repeating or skipping rows.
+ */
+export const ServiceSortBy = {
+  Default: 0,
+  PriceAsc: 1,
+  PriceDesc: 2,
+  RatingDesc: 3,
+  MostReviewed: 4,
+  Newest: 5,
+  Popularity: 6,
+} as const;
+
+export type ServiceSortByValue = (typeof ServiceSortBy)[keyof typeof ServiceSortBy];
+
 export type GetServicesParams = {
   serviceProviderId?: number;
   name?: string;
@@ -248,6 +266,37 @@ export type GetServicesParams = {
   /** ServiceProviderType filter on the owning PROVIDER's type (distinct from `type` above). */
   providerType?: number;
   isActive?: boolean;
+
+  /**
+   * Browse filters — applied by the SERVER, across the whole result set.
+   *
+   * The catalogue list pages itself as the user scrolls, and a filter applied in the client can
+   * only narrow the rows already fetched: a narrow filter showed whatever matched inside page one
+   * and the result count described that subset rather than the search. Everything below is
+   * therefore a query parameter, not a `.filter()` — see the search screen.
+   */
+
+  /** Multi-select counterpart of `type`. Matches any of the given ServiceProviderType values. */
+  types?: number[];
+  /**
+   * Price bounds, on the price the user is SHOWN (after any live promotion) and in the currency
+   * they are shown it in — pass `priceCurrency` alongside, or the server reads them as RSD and
+   * the filter silently excludes almost everything.
+   */
+  minPrice?: number;
+  maxPrice?: number;
+  priceCurrency?: string;
+  /** Minimum average rating. Services with no reviews are excluded, not treated as zero. */
+  minRating?: number;
+  /** PetSpeciesType FLAGS, OR-ed together. A service matches if it accepts ANY of them. */
+  acceptedSpecies?: number;
+  /** Names of extras the service must offer — ALL of them, not any. */
+  additionalServiceNames?: string[];
+  /** True → only services with a promotion running right now. */
+  onSaleOnly?: boolean;
+  /** Row order. See `ServiceSortBy`. */
+  sortBy?: ServiceSortByValue;
+
   /**
    * Add-on filters. These replaced the fixed `IsProvidingPickup`/`IsProvidingReturn`/
    * `IsProvidingSpecialNeeds` trio when the three built-in add-ons became the open-ended
@@ -273,6 +322,18 @@ function servicesRequest(params?: GetServicesParams): ApiRequestOptions {
       ProviderType: params?.providerType,
       HasAdditionalServices: params?.hasAdditionalServices,
       AdditionalServiceName: params?.additionalServiceName,
+      // Arrays go out as one repeated key each (`Types=1&Types=2`) — see buildQuery.
+      Types: params?.types?.length ? params.types : undefined,
+      MinPrice: params?.minPrice,
+      MaxPrice: params?.maxPrice,
+      PriceCurrency: params?.priceCurrency,
+      MinRating: params?.minRating,
+      AcceptedSpecies: params?.acceptedSpecies,
+      AdditionalServiceNames: params?.additionalServiceNames?.length
+        ? params.additionalServiceNames
+        : undefined,
+      OnSaleOnly: params?.onSaleOnly,
+      SortBy: params?.sortBy,
       Page: params?.page ?? 1,
       PerPage: params?.perPage ?? 50,
     },

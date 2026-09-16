@@ -19,6 +19,15 @@ type TwoColumnProps = {
    * screens where the panel *is* the point — a price the user is about to confirm.
    */
   asideFirstOnMobile?: boolean;
+  /**
+   * Which side the aside sits on in the web design. Default `right`, which is where a summary or
+   * a CTA belongs — you read the content, then act on it.
+   *
+   * `left` is for a panel that *controls* the content rather than summarising it: search filters
+   * read before the results they produce, which every catalogue site puts on the leading edge.
+   * Ignored on mobile, where the two stack regardless.
+   */
+  asidePosition?: 'left' | 'right';
 };
 
 /**
@@ -39,6 +48,7 @@ export default function TwoColumn({
   asideWidth = 360,
   gap = 32,
   asideFirstOnMobile = false,
+  asidePosition = 'right',
 }: TwoColumnProps) {
   const { isWebLayout } = useResponsive();
 
@@ -52,22 +62,32 @@ export default function TwoColumn({
     );
   }
 
+  const asideColumn = (
+    <View
+      key="aside"
+      // `position: sticky` is a web-only CSS value with no RN equivalent, so the object is cast:
+      // react-native-web passes it straight through, and native never renders this branch.
+      style={
+        {
+          width: asideWidth,
+          [asidePosition === 'left' ? 'marginRight' : 'marginLeft']: gap,
+          position: 'sticky',
+          top: 24,
+        } as unknown as ViewStyle
+      }>
+      {aside}
+    </View>
+  );
+
+  const mainColumn = (
+    <View key="main" style={{ flex: 1, minWidth: 0 }}>
+      {children}
+    </View>
+  );
+
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-      <View style={{ flex: 1, minWidth: 0 }}>{children}</View>
-      <View
-        // `position: sticky` is a web-only CSS value with no RN equivalent, so the object is cast:
-        // react-native-web passes it straight through, and native never renders this branch.
-        style={
-          {
-            width: asideWidth,
-            marginLeft: gap,
-            position: 'sticky',
-            top: 24,
-          } as unknown as ViewStyle
-        }>
-        {aside}
-      </View>
+      {asidePosition === 'left' ? [asideColumn, mainColumn] : [mainColumn, asideColumn]}
     </View>
   );
 }

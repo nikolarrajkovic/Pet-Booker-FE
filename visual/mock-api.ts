@@ -50,6 +50,31 @@ const ME = {
 };
 
 /**
+ * The `/enums` payload, shared by the specs that need real filter chips.
+ *
+ * Only the two the browse filters render. Values are the backend's, not sequential: `petSpeciesType`
+ * is a FLAGS enum, so a made-up 1..6 would be wrong for everything past Cat.
+ */
+export const ENUMS = {
+  serviceProviderType: [
+    { value: 0, name: 'Sitter' },
+    { value: 1, name: 'Walker' },
+    { value: 2, name: 'Boarder' },
+    { value: 3, name: 'PetHotel' },
+    { value: 4, name: 'Groomer' },
+    { value: 5, name: 'Transporter' },
+  ],
+  petSpeciesType: [
+    { value: 1, name: 'Dog' },
+    { value: 2, name: 'Cat' },
+    { value: 4, name: 'Parrot' },
+    { value: 8, name: 'Turtle' },
+    { value: 16, name: 'Fish' },
+    { value: 32, name: 'Snake' },
+  ],
+};
+
+/**
  * `route.fulfill` writes exactly the headers it is given, and the app calls the API cross-origin
  * (8081 → 5161). Without these the browser rejects every mocked response before the app sees it,
  * and a screen that fetches anything renders blank — which is a screenshot of nothing, taken
