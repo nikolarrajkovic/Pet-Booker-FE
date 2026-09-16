@@ -170,12 +170,22 @@ export default function VerifyEmailScreen() {
             onChangeText={(text) => handleChange(text, index)}
             onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
             keyboardType="number-pad"
+            inputMode="numeric"
             // Wide enough that a pasted code reaches handleChange intact on
             // native (maxLength 1 would truncate it to a single digit); the
             // controlled value keeps each box showing one character.
             maxLength={CODE_LENGTH}
             selectTextOnFocus
+            // One-time-code autofill, so the emailed code can be offered above the
+            // keyboard instead of being memorised and typed. `textContentType` is the
+            // iOS-only hint and was all this had, which left Android and mobile web
+            // with no hint at all; `autoComplete` is the cross-platform one — RN maps
+            // it to the Android autofill hint and RNW to the DOM `autocomplete`
+            // attribute, which is what browsers key on. Whichever platform fills it
+            // delivers all six digits to ONE box, which `distribute` already spreads.
             textContentType="oneTimeCode"
+            autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
+            importantForAutofill="yes"
             {...(Platform.OS === 'web'
               ? ({ onPaste: (e: any) => handleWebPaste(e, index) } as object)
               : {})}

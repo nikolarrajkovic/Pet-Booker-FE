@@ -32,6 +32,10 @@ const scannedRoots = new Set(config.content.map(globRoot));
 /** Folders that are never bundled into the app, so a class name there is not a real one. */
 const NOT_APP_CODE = new Set([
   '__tests__',
+  // Playwright specs. Their class-name literals are SELECTORS used to find rendered elements,
+  // not classes anything needs generated — Tailwind scanning them would emit dead CSS for
+  // whatever a test happens to look for.
+  'visual',
   'assets',
   'node_modules',
   'dist',

@@ -19,6 +19,19 @@ import { getErrorMessage } from '../services/http';
  *    reloads on focus asks for it twice on the first focus. `reload` defers to a first-page load
  *    already in flight instead of superseding it, which is why consumers can call it freely.
  */
+/**
+ * Shortest time the "loading more" footer spinner stays on screen.
+ *
+ * A fast page answers in well under 100ms, and a spinner that appears and vanishes inside one or
+ * two frames reads as a flicker rather than as progress — the reader sees something twitch at the
+ * bottom of the list and cannot tell what happened. Holding it briefly makes the append legible:
+ * the spinner turns, then the rows arrive.
+ *
+ * It is a floor, never an addition — a page that takes longer than this is not delayed at all, so
+ * this costs nothing on a slow connection or a full database, which is where the wait is real.
+ */
+const APPEND_SPINNER_MIN_MS = 500;
+
 export interface PagedListState<T> {
   items: T[];
   /** First page is loading (show a spinner instead of the list). */
@@ -73,6 +86,7 @@ export function usePagedList<T>(
       if (inFlight.current) return;
       inFlight.current = { mode, query: fetchPage };
       const gen = generation.current;
+      const startedAt = Date.now();
 
       if (mode === 'replace') {
         setIsLoading(true);
@@ -85,6 +99,19 @@ export function usePagedList<T>(
         const result = await fetchPage(page);
         // A newer reload started while this was in flight — its result is the truth, not ours.
         if (gen !== generation.current) return;
+
+        // The rows are held back with the spinner rather than landing under it, so the two swap
+        // in one step: the footer turns, then the page appears. Applying them immediately and
+        // only lingering the flag would leave a spinner running beneath rows already on screen,
+        // which says the opposite of what is happening.
+        if (mode === 'append') {
+          const elapsed = Date.now() - startedAt;
+          if (elapsed < APPEND_SPINNER_MIN_MS) {
+            await new Promise((resolve) => setTimeout(resolve, APPEND_SPINNER_MIN_MS - elapsed));
+          }
+          // A reload can start during that pause, and it owns the list now.
+          if (gen !== generation.current) return;
+        }
 
         setItems((prev) => (mode === 'append' ? [...prev, ...result.items] : result.items));
         setTotalItems(result.totalItems);

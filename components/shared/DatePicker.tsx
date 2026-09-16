@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
-import { DAY_SHORT_KEYS, MONTH_KEYS } from '../../i18n';
+import { DAY_SHORT_KEYS, MONTH_KEYS, MONTH_SHORT_KEYS } from '../../i18n';
 
 interface DatePickerProps {
   value: Date;
@@ -16,6 +16,19 @@ interface DatePickerProps {
   // e.g. weekdays a service isn't scheduled for. Receives the day's start.
   isDateEnabled?: (date: Date) => boolean;
 }
+
+/**
+ * Which of the three panes is showing. The picker drills down year -> month -> day, so a date
+ * far from today is three taps away.
+ *
+ * It used to be days-plus-a-year-list, with the month reachable ONLY by stepping the chevrons
+ * one month at a time. That is fine for "next Tuesday" and miserable for the field it is most
+ * used on — a date of birth, which opens on January 2000 and is typically 100+ chevron taps and
+ * several pages of an ascending 1900-onwards year list away. Same props, same call sites.
+ */
+type Pane = 'days' | 'months' | 'years';
+
+const YEARS_PER_PAGE = 16; // 4 columns x 4 rows
 
 function isSameDay(a: Date, b: Date) {
   return (
@@ -41,24 +54,28 @@ export default function DatePicker({
   const { t } = useLocale();
   // Localized month/day names, indexed by getMonth()/getDay().
   const MONTHS = MONTH_KEYS.map((k) => t(k));
+  const MONTHS_SHORT = MONTH_SHORT_KEYS.map((k) => t(k));
   const DAYS = DAY_SHORT_KEYS.map((k) => t(k));
   const today = new Date();
   const [viewMonth, setViewMonth] = useState(value.getMonth());
   const [viewYear, setViewYear] = useState(value.getFullYear());
   const [selected, setSelected] = useState(startOfDay(value));
-  const [showYearPicker, setShowYearPicker] = useState(false);
+  const [pane, setPane] = useState<Pane>('days');
 
   const minYear = minDate ? minDate.getFullYear() : 1900;
   const maxYear = maxDate ? maxDate.getFullYear() : today.getFullYear() + 20;
-  const years = Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i);
 
-  const YEARS_PER_PAGE = 16; // 4 columns × 4 rows
-  const initialPage = Math.floor((value.getFullYear() - minYear) / YEARS_PER_PAGE);
-  const [yearPage, setYearPage] = useState(initialPage);
+  // Newest first. The years that matter are almost always near the top of the range — a birth
+  // year, a certificate issued recently — so counting up from 1900 buried them pages deep.
+  const years = Array.from({ length: maxYear - minYear + 1 }, (_, i) => maxYear - i);
   const totalYearPages = Math.ceil(years.length / YEARS_PER_PAGE);
+  const pageOfYear = (year: number) =>
+    Math.min(Math.max(Math.floor((maxYear - year) / YEARS_PER_PAGE), 0), totalYearPages - 1);
+  const [yearPage, setYearPage] = useState(() => pageOfYear(value.getFullYear()));
   const yearPageYears = years.slice(yearPage * YEARS_PER_PAGE, (yearPage + 1) * YEARS_PER_PAGE);
-  const yearPageStart = yearPage * YEARS_PER_PAGE + minYear;
-  const yearPageEnd = Math.min(yearPageStart + YEARS_PER_PAGE - 1, maxYear);
+  // Descending page, so the first entry is the high end of the range.
+  const yearPageHigh = yearPageYears[0] ?? maxYear;
+  const yearPageLow = yearPageYears[yearPageYears.length - 1] ?? minYear;
 
   const { hex } = themeColors(isDarkMode);
   const cardBg = hex.card;
@@ -66,24 +83,7 @@ export default function DatePicker({
   const textColor = hex.text;
   const subtextColor = hex.subtext;
   const inputBg = hex.inputBg;
-
-  const prevMonth = () => {
-    if (viewMonth === 0) {
-      setViewMonth(11);
-      setViewYear((y) => y - 1);
-    } else {
-      setViewMonth((m) => m - 1);
-    }
-  };
-
-  const nextMonth = () => {
-    if (viewMonth === 11) {
-      setViewMonth(0);
-      setViewYear((y) => y + 1);
-    } else {
-      setViewMonth((m) => m + 1);
-    }
-  };
+  const chipBg = isDarkMode ? '#243447' : '#F3F4F6';
 
   const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -104,13 +104,22 @@ export default function DatePicker({
     return false;
   };
 
+  // A month is out of reach only when EVERY day in it is — a partially allowed month stays
+  // tappable and its own days are gated by isDisabled above.
+  const isMonthDisabled = (month: number) => {
+    const monthStart = new Date(viewYear, month, 1);
+    const monthEnd = new Date(viewYear, month + 1, 0);
+    if (minDate && monthEnd < startOfDay(minDate)) return true;
+    if (maxDate && monthStart > startOfDay(maxDate)) return true;
+    return false;
+  };
+
   const isSelected = (day: number) => isSameDay(selected, new Date(viewYear, viewMonth, day));
   const isToday = (day: number) => isSameDay(today, new Date(viewYear, viewMonth, day));
 
   const handleSelect = (day: number) => {
     if (isDisabled(day)) return;
-    const newDate = new Date(viewYear, viewMonth, day);
-    setSelected(newDate);
+    setSelected(new Date(viewYear, viewMonth, day));
   };
 
   const handleDone = () => {
@@ -123,18 +132,87 @@ export default function DatePicker({
     onClose();
   };
 
-  // Prevent "prev" nav if the entire previous month is before minDate
-  const canGoPrev = () => {
-    if (!minDate) return true;
-    const lastDayOfPrev = new Date(viewYear, viewMonth, 0);
-    return lastDayOfPrev >= startOfDay(minDate);
+  // ─── Header stepping — what the chevrons mean depends on the open pane ──────────────
+  const stepBack = () => {
+    if (pane === 'years') {
+      setYearPage((p) => Math.max(p - 1, 0));
+    } else if (pane === 'months') {
+      setViewYear((y) => Math.max(y - 1, minYear));
+    } else if (viewMonth === 0) {
+      setViewMonth(11);
+      setViewYear((y) => y - 1);
+    } else {
+      setViewMonth((m) => m - 1);
+    }
   };
 
-  // Prevent "next" nav if the first day of the next month is after maxDate
-  const canGoNext = () => {
+  const stepForward = () => {
+    if (pane === 'years') {
+      setYearPage((p) => Math.min(p + 1, totalYearPages - 1));
+    } else if (pane === 'months') {
+      setViewYear((y) => Math.min(y + 1, maxYear));
+    } else if (viewMonth === 11) {
+      setViewMonth(0);
+      setViewYear((y) => y + 1);
+    } else {
+      setViewMonth((m) => m + 1);
+    }
+  };
+
+  const canStepBack = () => {
+    if (pane === 'years') return yearPage > 0;
+    if (pane === 'months') return viewYear > minYear;
+    if (!minDate) return true;
+    // The whole previous month lies before minDate?
+    return new Date(viewYear, viewMonth, 0) >= startOfDay(minDate);
+  };
+
+  const canStepForward = () => {
+    if (pane === 'years') return yearPage < totalYearPages - 1;
+    if (pane === 'months') return viewYear < maxYear;
     if (!maxDate) return true;
-    const firstDayOfNext = new Date(viewYear, viewMonth + 1, 1);
-    return firstDayOfNext <= startOfDay(maxDate);
+    // The whole next month lies after maxDate?
+    return new Date(viewYear, viewMonth + 1, 1) <= startOfDay(maxDate);
+  };
+
+  const backDisabled = !canStepBack();
+  const forwardDisabled = !canStepForward();
+
+  // Drill down rather than dismiss: picking a year asks for the month, picking the month asks
+  // for the day. Tapping the open pane's own chip closes it back to the days grid.
+  const openPane = (next: Pane) => {
+    if (next === 'years') setYearPage(pageOfYear(viewYear));
+    setPane((current) => (current === next ? 'days' : next));
+  };
+
+  const headerChip = (label: string, target: Pane) => {
+    const active = pane === target;
+    return (
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityState={{ expanded: active }}
+        onPress={() => openPane(target)}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: active ? BRAND_GREEN : chipBg,
+          borderRadius: 8,
+          paddingHorizontal: 8,
+          paddingVertical: 3,
+          gap: 3,
+        }}>
+        <Text
+          style={{ color: active ? '#ffffff' : textColor, fontWeight: '700', fontSize: 15 }}
+          numberOfLines={1}>
+          {label}
+        </Text>
+        <Ionicons
+          name={active ? 'chevron-up' : 'chevron-down'}
+          size={13}
+          color={active ? '#ffffff' : subtextColor}
+        />
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -147,7 +225,7 @@ export default function DatePicker({
         borderRadius: 16,
         padding: 16,
       }}>
-      {/* Month/Year navigation */}
+      {/* Month/Year navigation — both parts are their own drill-down control */}
       <View
         style={{
           flexDirection: 'row',
@@ -157,76 +235,40 @@ export default function DatePicker({
         }}>
         <TouchableOpacity
           accessibilityRole="button"
-          onPress={showYearPicker ? () => setYearPage((p) => p - 1) : prevMonth}
-          disabled={showYearPicker ? yearPage === 0 : !canGoPrev()}
-          style={{
-            padding: 4,
-            opacity: (showYearPicker ? yearPage === 0 : !canGoPrev()) ? 0.3 : 1,
-          }}>
+          onPress={stepBack}
+          disabled={backDisabled}
+          style={{ padding: 4, opacity: backDisabled ? 0.3 : 1 }}>
           <Ionicons name="chevron-back" size={20} color={subtextColor} />
         </TouchableOpacity>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {!showYearPicker && (
-            <Text style={{ color: textColor, fontWeight: '600', fontSize: 15 }}>
-              {MONTHS[viewMonth]}
-            </Text>
-          )}
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => {
-              if (!showYearPicker) {
-                const page = Math.floor((viewYear - minYear) / YEARS_PER_PAGE);
-                setYearPage(page);
-              }
-              setShowYearPicker((v) => !v);
-            }}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: showYearPicker ? BRAND_GREEN : isDarkMode ? '#243447' : '#F3F4F6',
-              borderRadius: 8,
-              paddingHorizontal: 8,
-              paddingVertical: 3,
-              gap: 3,
-            }}>
-            {showYearPicker ? (
-              <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 15 }}>
-                {yearPageStart}–{yearPageEnd}
-              </Text>
-            ) : (
-              <Text style={{ color: textColor, fontWeight: '700', fontSize: 15 }}>{viewYear}</Text>
-            )}
-            <Ionicons
-              name={showYearPicker ? 'chevron-up' : 'chevron-down'}
-              size={13}
-              color={showYearPicker ? '#ffffff' : subtextColor}
-            />
-          </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
+          {pane === 'years'
+            ? headerChip(`${yearPageLow}–${yearPageHigh}`, 'years')
+            : [headerChip(MONTHS[viewMonth], 'months'), headerChip(String(viewYear), 'years')].map(
+                (chip, i) => <React.Fragment key={i}>{chip}</React.Fragment>
+              )}
         </View>
         <TouchableOpacity
           accessibilityRole="button"
-          onPress={showYearPicker ? () => setYearPage((p) => p + 1) : nextMonth}
-          disabled={showYearPicker ? yearPage >= totalYearPages - 1 : !canGoNext()}
-          style={{
-            padding: 4,
-            opacity: (showYearPicker ? yearPage >= totalYearPages - 1 : !canGoNext()) ? 0.3 : 1,
-          }}>
+          onPress={stepForward}
+          disabled={forwardDisabled}
+          style={{ padding: 4, opacity: forwardDisabled ? 0.3 : 1 }}>
           <Ionicons name="chevron-forward" size={20} color={subtextColor} />
         </TouchableOpacity>
       </View>
 
-      {/* Year picker — replaces calendar grid */}
-      {showYearPicker ? (
+      {pane === 'years' ? (
+        /* Year picker — replaces the calendar grid */
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', minHeight: 44 * 4 }}>
           {yearPageYears.map((year) => {
             const isActive = year === viewYear;
             return (
               <TouchableOpacity
                 accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
                 key={year}
                 onPress={() => {
                   setViewYear(year);
-                  setShowYearPicker(false);
+                  setPane('months');
                 }}
                 style={{
                   width: '25%',
@@ -243,6 +285,43 @@ export default function DatePicker({
                     color: isActive ? '#ffffff' : textColor,
                   }}>
                   {year}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : pane === 'months' ? (
+        /* Month picker — 12 cells, so no chevron-stepping to reach a month */
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', minHeight: 44 * 4 }}>
+          {MONTHS_SHORT.map((label, month) => {
+            const isActive = month === viewMonth;
+            const disabled = isMonthDisabled(month);
+            return (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityState={{ selected: isActive, disabled }}
+                key={label}
+                disabled={disabled}
+                onPress={() => {
+                  setViewMonth(month);
+                  setPane('days');
+                }}
+                style={{
+                  width: '25%',
+                  height: 44,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 10,
+                  backgroundColor: isActive ? BRAND_GREEN : 'transparent',
+                  opacity: disabled ? 0.3 : 1,
+                }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: isActive ? '700' : '400',
+                    color: isActive ? '#ffffff' : textColor,
+                  }}>
+                  {label}
                 </Text>
               </TouchableOpacity>
             );

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomInset } from '../../../hooks/useSafeAreaSpacing';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -84,6 +85,7 @@ const TABS: { key: FilterTab; labelKey: string }[] = [
 
 export default function AdminPartnersScreen() {
   const navigation = useNavigation<any>();
+  const { goUp } = useAppNavigation();
   const route = useRoute<any>();
   const { isDarkMode, hex } = useThemeColors();
   const { t } = useLocale();
@@ -243,7 +245,11 @@ export default function AdminPartnersScreen() {
     <ScreenLayout
       headerVariant="standard"
       showBackButton
-      onBackPress={() => navigation.navigate('MainTabs', { screen: 'AdminDashboard' })}
+      // Pops real history when there is any, so arriving here from the notification feed and
+      // pressing Back returns to the feed; the admin home is only the FALLBACK, for when this
+      // screen was opened directly (tab to tab) and there is nothing to pop. Hardcoding the
+      // destination made every arrival behave like the second case.
+      onBackPress={() => goUp('AdminDashboard')}
       headerTitle={t('admin.partners')}
       headerChildren={searchField}
       width="wide">

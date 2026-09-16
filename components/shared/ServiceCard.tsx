@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import ServicePhoto from './ServicePhoto';
 import { useLocale } from '../../context/LocaleContext';
 import { formatMoney } from '../../services/currency';
 
@@ -77,16 +78,13 @@ export default function ServiceCard({
       accessible
       className={`${cardBg} overflow-hidden rounded-2xl border ${borderColor}`}
       style={{ width: fill ? '100%' : 200 }}>
-      <View className="relative">
-        {/* Decorative: the card's own label already names the service. */}
-        <Image
-          source={{ uri: image }}
-          accessibilityRole="none"
-          alt=""
-          className={`w-full ${fill ? 'h-44' : 'h-32'}`}
-          resizeMode="cover"
-        />
-
+      {/* A placeholder sits behind the photo so a src that exists but never loads leaves a paw
+          rather than a blank rectangle — see ServicePhoto. */}
+      <ServicePhoto
+        uri={image}
+        radiusClass="rounded-none"
+        iconSize={fill ? 34 : 26}
+        className={`w-full ${fill ? 'h-44' : 'h-32'}`}>
         {/* Distance Badge */}
         {distance && (
           <View className="absolute left-2 top-2 flex-row items-center rounded-full bg-blue-500 px-3 py-1">
@@ -119,7 +117,7 @@ export default function ServiceCard({
             </Text>
           </View>
         )}
-      </View>
+      </ServicePhoto>
 
       <View className="p-3">
         <Text className={`font-semibold ${textColor} mb-1`} numberOfLines={1}>

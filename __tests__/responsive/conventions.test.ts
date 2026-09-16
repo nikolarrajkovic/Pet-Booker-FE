@@ -291,6 +291,7 @@ describe('className only goes where NativeWind can see it', () => {
     'StickyFooter',
     'Avatar',
     'Button',
+    'ServicePhoto',
   ]);
 
   /**

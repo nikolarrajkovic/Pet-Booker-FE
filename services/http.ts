@@ -397,8 +397,10 @@ export async function apiAuthFetch(url: string, init?: RequestInit): Promise<Res
 // error resolution order) is identical — there is just one copy of it.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** A value that can appear in a query string. */
-export type QueryValue = string | number | boolean | null | undefined;
+/** A value that can appear in a query string. A list becomes one repeated key. */
+export type QueryValue = string | number | boolean | null | undefined | QueryScalar[];
+
+type QueryScalar = string | number | boolean;
 
 /**
  * Builds a query string from a plain object, skipping keys that carry no value.
@@ -407,6 +409,12 @@ export type QueryValue = string | number | boolean | null | undefined;
  * they are meaningful filter values (`IsActive=false`, `Page=0`). This matches
  * what the hand-written builders did with their mix of `!== undefined` and
  * truthiness checks.
+ *
+ * An **array** value is emitted as the key repeated once per item
+ * (`Types=1&Types=2`), which is how ASP.NET binds a `List<T>` parameter. Joining
+ * them into `Types=1,2` instead binds to nothing, and an unknown-shaped query
+ * parameter is silently ignored rather than rejected — so the filter would
+ * quietly return unfiltered results. An empty array is omitted entirely.
  *
  * Keys are sent exactly as written — the API binds PascalCase parameter names,
  * and an unknown one binds to nothing rather than erroring, so a typo silently
@@ -418,6 +426,10 @@ export function buildQuery(params: Record<string, QueryValue>): string {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null || value === '') continue;
+    if (Array.isArray(value)) {
+      for (const item of value) query.append(key, String(item));
+      continue;
+    }
     query.set(key, String(value));
   }
   return query.toString();

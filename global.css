@@ -1,3 +1,44 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Web only — NativeWind compiles the directives above into native styles and ignores plain
+ * CSS selectors like these, which have no meaning outside a DOM.
+ *
+ * iOS Safari zooms the page in whenever it focuses an input whose font-size is under 16px,
+ * and it does NOT zoom back out on blur. The app's fields are 15px, so a single tap on the
+ * login or register form left the whole site sitting at roughly 125-150% for the rest of the
+ * session — every screen after that "loads zoomed" and has to be pinched out by hand. The
+ * viewport meta is already correct (`width=device-width, initial-scale=1`), so this is the
+ * cause rather than the meta tag, and raising the floor to 16px is the standard fix: the
+ * alternative, pinning `maximum-scale=1`, stops the zoom by banning pinch-zoom outright,
+ * which takes zoom away from readers who need it.
+ *
+ * `!important` is load-bearing: react-native-web emits these sizes as INLINE styles, which no
+ * ordinary rule can outrank. Because the floor is really a hard set, anything deliberately
+ * larger than 16px has to be restored after it — today that is the verify-email OTP boxes.
+ *
+ * Keyed on `pointer: coarse` as well as width, because the zoom is a property of the DEVICE, not
+ * of how wide the window happens to be: the same iPhone turned landscape is ~844px and would
+ * fall straight back through a width-only query into the behaviour this exists to stop. The
+ * width half is kept so a desktop browser emulating a phone — which is how this gets tested —
+ * still gets the floor.
+ */
+@media (pointer: coarse), (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  /*
+   * Must repeat the :not() clauses above. Both rules are !important, so the winner is decided
+   * on specificity, and each :not() counts toward it — a bare
+   * `input[autocomplete='one-time-code']` scores (0,1,1) against the floor's (0,2,1) and
+   * loses, silently shrinking the OTP boxes to 16px instead of leaving them at 22.
+   */
+  input:not([type='checkbox']):not([type='radio'])[autocomplete='one-time-code'] {
+    font-size: 22px !important;
+  }
+}
