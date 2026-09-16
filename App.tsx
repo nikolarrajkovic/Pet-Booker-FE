@@ -56,6 +56,7 @@ import RegisterScreen from './screens/register-screen/containers/RegisterScreen'
 import VerifyEmailScreen from './screens/verify-email-screen/containers/VerifyEmailScreen';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { LocaleProvider, useLocale } from './context/LocaleContext';
+import type { TranslationKey } from './i18n';
 import { ToastProvider } from './context/ToastContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationsProvider } from './context/NotificationsContext';
@@ -81,7 +82,7 @@ const Stack = createNativeStackNavigator();
 
 function AppContent() {
   const { isDarkMode } = useTheme();
-  const { hasChosen, isLoading: localeLoading, language, setLanguage } = useLocale();
+  const { hasChosen, isLoading: localeLoading, language, setLanguage, t } = useLocale();
   const { isLoggedIn, isLoading, isPartner, currentUser } = useAuth();
   const { isWebLayout } = useResponsive();
   // The app-level ref lives in its own module, so things outside the navigator (a tapped toast,
@@ -172,6 +173,19 @@ function AppContent() {
           // it every screen shared `/`, so browser Back left the app rather than going back a
           // screen. See navigation/linking.ts for which screens are mapped and why some are not.
           linking={linking}
+          // The browser tab, bookmarks and history all read document.title. React Navigation
+          // defaults it to the ROUTE name, so those read "MyPets", "BookService", "MainTabs" —
+          // internal identifiers leaking into the one piece of chrome the user keeps. Map each
+          // route to its own localized screen title instead, suffixed with the app name the way
+          // every other site does it.
+          documentTitle={{
+            formatter: (options, route) => {
+              const name = route?.name ?? '';
+              const key = SCREEN_TITLE_KEYS[name];
+              const title = key ? t(key) : (options?.title ?? '');
+              return title ? `${title} · ${APP_NAME}` : APP_NAME;
+            },
+          }}
           // Rendered while the initial URL is resolved — the same splash the auth restore uses.
           fallback={bootSplash}>
           {/*
@@ -288,13 +302,75 @@ function AppContent() {
   );
 }
 
+/** Web only: the app name that suffixes every browser tab title. */
+const APP_NAME = 'PetBooker';
+
+/**
+ * Route name → the translation key for its human title.
+ *
+ * Only exists for the web build's `document.title`. React Navigation falls back to the raw route
+ * name, which put internal identifiers — "MyPets", "BookService", "AdminNewRequests", "MainTabs" —
+ * into the browser tab, the bookmark and the history entry. Routes left out here (a transient
+ * step, or one with no natural title) just get the app name on its own.
+ */
+const SCREEN_TITLE_KEYS: Record<string, TranslationKey> = {
+  // Tabs
+  Home: 'tabs.home',
+  Search: 'search.allServices',
+  PartnerHub: 'partnerHub.title',
+  AdminDashboard: 'admin.dashboardTitle',
+  Profile: 'profile.title',
+  // Browse + booking
+  ServiceDetail: 'serviceDetail.title',
+  BookService: 'bookService.title',
+  ReviewBooking: 'reviewBooking.title',
+  MyBookings: 'myBookings.title',
+  BookingDetails: 'bookingDetails.title',
+  // Account
+  MyPets: 'profile.pets',
+  AddPet: 'addPet.titleAdd',
+  Account: 'account.title',
+  ChangePassword: 'changePassword.title',
+  Settings: 'settings.title',
+  Notifications: 'notifications.title',
+  NotificationSettings: 'profile.notificationSettings',
+  Messages: 'messages.title',
+  Chat: 'messages.title',
+  // Partner
+  BecomePartner: 'becomePartner.title',
+  PartnerApplication: 'partnerApplication.title',
+  MySchedule: 'profile.schedule',
+  MyServices: 'myServices.title',
+  NewRequests: 'partnerHub.requests',
+  Promotions: 'promotions.title',
+  LiveSession: 'liveSession.title',
+  // Admin
+  AdminNewRequests: 'admin.requestsTitle',
+  AdminPartners: 'admin.partners',
+  AdminReviews: 'admin.reviewsTitle',
+  // Signed out
+  Login: 'login.signIn',
+  Register: 'register.subtitle',
+  VerifyEmail: 'verifyEmail.title',
+  ForgotPassword: 'forgotPassword.title',
+};
+
 function MainTabs() {
   // Tabs slide horizontally in the direction they sit in the bar — Search → Home brings Home in
   // from the left. See navigation/tabTransition.ts for why a slide, and why a full-width one.
   const slide = useTabSlideOptions();
+  const { isProviderProfile } = useAuth();
+
+  // A managed ProviderProfile cannot book, so Home and Search are hidden for it (see
+  // navigation/navItems.ts). They are still registered as screens — a deep link may target one,
+  // and Home is the fallback for an unmapped URL — but the tab it OPENS on has to be one it can
+  // use. Landing such an account on Home showed nothing but "Missing permission for command
+  // 'HomeMostPopular'" as the first thing after signing in.
+  const initialRouteName = isProviderProfile ? 'PartnerHub' : 'Home';
 
   return (
     <Tab.Navigator
+      initialRouteName={initialRouteName}
       // The bar is rendered here, once, rather than by each of the five tab screens: inside a
       // scene it would slide away with the page on every switch. See components/shared/TabBar.
       tabBar={(props) => <TabBar {...props} />}

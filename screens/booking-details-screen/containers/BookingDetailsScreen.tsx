@@ -6,13 +6,19 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ReviewModal from '../../../components/shared/ReviewModal';
+import ServicePhoto from '../../../components/shared/ServicePhoto';
 import { useReviewModal } from '../../../hooks/useReviewModal';
 import {
   getBooking,
   bookingToViewModel,
+  cancelBooking,
   BookingDto,
+  BookingStatusType,
   type BookingAdditionalServiceReadDto,
 } from '../../../services/bookings';
+import { showAlert } from '../../../services/alert';
+import { useToast } from '../../../context/ToastContext';
+import { getErrorMessage } from '../../../services/http';
 import { formatMoney } from '../../../services/currency';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
@@ -35,8 +41,11 @@ export default function BookingDetailsScreen() {
   const { isDarkMode, bgColor, textColor, subtextColor, borderColor } = useThemeColors();
   const { t, tEnum } = useLocale();
 
+  const { showError, showSuccess } = useToast();
+
   const [dto, setDto] = useState<BookingDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Re-fetch after a review is submitted so the recap shows the new rating.
   const review = useReviewModal(() => {
@@ -77,6 +86,39 @@ export default function BookingDetailsScreen() {
   );
   const reviewRating = dto?.review?.rating ?? null;
   const isCompleted = vm?.statusLabel === 'completed';
+
+  // The owner may call off a booking any time before the provider starts the service — the same
+  // window CancelBookingCommand allows server-side. Once it is ServiceStarted or later the API
+  // refuses, so offering the button there would only produce an error.
+  const CANCELLABLE_STATUSES: number[] = [
+    BookingStatusType.ServiceRequestedByUser,
+    BookingStatusType.ServiceConfirmedByProvider,
+    BookingStatusType.PrePayment,
+  ];
+  const canCancel = dto != null && CANCELLABLE_STATUSES.includes(dto.currentStatus ?? -1);
+
+  const handleCancel = () => {
+    if (!dto) return;
+    showAlert(t('bookingDetails.cancelTitle'), t('bookingDetails.cancelMsg'), [
+      { text: t('common.no'), style: 'cancel' },
+      {
+        text: t('bookingDetails.cancelConfirm'),
+        style: 'destructive',
+        onPress: async () => {
+          setIsCancelling(true);
+          try {
+            const updated = await cancelBooking(dto);
+            setDto(updated);
+            showSuccess(t('bookingDetails.cancelSuccess'));
+          } catch (e) {
+            showError(getErrorMessage(e, t('bookingDetails.cancelFailed')));
+          } finally {
+            setIsCancelling(false);
+          }
+        },
+      },
+    ]);
+  };
   const petImage = resolveImageUrl(
     dto?.pet?.photos?.find((p) => p.isSelected)?.src ?? dto?.pet?.photos?.[0]?.src
   );
@@ -164,13 +206,16 @@ export default function BookingDetailsScreen() {
               />
             </View>
 
-            {/* Pet image (optional flourish) */}
+            {/* Pet image (optional flourish). ServicePhoto layers its placeholder behind the
+                photo, so a src that 404s shows a paw rather than an empty 48px box with the pet's
+                name floating beside it, unlabelled, between two sections. */}
             {petImage ? (
               <View className="mt-4 flex-row items-center px-6">
-                <Image
-                  source={{ uri: petImage }}
-                  className="mr-3 h-12 w-12 rounded-xl"
-                  resizeMode="cover"
+                <ServicePhoto
+                  uri={petImage}
+                  radiusClass="rounded-xl"
+                  iconSize={20}
+                  className="mr-3 h-12 w-12"
                 />
                 <Text className={`text-sm ${subtextColor}`}>{dto.pet?.name ?? vm.petName}</Text>
               </View>
@@ -321,6 +366,32 @@ export default function BookingDetailsScreen() {
                   <Text className="ml-2 text-base font-bold text-white">
                     {t('bookingDetails.leaveAReview')}
                   </Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            {/* Cancel — the owner's own way out, available until the service starts. */}
+            {canCancel ? (
+              <View className="mt-6 px-6">
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={t('bookingDetails.cancelBooking')}
+                  disabled={isCancelling}
+                  onPress={handleCancel}
+                  activeOpacity={0.85}
+                  className={`flex-row items-center justify-center rounded-2xl border-2 border-red-500 py-4 ${
+                    isCancelling ? 'opacity-50' : ''
+                  }`}>
+                  {isCancelling ? (
+                    <ActivityIndicator size="small" color="#EF4444" />
+                  ) : (
+                    <>
+                      <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
+                      <Text className="ml-2 text-base font-bold text-red-500">
+                        {t('bookingDetails.cancelBooking')}
+                      </Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
             ) : null}

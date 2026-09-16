@@ -7,6 +7,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import Button from '../../../components/shared/Button';
 import { confirmEmail, resendConfirmation } from '../../../services/auth';
+import { useAuth } from '../../../context/AuthContext';
 import AuthLayout from '../../../components/layout/AuthLayout';
 
 type RootStackParamList = {
@@ -23,6 +24,7 @@ const CODE_LENGTH = 6;
 export default function VerifyEmailScreen() {
   const { isDarkMode, textColor, subtextColor } = useThemeColors();
   const { t } = useLocale();
+  const { signIn } = useAuth();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<VerifyEmailRouteProp>();
   const email = route.params?.email ?? '';
@@ -112,7 +114,18 @@ export default function VerifyEmailScreen() {
     try {
       setIsSubmitting(true);
       setVerifyError('');
-      await confirmEmail(email, fullCode);
+      const { accessToken, refreshToken } = await confirmEmail(email, fullCode);
+
+      if (accessToken) {
+        // The API signs the account in as part of confirming, so go straight into the app.
+        // No navigation call is needed — storing the token flips `isLoggedIn`, and the root
+        // navigator swaps the signed-out stack for the signed-in one.
+        await signIn(accessToken, refreshToken);
+        return;
+      }
+
+      // No token in the body (older API, or a gateway that stripped it): the account IS
+      // confirmed, so fall back to the login screen rather than leaving the user stranded here.
       // Terminal step — reset so back can't return to the verify screen.
       navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
     } catch (error) {

@@ -14,7 +14,7 @@ import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { useLocale } from '../../../context/LocaleContext';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getErrorMessage } from '../../../services/http';
-import { ServiceDto, serviceCurrency } from '../../../services/services';
+import { ServiceDto, serviceCurrency, serviceFromPrice } from '../../../services/services';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
 import { useNotifications } from '../../../context/NotificationsContext';
 import { useMessages } from '../../../context/MessagesContext';
@@ -103,7 +103,9 @@ function toServiceItem(svc: ServiceDto): ServiceItem | null {
     subtitle: svc.basicServiceName ?? '',
     rating: svc.rating ?? 0,
     reviews: svc.totalRatingNumber ?? 0,
-    price: svc.price ?? svc.pricing?.basePrice ?? 0,
+    // The lowest bookable figure — the cheapest pricing option when the service has them.
+    // The card reads "from X", so the base price would quote a number nobody can pay.
+    price: serviceFromPrice(svc),
     image: resolveImageUrl(photoSrc) || FALLBACK_IMAGE,
     dto: svc,
   };

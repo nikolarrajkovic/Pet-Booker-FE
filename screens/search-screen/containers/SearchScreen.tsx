@@ -22,6 +22,7 @@ import type { ServiceSearchItem } from '../components/ListView';
 import {
   getServices,
   getServicesPage,
+  serviceFromPrice,
   ServiceDto,
   ServiceSortBy,
   type GetServicesParams,
@@ -116,7 +117,9 @@ function toSearchItem(svc: ServiceDto): ServiceSearchItem | null {
     reviews: svc.totalRatingNumber ?? 0,
     distance:
       svc.distanceFromMyLocationKm != null ? `${Math.round(svc.distanceFromMyLocationKm)} km` : '',
-    price: svc.price ?? svc.pricing?.basePrice ?? 0,
+    // The lowest bookable figure. The row reads "from X", and a service with pricing options
+    // has no purchasable base price — see serviceFromPrice.
+    price: serviceFromPrice(svc),
     image: resolveImageUrl(photoSrc) || FALLBACK_IMAGE,
     // Map pin position from the service address's geo coords. null = no pin yet:
     // addresses without coords are forward-geocoded lazily when the map view

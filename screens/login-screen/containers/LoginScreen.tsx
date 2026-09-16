@@ -46,10 +46,15 @@ function validatePassword(v: string) {
 function resolveLoginError(error: unknown, t: (key: string) => string): string {
   if (isNetworkError(error)) return t('login.cannotReachServer');
 
+  // Status first for the cases where the server's own words are either absent or unhelpful.
+  // 429 in particular arrives with a generic body, and calling it a credentials problem makes
+  // users retry harder — which is exactly what deepens the limit.
+  const status = statusOf(error);
+  if (status === 429) return t('login.tooManyAttempts');
+
   const serverMessage = getErrorMessage(error, '');
   if (serverMessage) return serverMessage;
 
-  const status = statusOf(error);
   if (status === 400 || status === 401) return t('login.invalidCredentials');
   return t('login.signInFailed');
 }

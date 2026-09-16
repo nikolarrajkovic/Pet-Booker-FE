@@ -28,8 +28,17 @@ export default function LanguagePicker({ visible, current, onSelect, onClose }: 
 
   useEscapeToClose(visible && dismissable, onClose);
 
+  // Unmount rather than relying on `visible={false}`.
+  //
+  // Choosing a language re-renders the entire tree (LocaleProvider sits above the navigator). On
+  // web that commit and the modal's own hide raced: react-native-web's Modal kept its portal on
+  // screen, now detached from the live tree — so the sheet stayed up after a pick AND its row
+  // handlers were stale closures, which made a second pick inside it do nothing at all. The user
+  // had to close and reopen to change language again. Returning null removes the portal outright.
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable
         accessible={false}
         focusable={false}

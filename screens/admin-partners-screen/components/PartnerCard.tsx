@@ -184,7 +184,9 @@ export function PartnerCard({
           </Text>
           <Text style={{ color: subTextColor, fontSize: 12, marginHorizontal: 6 }}>•</Text>
           <Text style={{ color: subTextColor, fontSize: 12 }}>
-            {t('admin.nServices', { n: partner.totalServices })}
+            {partner.totalServices === 1
+              ? t('admin.nServicesOne')
+              : t('admin.nServices', { n: partner.totalServices })}
           </Text>
         </View>
 

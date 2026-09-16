@@ -1,4 +1,4 @@
-import { ApiError, apiFetch, apiJson, apiVoid, getApiBaseUrl } from './http';
+import { ApiError, apiFetch, apiJson, apiRequest, apiVoid, getApiBaseUrl } from './http';
 
 export type CurrentUser = {
   id: number;
@@ -76,13 +76,16 @@ export async function loginWithEmailPassword(payload: LoginPayload) {
   const body = parseResponseBody(raw);
 
   if (!response.ok) {
-    // Keep the status on the error: only a 401 actually means the credentials were rejected.
-    // A 500, a 429 lockout or a gateway error are different problems and must not be reported
-    // to the user as a bad password.
-    throw new ApiError(
-      body.message || body.detail || 'Login failed. Please verify your credentials.',
-      response.status
-    );
+    // Keep the status on the error: only a 400/401 actually means the credentials were rejected.
+    // A 500, a 429 or a gateway error are different problems and must not be reported to the user
+    // as a bad password.
+    //
+    // No hardcoded fallback here. The old default ("Login failed. Please verify your
+    // credentials.") was returned for EVERY body-less response, and because it is always truthy
+    // it short-circuited the status-aware mapping in LoginScreen's resolveLoginError — so a 429
+    // read as a typo and sent people off to reset a password that was fine. Leaving the message
+    // empty lets that mapper see the status and choose the right words.
+    throw new ApiError(body.message || body.detail || '', response.status);
   }
 
   const accessToken = extractAccessToken(body);
@@ -158,14 +161,34 @@ export function registerUser(payload: RegisterPayload): Promise<void> {
   });
 }
 
-export function confirmEmail(email: string, code: string): Promise<void> {
-  return apiVoid('/auth/confirm-email', {
+/**
+ * Confirms the emailed code and returns the token pair the API issues with it.
+ *
+ * `/auth/confirm-email` deliberately answers with an access + refresh token and the profile, so
+ * the client is signed in straight after confirming without a second `/auth/login` round trip.
+ * This used to go through `apiVoid`, which never reads the body — so that pair was thrown away
+ * and a freshly-verified user was bounced back to the login screen to type their password again.
+ *
+ * The tokens are optional in the return type on purpose: an older API build (or a gateway that
+ * strips the body) simply yields nothing, and the caller falls back to sending them to Login.
+ */
+export async function confirmEmail(
+  email: string,
+  code: string
+): Promise<{ accessToken?: string; refreshToken?: string }> {
+  const response = await apiRequest('/auth/confirm-email', {
     method: 'POST',
     body: { email, code },
     isPublic: true,
     fallback: 'Email verification failed. Please try again.',
     context: 'confirmEmail',
   });
+
+  const body = parseResponseBody(await response.text());
+  return {
+    accessToken: extractAccessToken(body),
+    refreshToken: extractRefreshToken(body),
+  };
 }
 
 export type UpdateProfilePayload = {

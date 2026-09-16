@@ -3,7 +3,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { loginWithEmailPassword, getMe, logout as logoutApi, CurrentUser } from '../services/auth';
 import { saveTokens, getAccessToken, clearTokens } from '../services/token-storage';
-import { registerSessionExpiredHandler } from '../services/http';
+import { registerSessionExpiredHandler, statusOf } from '../services/http';
 import { resetShownOnce } from '../hooks/useShowOnce';
 import { registerDisplayCurrency, DEFAULT_CURRENCY } from '../services/currency';
 
@@ -63,9 +63,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const user = await getMe();
           setCurrentUser(user);
         }
-      } catch {
-        setIsLoggedIn(false);
-        setCurrentUser(null);
+      } catch (error) {
+        // Only a rejected TOKEN means the session is over. `getAccessToken()` has already
+        // refreshed if it needed to, so a 401/403 here is the server saying this identity is no
+        // longer valid — sign out. Anything else (429, 5xx, a network blip, the API restarting)
+        // says nothing about the session, and signing out on it stranded users who still held
+        // perfectly good tokens: the app showed the login screen while `auth_access_token` sat
+        // in storage, unexpired. That happened for real whenever the shared auth rate limit was
+        // exhausted by someone else on the same IP.
+        //
+        // Stay signed in on a transient failure and leave `currentUser` null; screens already
+        // tolerate that, and `refreshUser()` fills it in on the next successful call.
+        const status = statusOf(error);
+        const tokenRejected = status === 401 || status === 403;
+        if (tokenRejected) {
+          await clearTokens();
+          setIsLoggedIn(false);
+          setCurrentUser(null);
+        }
       } finally {
         setIsLoading(false);
       }

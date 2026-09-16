@@ -158,51 +158,43 @@ export default function PersonalInfoStep({
         />
       </View>
 
-      {/* Street Address — picked on a map (same pattern as AccountScreen /
-          BookService): the whole row opens the picker, which fills street/city/ZIP.
-          Falls back to a plain text field when no map handler is wired. */}
+      {/* Street Address — always TYPEABLE, with the map as a shortcut beside it.
+          It used to be map-only whenever a picker handler was wired, and the text fallback
+          rendered only when one was NOT. That made the map the single way to satisfy a required
+          field, so anything that stops it loading — no Maps key, an exhausted quota, an outage, a
+          blocked script — left the application impossible to finish, with no error explaining
+          why. The map fills street/city/ZIP in one tap when it works; typing is the floor. */}
       <View className="mb-4">
         <Text className={`text-sm font-semibold ${textColor} mb-2`}>
           {t('partnerApplication.streetAddress')} <Text className="text-red-500">*</Text>
         </Text>
-        {onOpenAddressMap ? (
-          <TouchableOpacity
-            onPress={onOpenAddressMap}
-            accessibilityRole="button"
-            accessibilityLabel={t('partnerApplication.pickAddressOnMap')}
-            className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
-            <Ionicons
-              name="location-outline"
-              size={20}
-              color={BRAND_GREEN}
-              style={{ marginRight: 12 }}
-            />
-            <Text
-              className={`flex-1 ${formData.streetAddress ? inputText : subtextColor}`}
-              numberOfLines={2}>
-              {formData.streetAddress || t('bookService.pickOnMap')}
-            </Text>
-            <Ionicons name="chevron-forward" size={18} color={placeholderColor} />
-          </TouchableOpacity>
-        ) : (
-          <View
-            className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
-            <Ionicons
-              name="location-outline"
-              size={20}
-              color={placeholderColor}
-              style={{ marginRight: 12 }}
-            />
-            <TextInput
-              className={`flex-1 ${inputText}`}
-              placeholder={t('partnerApplication.streetPlaceholder')}
-              placeholderTextColor={placeholderColor}
-              {...form.field('streetAddress')}
-              value={formData.streetAddress}
-              onChangeText={(text) => setFormData({ ...formData, streetAddress: text })}
-            />
-          </View>
-        )}
+        <View
+          className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
+          <Ionicons
+            name="location-outline"
+            size={20}
+            color={placeholderColor}
+            style={{ marginRight: 12 }}
+          />
+          <TextInput
+            className={`flex-1 ${inputText}`}
+            placeholder={t('partnerApplication.streetPlaceholder')}
+            placeholderTextColor={placeholderColor}
+            {...form.field('streetAddress')}
+            value={formData.streetAddress}
+            onChangeText={(text) => setFormData({ ...formData, streetAddress: text })}
+          />
+          {onOpenAddressMap ? (
+            <TouchableOpacity
+              onPress={onOpenAddressMap}
+              accessibilityRole="button"
+              accessibilityLabel={t('partnerApplication.pickAddressOnMap')}
+              hitSlop={8}
+              className="ml-2">
+              <Ionicons name="map-outline" size={20} color={BRAND_GREEN} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
         {onOpenAddressMap && (
           <Text className={`text-xs ${subtextColor} mt-1`}>{t('partnerApplication.mapHint')}</Text>
         )}

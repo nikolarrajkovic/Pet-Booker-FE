@@ -5,7 +5,12 @@ import { useThemeColors } from '../../hooks/useThemeColors';
 import ServicePhoto from './ServicePhoto';
 import { useLocale } from '../../context/LocaleContext';
 import { formatMoney } from '../../services/currency';
-import { serviceCurrency, type ServiceDto } from '../../services/services';
+import {
+  serviceCurrency,
+  serviceFromBasePrice,
+  serviceFromPrice,
+  type ServiceDto,
+} from '../../services/services';
 import { DiscountType } from '../../services/service-discounts';
 import { getEnabledServiceAddons } from '../../services/service-addons';
 import { PetSpecies } from '../../services/pets';
@@ -105,12 +110,14 @@ export default function ServiceResultRow({
   const rating = service.rating ?? 0;
   const reviews = service.totalRatingNumber ?? service.reviewCount ?? 0;
 
-  // `price` is what the caller is charged — the base price with any live promotion already
-  // applied by the server. The base price is only shown when the two differ, as the struck-through
-  // "was" figure; deriving the discount here instead would re-implement the server's pricing rules
-  // in the client, which is exactly what booking-quote.ts exists to avoid.
-  const price = service.price ?? service.pricing?.basePrice ?? 0;
-  const basePrice = service.pricing?.basePrice ?? price;
+  // `price` is the lowest figure the caller can actually be charged, with any live promotion
+  // already applied by the server — the cheapest pricing option when the service has them, the
+  // base price when it doesn't (see serviceFromPrice). The pre-discount figure is only shown
+  // when the two differ, as the struck-through "was"; deriving the discount here instead would
+  // re-implement the server's pricing rules in the client, which is exactly what
+  // booking-quote.ts exists to avoid.
+  const price = serviceFromPrice(service);
+  const basePrice = serviceFromBasePrice(service) ?? price;
   const hasDiscount = service.appliedDiscountAmount != null && basePrice > price;
 
   const discountLabel = hasDiscount

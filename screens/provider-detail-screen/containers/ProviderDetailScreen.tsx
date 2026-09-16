@@ -4,7 +4,12 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
-import { getServices, ServiceDto, serviceCurrency } from '../../../services/services';
+import {
+  getServices,
+  ServiceDto,
+  serviceCurrency,
+  serviceFromPrice,
+} from '../../../services/services';
 import { formatMoney } from '../../../services/currency';
 import { getReviews, ReviewDto } from '../../../services/reviews';
 import { ApprovalStatus } from '../../../services/service-providers';
@@ -62,9 +67,12 @@ export default function ProviderDetailScreen() {
     ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
     : provider.rating;
   const reviewCount = reviews.length || provider.reviews;
-  // Prefer the effective price (after any applied discount) the API returns
-  const servicePrice = (s: ServiceDto) => s.price ?? s.pricing?.basePrice ?? 0;
-  const startingPrice = services.length ? Math.min(...services.map(servicePrice)) : provider.price;
+  // The lowest figure a customer can actually be charged across this provider's services —
+  // after any live discount, and taking the cheapest pricing option where a service defines them
+  // (a base price is not purchasable then). See serviceFromPrice.
+  const startingPrice = services.length
+    ? Math.min(...services.map(serviceFromPrice))
+    : provider.price;
   // All of a provider's services are priced in the same currency (the server converts every amount
   // to the caller's display currency), so the first service's stamp speaks for the "from" price.
   const providerCurrency = services[0]?.currency;
@@ -215,7 +223,7 @@ export default function ProviderDetailScreen() {
                       </View>
                       <View className="items-end">
                         <Text className="text-base font-bold text-brand-600">
-                          {formatMoney(servicePrice(svc), serviceCurrency(svc))}
+                          {formatMoney(serviceFromPrice(svc), serviceCurrency(svc))}
                         </Text>
                         <View className="mt-2 flex-row items-center rounded-full bg-brand-500 px-4 py-1.5">
                           <Ionicons name="calendar-outline" size={13} color="white" />
