@@ -3,6 +3,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { loginWithEmailPassword, getMe, logout as logoutApi, CurrentUser } from '../services/auth';
 import { saveTokens, getAccessToken, clearTokens } from '../services/token-storage';
+import { clearCache } from '../services/cache';
 import { registerSessionExpiredHandler, statusOf } from '../services/http';
 import { resetShownOnce } from '../hooks/useShowOnce';
 import { registerDisplayCurrency, DEFAULT_CURRENCY } from '../services/currency';
@@ -100,6 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     registerSessionExpiredHandler(async () => {
       await clearTokens();
+      clearCache();
       setCurrentUser(null);
       setIsLoggedIn(false);
     });
@@ -134,6 +136,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       /* ignore — proceed with local sign-out */
     }
     await clearTokens();
+    // The server-state cache outlives any one screen, so it has to be emptied with the session:
+    // whoever signs in next on this device must not be handed the previous account's bookings,
+    // pets or messages out of it.
+    clearCache();
     // Session-scoped "show this once" flags belong to the account that just left — without this
     // the next person to sign in on the same device never sees their own welcome.
     resetShownOnce();

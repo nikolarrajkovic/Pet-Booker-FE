@@ -1,3 +1,5 @@
+import { invalidate, resourceForPath } from './cache';
+
 // Callback invoked when a token refresh fails and the session must end.
 // Registered by AuthContext on mount so http.ts never imports from context directly.
 let _onSessionExpired: (() => void) | null = null;
@@ -486,6 +488,15 @@ export async function apiRequest(path: string, options: ApiRequestOptions): Prom
   if (!response.ok) {
     // Carries the status so a caller can branch on it (401 vs 500) instead of guessing from text.
     throw new ApiError(await parseApiError(response, fallback, context), response.status);
+  }
+
+  // A write landed, so whatever the cache holds for that resource is now behind the server.
+  // Derived from the path rather than declared per call site: every service function already
+  // funnels through here with the path it wrote to, so nothing has to remember to invalidate —
+  // and a service function added later gets it without being told. Reads never invalidate.
+  if (method !== 'GET') {
+    const resource = resourceForPath(path);
+    if (resource) invalidate(resource);
   }
 
   return response;
