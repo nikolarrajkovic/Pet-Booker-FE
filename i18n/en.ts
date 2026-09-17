@@ -847,6 +847,7 @@ const en = {
     yesterday: 'Yesterday',
   },
   myServices: {
+    price: 'Price',
     title: 'My Services',
     addNew: 'Add New',
     loading: 'Loading…',

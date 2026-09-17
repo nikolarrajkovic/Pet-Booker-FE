@@ -826,6 +826,7 @@ const sr: TranslationDict = {
     yesterday: 'Juče',
   },
   myServices: {
+    price: 'Cena',
     title: 'Moje usluge',
     addNew: 'Dodaj novu',
     loading: 'Učitavanje…',

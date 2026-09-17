@@ -8,6 +8,8 @@ import { useResponsive } from '../../hooks/useResponsive';
 import AppHeader from './AppHeader';
 import PageHeader from './PageHeader';
 import ContentContainer, { type ContentWidth } from './ContentContainer';
+import { useRoute } from '@react-navigation/native';
+import { NAV_ITEMS } from '../../navigation/navItems';
 
 type ScreenLayoutProps = {
   // AppHeader props
@@ -98,6 +100,25 @@ export default function ScreenLayout({
 }: ScreenLayoutProps) {
   const { bgColor } = useThemeColors();
   const { isWebLayout } = useResponsive();
+  const route = useRoute();
+
+  /**
+   * Back is suppressed on the WEB design for any screen the sidebar links to directly.
+   *
+   * Those are top-level destinations there — the sidebar is permanently on screen and is how you
+   * reach them, so a "Back" above the title is both redundant and misleading: it suggests a parent
+   * page that does not exist. (It was actively wrong before `navigateToNavItem` started resetting:
+   * the root stack accumulated one route per side-nav click, so Back pointed at whichever nav item
+   * you happened to visit previously.)
+   *
+   * Nested screens keep it — Settings → Change Password, a service or booking opened from a list,
+   * an admin application under review — because those really do have a page above them.
+   *
+   * The MOBILE design is untouched: it has no sidebar, so every one of these screens is pushed
+   * (Profile → Notifications) and Back is the only way out.
+   */
+  const isTopLevelNavDestination = NAV_ITEMS.some((item) => item.route === route.name);
+  const backButtonVisible = showBackButton && !(isWebLayout && isTopLevelNavDestination);
   const bottomInset = useBottomInset();
 
   // Is there a `TabBar` below this screen? It is mounted on the tab navigator rather than passed
@@ -149,7 +170,7 @@ export default function ScreenLayout({
           <PageHeader
             title={headerTitle}
             subtitle={headerSubtitle}
-            showBackButton={showBackButton}
+            showBackButton={backButtonVisible}
             onBackPress={onBackPress}
             actions={webHeaderRight ?? rightAction}>
             {headerChildren}

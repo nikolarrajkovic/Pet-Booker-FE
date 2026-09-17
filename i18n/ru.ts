@@ -827,6 +827,7 @@ const ru: TranslationDict = {
     yesterday: 'Вчера',
   },
   myServices: {
+    price: 'Цена',
     title: 'Мои услуги',
     addNew: 'Добавить',
     loading: 'Загрузка…',

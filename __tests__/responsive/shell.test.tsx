@@ -14,6 +14,7 @@ import { withProviders, setViewport, setPlatform } from '../test-utils';
 
 // `mock`-prefixed so jest's hoisting of the factories below is legal.
 const mockNavigate = jest.fn();
+const mockReset = jest.fn();
 let mockCurrentRoute: string | undefined = 'Home';
 
 jest.mock('../../navigation/navigationRef', () => ({
@@ -23,6 +24,7 @@ jest.mock('../../navigation/navigationRef', () => ({
     addListener: () => () => undefined,
   },
   navigateFromOutside: (...args: unknown[]) => mockNavigate(...args),
+  resetFromOutside: (...args: unknown[]) => mockReset(...args),
 }));
 
 let mockRoles = { isPartner: false, isAdmin: false };
@@ -171,7 +173,7 @@ describe('SideNav — role gating', () => {
     expect(screen.queryByLabelText('Partner')).toBeNull();
   });
 
-  it('addresses a tab route through MainTabs and a stack route directly', () => {
+  it('addresses a tab route through MainTabs and RESETS to a stack route', () => {
     // B1. A tab route exists only INSIDE the tab navigator, so navigating to 'Home' from the root
     // finds nothing and silently does nothing — the failure mode is a dead sidebar link, with no
     // error anywhere. This is the assertion that catches it.
@@ -184,8 +186,14 @@ describe('SideNav — role gating', () => {
       params: undefined,
     });
 
+    // A stack destination RESETS rather than pushes. The sidebar never goes away, so pushing grew
+    // the root stack by one route per click and "back" ended up pointing at whichever nav item was
+    // visited previously. Resetting pins the stack at [MainTabs, route] however much you browse.
     fireEvent.press(screen.getByLabelText('My Bookings'));
-    expect(mockNavigate).toHaveBeenCalledWith('MyBookings', undefined);
+    expect(mockReset).toHaveBeenCalledWith({
+      index: 1,
+      routes: [{ name: 'MainTabs' }, { name: 'MyBookings', params: undefined }],
+    });
   });
 
   it('marks the item for the route currently on screen', () => {
@@ -288,9 +296,12 @@ describe('ScreenLayout', () => {
     expect(screen.queryByLabelText('Notifications')).toBeNull();
   });
 
-  it('offers a back affordance in both designs', () => {
+  it('offers a back affordance in both designs on a NESTED screen', () => {
     // B2. Different chrome, same capability — a screen that can be reached must be leavable
-    // whichever design drew it.
+    // whichever design drew it. ChangePassword is nested (Settings → Change Password) and is not
+    // a sidebar destination, so both designs keep the affordance.
+    mockTabRoute = 'ChangePassword';
+
     setViewport('mobile');
     const mobile = render(
       withProviders(
@@ -306,6 +317,37 @@ describe('ScreenLayout', () => {
     render(
       withProviders(
         <ScreenLayout headerTitle="Details" showBackButton>
+          <Body />
+        </ScreenLayout>
+      )
+    );
+    expect(screen.getByLabelText('Back')).toBeTruthy();
+  });
+
+  it('hides back on the web design for a screen the sidebar links to', () => {
+    // A sidebar destination is top-level on the web design: the sidebar is permanently on screen
+    // and is how you get there, so "Back" above the title promises a parent page that does not
+    // exist. It was worse than cosmetic before the sidebar started resetting — the root stack grew
+    // one route per click, so Back pointed at whichever nav item had been visited previously.
+    mockTabRoute = 'Notifications';
+
+    setViewport('desktop');
+    const web = render(
+      withProviders(
+        <ScreenLayout headerTitle="Notifications" showBackButton>
+          <Body />
+        </ScreenLayout>
+      )
+    );
+    expect(web.queryByLabelText('Back')).toBeNull();
+    web.unmount();
+
+    // The phone design has no sidebar — every one of these is PUSHED (Profile → Notifications),
+    // so removing back there would strand the user.
+    setViewport('mobile');
+    render(
+      withProviders(
+        <ScreenLayout headerTitle="Notifications" showBackButton>
           <Body />
         </ScreenLayout>
       )

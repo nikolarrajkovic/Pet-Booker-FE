@@ -234,6 +234,8 @@ function ServiceListCard({
   const typeLabel = typeValue != null ? tEnum('serviceProviderType', typeValue) : service.type;
   // UiService keeps prices as the raw strings the form edits, so parse before formatting.
   const money = (raw: string | undefined) => formatMoney(parseFloat(raw ?? '') || 0, currency);
+  // See UiService.hasPricingOptions: false means the single tier below is editor scaffolding.
+  const hasRealPricingOptions = service.hasPricingOptions;
   // Extra names are free text the provider typed — nothing to localize, show as-is.
 
   return (
@@ -309,21 +311,31 @@ function ServiceListCard({
           </Text>
         </View>
 
-        {/* Pricing section */}
+        {/* Pricing section.
+            A service with no pricing options gets ONE synthetic tier named "Standard" so the
+            editor has a price row to bind to (see `serviceDtoToUi`). That is editor scaffolding,
+            not data \u2014 rendering it here advertised a tier the provider never created and that no
+            customer ever sees. Show the plain price in that case, the real list when there is one. */}
         <View className={`${pricingBg} mb-3 rounded-xl p-3`}>
           <Text className={`text-xs font-semibold ${subtextColor} mb-2`}>
-            {t('myServices.pricingOptions')}
+            {hasRealPricingOptions ? t('myServices.pricingOptions') : t('myServices.price')}
           </Text>
           <View className="flex-row flex-wrap" style={{ gap: 4 }}>
-            {service.pricingTiers.map((tier, i) => (
-              <Text key={i} className={`text-sm ${textColor}`}>
-                {tier.duration}:{' '}
-                <Text className="font-semibold text-brand-500">{money(tier.price)}</Text>
-                {i < service.pricingTiers.length - 1 ? (
-                  <Text className={subtextColor}>{'  \u2022'}</Text>
-                ) : null}
+            {hasRealPricingOptions ? (
+              service.pricingTiers.map((tier, i) => (
+                <Text key={i} className={`text-sm ${textColor}`}>
+                  {tier.duration}:{' '}
+                  <Text className="font-semibold text-brand-500">{money(tier.price)}</Text>
+                  {i < service.pricingTiers.length - 1 ? (
+                    <Text className={subtextColor}>{'  \u2022'}</Text>
+                  ) : null}
+                </Text>
+              ))
+            ) : (
+              <Text className="text-sm font-semibold text-brand-500">
+                {money(service.pricingTiers[0]?.price ?? '0')}
               </Text>
-            ))}
+            )}
           </View>
         </View>
 

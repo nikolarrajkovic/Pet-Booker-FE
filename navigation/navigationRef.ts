@@ -27,3 +27,20 @@ export function navigateFromOutside(name: string, params?: object): void {
   // the structural signature is what the call actually is.
   (navigationRef.navigate as (screen: string, params?: object) => void)(name, params);
 }
+
+/**
+ * Replaces the whole navigation state from outside the tree.
+ *
+ * The shell needs this for top-level destinations: `navigate()` pushes, and the sidebar never
+ * goes away, so repeated side-nav clicks grow the root stack without bound and "back" ends up
+ * pointing at whichever nav item was visited previously. See `navigateToNavItem`.
+ *
+ * Same no-op-when-unmounted contract as `navigateFromOutside`, for the same reason.
+ */
+export function resetFromOutside(state: {
+  index: number;
+  routes: { name: string; params?: object }[];
+}): void {
+  if (!navigationRef.isReady()) return;
+  (navigationRef.reset as (s: unknown) => void)(state);
+}

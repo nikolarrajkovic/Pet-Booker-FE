@@ -55,13 +55,13 @@ Verified live on 2026-08-06:
 | K3  | Login screen says **"Pet Booker"**, the side-nav logo says **"PetBooker"**. | Brand strings never unified — see `HARDCODED_VALUES.md`. (The old "PawCare" is gone.) |
 | K7  | Idling ~30 min logs you out with "Session expired. Please log in again."    | Access-token TTL is a hardcoded 30-minute guess rather than the JWT's `exp`. |
 
-**Most of K9-K22 were fixed on 2026-09-17** and their rows are kept below only until the fixes
-ship — each one is a live regression check. Two rows are new from that pass:
+**K9-K24 were all fixed on 2026-09-17** and their rows are kept below only until the fixes ship
+— each one is a live regression check. K23 and K24 were found while verifying the others:
 
 | #    | What you will see                                                                                           | Cause                                                                                                                                                                             |
 | ---- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| K23  | A provider's own **My Services** lists a flat extra under the SERVICE's name ("Full Grooming Package 500 RSD" where the customer sees "Nail polish 500 RSD"). | `AdditionalServiceEntry` deliberately carries no `name` — the partner editor derives one on save (`additionalServiceTitle`), so an extra created through the API or seeded with a real name is renamed in the provider's own view, and re-derived on the next save. Read surface and write model disagree. |
-| K24  | The partner **Promotions** list shows a synthesized "Standard" pricing option for a service that defines none. | Cosmetic, but it invents a tier name the provider never created.                                                                                                                  |
+| ~~K23~~ | ~~A provider's own **My Services** lists a flat extra under the SERVICE's name.~~ **FIXED 2026-09-17.** `AdditionalServiceEntry` now carries the persisted `name` through the editor: an extra that already has one keeps it on both display and save, and the derivation still owns naming for anything newly added. The worse half was the write — every editor save re-derived the name, so touching an unrelated field on the service silently renamed "Nail polish" to the service's own name for every customer and every bill line written afterwards. | |
+| ~~K24~~ | ~~A synthesized "Standard" pricing option is shown for a service that defines none.~~ **FIXED 2026-09-17.** That single tier is editor scaffolding so the form always has a price row to bind to; `UiService.hasPricingOptions` now distinguishes it from real `ServicePricingOption` rows, and the card shows a plain "Price" instead of inventing a tier. | |
 
 Verified live on 2026-09-16 — full walkthrough, all four session kinds, both designs:
 
@@ -346,6 +346,9 @@ For each screen the change touched, at 390 and at 1440:
 | # | Step | Expected |
 | --- | --- | --- |
 | 9.18 | Navigate 3 screens deep, press **browser Back** | Goes back one screen, not out of the app (B2) |
+| 9.18b | Click several **sidebar** destinations in a row (Notifications → Messages → Settings), then look at the header | No "Back" above the title on any of them — they are top-level on this design. The root stack also stays two deep: the sidebar RESETS to `[MainTabs, route]` rather than pushing, which is what stopped "back" pointing at whichever nav item you happened to visit before |
+| 9.18c | From one of those, open something nested (Settings → Change Password; a service from Search) | Back IS shown, and returns to the screen above |
+| 9.18d | Same screens at 390px | Back is shown on all of them — the phone design has no sidebar, so each is pushed from Profile and Back is the only way out |
 | 9.19 | Reload on `/services/12` and `/bookings/7` | The page rebuilds from the id, signed-in state intact (B15) |
 | 9.20 | Deep-link to a screen `linking.ts` does **not** map, then reload | Lands on Home rather than crashing — by design |
 | 9.21 | Read the **browser tab title** on a few screens | A human title. Today it is the raw route name — `MyPets`, `BookService`, `AdminNewRequests`, `MainTabs` — which is what lands in tabs, bookmarks and history |
