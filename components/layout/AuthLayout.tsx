@@ -1,11 +1,11 @@
 import React, { ReactNode } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { BRAND, useThemeColors } from '../../hooks/useThemeColors';
+import { useThemeColors } from '../../hooks/useThemeColors';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useTopInset, useBottomInset } from '../../hooks/useSafeAreaSpacing';
 import PatternBackground from '../shared/PatternBackground';
+import BrandMark from '../shared/BrandMark';
 
 type AuthLayoutProps = {
   /** Big line in the brand band — the app name, or the screen's purpose. */
@@ -53,9 +53,21 @@ export default function AuthLayout({ title, subtitle, children }: AuthLayoutProp
       // its content below it. Fixed at 64pt before, which cleared a 24pt status bar and not much
       // more; inside a card on the web design there is no status bar to clear.
       style={isWebLayout ? undefined : { paddingTop: topInset + 40 }}>
-      <View className="mb-4 h-20 w-20 items-center justify-center rounded-2xl bg-white shadow-lg">
-        <MaterialCommunityIcons name="paw" size={40} color={BRAND[600]} />
-      </View>
+      {/* The plate was already here for the paw; the mark needs it for a reason of its own —
+          half of it is light green and would sink into the band. See BrandMark. */}
+      <BrandMark
+        size={80}
+        radius={16}
+        plated
+        style={{
+          marginBottom: 16,
+          shadowColor: '#000',
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 6,
+        }}
+      />
       <Text className="text-2xl font-bold text-white">{title}</Text>
       {!!subtitle && (
         <Text className={`mt-1 ${isDarkMode ? 'text-gray-400' : 'text-brand-100'}`}>

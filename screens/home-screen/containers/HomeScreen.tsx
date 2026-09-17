@@ -5,7 +5,8 @@ import ServiceCard from '../../../components/shared/ServiceCard';
 import SeeMoreCard from '../../../components/shared/SeeMoreCard';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import Rail from '../../../components/shared/Rail';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import BrandMark from '../../../components/shared/BrandMark';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useLocation } from '../../../hooks/useLocation';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -446,7 +447,9 @@ export default function HomeScreen() {
             </View>
 
             <View className="mb-2 flex-row items-center">
-              <MaterialCommunityIcons name="paw" size={24} color="white" />
+              {/* Plated: this header is `bg-brand-500`, and the mark's light-green half is
+                  within a few percent of it. See BrandMark. */}
+              <BrandMark size={36} plated radius={10} />
               <Text className="ml-2 text-2xl font-bold text-white">{t('login.appName')}</Text>
             </View>
             <Text className={`${subtitleColor} mb-8 text-sm`}>{t('home.tagline')}</Text>

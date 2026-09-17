@@ -14,6 +14,7 @@ import {
   type NavItem,
 } from '../../navigation/navItems';
 import { navigateToNavItem } from '../../navigation/navigateToNavItem';
+import BrandMark from '../shared/BrandMark';
 
 /**
  * Full sidebar on desktop; an icon-only rail on tablet, where a labelled nav is too much.
@@ -174,7 +175,9 @@ export default function SideNav({ activeRoute }: SideNavProps) {
           opacity: hovered ? 0.8 : 1,
           cursor: 'pointer',
         })}>
-        <Ionicons name="paw" size={24} color={BRAND_GREEN} />
+        {/* Unplated: the rail is a card, not the brand band, so the mark has its own contrast
+            in both themes and a white plate would read as a sticker on the sidebar. */}
+        <BrandMark size={32} />
         {!collapsed && <Text className={`ml-2 text-lg font-bold ${textColor}`}>PetBooker</Text>}
       </Pressable>
 

@@ -589,6 +589,7 @@ Always check this folder before creating a new component. If a new component is 
 | `ServiceDetailView` | `service`, `isDarkMode`, `showBookButton?`, `onBookPress?` | Full service detail layout |
 | `MapAddressPicker` | `visible`, `title`, `initialRegion`, `isDarkMode`, `onClose`, `onSelect(address, label)` | Full-screen map location picker — type an address to jump to it (`forwardGeocode`), or pan the map under a fixed centre pin; opens on the user's current location, with a "locate me" button. On confirm, the centre is reverse-geocoded to an `AddressDto` via `services/geocoding.ts`. Platform-split: `.tsx` (react-native-maps) / `.web.tsx` (Google Maps JS API via `services/google-maps.ts`). Used for booking pickup/drop-off. |
 | `ReviewModal` | `visible`, `serviceName?`, `submitting?`, `onClose`, `onSubmit(rating, comment)` | Centered "rate your experience" dialog — tappable 1–5 stars (live Poor→Excellent label) + optional comment + Submit. Presentational; the parent owns the `createReview` call. Driven by the **`useReviewModal(onSubmitted?)`** hook (`hooks/useReviewModal.ts`), which owns the `{ target, submitting, open, close, submit }` lifecycle + the POST. Entry points: the in-app "Service completed" notification (auto-pops/on-tap), and the **Leave a Review** CTA on completed bookings in MyBookings + BookingDetails. |
+| `BrandMark` | `size?`, `plated?`, `radius?`, `style?` | The PetBooker logo mark, for the three places the app brands itself (`AuthLayout`'s band, `SideNav`'s go-home corner, the phone Home header). **`plated` is not decoration** — on `bg-brand-500` the mark's light-green half all but disappears, so on green it needs the white plate this draws; on a card or in dark mode it goes on bare. A paw glyph anywhere else is a *pet* placeholder, not a logo. See Brand assets. |
 | `PetLoader` | `size?`, `label?`, `surface?`, `style?` | The app's loading animation — a sitting puppy that wags, tilts its head and blinks, drawn in the same green line art as `assets/pattern-bg.png` so it belongs to the page it waits on. **Used for whole-list / whole-page waits**, via `ListState`; a spinner inside a button stays an `ActivityIndicator`. `surface` is what the outlines are filled with (defaults to the card colour) — pass the real background if the loader sits on something else, or the shapes stop occluding each other. |
 | `Toast` (`Toast.tsx`) | `toast`, `isDarkMode`, `onDismiss` | Single presentational toast row (icon + message + dismiss) for the global overlay. **Don't render directly** — use `useToast()` (`context/ToastContext.tsx`) to show app-wide error/success/info toasts. See Context Providers. |
 | `ListState` | `isLoading?`, `error?`, `isEmpty?`, `emptyIcon?`, `emptyMessage?`, `loadingLabel?`, `children` | The loading → error → empty → content ladder every list screen needs; renders `children` only once all three are ruled out. **Use this instead of hand-writing the spinner/icon/message blocks** — they had drifted into two icon sizes and two greys across the screens that copied them. Also exports `LoadingState` (which renders `PetLoader`) and `MessageState` for a state needed on its own. |
@@ -710,6 +711,46 @@ Genuinely bespoke colors stay inline (sourced from the hook's `isDarkMode`): e.g
 - These exist for **capability** differences (maps, pickers, storage), never for layout. Layout is
   decided by width through `useResponsive()` — see Responsive layout. There is no `*.web.tsx`
   variant of a screen, and adding one forks a screen that then drifts.
+
+---
+
+## Brand assets — `assets/` + `scripts/build-brand-assets.py`
+
+The designer's hand-off is three 1254px squares in `assets/`, and **nothing loads them
+directly**. They are opaque (PNG colour type 2, no alpha) with 150–350px of white padding baked
+in, so used as-is they render as a white tile with a logo in it — on the green band, on a dark
+card, anywhere. `scripts/build-brand-assets.py` derives every shipped asset from them: it cuts
+the background away by flood-filling **inward from the corners**, which is the whole trick —
+the dog's face inside the `p`, the cat's face inside the `B` and the calendar's card interior
+are also white, and a plain "white → transparent" key punches holes straight through the mark.
+Re-run it (`python scripts/build-brand-assets.py`, needs `pillow` + `numpy`) after any redraw
+of a source file; don't hand-crop an output.
+
+**Which source is right where** — the two marks are not interchangeable, and the difference is
+size:
+
+| Source | Use it for | Why |
+|---|---|---|
+| `logo_pB_small_calendar.png` | **The mark.** App icon, Android adaptive foreground, and every in-app `BrandMark` | Square, and the calendar frame is what says *booking*. Needs ~32px+ before the frame stops crowding the letters |
+| `logo_pB_letters_only.png` | **The monogram.** Favicon, Android notification icon | Below ~32px the calendar frame eats the letters; the bare `pB` still reads at 16 |
+| `logo_pB_full.png` | **The lockup.** Splash screen; anything with room that needs the *name* | The only one carrying "petBooker". Unreadable as an icon — it is a lockup, not a mark |
+
+**The mark must never sit directly on brand green.** It is two greens, and the light-green `p`
+and calendar frame land within a few percent of `bg-brand-500` — the mark reads as a floating
+`B` with a smear beside it. On green it goes on a white plate, which is what
+`<BrandMark plated />` draws. On a card, a page background or dark mode it has its own contrast
+and goes on bare. The same trap is why `android.adaptiveIcon.backgroundColor` is `#FFFFFF` and
+not the brand green it used to be: a green mark on a green plate is an empty launcher icon.
+
+Generated, all overwritten by the script — `assets/brand/logo-{mark,monogram,lockup}.png`
+(in-app, transparent), `assets/{icon,adaptive-icon,favicon,splash,notification-icon}.png`
+(native/web, wired in `app.json`). `icon.png` is deliberately the one **without** an alpha
+channel: iOS rejects a store icon that has one. `notification-icon.png` is a white-on-
+transparent stencil because Android throws away the colour and renders the alpha as a flat
+white mask — ship it the app icon and the tray shows a white blob.
+
+A paw glyph elsewhere in the app is a **pet placeholder** (a missing pet photo), not a logo,
+and stays a paw.
 
 ---
 
