@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
-import { getServices, ServiceDto, serviceCurrency } from '../../../services/services';
+import ServicePhoto from '../../../components/shared/ServicePhoto';
+import {
+  getServices,
+  ServiceDto,
+  serviceCurrency,
+  serviceFromPrice,
+} from '../../../services/services';
 import { formatMoney } from '../../../services/currency';
 import { getReviews, ReviewDto } from '../../../services/reviews';
 import { ApprovalStatus } from '../../../services/service-providers';
@@ -16,7 +22,8 @@ type ProviderDetailRouteParams = {
   provider: ProviderViewModel;
 };
 
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600';
+// No stock-photo fallback — see the note in HomeScreen. A provider with no photo gets the paw
+// placeholder rather than a hotlinked stock dog presented as their own premises.
 
 export default function ProviderDetailScreen() {
   const navigation = useNavigation();
@@ -62,9 +69,12 @@ export default function ProviderDetailScreen() {
     ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
     : provider.rating;
   const reviewCount = reviews.length || provider.reviews;
-  // Prefer the effective price (after any applied discount) the API returns
-  const servicePrice = (s: ServiceDto) => s.price ?? s.pricing?.basePrice ?? 0;
-  const startingPrice = services.length ? Math.min(...services.map(servicePrice)) : provider.price;
+  // The lowest figure a customer can actually be charged across this provider's services —
+  // after any live discount, and taking the cheapest pricing option where a service defines them
+  // (a base price is not purchasable then). See serviceFromPrice.
+  const startingPrice = services.length
+    ? Math.min(...services.map(serviceFromPrice))
+    : provider.price;
   // All of a provider's services are priced in the same currency (the server converts every amount
   // to the caller's display currency), so the first service's stamp speaks for the "from" price.
   const providerCurrency = services[0]?.currency;
@@ -78,10 +88,11 @@ export default function ProviderDetailScreen() {
     <View className={`flex-1 ${bgColor}`} style={{ paddingTop: topInset }}>
       {/* Hero image */}
       <View className="relative">
-        <Image
-          source={{ uri: provider.image || FALLBACK_IMAGE }}
+        <ServicePhoto
+          uri={provider.image}
+          radiusClass="rounded-none"
+          iconSize={48}
           className="h-64 w-full"
-          resizeMode="cover"
         />
         <TouchableOpacity
           accessibilityRole="button"
@@ -215,7 +226,7 @@ export default function ProviderDetailScreen() {
                       </View>
                       <View className="items-end">
                         <Text className="text-base font-bold text-brand-600">
-                          {formatMoney(servicePrice(svc), serviceCurrency(svc))}
+                          {formatMoney(serviceFromPrice(svc), serviceCurrency(svc))}
                         </Text>
                         <View className="mt-2 flex-row items-center rounded-full bg-brand-500 px-4 py-1.5">
                           <Ionicons name="calendar-outline" size={13} color="white" />

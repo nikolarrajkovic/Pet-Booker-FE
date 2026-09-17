@@ -26,8 +26,16 @@ export type NavItem = {
   labelKey: TranslationKey;
   icon: IoniconName;
   group: NavGroup;
-  /** Role gate. Absent means everyone signed in sees it. */
-  requires?: 'partner' | 'admin';
+  /**
+   * Role gate. Absent means everyone signed in sees it.
+   *
+   * `user` means "this account has a Domain.User behind it" — i.e. NOT a managed ProviderProfile.
+   * Those accounts are a business login with no user row, so every user-scoped command
+   * (SearchPets, the notification-settings CRUD, the personal booking list) answers 401 for them.
+   * Offering the destination anyway produced a screen whose only content was the raw backend
+   * text "Missing permission for command 'SearchPets'."
+   */
+  requires?: 'partner' | 'admin' | 'user' | 'consumer';
 };
 
 /**
@@ -43,7 +51,14 @@ export type NavItem = {
  */
 export const NAV_ITEMS: NavItem[] = [
   // ── Primary — the tab bar on mobile, the top of the sidebar on web ──────────────────────────
-  { route: 'Home', isTab: true, labelKey: 'tabs.home', icon: 'home', group: 'primary' },
+  {
+    route: 'Home',
+    isTab: true,
+    labelKey: 'tabs.home',
+    icon: 'home',
+    group: 'primary',
+    requires: 'consumer',
+  },
   {
     route: 'Search',
     isTab: true,
@@ -53,6 +68,7 @@ export const NAV_ITEMS: NavItem[] = [
     labelKey: 'tabs.search',
     icon: 'search',
     group: 'primary',
+    requires: 'consumer',
   },
   {
     route: 'PartnerHub',
@@ -73,8 +89,20 @@ export const NAV_ITEMS: NavItem[] = [
   { route: 'Profile', isTab: true, labelKey: 'tabs.profile', icon: 'person', group: 'primary' },
 
   // ── Manage — the Profile menu, promoted to real navigation on web ───────────────────────────
-  { route: 'MyBookings', labelKey: 'profile.bookings', icon: 'calendar-outline', group: 'manage' },
-  { route: 'MyPets', labelKey: 'profile.pets', icon: 'paw-outline', group: 'manage' },
+  {
+    route: 'MyBookings',
+    labelKey: 'profile.bookings',
+    icon: 'calendar-outline',
+    group: 'manage',
+    requires: 'user',
+  },
+  {
+    route: 'MyPets',
+    labelKey: 'profile.pets',
+    icon: 'paw-outline',
+    group: 'manage',
+    requires: 'user',
+  },
   { route: 'Messages', labelKey: 'messages.title', icon: 'chatbubbles-outline', group: 'manage' },
   {
     route: 'Notifications',
@@ -145,16 +173,45 @@ export const GROUP_LABEL_KEYS: Record<Exclude<NavGroup, 'primary'>, TranslationK
   admin: 'nav.admin',
 };
 
-export type NavRoles = { isPartner: boolean; isAdmin: boolean };
+export type NavRoles = {
+  isPartner: boolean;
+  isAdmin: boolean;
+  /**
+   * True for a managed ProviderProfile session — a business login with no `Domain.User` behind
+   * it. Straight from `useAuth().isProviderProfile`. Defaults to false so existing callers (and
+   * tests) keep their previous behaviour.
+   */
+  isProviderProfile?: boolean;
+};
 
 /** The items a given account may see, in list order. */
-export function visibleNavItems({ isPartner, isAdmin }: NavRoles): NavItem[] {
-  return NAV_ITEMS.filter(
-    (item) =>
-      item.requires === undefined ||
-      (item.requires === 'partner' && isPartner) ||
-      (item.requires === 'admin' && isAdmin)
-  );
+export function visibleNavItems({
+  isPartner,
+  isAdmin,
+  isProviderProfile = false,
+}: NavRoles): NavItem[] {
+  // A managed ProviderProfile has no user row, so both user-scoped destinations and the consumer
+  // browse surface are unusable for it — every one of those endpoints answers 401. Admins keep
+  // everything: the seeded admin is a real user and uses those screens.
+  const hasUserRow = !isProviderProfile;
+  const canBook = !isProviderProfile;
+
+  return NAV_ITEMS.filter((item) => {
+    switch (item.requires) {
+      case undefined:
+        return true;
+      case 'partner':
+        return isPartner;
+      case 'admin':
+        return isAdmin;
+      case 'user':
+        return hasUserRow;
+      case 'consumer':
+        return canBook;
+      default:
+        return true;
+    }
+  });
 }
 
 /** The tab-bar set: the primary destinations this account may see. */

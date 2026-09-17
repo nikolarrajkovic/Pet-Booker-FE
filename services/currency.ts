@@ -17,6 +17,14 @@ export type CurrencyFormat = {
   position: 'prefix' | 'suffix';
   /** Whether the convention separates symbol and amount with a space. */
   space: boolean;
+  /**
+   * Decimal places this currency is written with.
+   *
+   * RSD is 0: the para is long obsolete, so nothing is ever priced or paid in fractions of a
+   * dinar. Rendering the generic 2 decimals produced figures like "5210.5 RSD" on the admin
+   * dashboard — a half-dinar that cannot exist. EUR and USD keep 2.
+   */
+  decimals: number;
 };
 
 // Placement follows each currency's own convention, not the UI language:
@@ -26,11 +34,11 @@ export type CurrencyFormat = {
 //   RUB      suffix + space    → 52 ₽
 // An unknown code falls through to `DEFAULT_FORMAT`: the code itself, after the amount.
 const CURRENCY_FORMATS: Record<string, CurrencyFormat> = {
-  USD: { symbol: '$', position: 'prefix', space: false },
-  GBP: { symbol: '£', position: 'prefix', space: false },
-  EUR: { symbol: '€', position: 'suffix', space: true },
-  RSD: { symbol: 'RSD', position: 'suffix', space: true },
-  RUB: { symbol: '₽', position: 'suffix', space: true },
+  USD: { symbol: '$', position: 'prefix', space: false, decimals: 2 },
+  GBP: { symbol: '£', position: 'prefix', space: false, decimals: 2 },
+  EUR: { symbol: '€', position: 'suffix', space: true, decimals: 2 },
+  RSD: { symbol: 'RSD', position: 'suffix', space: true, decimals: 0 },
+  RUB: { symbol: '₽', position: 'suffix', space: true, decimals: 0 },
 };
 
 /**
@@ -104,6 +112,9 @@ const DEFAULT_FORMAT = (code: string): CurrencyFormat => ({
   symbol: code,
   position: 'suffix',
   space: true,
+  // An unknown currency keeps the widely-safe 2 places: over-precision reads as odd, but
+  // rounding a currency that does have subunits to whole numbers would be wrong.
+  decimals: 2,
 });
 
 /** The symbol + placement rules for a currency (falls back to "<amount> CODE"). */
@@ -133,15 +144,24 @@ export function currencyAffix(code?: string | null): {
     : { prefix: null, suffix: symbol };
 }
 
-/** Rounds to at most 2 decimals and drops trailing zeros: 35.41666 → "35.42", 30 → "30". */
-export function formatAmount(amount: number): string {
+/**
+ * Rounds for display and drops trailing zeros: 35.41666 → "35.42", 30 → "30".
+ *
+ * Precision follows the CURRENCY, not a fixed 2 (see `CurrencyFormat.decimals`) — a zero-decimal
+ * currency like RSD must never render "5210.5". Passing no currency keeps the old 2-decimal
+ * behaviour for callers that format a bare number.
+ */
+export function formatAmount(amount: number, currency?: string | null): string {
   if (!Number.isFinite(amount)) return String(amount);
-  return String(roundMoney(amount));
+  const decimals = currency == null ? 2 : currencyFormat(currency).decimals;
+  return String(roundMoney(amount, decimals));
 }
 
-/** Rounds to 2 decimals without formatting — for arithmetic, not display. */
-export function roundMoney(amount: number): number {
-  return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : amount;
+/** Rounds to `decimals` places without formatting — for arithmetic, not display. */
+export function roundMoney(amount: number, decimals = 2): number {
+  if (!Number.isFinite(amount)) return amount;
+  const factor = 10 ** decimals;
+  return Math.round(amount * factor) / factor;
 }
 
 /**
@@ -164,7 +184,8 @@ export function roundMoney(amount: number): number {
  * `currency` entirely; they now stamp it like every other service read.)
  */
 export function formatMoney(amount: number, currency?: string | null): string {
-  return withCurrency(formatAmount(amount), currency);
+  const code = currency ? normalizeCurrency(currency) : getDisplayCurrency();
+  return withCurrency(formatAmount(amount, code), currency);
 }
 
 /**

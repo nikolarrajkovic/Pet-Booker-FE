@@ -85,13 +85,25 @@ const USER_MENU_ITEMS = [
 const PARTNER_MENU_ITEMS = USER_MENU_ITEMS;
 
 /**
- * Notification settings are stored per Domain.User, and a managed ProviderProfile login has no
- * such row — the ServiceProvider group carries none of the UserNotificationSettings permissions,
- * so every read and write from that session is a 401. The screen used to be listed anyway and
- * swallowed the failure, leaving toggles that looked applied and changed nothing.
+ * Everything a managed ProviderProfile login cannot use, because it has no `Domain.User` row
+ * behind it and the ServiceProvider group carries none of the user-scoped permissions:
+ *
+ *  - **notification-settings** — `UserNotificationSettings` is keyed on UserId, so every read and
+ *    write is a 401. Listed anyway, the screen swallowed the failure and left toggles that looked
+ *    applied and changed nothing.
+ *  - **pets** — `SearchPets` is a 401, and the screen rendered the raw backend text
+ *    "Missing permission for command 'SearchPets'." at the user.
+ *  - **bookings** — the personal booking list is scoped to the caller's UserId, so it always came
+ *    back empty and told a provider with a full diary "No upcoming bookings". Their real diary is
+ *    My Schedule, which is listed separately and works.
+ *
+ * Mirrors the `requires: 'user'` gate in navigation/navItems.ts, which does the same for the web
+ * sidebar and the phone tab bar.
  */
-const withoutNotificationSettings = (items: typeof USER_MENU_ITEMS) =>
-  items.filter((item) => item.id !== 'notification-settings');
+const PROFILE_ONLY_HIDDEN_IDS = ['notification-settings', 'pets', 'bookings'];
+
+const withoutUserScopedItems = (items: typeof USER_MENU_ITEMS) =>
+  items.filter((item) => !PROFILE_ONLY_HIDDEN_IDS.includes(item.id));
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
@@ -158,7 +170,7 @@ export default function ProfileScreen() {
   const avatarName = user?.firstName ?? currentUser?.firstName ?? email;
 
   const baseMenu = isPartner ? PARTNER_MENU_ITEMS : USER_MENU_ITEMS;
-  const scopedMenu = isProviderProfile ? withoutNotificationSettings(baseMenu) : baseMenu;
+  const scopedMenu = isProviderProfile ? withoutUserScopedItems(baseMenu) : baseMenu;
   const menuItems =
     liveSession !== 'none'
       ? [

@@ -21,9 +21,14 @@ type RootStackParamList = {
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 // ─── Validators (return a translation key or '' when valid) ─────────────────────
+// Mirrors AuthApi's UsernameRegex exactly — `^[A-Za-z](?!.*[_.]{2})[A-Za-z0-9._]{2,19}$`.
+// Keep the two in lock-step: the old client pattern dropped `_` (so a username the server
+// accepts was rejected here) and allowed consecutive separators like `a..b` (so one the server
+// rejects got through to a raw 400).
 function validateUsername(v: string) {
   if (!v.trim()) return 'register.errUsernameRequired';
-  if (!/^[A-Za-z][A-Za-z0-9.]{2,19}$/.test(v.trim())) return 'register.errUsernameInvalid';
+  if (!/^[A-Za-z](?!.*[_.]{2})[A-Za-z0-9._]{2,19}$/.test(v.trim()))
+    return 'register.errUsernameInvalid';
   return '';
 }
 

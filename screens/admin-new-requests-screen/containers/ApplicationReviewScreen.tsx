@@ -604,13 +604,17 @@ export default function ApplicationReviewScreen() {
               style={{ marginTop: 1 }}
             />
             <View style={{ flex: 1, marginLeft: 10 }}>
+              {/* Describes what approving actually does. The previous copy promised "a background
+                  check will be conducted as part of the approval process" — a process that does
+                  not exist anywhere in the system, stated to the admin as though it were a
+                  safeguard they could rely on. What approval really does is publish the provider
+                  AND approve every certificate attached to the application in one go. */}
               <Text style={{ color: '#1D4ED8', fontSize: 13, fontWeight: '700', marginBottom: 3 }}>
-                Background Check
+                {t('admin.beforeYouApprove')}
               </Text>
               <Text
                 style={{ color: isDarkMode ? '#93C5FD' : '#3B82F6', fontSize: 12, lineHeight: 18 }}>
-                A background check will be conducted as part of the approval process. This helps
-                ensure the safety of all pets and pet owners on the platform.
+                {t('admin.beforeYouApproveMsg')}
               </Text>
             </View>
           </View>

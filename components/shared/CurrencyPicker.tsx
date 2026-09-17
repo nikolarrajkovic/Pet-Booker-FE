@@ -3,7 +3,11 @@ import { Modal, View, Text, TouchableOpacity, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
-import { SUPPORTED_CURRENCIES, formatMoney, type SupportedCurrency } from '../../services/currency';
+import {
+  SUPPORTED_CURRENCIES,
+  currencySymbol,
+  type SupportedCurrency,
+} from '../../services/currency';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 type Props = {
@@ -25,8 +29,12 @@ export default function CurrencyPicker({ visible, current, onSelect, onClose }: 
 
   useEscapeToClose(visible, onClose);
 
+  // Unmount rather than hiding — same reason as LanguagePicker: a `visible={false}` Modal can
+  // survive a full-tree re-render on web as a detached portal with stale handlers.
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable
         accessible={false}
         focusable={false}
@@ -94,9 +102,15 @@ export default function CurrencyPicker({ visible, current, onSelect, onClose }: 
                 <Text style={{ color: hex.text }} className="flex-1 text-base font-semibold">
                   {t(`currencies.${code.toLowerCase()}` as any)}
                 </Text>
-                {/* Sample of how prices will read — symbol side differs per currency */}
+                {/* The currency's symbol, not a sample price.
+                    This used to render `formatMoney(1200, code)` on every row, so the three
+                    options read "1200 RSD", "1200 €" and "$1200" — the same numeral relabelled.
+                    Side by side that reads as a conversion, and 1200 RSD is about €10, so the
+                    screen where a user judges what switching will do was off by ~117x. The client
+                    holds no exchange rates (conversion happens at the API edge), so it cannot
+                    honestly show a converted amount here — it shows what actually differs. */}
                 <Text style={{ color: hex.subtext }} className="mr-3 text-sm">
-                  {formatMoney(1200, code)}
+                  {currencySymbol(code)}
                 </Text>
                 {active ? <Ionicons name="checkmark-circle" size={22} color={BRAND_GREEN} /> : null}
               </TouchableOpacity>

@@ -14,7 +14,7 @@ import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { getPlatformStats, type PlatformStats } from '../../../services/stats';
-import { BenefitCard, HowItWorksStep, TestimonialCard } from '../components';
+import { BenefitCard, HowItWorksStep } from '../components';
 
 // Titles/descriptions are translation keys, resolved with t() at render.
 const benefits = [
@@ -257,13 +257,10 @@ export default function BecomePartnerScreen() {
           ))}
         </View>
 
-        <TestimonialCard
-          isDarkMode={isDarkMode}
-          cardBg={cardBg}
-          textColor={textColor}
-          subtextColor={subtextColor}
-          borderColor={borderColor}
-        />
+        {/* The testimonial card that sat here quoted "Sarah Johnson, Dog Walker, San Francisco" —
+            an invented person, an invented quote about earnings, and a city this Belgrade-first
+            product does not operate in. Removed rather than replaced: a recruiting page should not
+            carry a made-up endorsement, and there is no real one to put in its place yet. */}
       </ScrollView>
 
       {/* Fixed Bottom Button */}

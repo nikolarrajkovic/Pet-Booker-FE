@@ -47,12 +47,12 @@ type SideNavProps = {
 export default function SideNav({ activeRoute }: SideNavProps) {
   const { isDarkMode, cardBg, borderColor, textColor, subtextColor, hex } = useThemeColors();
   const { isTablet } = useResponsive();
-  const { isPartner, isAdmin } = useAuth();
+  const { isPartner, isAdmin, isProviderProfile } = useAuth();
   const { t } = useLocale();
   const { unreadCount } = useNotifications();
   const { unreadCount: unreadMessages } = useMessages();
 
-  const roles = { isPartner, isAdmin };
+  const roles = { isPartner, isAdmin, isProviderProfile };
   const primary = primaryNavItems(roles);
   const groups = secondaryNavGroups(roles);
 

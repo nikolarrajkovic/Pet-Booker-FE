@@ -22,6 +22,7 @@ import type { ServiceSearchItem } from '../components/ListView';
 import {
   getServices,
   getServicesPage,
+  serviceFromPrice,
   ServiceDto,
   ServiceSortBy,
   type GetServicesParams,
@@ -40,7 +41,18 @@ type SearchRouteParams = {
   category?: string;
 };
 
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600';
+// No stock-photo fallback.
+//
+// This used to be a hardcoded Unsplash URL, substituted whenever a service had no photo of its
+// own — so a listing with nothing uploaded showed a random dog picture as though it were that
+// provider's. That is worse than showing nothing: it misrepresents the listing, it is a
+// third-party hotlink on every card in production (an external request per row, and one that
+// silently breaks when the URL is rate-limited, blocked or moved), and when it DID fail the card
+// fell through to the paw anyway — which is why services looked like they had no images at all.
+//
+// `ServicePhoto` already renders a neutral paw behind every photo, so passing an empty string
+// shows that placeholder: honest about there being no photo, identical offline, and the same
+// treatment the rest of the app uses.
 const DEFAULT_MAX_PRICE = 200;
 const CATEGORY_TAKE = 50;
 
@@ -116,8 +128,10 @@ function toSearchItem(svc: ServiceDto): ServiceSearchItem | null {
     reviews: svc.totalRatingNumber ?? 0,
     distance:
       svc.distanceFromMyLocationKm != null ? `${Math.round(svc.distanceFromMyLocationKm)} km` : '',
-    price: svc.price ?? svc.pricing?.basePrice ?? 0,
-    image: resolveImageUrl(photoSrc) || FALLBACK_IMAGE,
+    // The lowest bookable figure. The row reads "from X", and a service with pricing options
+    // has no purchasable base price — see serviceFromPrice.
+    price: serviceFromPrice(svc),
+    image: resolveImageUrl(photoSrc),
     // Map pin position from the service address's geo coords. null = no pin yet:
     // addresses without coords are forward-geocoded lazily when the map view
     // opens (see the geocode effect below); services with no address get no pin.

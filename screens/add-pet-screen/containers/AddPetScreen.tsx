@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ScrollView,
   Text,
@@ -134,17 +134,20 @@ export default function AddPetScreen() {
   const [additionalNotes, setAdditionalNotes] = useState(existingPet?.additionalNotes || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
+  // Lets a failed save scroll back to the first error, which is the photo picker at the top.
+  const scrollRef = useRef<ScrollView>(null);
 
+  // Required fields mirror the server's Pet validators exactly: Name, Type, Breed and at least
+  // one photo. Sex, birth date, weight and height are OPTIONAL there and are optional here now —
+  // the form used to demand all four, so an owner who did not know their rescue's exact birth
+  // date or its height in centimetres could not add a pet at all. A pet is a prerequisite for
+  // booking, so that blocked the whole funnel over data the platform never needed.
   const errors = hasAttemptedSave
     ? {
         photos: petPhotos.length === 0 ? t('addPet.errPhotos') : undefined,
         petName: !petName.trim() ? t('addPet.errName') : undefined,
         petType: petType === null ? t('addPet.errType') : undefined,
         breed: !breed.trim() ? t('addPet.errBreed') : undefined,
-        sex: sex === null ? t('addPet.errSex') : undefined,
-        birthDate: !birthDate ? t('addPet.errBirthDate') : undefined,
-        weight: !weight.trim() ? t('addPet.errWeight') : undefined,
-        height: !height.trim() ? t('addPet.errHeight') : undefined,
       }
     : ({} as Record<string, string | undefined>);
 
@@ -181,15 +184,21 @@ export default function AddPetScreen() {
   const handleSave = async () => {
     setHasAttemptedSave(true);
     const hasErrors =
-      petPhotos.length === 0 ||
-      !petName.trim() ||
-      petType === null ||
-      !breed.trim() ||
-      sex === null ||
-      !birthDate ||
-      !weight.trim() ||
-      !height.trim();
-    if (hasErrors) return;
+      petPhotos.length === 0 || !petName.trim() || petType === null || !breed.trim();
+    if (hasErrors) {
+      // Say what is wrong even when the offending field is off-screen. The photo picker sits at
+      // the very top, so pressing Save from the bottom of a long form used to do nothing visible
+      // at all — the error appeared above the fold and the button looked dead. The toast is what
+      // guarantees feedback on both designs.
+      showError(t('addPet.fixHighlighted'));
+      // Native only: on web `ScreenLayout` owns a single page-level scroller and
+      // styles/document-scroll.web.ts flattens this ScrollView into it, so its own scrollTo is a
+      // no-op there (the same reason useNearBottomLoader needs a .web variant that walks up to
+      // the real scroll parent). Harmless when it does nothing — the toast already carried the
+      // message.
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const input = {
@@ -253,6 +262,7 @@ export default function AddPetScreen() {
       // away from the input it names.
       width="narrow">
       <ScrollView
+        ref={scrollRef}
         className="flex-1"
         contentContainerStyle={{ paddingTop: 24, paddingBottom: 32, paddingHorizontal: 24 }}>
         <FormCard>
@@ -327,7 +337,7 @@ export default function AddPetScreen() {
             {/* Birth Date */}
             <View className="mb-4">
               <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-                {t('addPet.birthDate')} <Text className="text-red-500">*</Text>
+                {t('addPet.birthDate')}
               </Text>
               <TouchableOpacity
                 accessibilityRole="button"
@@ -396,7 +406,7 @@ export default function AddPetScreen() {
           <View className="mb-4 flex-row gap-3">
             <View className="flex-1">
               <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-                {t('addPet.weight', { unit: weightUnit })} <Text className="text-red-500">*</Text>
+                {t('addPet.weight', { unit: weightUnit })}
               </Text>
               <TextInput
                 {...form.field('weight')}
@@ -413,7 +423,7 @@ export default function AddPetScreen() {
             </View>
             <View className="flex-1">
               <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-                {t('addPet.height', { unit: heightUnit })} <Text className="text-red-500">*</Text>
+                {t('addPet.height', { unit: heightUnit })}
               </Text>
               <TextInput
                 {...form.field('height')}

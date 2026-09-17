@@ -14,14 +14,25 @@ import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { useLocale } from '../../../context/LocaleContext';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getErrorMessage } from '../../../services/http';
-import { ServiceDto, serviceCurrency } from '../../../services/services';
+import { ServiceDto, serviceCurrency, serviceFromPrice } from '../../../services/services';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
 import { useNotifications } from '../../../context/NotificationsContext';
 import { useMessages } from '../../../context/MessagesContext';
 import { DiscountType } from '../../../services/service-discounts';
 import { formatOfferAmount } from '../../../screens/promotions-screen/components';
 
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600';
+// No stock-photo fallback.
+//
+// This used to be a hardcoded Unsplash URL, substituted whenever a service had no photo of its
+// own — so a listing with nothing uploaded showed a random dog picture as though it were that
+// provider's. That is worse than showing nothing: it misrepresents the listing, it is a
+// third-party hotlink on every card in production (an external request per row, and one that
+// silently breaks when the URL is rate-limited, blocked or moved), and when it DID fail the card
+// fell through to the paw anyway — which is why services looked like they had no images at all.
+//
+// `ServicePhoto` already renders a neutral paw behind every photo, so passing an empty string
+// shows that placeholder: honest about there being no photo, identical offline, and the same
+// treatment the rest of the app uses.
 
 // Service type pills — `label` is the serviceProviderType enum `displayName`
 // (Sitter/Walker/Boarder/Pet Hotel/Groomer/Transporter), passed to Search so its
@@ -103,8 +114,10 @@ function toServiceItem(svc: ServiceDto): ServiceItem | null {
     subtitle: svc.basicServiceName ?? '',
     rating: svc.rating ?? 0,
     reviews: svc.totalRatingNumber ?? 0,
-    price: svc.price ?? svc.pricing?.basePrice ?? 0,
-    image: resolveImageUrl(photoSrc) || FALLBACK_IMAGE,
+    // The lowest bookable figure — the cheapest pricing option when the service has them.
+    // The card reads "from X", so the base price would quote a number nobody can pay.
+    price: serviceFromPrice(svc),
+    image: resolveImageUrl(photoSrc),
     dto: svc,
   };
 }

@@ -364,7 +364,13 @@ export default function BookServiceScreen() {
     if (!selectedDate) return [];
     const windows = availWindows;
     if (windows.length === 0) return []; // no availability → unavailable
-    const now = Date.now();
+    // The earliest start the server will accept: now, plus the service's own minimum lead time.
+    // BookingScheduleDtoValidator.MeetsLeadTime enforces this, so a slot inside the window is
+    // rejected with a 422 — and the user only found out after choosing a duration, a date, a
+    // time, a pet, a payment method and pressing Confirm. The detail screen already advertises
+    // the rule as "Book Nh ahead"; honour it here too.
+    const leadTimeHours = selectedService.details?.leadTimeHours ?? 0;
+    const now = Date.now() + Math.max(0, leadTimeHours) * 60 * 60 * 1000;
     const slotMinutes = slotMs / 60000;
     const byId = new Map<string, TimeSlot>();
     for (const w of windows) {
@@ -402,7 +408,7 @@ export default function BookServiceScreen() {
       }
     }
     return Array.from(byId.values()).sort((a, b) => a.start.getTime() - b.start.getTime());
-  }, [selectedDate, availWindows, appointments, slotMs]);
+  }, [selectedDate, availWindows, appointments, slotMs, selectedService.details?.leadTimeHours]);
 
   const selectedSlotId = startDateTime
     ? `${String(startDateTime.getHours()).padStart(2, '0')}:${String(startDateTime.getMinutes()).padStart(2, '0')}`
@@ -453,10 +459,16 @@ export default function BookServiceScreen() {
   // Per-selection service price: the chosen option's (discounted) price when the service defines
   // options, else the classic effective service price. Only a starting point for the quote body —
   // the server recomputes base/discount itself when a promotion or option applies.
-  const currentServicePrice = () =>
-    selectedOption
-      ? effectiveOptionPrice(selectedService, selectedOption)
-      : servicePrice(selectedService);
+  const currentServicePrice = () => {
+    if (selectedOption) return effectiveOptionPrice(selectedService, selectedOption);
+    // Options defined but none picked yet: quote the CHEAPEST one, not the base price. Picking an
+    // option is required here, so the base price is a figure nobody can actually pay — a service
+    // listing 3000 and 4500 showed a running total of 3500 until the user chose.
+    if (pricingOptions.length > 0) {
+      return Math.min(...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o)));
+    }
+    return servicePrice(selectedService);
+  };
 
   // The body the quote (and later the create) is built from. Serialized into the effect's dep so
   // the quote re-runs exactly when something price-relevant changes — not on every render.
@@ -1151,7 +1163,12 @@ export default function BookServiceScreen() {
               <Text className={`text-base font-semibold ${textColor}`}>
                 {t('bookService.total')}
               </Text>
-              <Text className="text-2xl font-bold text-brand-600">{fmt(currentTotal())}</Text>
+              <Text className="text-2xl font-bold text-brand-600">
+                {/* Until a required duration is picked the figure is the cheapest option, so say
+                    "from" rather than presenting a provisional number as the final one. */}
+                {!optionChosen ? `${t('bookService.priceFrom')} ` : ''}
+                {fmt(currentTotal())}
+              </Text>
             </View>
           )}
         </ScrollView>

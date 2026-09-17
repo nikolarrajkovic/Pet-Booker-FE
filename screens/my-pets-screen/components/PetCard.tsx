@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
+import ServicePhoto from '../../../components/shared/ServicePhoto';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 interface Pet {
@@ -41,18 +42,16 @@ export default function PetCard({
   const { t } = useLocale();
   return (
     <View className={`${cardBg} mb-4 rounded-2xl border p-4 ${borderColor} flex-row`}>
-      {pet.image ? (
-        <Image
-          source={{ uri: pet.image }}
-          className="mr-4 h-20 w-20 rounded-xl"
-          resizeMode="cover"
-        />
-      ) : (
-        <View
-          className={`mr-4 h-20 w-20 rounded-xl ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'} items-center justify-center`}>
-          <Ionicons name="image-outline" size={32} color="#9CA3AF" />
-        </View>
-      )}
+      {/* Placeholder layered BEHIND the photo, never swapped for it. The `pet.image ? …` form
+          only covered a MISSING src; a src that exists and 404s (a cleaned-up upload, a stale
+          URL, a brief offline moment) is still truthy, so the card drew a blank 80px square and
+          pushed the pet's name off to the right of dead space. */}
+      <ServicePhoto
+        uri={pet.image}
+        radiusClass="rounded-xl"
+        iconSize={32}
+        className="mr-4 h-20 w-20"
+      />
       <View className="flex-1">
         <Text className={`text-lg font-bold ${textColor}`}>{pet.name}</Text>
         <Text className={`text-sm ${subtextColor} mt-1`}>

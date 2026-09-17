@@ -8,6 +8,8 @@ import { useResponsive } from '../../hooks/useResponsive';
 import AppHeader from './AppHeader';
 import PageHeader from './PageHeader';
 import ContentContainer, { type ContentWidth } from './ContentContainer';
+import { useRoute } from '@react-navigation/native';
+import { NAV_ITEMS } from '../../navigation/navItems';
 
 type ScreenLayoutProps = {
   // AppHeader props
@@ -98,6 +100,32 @@ export default function ScreenLayout({
 }: ScreenLayoutProps) {
   const { bgColor } = useThemeColors();
   const { isWebLayout } = useResponsive();
+  const route = useRoute();
+
+  /**
+   * Back is suppressed on screens that are TOP-LEVEL for the design currently drawn — the ones
+   * whose own navigation chrome already lists them. A "Back" above the title there promises a
+   * parent page that does not exist, and there is no way out it provides that the chrome doesn't.
+   *
+   * What counts as top-level differs per design, which is the whole point of deciding it here
+   * rather than screen by screen:
+   *
+   *  - **Web** — the sidebar is permanently on screen and links to EVERY nav destination, so all
+   *    of `NAV_ITEMS` is top-level. (Back was actively wrong here before `navigateToNavItem`
+   *    started resetting: the root stack grew a route per side-nav click, so Back pointed at
+   *    whichever nav item happened to be visited previously.)
+   *  - **Mobile** — the bottom bar carries only the `primary` items (Home, Search,
+   *    Partner/Admin, Profile), so only those are top-level. Everything else is genuinely pushed
+   *    — Profile → Notifications, Settings → Change Password, a service opened from a list — and
+   *    keeps Back, which is the only way out of them.
+   *
+   * Deriving both from `NAV_ITEMS` keeps one definition for a rule that used to be a per-screen
+   * judgement call, which is how Profile and Search ended up drawing a Back button on a bottom-bar
+   * tab while Partner Hub and Admin hand-rolled `showBackButton={isWebLayout}` to avoid it.
+   */
+  const navItem = NAV_ITEMS.find((item) => item.route === route.name);
+  const isTopLevelForThisDesign = isWebLayout ? navItem != null : navItem?.group === 'primary';
+  const backButtonVisible = showBackButton && !isTopLevelForThisDesign;
   const bottomInset = useBottomInset();
 
   // Is there a `TabBar` below this screen? It is mounted on the tab navigator rather than passed
@@ -149,7 +177,7 @@ export default function ScreenLayout({
           <PageHeader
             title={headerTitle}
             subtitle={headerSubtitle}
-            showBackButton={showBackButton}
+            showBackButton={backButtonVisible}
             onBackPress={onBackPress}
             actions={webHeaderRight ?? rightAction}>
             {headerChildren}
@@ -184,7 +212,7 @@ export default function ScreenLayout({
       <KeyboardAvoidingView behavior="padding" enabled={avoidKeyboard} style={{ flex: 1 }}>
         <AppHeader
           variant={headerVariant}
-          showBackButton={showBackButton}
+          showBackButton={backButtonVisible}
           onBackPress={onBackPress}
           title={headerTitle}
           subtitle={headerSubtitle}

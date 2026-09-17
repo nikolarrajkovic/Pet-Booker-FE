@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { navigateFromOutside, navigationRef } from './navigationRef';
+import { navigateFromOutside, resetFromOutside, navigationRef } from './navigationRef';
 import type { NavItem } from './navItems';
 
 /**
@@ -17,9 +17,27 @@ export function navigateToNavItem(item: NavItem | undefined): void {
   if (!item) return;
   if (item.isTab) {
     navigateFromOutside('MainTabs', { screen: item.route, params: item.params });
-  } else {
-    navigateFromOutside(item.route, item.params);
+    return;
   }
+  // RESET rather than navigate for a stack destination.
+  //
+  // `navigate()` PUSHES, and the sidebar is always on screen, so every side-nav click stacked
+  // another root route: visit Notifications then Settings and the stack is
+  // [MainTabs, Notifications, Settings] — so Back from Settings went to Notifications, and the
+  // deeper you browsed the further back "back" pointed. These are top-level destinations, not a
+  // drill-down; going to one is a move, not a descent.
+  //
+  // Resetting to [MainTabs, route] keeps the stack two deep forever: Back (where it is still
+  // shown) lands on the tabs, and a nested push from here — Settings → Change Password — still
+  // pops correctly because it lands on top of this pair.
+  //
+  // MainTabs is left to its own initialRouteName, which is already role-aware (a managed
+  // ProviderProfile opens on Partner Hub, everyone else on Home), so this does not strand a
+  // provider on a tab their account cannot use.
+  resetFromOutside({
+    index: 1,
+    routes: [{ name: 'MainTabs' }, { name: item.route, params: item.params }],
+  });
 }
 
 /**

@@ -31,9 +31,9 @@ export default function SexSelector({
   const { isWebLayout } = useResponsive();
   return (
     <View className="mb-6">
-      <Text className={`text-sm font-semibold ${textColor} mb-3`}>
-        {t('addPet.sex')} <Text className="text-red-500">*</Text>
-      </Text>
+      {/* Optional, like birth date / weight / height: the server's Pet validators require only
+          Name, Type, Breed and a photo. */}
+      <Text className={`text-sm font-semibold ${textColor} mb-3`}>{t('addPet.sex')}</Text>
       {/* Web only: the chips size to their labels, so the row must not stretch. On the phone
           the tiles are flex-1 and the row has to stay full width for them to fill it. */}
       <View

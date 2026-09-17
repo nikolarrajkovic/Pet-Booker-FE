@@ -43,14 +43,44 @@ open MailHog → copy the 4–8 digit code → paste into VerifyEmail.
 
 ## Known-broken — do not re-report
 
-Verified live on 2026-08-06. Fixing any of these should also delete its row here.
+Fixing any of these should also delete its row here. **K6 and K8 were retired on 2026-09-16**:
+BookService now renders step 1, and the browse filters are server-side (`Types`, `MinPrice`/
+`MaxPrice`, `MinRating`, `AcceptedSpecies`, `AdditionalServiceNames`, `OnSaleOnly`, `SortBy` all
+travel on the query string — confirmed on the wire).
 
-| #   | What you will see                                                                                                     | Cause                                                                                                                                                                                                                                           |
-| --- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| K3  | Login screen says **"Pet Booker"**, Home header says **"PawCare"**.                                                   | Brand strings never unified — see `HARDCODED_VALUES.md`.                                                                                                                                                                                        |
-| K6  | BookService section numbers start at **2**.                                                                           | No step 1 rendered.                                                                                                                                                                                                                             |
-| K7  | Idling ~30 min logs you out with "Session expired. Please log in again."                                              | Access-token TTL is a hardcoded 30-minute guess rather than the JWT's `exp`.                                                                                                                                                                    |
-| K8  | Search's price / rating / add-on filters only match services already loaded — scroll further and more matches appear. | Those filters run client-side while the list pages server-side. The API filters `Name` and `Type` but not price/rating/add-ons, so a full fix needs server-side support for them. Notifications (single list, no client filters) is unaffected. |
+Verified live on 2026-08-06:
+
+| #   | What you will see                                                          | Cause                                                                       |
+| --- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| K3  | Login screen says **"Pet Booker"**, the side-nav logo says **"PetBooker"**. | Brand strings never unified — see `HARDCODED_VALUES.md`. (The old "PawCare" is gone.) |
+| K7  | Idling ~30 min logs you out with "Session expired. Please log in again."    | Access-token TTL is a hardcoded 30-minute guess rather than the JWT's `exp`. |
+
+**K9-K24 were all fixed on 2026-09-17** and their rows are kept below only until the fixes ship
+— each one is a live regression check. K23 and K24 were found while verifying the others:
+
+| #    | What you will see                                                                                           | Cause                                                                                                                                                                             |
+| ---- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~K23~~ | ~~A provider's own **My Services** lists a flat extra under the SERVICE's name.~~ **FIXED 2026-09-17.** `AdditionalServiceEntry` now carries the persisted `name` through the editor: an extra that already has one keeps it on both display and save, and the derivation still owns naming for anything newly added. The worse half was the write — every editor save re-derived the name, so touching an unrelated field on the service silently renamed "Nail polish" to the service's own name for every customer and every bill line written afterwards. | |
+| ~~K24~~ | ~~A synthesized "Standard" pricing option is shown for a service that defines none.~~ **FIXED 2026-09-17.** That single tier is editor scaffolding so the form always has a price row to bind to; `UiService.hasPricingOptions` now distinguishes it from real `ServicePricingOption` rows, and the card shows a plain "Price" instead of inventing a tier. | |
+
+Verified live on 2026-09-16 — full walkthrough, all four session kinds, both designs:
+
+| #    | What you will see                                                                                                          | Cause                                                                                                                                                                                         |
+| ---- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| K9   | A **managed ProviderProfile** login lands on a broken Home — "Couldn't load services — Missing permission for command 'HomeMostPopular'". My Services and Promotions are equally dead. | Every read a provider needs is `[UserGroupAuth(UserGroupType.User)]` only, while the matching write is `ServiceProvider`. See §4b and the backend gap register.                                 |
+| K10  | **No way to cancel a booking** as a pet owner, on any screen, at any width.                                                 | `cancelBooking()` exists in `services/bookings.ts` but is called from nowhere. Step 3.11 cannot currently pass.                                                                                |
+| K11  | Confirming your email drops you on **Login** instead of into the app.                                                       | `/auth/confirm-email` returns an access+refresh pair on purpose; `confirmEmail()` uses `apiVoid`, which never reads the body. Step 1.2 cannot currently pass.                                  |
+| K12  | A username with an underscore (`mateja_test`) is rejected at registration.                                                  | FE regex `/^[A-Za-z][A-Za-z0-9.]{2,19}$/` vs backend `^[A-Za-z](?!.*[_.]{2})[A-Za-z0-9._]{2,19}$`. Mirror gap: the FE *accepts* `a..b`, which the backend rejects.                             |
+| K13  | Picking a language in Settings applies it but **leaves the picker on screen**, and a second pick inside it does nothing.     | The lingering modal is inert — close and reopen to change again. Hits the first-run chooser too.                                                                                               |
+| K14  | The currency picker previews every option as the same number: "1200 RSD / 1200 € / $1200".                                   | `CurrencyPicker.tsx` renders `formatMoney(1200, code)` per row with no conversion. Actual price display *is* converted correctly — only the preview lies.                                      |
+| K15  | A service with pricing options lists "from 3500 RSD" on Home/Search but "3000 RSD starting from" on its detail page.         | `ServiceResultRow`/`ServiceCard` use `service.price ?? pricing.basePrice`; only ServiceDetail takes the cheapest option.                                                                       |
+| K16  | BookService shows a **Total you cannot buy** until you pick a duration — 3500, when the options are 3000 and 4500.           | The initial total is the base price even though choosing an option is required.                                                                                                               |
+| K17  | A slot inside the service's lead time is offered, and only fails at Confirm with a toast.                                    | The grid disables *past* slots but ignores `details.leadTimeHours` — which the detail screen already displays as "Book 2h ahead".                                                              |
+| K18  | **A map that fails to load blocks the partner application**: Street Address is required and was settable only from the map picker. | The text-input fallback rendered only when *no* map handler was wired, so with one wired the map was the single way to satisfy a required field — and the sheet's "Search address or place" needs the same SDK. Anything that stops Maps loading (no key, quota, outage, blocked script) left the application impossible to finish. **FIXED 2026-09-17**: the field is always typeable, with the map as a shortcut beside it. |
+| K19  | A pet whose photo 404s renders as a blank box — on My Pets the text is pushed right of dead space; on BookingDetails a stray unlabelled pet name floats between sections. | No missing-image fallback for pets. Service cards have a paw placeholder; pets do not.                                                                                                         |
+| K20  | A burst of auth traffic from one IP logs you out on the next reload, and a login during it reports "Login failed. Please verify your credentials." | `/auth/me` and `/auth/refresh` share the 20/60s brute-force bucket with `/auth/login`; `AuthContext` treats *any* `/auth/me` failure as signed-out; and `loginWithEmailPassword` hardcodes a credentials message for every body-less error. |
+| K21  | Add Pet demands Sex, Birth Date, Weight **and** Height; pressing Save with only the photo missing gives no visible feedback. | The backend requires only Name, Type, Breed and one photo. The form also does not scroll to an error that is off-screen — the photo field is at the top.                                       |
+| K22  | "Booking Confirmed!" on a booking the provider has not seen yet, promising a confirmation email that never arrives.          | The booking is `ServiceRequestedByUser`/`Upcoming`; the owner is deliberately not emailed at creation (only the provider is). The wording also collides with the real `BookingConfirmed` notification sent later. |
 
 ---
 
@@ -66,6 +96,9 @@ Verified live on 2026-08-06. Fixing any of these should also delete its row here
 | 1.6 | Forgot Password → submit email                          | Reset token arrives in MailHog; step 2 accepts it pasted (no deep link — K7-adjacent, by design) |
 | 1.7 | Settings → Change Password, then re-login               | New password works, old one rejected                                                             |
 | 1.8 | Hard-refresh the browser while logged in                | Session survives (tokens in localStorage on web)                                                 |
+| 1.9 | Hammer the auth endpoints from the same IP (e.g. run `scripts\e2e-all.ps1` in the background), then reload the app | Session survives. Today (K20) `/auth/me` shares the login rate-limit bucket, gets a 429, and `AuthContext`'s `catch` signs you out while valid tokens stay in localStorage |
+| 1.10 | Log in while that bucket is exhausted                  | A "too many attempts, try again shortly" message. Today (K20) it reads "Login failed. Please verify your credentials." — the 429 body is empty and carries no `Retry-After`, so the hardcoded fallback wins |
+| 1.11 | Click "Continue with Google" with popups blocked       | A visible error. Today the rejection is an uncaught promise and the button appears to do nothing; the client IDs are also still `YOUR_*_CLIENT_ID` placeholders |
 
 ## 2. Discovery (user)
 
@@ -120,6 +153,45 @@ Become a partner: BecomePartner → PartnerApplication → submit, then approve 
 | 4.11  | Promotions → Create offer (Fixed)                                       | Card reads "10 RSD OFF" (or the symbol for your display currency) — never "$"                                                          |
 | 4.12  | Pause/resume an offer                                                   | Toggles `isEnabled`; the service's effective price follows                                                                             |
 
+## 4b. Managed provider accounts (ProviderProfile)
+
+**There are two kinds of provider and they are not interchangeable.** §4 covers the first; this
+section covers the second, which was untested until 2026-09-16 and is where most provider bugs live.
+
+| Kind | How it exists | Session shape |
+| --- | --- | --- |
+| **User-partner** | A pet owner who went through BecomePartner and was approved | Has a `Domain.User` *and* a `ServiceProvider`. Groups: `User` + `ServiceProvider`. `isPartner` true, `isProviderProfile` false |
+| **Managed ProviderProfile** | Created by an admin via AdminAddPartner / `POST /admin/accounts` with `accountType: "ProviderProfile"` | Has **no** `Domain.User` at all. Group: `ServiceProvider` only. `/auth/me` returns a non-zero `providerProfileId`, so `useAuth().isProviderProfile` is true |
+
+Seed one from the backend repo — it prints the login and is ready immediately, with no
+email-confirm round trip:
+
+```powershell
+. .\scripts\e2e-bootstrap.ps1
+$admin = Connect-Admin
+New-ApprovedProviderAccount -AdminToken $admin -Type 4   # 0 Sitter 1 Walker 2 Boarder 3 PetHotel 4 Groomer 5 Transporter
+```
+
+| #    | Step                                                                | Expected                                                                                                                              |
+| ---- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 4b.1 | First login                                                         | PartnerWelcome tour → Partner Hub. Tour is one-time; a later login must not replay it                                                  |
+| 4b.2 | Partner Hub tiles                                                   | Earnings, clients, appointments, rating — these are `ServiceProvider`-gated stats queries and **do** work                              |
+| 4b.3 | Open **My Services**                                                | Their own services list. **Currently K9**: 401 "Missing permission for command 'SearchServices'"                                        |
+| 4b.4 | Open **Promotions** for a provider with a live discount             | The discount is listed and the counters are non-zero. **Currently K9**: a silent "No promotions yet" with all-zero tiles — worse than the visible error, because the provider believes they have no promotion running |
+| 4b.5 | Tap the **Home** and **Search** tabs                                | Either they browse normally, or they are not shown at all. **Currently K9**: both error, and Home is the default landing tab           |
+| 4b.6 | Look at the sidebar / tab bar                                       | **No** My Pets, My Bookings or Notification settings — this account has no user row, so all three 401. `NavRoles` has no `isProviderProfile` dimension, so today they are all offered |
+| 4b.7 | Open My Pets anyway                                                 | Never the raw command name. Today: "Missing permission for command 'SearchPets'."                                                      |
+| 4b.8 | Requests → Accept a booking, then Messages                          | Both work — `SearchBookings` and chat are correctly `ServiceProvider`-gated                                                             |
+| 4b.9 | Notifications                                                       | `BookingRequested` and `ServiceProviderApproved` arrive and render                                                                     |
+
+**Per-type matrix.** Live tracking is the only behaviour that varies by provider type — enforced
+by `Domain.LocationTracking.EligibleTypes`. Seed one of each and check the Add/Edit Service form:
+
+| Type | `supportsLiveTracking` toggle | LiveSession |
+| --- | --- | --- |
+| Sitter, Boarder, PetHotel, Groomer | Rejected (422) if set | Never offered |
+| Walker, Transporter | Accepted | Offered on a confirmed booking within 30 min of its start |
+
 ## 5. Admin
 
 | #   | Step                                   | Expected                                                                                            |
@@ -172,6 +244,7 @@ that regresses silently, because a wrong symbol still renders a plausible-lookin
 | 8.2 | Switch to EUR, revisit Home / Search (list **and** map) / ServiceDetail / BookService / Review / MyBookings / PartnerHub / AdminDashboard / Promotions | Amounts convert **and** the symbol follows on every screen (100 RSD → **€0.85**)               |
 | 8.3 | Compare a converted figure against the raw API                                                                                                         | Matches the DTO's `currency` + amount                                                          |
 | 8.4 | Switch language to Srpski / Русский with a Fixed discount active                                                                                       | The offer title shows the amount with its real currency — no `$` leaks in from the translation |
+| 8.4b | Open Settings → Currency and read the three preview amounts                                                                                           | Each shows the *same money* in its own currency (1200 RSD ≈ €10.22 ≈ $11.40). Today (K14) all three read "1200" |
 
 Only money converts — ratings, counts, distances and durations must not. The search **map pin** is a
 deliberate exception: it shows the bare number (no room in a 40px circle); the card carries the currency.
@@ -198,6 +271,8 @@ never silent.
 | 8.4 | Settings → language en / sr / ru            | UI strings switch                                                                 |
 | 8.5 | Trigger a validation error in each language | Error text localises (backend maps 422 `ErrorMessage` through its resource table) |
 | 8.6 | Register in `sr`                            | Confirmation email arrives in Serbian                                             |
+| 8.6b | Pick a language in Settings, then immediately pick a different one without closing the sheet | Both apply. Today (K13) the sheet stays open after the first pick and the second is ignored |
+| 8.6c | Do the same on the **first-run** chooser over the login screen | Same — today it also stays up after the first choice |
 
 ### Error handling
 
@@ -254,10 +329,13 @@ For each screen the change touched, at 390 and at 1440:
 | # | Check |
 | --- | --- |
 | 9.10 | Does it **use** the width, or is it a stretched phone screen with 1000px of empty space? |
+| 9.10b | **Form screens have a max-width container.** At 1440 no single-line input should span the whole content area — check Settings (the Dark Mode switch ends up ~1380px from its label) and the partner application (a ZIP field over 1000px wide) |
 | 9.11 | Card lists are a grid on the web design, not a single column of full-width rows |
 | 9.12 | No horizontal scrollbar on the page body — the reliable sign of an unconstrained width |
 | 9.13 | Text lines stay under ~90 characters — the `width` prop caps the column |
 | 9.14 | Modals are centred dialogs on the web design, full-screen sheets on the phone one |
+| 9.14b | **A modal's primary action is inside the viewport at 1440x900.** Open the address picker (Partner application → Street Address, AdminAddPartner, BookService pickup/drop-off) and confirm "Confirm location" is reachable without scrolling the page behind it. **Measure this in a VISIBLE tab**: react-native-web animates the sheet in with a 250ms CSS slide, and a browser pauses animations in a hidden or backgrounded tab — the sheet then sits frozen at its start frame, `translateY(viewportHeight)`, and every automated measurement reads the footer as ~1750px down a 900px window. That is the harness, not the app. Confirm with `document.hidden` and `el.getAnimations()[0].currentTime` before filing anything |
+| 9.14c | **Kill the Maps key** (blank `EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY`) and reopen the picker. Every field the map fills must still be typeable by hand — the map is a convenience, never the only way in. Today Street Address has no text input when a map handler is wired, and the sheet's "Search address or place" needs the same dead SDK |
 | 9.15 | The primary CTA is reachable without hunting: pinned on mobile, in the flow or in a sticky aside on web |
 | 9.16 | Hover states on everything clickable, and a visible focus ring when tabbing |
 | 9.16b | **Type into a form and press Enter**: focus moves to the next field, and from the last field the form submits (running the same validation the button does). In a description/notes box Enter starts a new line instead |
@@ -268,8 +346,13 @@ For each screen the change touched, at 390 and at 1440:
 | # | Step | Expected |
 | --- | --- | --- |
 | 9.18 | Navigate 3 screens deep, press **browser Back** | Goes back one screen, not out of the app (B2) |
+| 9.18b | Click several **sidebar** destinations in a row (Notifications → Messages → Settings), then look at the header | No "Back" above the title on any of them — they are top-level on this design. The root stack also stays two deep: the sidebar RESETS to `[MainTabs, route]` rather than pushing, which is what stopped "back" pointing at whichever nav item you happened to visit before |
+| 9.18c | From one of those, open something nested (Settings → Change Password; a service from Search) | Back IS shown, and returns to the screen above |
+| 9.18d | Same screens at 390px | Back is shown on all of them — the phone design has no sidebar, so each is pushed from Profile and Back is the only way out |
 | 9.19 | Reload on `/services/12` and `/bookings/7` | The page rebuilds from the id, signed-in state intact (B15) |
 | 9.20 | Deep-link to a screen `linking.ts` does **not** map, then reload | Lands on Home rather than crashing — by design |
+| 9.21 | Read the **browser tab title** on a few screens | A human title. Today it is the raw route name — `MyPets`, `BookService`, `AdminNewRequests`, `MainTabs` — which is what lands in tabs, bookmarks and history |
+| 9.22 | Fill half a form, then drag the window across the 768px breakpoint | Entered values survive. Today the design switch remounts the screen and clears them |
 
 ### 9d. Native must be unchanged
 

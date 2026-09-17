@@ -42,8 +42,19 @@ export interface AdditionalServiceEntry {
   // The service write upserts by id, so keeping it is what stops an edit from churning the row
   // (and orphaning the bookings whose bill lines reference it).
   id?: number | null;
-  // No `name`: the provider doesn't author one. It's derived on save — see
-  // `entryToAdditionalServices` — so the editor has one less field to get wrong.
+  /**
+   * The name already stored on this extra, when it has one. The provider never AUTHORS a name —
+   * the editor derives one on save (see `entryToAdditionalServices`) so there is one less field
+   * to get wrong — but an extra created through the API, seeded, or written by an earlier build
+   * carries a real name, and that name is what every customer-facing screen shows and what is
+   * frozen onto a booking's bill lines.
+   *
+   * Dropping it here meant two things: the provider's own My Services relabelled "Nail polish" as
+   * the service's name, and their next save rewrote the stored name to match — silently renaming
+   * an extra the customer had been seeing correctly. Undefined for a row the user just added, so
+   * the derivation still owns naming for anything new.
+   */
+  name?: string;
   description?: string;
   /** AdditionalServiceChargeType: 0 = Flat, 1 = PerDistance. */
   chargeType: number;
@@ -86,6 +97,12 @@ export interface UiService {
   images: string[];
   selectedImageIndex: number; // index in `images` of the profile (isSelected) photo
   pricingTiers: PricingTier[];
+  /**
+   * Whether `pricingTiers` describes REAL `ServicePricingOption` rows, or the single synthetic
+   * "Standard" tier synthesised below so the editor always has a price row to bind to. Read
+   * surfaces must not present that scaffold as a tier the provider created.
+   */
+  hasPricingOptions: boolean;
   additionalServices: AdditionalServiceEntry[];
   workingHours: WorkingHours;
   /** Currency the tier/add-on amounts are in — from ServiceDto.currency, never assumed. */
@@ -136,6 +153,7 @@ export function additionalServiceToEntry(dto: AdditionalServiceDto): AdditionalS
   const perDistance = isPerDistance(dto);
   return {
     id: dto.id ?? undefined,
+    name: dto.name?.trim() || undefined,
     description: dto.description ?? '',
     chargeType: dto.chargeType ?? AdditionalServiceChargeType.Flat,
     price: perDistance ? '' : String(dto.price ?? 0),
@@ -188,12 +206,17 @@ export function entryToAdditionalServices(
     isActive: entry.enabled,
   };
 
+  // An extra that already HAS a name keeps it. Deriving unconditionally rewrote the stored name
+  // on every save, so editing an unrelated field on the service renamed "Nail polish" to the
+  // service's own name — for every customer, and on every bill line written afterwards.
+  const existingName = entry.name?.trim();
+
   if (entry.chargeType !== AdditionalServiceChargeType.PerDistance) {
     return [
       {
         ...base,
         id: entry.id ?? undefined,
-        name: serviceName.trim() || UNNAMED_SERVICE_ADDON,
+        name: existingName || serviceName.trim() || UNNAMED_SERVICE_ADDON,
         price: parseFloat(entry.price) || 0,
       },
     ];
@@ -211,7 +234,9 @@ export function entryToAdditionalServices(
   return legs.map((each, i) => ({
     ...base,
     id: i === 0 ? (entry.id ?? undefined) : undefined,
-    name: ADDON_NAME_BY_LEG[each],
+    // A single-leg extra keeps its stored name; a round trip splits into two independent rows,
+    // so one name cannot cover both and each takes the journey it performs.
+    name: legs.length === 1 ? existingName || ADDON_NAME_BY_LEG[each] : ADDON_NAME_BY_LEG[each],
     distanceLeg: each,
     // A fresh object per leg: they're independent rows server-side and must not alias.
     distancePrice: { ...distancePrice },
@@ -225,9 +250,14 @@ export function entryToAdditionalServices(
  */
 export function additionalServiceTitle(
   t: (key: any, params?: Record<string, string | number>) => string,
-  entry: Pick<AdditionalServiceEntry, 'chargeType' | 'distanceLeg'>,
+  entry: Pick<AdditionalServiceEntry, 'chargeType' | 'distanceLeg' | 'name'>,
   serviceName: string
 ): string {
+  // Show what is actually stored when there is something stored — otherwise the provider reads a
+  // different name for their own extra than every customer does.
+  const existingName = entry.name?.trim();
+  if (existingName) return existingName;
+
   if (entry.chargeType !== AdditionalServiceChargeType.PerDistance) {
     return serviceName.trim() || t('addEditService.extraUnnamedService');
   }
@@ -446,6 +476,7 @@ export function serviceDtoToUi(dto: ServiceDto): UiService {
           price: String(o.price),
         }))
       : [{ duration: 'Standard', price }],
+    hasPricingOptions: (dto.pricingOptions?.length ?? 0) > 0,
     // Whatever extras this service actually offers — an open-ended list the provider owns, not a
     // fixed catalog. A service with none starts the editor empty.
     additionalServices: (dto.additionalServices ?? []).map(additionalServiceToEntry),

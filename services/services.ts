@@ -230,6 +230,44 @@ export function effectiveOptionPrice(svc: ServiceDto, option: ServicePricingOpti
 }
 
 /**
+ * The lowest price a caller can actually be charged for this service — what "from X" must show.
+ *
+ * A service with pricing options has no purchasable base price: the booker MUST pick an option,
+ * and the options can sit either side of `pricing.basePrice`. Showing the base price on a card
+ * therefore quoted a number nobody could pay, and disagreed with the detail screen (which does
+ * take the cheapest option) — a 3500 RSD service whose cheapest bookable option was 3000.
+ *
+ * Option-less services keep the classic single price: `price` is the base with any live
+ * promotion already applied by the server, so it is preferred over `pricing.basePrice`.
+ */
+export function serviceFromPrice(svc: ServiceDto): number {
+  const options = svc.pricingOptions ?? [];
+  if (options.length > 0) {
+    return Math.min(...options.map((o) => effectiveOptionPrice(svc, o)));
+  }
+  return svc.price ?? svc.pricing?.basePrice ?? 0;
+}
+
+/**
+ * The pre-discount figure to strike through next to {@link serviceFromPrice}, or null when there
+ * is no promotion to show. Mirrors the "from" price: with options it is the cheapest option's own
+ * list price, so the struck-through number and the live one describe the same option.
+ */
+export function serviceFromBasePrice(svc: ServiceDto): number | null {
+  const options = svc.pricingOptions ?? [];
+  if (options.length > 0) {
+    const cheapest = options.reduce((min, o) =>
+      effectiveOptionPrice(svc, o) < effectiveOptionPrice(svc, min) ? o : min
+    );
+    const effective = effectiveOptionPrice(svc, cheapest);
+    return cheapest.price > effective ? cheapest.price : null;
+  }
+  const base = svc.pricing?.basePrice ?? null;
+  const price = svc.price ?? base ?? 0;
+  return base != null && base > price ? base : null;
+}
+
+/**
  * The currency a service's amounts are in, or `undefined` when the record doesn't say.
  *
  * Kept as a function rather than inlining `svc.currency` so the fallback stays in one place:
