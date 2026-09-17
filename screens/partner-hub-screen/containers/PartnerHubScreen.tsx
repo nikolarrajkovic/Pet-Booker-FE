@@ -484,10 +484,11 @@ export default function PartnerHubScreen() {
     // ProfileScreen: the web design takes the shared page header, the phone design keeps its own.
     <ScreenLayout
       headerVariant="large"
-      // Web-only, as it was before this screen moved onto ScreenLayout: the page header carries a
-      // back link, and the phone design's header has never had one here — `showBackButton` would
-      // switch AppHeader to its nav-row branch and put a back circle where none belonged.
-      showBackButton={isWebLayout}
+      // ScreenLayout decides whether a back affordance belongs here: this is a bottom-bar tab on
+      // the phone design and a sidebar destination on the web one, so it is top-level in both and
+      // the button is suppressed either way. The hand-rolled `isWebLayout` this replaces predates
+      // that rule and now says the same thing twice.
+      showBackButton
       headerTitle={isWebLayout ? t('partnerHub.title') : undefined}
       headerSubtitle={
         isWebLayout

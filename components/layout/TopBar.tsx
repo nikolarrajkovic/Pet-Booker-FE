@@ -134,10 +134,15 @@ export default function TopBar() {
     <View
       className={`${cardBg} border-b ${borderColor} flex-row items-center px-6`}
       style={{ height: TOPBAR_HEIGHT, zIndex: 20 }}>
-      {/* Search — capped rather than full-bleed, so it reads as a field and not as a page header */}
+      {/* Search — fills the bar.
+          It used to be capped at 420px with a flex spacer swallowing the rest, on the reasoning
+          that a capped field "reads as a field and not as a page header". In a bar this wide that
+          left most of the row empty and the field looked arbitrarily truncated rather than
+          deliberate — and a search over the whole catalogue is the one control that benefits from
+          the room, since results and queries are both long. `mr-6` keeps it off the actions. */}
       <View
-        className={`${inputBg} flex-row items-center rounded-full px-4`}
-        style={{ height: 40, flex: 1, maxWidth: 420 }}>
+        className={`${inputBg} mr-6 flex-row items-center rounded-full px-4`}
+        style={{ height: 40, flex: 1 }}>
         <Ionicons name="search" size={18} color={placeholderColor} />
         <TextInput
           value={query}
@@ -153,8 +158,6 @@ export default function TopBar() {
           style={{ outlineStyle: 'none' } as any}
         />
       </View>
-
-      <View style={{ flex: 1 }} />
 
       <View className="flex-row items-center gap-1">
         <IconAction

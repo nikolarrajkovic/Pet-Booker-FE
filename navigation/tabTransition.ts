@@ -1,6 +1,7 @@
 import type { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
 import { Easing, useWindowDimensions } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
+import { useResponsive } from '../hooks/useResponsive';
 
 /** How long a tab switch takes. Long enough to read as a direction, short enough not to wait. */
 export const TAB_SLIDE_MS = 260;
@@ -49,12 +50,22 @@ export type TabSlideOptions = Pick<
  *
  * `useReducedMotion` opts out entirely rather than shortening the animation — someone who asked
  * the OS for less motion is not asking for a faster slide.
+ *
+ * ## Phone design only
+ *
+ * A slide is how a phone says "you moved sideways along a bar at the bottom of the screen" — the
+ * gesture and the motion match. The web design has no such bar: tabs are rows in a permanent
+ * sidebar, and clicking one is a jump to a destination, not a swipe to a neighbour. Sliding a
+ * whole page in from the edge on every sidebar click reads as a page transition the user did not
+ * ask for, and the sidebar itself stays still while the content flies past it — the two disagree.
+ * So the web design cuts, which is what it did before this animation existed.
  */
 export function useTabSlideOptions(): TabSlideOptions {
   const { width } = useWindowDimensions();
   const reduced = useReducedMotion();
+  const { isWebLayout } = useResponsive();
 
-  if (reduced) return { animation: 'none' };
+  if (reduced || isWebLayout) return { animation: 'none' };
 
   const sceneWidth = Math.max(1, width);
 

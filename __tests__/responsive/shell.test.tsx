@@ -342,8 +342,8 @@ describe('ScreenLayout', () => {
     expect(web.queryByLabelText('Back')).toBeNull();
     web.unmount();
 
-    // The phone design has no sidebar — every one of these is PUSHED (Profile → Notifications),
-    // so removing back there would strand the user.
+    // The phone design's bar carries only the PRIMARY items, and Notifications is not one — it is
+    // pushed from Profile, so removing back there would strand the user.
     setViewport('mobile');
     render(
       withProviders(
@@ -353,6 +353,34 @@ describe('ScreenLayout', () => {
       )
     );
     expect(screen.getByLabelText('Back')).toBeTruthy();
+  });
+
+  it('hides back on the phone design for a bottom-bar tab', () => {
+    // The mirror of the rule above for the other design. Profile is in the tab bar, so it is
+    // top-level there and has nothing to go back TO — yet it drew a back circle, because the rule
+    // used to be a per-screen judgement call and this screen passed `showBackButton` flat.
+    mockTabRoute = 'Profile';
+
+    setViewport('mobile');
+    const phone = render(
+      withProviders(
+        <ScreenLayout headerTitle="Profile" showBackButton>
+          <Body />
+        </ScreenLayout>
+      )
+    );
+    expect(phone.queryByLabelText('Back')).toBeNull();
+    phone.unmount();
+
+    setViewport('desktop');
+    render(
+      withProviders(
+        <ScreenLayout headerTitle="Profile" showBackButton>
+          <Body />
+        </ScreenLayout>
+      )
+    );
+    expect(screen.queryByLabelText('Back')).toBeNull();
   });
 
   it('renders header extras and the body in both designs', () => {

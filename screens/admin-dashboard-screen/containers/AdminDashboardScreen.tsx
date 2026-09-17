@@ -170,10 +170,11 @@ export default function AdminDashboardScreen() {
     // phone design keeps the chrome it had.
     <ScreenLayout
       headerVariant="large"
-      // Web-only, as it was before this screen moved onto ScreenLayout: the page header carries a
-      // back link, and the phone design's header has never had one here — `showBackButton` would
-      // switch AppHeader to its nav-row branch and put a back circle where none belonged.
-      showBackButton={isWebLayout}
+      // ScreenLayout decides whether a back affordance belongs here: this is a bottom-bar tab on
+      // the phone design and a sidebar destination on the web one, so it is top-level in both and
+      // the button is suppressed either way. The hand-rolled `isWebLayout` this replaces predates
+      // that rule and now says the same thing twice.
+      showBackButton
       headerTitle={isWebLayout ? t('admin.dashboardTitle') : undefined}
       headerSubtitle={isWebLayout ? t('admin.dashboardSubtitle') : undefined}
       headerChildren={

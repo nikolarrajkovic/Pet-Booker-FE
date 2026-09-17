@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
+import ServicePhoto from '../../../components/shared/ServicePhoto';
 import {
   getServices,
   ServiceDto,
@@ -21,7 +22,8 @@ type ProviderDetailRouteParams = {
   provider: ProviderViewModel;
 };
 
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=600';
+// No stock-photo fallback — see the note in HomeScreen. A provider with no photo gets the paw
+// placeholder rather than a hotlinked stock dog presented as their own premises.
 
 export default function ProviderDetailScreen() {
   const navigation = useNavigation();
@@ -86,10 +88,11 @@ export default function ProviderDetailScreen() {
     <View className={`flex-1 ${bgColor}`} style={{ paddingTop: topInset }}>
       {/* Hero image */}
       <View className="relative">
-        <Image
-          source={{ uri: provider.image || FALLBACK_IMAGE }}
+        <ServicePhoto
+          uri={provider.image}
+          radiusClass="rounded-none"
+          iconSize={48}
           className="h-64 w-full"
-          resizeMode="cover"
         />
         <TouchableOpacity
           accessibilityRole="button"

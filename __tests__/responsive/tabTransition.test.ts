@@ -44,21 +44,20 @@ describe('useTabSlideOptions', () => {
     expect(translateAt(result.current, 1)).toBe(VIEWPORTS.mobile.width);
   });
 
-  it('never travels less than a scene-width, whatever the sidebar is doing', () => {
-    // On the web design a scene is the window minus the sidebar, so the window width overshoots
-    // slightly — deliberately. The sidebar is `fit-content` (sized by its labels, so it varies
-    // with the language and is only capped), and a travel computed by subtracting a guess at its
-    // width can come out SHORT, which puts the two scenes back on top of each other. Overshooting
-    // cannot: it is bounded by the sidebar's width and hidden by the easing.
+  it('cuts rather than slides on the web design', () => {
+    // A slide is how a PHONE says "you moved sideways along the bar at the bottom of the screen":
+    // the motion matches the gesture. The web design has no such bar — tabs are rows in a
+    // permanent sidebar, so clicking one is a jump to a destination, not a swipe to a neighbour.
+    // Sliding a whole page in from the edge on every sidebar click reads as a transition nobody
+    // asked for, and the sidebar sits still while the content flies past it.
     for (const size of ['desktop', 'tablet'] as const) {
       setViewport(size);
       const { result } = renderHook(() => useTabSlideOptions());
 
-      // The window is the widest a scene can possibly be — a scene is the window minus a
-      // sidebar of some width, and that width is never negative. Clearing this bar clears
-      // every real scene, which is the property that matters.
-      expect(translateAt(result.current, 1)).toBeGreaterThanOrEqual(VIEWPORTS[size].width);
-      expect(translateAt(result.current, -1)).toBeLessThanOrEqual(-VIEWPORTS[size].width);
+      expect(result.current.animation).toBe('none');
+      // No interpolator at all — an inactive scene must not be parked off the edge, which is what
+      // made the switch animate in the first place.
+      expect(result.current.sceneStyleInterpolator).toBeUndefined();
     }
   });
 
