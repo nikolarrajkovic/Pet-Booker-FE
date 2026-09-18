@@ -3,7 +3,7 @@
 ## Stack
 - React Native + Expo SDK 54 (Android, iOS, Web)
 - TypeScript, NativeWind (Tailwind CSS for RN), React Navigation v7
-- No server-state cache library (no React Query / SWR) — all API data lives in component state
+- No third-party server-state library (no React Query / SWR) — a small in-house one instead: `services/cache.ts` + `hooks/useResource.ts` (see **Server state** below)
 - API base URL (dev): `http://localhost:5161` — read from `process.env.EXPO_PUBLIC_API_BASE_URL`
 
 ---
@@ -43,6 +43,36 @@ context/
   AuthContext.tsx   # isLoggedIn, isAdmin, isPartner, currentUser, auth actions
   EnumsContext.tsx  # Fetch-once enum cache, cleared on logout
   ThemeContext.tsx  # isDarkMode, toggleDarkMode
+
+## Server state — read through the cache, never a bare `useEffect`
+
+**Fetch with `useResource` (single row/list) or `usePagedList` (paged list). Do not hand-roll
+`useState` + `useEffect(load, [])` — that is the bug this replaced.**
+
+React Navigation keeps a screen you navigate away from MOUNTED (`App.tsx` sets no `unmountOnBlur`
+/ `freezeOnBlur`), so a mount-only fetch renders the data it got the first time the screen opened
+and never asks again — on a TAB, for the rest of the session. Verified live: renaming a service in
+the database, then returning to the Search tab, issued **no request at all** and kept the old name.
+
+- `services/cache.ts` — one shared entry per `[resource, ...params]` key, in-flight dedupe,
+  resource-level `invalidate()`, cleared on sign-out. No React in it.
+- `hooks/useResource.ts` — cache-backed read. `isLoading` means "nothing to show"; a refresh over
+  existing data reports via `isRefreshing`, so revalidating never blinks the screen back to a
+  spinner. Refreshes on focus, on app foreground, and on invalidation.
+- `hooks/usePagedList.ts` — same lifecycle for paged lists; pass `resource` to opt in. It refreshes
+  the pages already loaded (not just page 1, which would truncate a scrolled list), up to
+  `MAX_QUIET_REFRESH_PAGES`; deeper lists set `isStale` instead.
+- **Invalidation is automatic.** `apiRequest` derives the resource from the path and invalidates it
+  after any successful non-GET, so `services/*.ts` writers need no invalidation code. Cross-resource
+  effects are declared once in `RESOURCE_FANOUT` (a booking write also refreshes stats/home/services).
+- **Live updates** come from the existing SignalR notification push:
+  `services/notification-invalidation.ts` maps a notification to the resources it changed, which is
+  the only thing that can refresh a screen the user is SITTING ON while the other side acts.
+  Note `type` arrives as a NUMBER over SignalR and as a member NAME in a device-push data bag.
+- **Form screens opt out** with `revalidate: false` — a background refresh under a half-filled
+  form would overwrite what the user is typing.
+
+---
 
 components/shared/  # Reusable UI — ALWAYS check here first before creating a new component
 components/layout/  # The web design's chrome: AppShell (wraps the navigator), SideNav, TopBar, AuthLayout (the signed-out shell)

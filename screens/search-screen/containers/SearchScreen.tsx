@@ -406,6 +406,10 @@ export default function SearchScreen() {
     // loads immediately. `location.loading` settles on denial too, so this never hangs.
     enabled: !(usesLocation && location.loading),
     errorFallback: t('search.loadError'),
+    // Search is a TAB: once visited it stays mounted for the rest of the session, so without a
+    // resource it would show the catalogue as it was the first time it was opened and never
+    // fetch again.
+    resource: 'services',
   });
 
   // DTO -> card item. Kept out of the fetch so a re-render doesn't refetch.

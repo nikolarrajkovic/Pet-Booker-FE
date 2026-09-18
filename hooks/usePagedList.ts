@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import type { PagedResult } from '../services/http';
 import { getErrorMessage } from '../services/http';
+import { DEFAULT_TTL_MS, subscribeResource } from '../services/cache';
+import { useScreenFocus } from './useScreenFocus';
 
 /**
  * Owns "a list that pages" — the accumulated rows, which page comes next, and the two distinct
@@ -32,12 +35,34 @@ import { getErrorMessage } from '../services/http';
  */
 const APPEND_SPINNER_MIN_MS = 500;
 
+/**
+ * How many already-loaded pages a background refresh will re-fetch.
+ *
+ * A quiet refresh has to replace the rows the reader can actually see, so it re-requests the
+ * pages they already pulled in — refreshing only page 1 would silently truncate a list someone
+ * had scrolled through. Past this depth the cost stops being worth it (one request per page,
+ * every time the screen regains focus), so a deeply-paged list keeps what it has until the
+ * reader reloads it themselves. `isStale` is exposed so a screen can offer that.
+ */
+const MAX_QUIET_REFRESH_PAGES = 3;
+
 export interface PagedListState<T> {
   items: T[];
   /** First page is loading (show a spinner instead of the list). */
   isLoading: boolean;
   /** A further page is loading (keep the list, show a footer spinner). */
   isLoadingMore: boolean;
+  /**
+   * The rows on screen are being refreshed in place. Deliberately distinct from `isLoading`:
+   * nothing should be swapped for a spinner, because the reader is already looking at the list.
+   */
+  isRefreshing: boolean;
+  /**
+   * The list is known to be behind the server and too deeply paged to refresh automatically —
+   * see `MAX_QUIET_REFRESH_PAGES`. A screen can surface this as a "show new results" affordance;
+   * `reload()` clears it.
+   */
+  isStale: boolean;
   error: string | null;
   /** Total rows matching the query across all pages — for "showing X of Y". */
   totalItems: number;
@@ -56,20 +81,32 @@ export interface PagedListState<T> {
  * @param options.enabled When false, nothing is fetched and the list reports an empty, settled
  *   state — for a screen whose query isn't ready yet (no user id, no provider id).
  * @param options.errorFallback Message used when the failure carries none.
+ * @param options.resource The cache resource these rows come from (`'services'`, `'app-notifications'`).
+ *   Supplying it is what keeps the list current: it refreshes its rows in place when the screen
+ *   regains focus with stale data, when the app returns from the background, and when any write
+ *   anywhere invalidates that resource. Without it the list behaves as it always did — loaded
+ *   once, then frozen for as long as the screen stays mounted, which on a tab is forever.
+ * @param options.ttlMs How long loaded rows count as fresh on a refocus.
  */
 export function usePagedList<T>(
   fetchPage: (page: number) => Promise<PagedResult<T>>,
-  options?: { enabled?: boolean; errorFallback?: string }
+  options?: { enabled?: boolean; errorFallback?: string; resource?: string; ttlMs?: number }
 ): PagedListState<T> {
   const enabled = options?.enabled ?? true;
   const errorFallback = options?.errorFallback ?? 'Failed to load.';
+  const resource = options?.resource;
+  const ttlMs = options?.ttlMs ?? DEFAULT_TTL_MS;
 
   const [items, setItems] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(enabled);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isStale, setIsStale] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalItems, setTotalItems] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  /** When the rows currently held were fetched — decides whether a refocus needs to refresh. */
+  const loadedAt = useRef(0);
 
   // Next page to request, and the generation this hook is on. Refs, not state: both are read
   // inside async callbacks that must see the current value, not the one captured at render.
@@ -117,6 +154,8 @@ export function usePagedList<T>(
         setTotalItems(result.totalItems);
         setHasMore(result.hasMore);
         nextPage.current = result.currentPage + 1;
+        loadedAt.current = Date.now();
+        setIsStale(false);
       } catch (e) {
         if (gen !== generation.current) return;
         // An append that fails leaves the rows already on screen alone — only the first page
@@ -154,6 +193,7 @@ export function usePagedList<T>(
     generation.current += 1;
     inFlight.current = null;
     nextPage.current = 1;
+    setIsStale(false);
     if (!enabled) {
       setItems([]);
       setTotalItems(0);
@@ -170,14 +210,94 @@ export function usePagedList<T>(
     void run(nextPage.current, 'append');
   }, [enabled, isLoading, isLoadingMore, hasMore, run]);
 
+  /**
+   * Replaces the rows on screen with current ones, without ever showing a spinner in their place.
+   *
+   * It re-requests the pages already loaded and swaps them in as one batch, so a reader who had
+   * paged twice keeps both pages — and keeps their scroll position, since the row count does not
+   * collapse under them. A failure leaves the existing rows exactly as they are: they are what
+   * the reader is looking at, and a background refresh has no standing to replace them with an
+   * error.
+   */
+  const refreshQuietly = useCallback(async () => {
+    const pagesLoaded = nextPage.current - 1;
+    if (!enabled || inFlight.current || pagesLoaded < 1) return;
+    if (pagesLoaded > MAX_QUIET_REFRESH_PAGES) {
+      setIsStale(true);
+      return;
+    }
+
+    generation.current += 1;
+    const gen = generation.current;
+    inFlight.current = { mode: 'replace', query: fetchPage };
+    setIsRefreshing(true);
+
+    try {
+      const refreshed: T[] = [];
+      let last: PagedResult<T> | null = null;
+      for (let page = 1; page <= pagesLoaded; page++) {
+        const result = await fetchPage(page);
+        if (gen !== generation.current) return;
+        refreshed.push(...result.items);
+        last = result;
+        if (!result.hasMore) break;
+      }
+      if (!last || gen !== generation.current) return;
+      setItems(refreshed);
+      setTotalItems(last.totalItems);
+      setHasMore(last.hasMore);
+      nextPage.current = last.currentPage + 1;
+      loadedAt.current = Date.now();
+      setIsStale(false);
+      setError(null);
+    } catch {
+      // Deliberately silent — see the doc comment.
+    } finally {
+      if (gen === generation.current) {
+        inFlight.current = null;
+        setIsRefreshing(false);
+      }
+    }
+  }, [enabled, fetchPage]);
+
+  const refreshIfStale = useCallback(() => {
+    // No resource declared = this list did not opt in, and keeps its original load-once behaviour.
+    if (!resource || !enabled || loadedAt.current === 0) return;
+    if (Date.now() - loadedAt.current > ttlMs) void refreshQuietly();
+  }, [resource, enabled, refreshQuietly, ttlMs]);
+
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Coming back to this screen. The list stays mounted while you are away (React Navigation does
+  // not unmount it), so without this a tab's list is fetched once per sign-in and never again.
+  useScreenFocus(refreshIfStale);
+
+  // Returning to the app. The other side of a booking acts while this one sits backgrounded.
+  useEffect(() => {
+    if (!resource) return;
+    const subscription = AppState.addEventListener('change', (status: AppStateStatus) => {
+      if (status === 'active') refreshIfStale();
+    });
+    return () => subscription.remove();
+  }, [resource, refreshIfStale]);
+
+  // A write — here or on any other screen — changed this resource. Unlike the two triggers above
+  // this does not wait for the TTL: something is known to have changed, right now.
+  useEffect(() => {
+    if (!resource) return;
+    return subscribeResource(resource, () => {
+      void refreshQuietly();
+    });
+  }, [resource, refreshQuietly]);
 
   return {
     items,
     isLoading,
     isLoadingMore,
+    isRefreshing,
+    isStale,
     error,
     totalItems,
     hasMore,

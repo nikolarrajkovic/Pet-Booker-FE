@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ScrollView, Text, View, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,11 +8,11 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ReviewModal from '../../../components/shared/ReviewModal';
 import ServicePhoto from '../../../components/shared/ServicePhoto';
 import { useReviewModal } from '../../../hooks/useReviewModal';
+import { useResource } from '../../../hooks/useResource';
 import {
   getBooking,
   bookingToViewModel,
   cancelBooking,
-  BookingDto,
   BookingStatusType,
   type BookingAdditionalServiceReadDto,
 } from '../../../services/bookings';
@@ -43,35 +43,23 @@ export default function BookingDetailsScreen() {
 
   const { showError, showSuccess } = useToast();
 
-  const [dto, setDto] = useState<BookingDto | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // Re-fetch after a review is submitted so the recap shows the new rating.
-  const review = useReviewModal(() => {
-    getBooking(bookingId)
-      .then(setDto)
-      .catch(() => {});
+  // Read through the shared cache rather than a private `useState` seeded once on mount. This
+  // screen is pushed over the list and stays mounted while you go deeper (a live session, the
+  // review form), so a mount-only fetch showed the booking exactly as it was when it opened —
+  // through a provider confirming it, starting the service, or re-pricing it. It now refreshes
+  // on focus, on returning to the app, and the moment any write touches bookings.
+  const {
+    data: dto,
+    isLoading,
+    error,
+    refresh,
+    setData: setDto,
+  } = useResource(['bookings', bookingId], () => getBooking(bookingId), {
+    errorFallback: t('bookingDetails.loadFailed'),
   });
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const b = await getBooking(bookingId);
-        if (!cancelled) setDto(b);
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? t('bookingDetails.loadFailed'));
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [bookingId, t]);
+  const [isCancelling, setIsCancelling] = useState(false);
+  // Re-fetch after a review is submitted so the recap shows the new rating.
+  const review = useReviewModal(() => refresh());
 
   const vm = dto ? bookingToViewModel(dto) : null;
   const heroImage = vm?.image || '';
