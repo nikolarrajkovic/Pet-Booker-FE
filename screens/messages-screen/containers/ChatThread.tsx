@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Image, ScrollView, TouchableOpacity } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -137,6 +138,13 @@ export default function ChatThread({
   onLoadedRef.current = onConversationLoaded;
   const conversationId = conversation?.id ?? params.conversationId ?? null;
 
+  /** Whether this thread is the one on screen — see the focus effect below. */
+  const isFocusedRef = useRef(false);
+  /** The newest line we hold, so a thread can catch up on what landed while it was hidden. */
+  const newestIdRef = useRef<number | null>(null);
+  /** The highest id already reported as read, so refocusing does not re-send the same receipt. */
+  const lastMarkedRef = useRef<number | null>(null);
+
   /**
    * Which side of the thread we are on. Comes from the server, NOT from comparing ids: a
    * company-managed provider account has no Domain.User, so its messages carry a null
@@ -146,6 +154,27 @@ export default function ChatThread({
   const access: ChatAccessDto | null = conversation?.access ?? null;
 
   const sortMessages = (list: MessageDto[]) => [...list].sort((a, b) => a.id - b.id);
+
+  /**
+   * Tell the server the thread has been read up to `upToId` (everything, when null).
+   *
+   * One path for all three callers — opening the thread, a message arriving while it is on
+   * screen, and coming back to it — because "read" is a claim about the person, and a thread
+   * that reports it from a screen they are not looking at wipes the unread badge for a message
+   * they never saw. Fail-soft throughout: a read receipt must never block the conversation.
+   */
+  const markRead = useCallback(
+    (upToId: number | null) => {
+      if (conversationId == null) return;
+      if (upToId != null && lastMarkedRef.current != null && upToId <= lastMarkedRef.current)
+        return;
+      if (upToId != null) lastMarkedRef.current = upToId;
+      markConversationRead(conversationId, upToId)
+        .then(refreshUnreadCount)
+        .catch(() => {});
+    },
+    [conversationId, refreshUnreadCount]
+  );
 
   // Resolve the thread, then its newest page of history.
   useEffect(() => {
@@ -176,8 +205,7 @@ export default function ChatThread({
         setHasMore(first.hasMore);
         setNextBefore(first.nextBefore ?? null);
 
-        // Opening the thread is what marks it read; fail-soft so a read-receipt
-        // hiccup never blocks the conversation itself.
+        // Opening the thread is what marks it read.
         markConversationRead(convo.id)
           .then(refreshUnreadCount)
           .catch(() => {});
@@ -207,11 +235,34 @@ export default function ChatThread({
   }, [conversationId, joinThread]);
 
   // Claim this thread as the one on screen, so its own arriving messages don't toast over the
-  // conversation the user is reading. Released on unmount — every other thread still announces.
+  // conversation the user is reading. Every other thread still announces.
+  //
+  // On FOCUS, not on mount: a thread stays mounted behind whatever is pushed on top of it — a
+  // booking opened from the thread on the phone, a second workspace on the web — and a claim held
+  // from mount went on suppressing that thread's toasts while the user could no longer see it, so
+  // the one notification that says "they replied" was the one that never arrived. Blur releases
+  // it and returning re-claims it.
+  useFocusEffect(
+    useCallback(() => {
+      if (conversationId == null) return;
+      isFocusedRef.current = true;
+      // Anything that landed while this thread was hidden is on screen now, so read it. Skipped
+      // at mount, where nothing is loaded yet and the fetch above marks the thread read itself.
+      if (newestIdRef.current != null) markRead(newestIdRef.current);
+      const release = claimActiveConversation(conversationId);
+      return () => {
+        isFocusedRef.current = false;
+        release();
+      };
+    }, [conversationId, claimActiveConversation, markRead])
+  );
+
+  // The high-water mark the catch-up above reads. Optimistic bubbles carry a negative id and are
+  // ours anyway, so they never count.
   useEffect(() => {
-    if (conversationId == null) return;
-    return claimActiveConversation(conversationId);
-  }, [conversationId, claimActiveConversation]);
+    const newest = messages[messages.length - 1]?.id;
+    if (newest != null && newest > 0) newestIdRef.current = newest;
+  }, [messages]);
 
   // Live inbound messages for THIS thread.
   useEffect(() => {
@@ -226,9 +277,11 @@ export default function ChatThread({
       });
       if (incoming.sender !== viewer) {
         setTheyAreTyping(false);
-        markConversationRead(conversationId, incoming.id)
-          .then(refreshUnreadCount)
-          .catch(() => {});
+        // Only while the thread is on screen. Mounted is not the same as visible — it stays
+        // mounted behind whatever is pushed on top of it — and reporting a read from back there
+        // clears the badge for a message the user has not seen. The focus effect catches up when
+        // they return.
+        if (isFocusedRef.current) markRead(incoming.id);
         // Their message can CHANGE the verdict, not just add a line: a provider's reply is
         // exactly what lifts a spent enquiry allowance. Without this the composer stays locked
         // behind a notice promising "you can write again once they answer" while the answer is
@@ -238,7 +291,7 @@ export default function ChatThread({
           .catch(() => {});
       }
     });
-  }, [conversationId, viewer, subscribe, refreshUnreadCount]);
+  }, [conversationId, viewer, subscribe, markRead]);
 
   // The other party opened the thread — flip our ticks to read.
   useEffect(() => {
