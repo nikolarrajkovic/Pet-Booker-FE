@@ -79,8 +79,15 @@ describe('a screen that draws its own root is a named exception', () => {
    */
   const OWN_ROOT: Record<string, string> = {
     'screens/messages-screen/containers/ChatScreen.tsx':
+      'picks a design and renders it - ChatThread on the phone, MessagesWorkspace on a wide ' +
+      'window - so the root it draws is whichever of those two draws one',
+    'screens/messages-screen/containers/ChatThread.tsx':
       'a thread, not a page: header and composer pinned with only the messages moving between ' +
-      'them, so it needs the scroll pane of its own that ScreenLayout exists to remove',
+      'them, so it needs the scroll pane of its own that ScreenLayout exists to remove. Also ' +
+      'renders embedded as the workspace pane, where the pane owns the height and the gutters',
+    'screens/messages-screen/containers/MessagesWorkspace.tsx':
+      'the web design of Messages: two panes that each scroll inside a viewport-height frame, ' +
+      'which is the opposite of the page-scrolls-as-one column ScreenLayout lays out',
     'screens/booking-confirmed-screen/containers/BookingConfirmedScreen.tsx':
       'a full-bleed confirmation - one centred message, no page chrome to share',
     'screens/partner-welcome-screen/containers/PartnerWelcomeScreen.tsx':
@@ -227,7 +234,7 @@ describe('there is one back affordance on the web design', () => {
     'screens/admin-partners-screen/containers/PartnerDetailsScreen.tsx': 'phone branch only',
     'screens/admin-new-requests-screen/containers/ApplicationReviewScreen.tsx': 'phone branch only',
     'screens/my-schedule-screen/containers/MyScheduleScreen.tsx': 'phone branch only',
-    'screens/messages-screen/containers/ChatScreen.tsx':
+    'screens/messages-screen/containers/ChatThread.tsx':
       'a chat thread header is a toolbar beside the avatar, not a page title block',
     'screens/provider-detail-screen/containers/ProviderDetailScreen.tsx':
       'orphaned and unreachable, see CLAUDE.md',

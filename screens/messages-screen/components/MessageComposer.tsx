@@ -14,6 +14,15 @@ export interface MessageComposerProps {
    * user pauses — not per character, which would put a hub round trip behind every letter.
    */
   onTypingChange?: (isTyping: boolean) => void;
+  /**
+   * Enter sends, Shift+Enter starts a new line — the convention every chat client on a desktop
+   * follows, and the one a browser user tries first.
+   *
+   * Off by default, because on a phone the return key is how you write a second line and there is
+   * no modifier to get it back. The thread turns it on for the web design only (`isWebLayout`),
+   * which is also never a native build.
+   */
+  sendOnEnter?: boolean;
 }
 
 /** How long a pause counts as "stopped typing". */
@@ -25,6 +34,7 @@ export default function MessageComposer({
   sending,
   isDarkMode,
   onTypingChange,
+  sendOnEnter = false,
 }: MessageComposerProps) {
   const { inputBg, inputText, borderColor, placeholderColor, cardBg } = themeColors(isDarkMode);
   const { t } = useLocale();
@@ -73,6 +83,17 @@ export default function MessageComposer({
     await onSend(trimmed);
   };
 
+  /**
+   * `onKeyPress` rather than `onSubmitEditing`, which a **multiline** field never fires — the
+   * return key is text there, so the composer had no way to send from the keyboard at all.
+   * `preventDefault` is what stops the newline this keystroke would otherwise insert.
+   */
+  const handleKeyPress = (e: any) => {
+    if (e?.nativeEvent?.key !== 'Enter' || e?.nativeEvent?.shiftKey) return;
+    e.preventDefault?.();
+    handleSend();
+  };
+
   return (
     <View className={`flex-row items-end border-t px-3 py-2 ${borderColor} ${cardBg}`}>
       <TextInput
@@ -85,6 +106,7 @@ export default function MessageComposer({
         style={{ maxHeight: 120 }}
         className={`mr-2 flex-1 rounded-2xl px-4 py-2.5 text-[15px] ${inputBg} ${inputText}`}
         onSubmitEditing={handleSend}
+        onKeyPress={sendOnEnter ? handleKeyPress : undefined}
         accessibilityLabel={t('messages.composerPlaceholder')}
       />
       <TouchableOpacity

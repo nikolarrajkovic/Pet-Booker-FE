@@ -12,6 +12,13 @@ export interface ConversationRowProps {
   /** Pre-formatted relative time ("2h ago"), so the row stays presentational. */
   timeLabel?: string;
   unreadCount?: number;
+  /**
+   * The thread currently open beside the list, on the web design's two-pane workspace.
+   *
+   * The phone design never passes it: there the list and the thread are different screens, so
+   * nothing is open while the list is on screen and a highlighted row would point at nothing.
+   */
+  isSelected?: boolean;
   isDarkMode: boolean;
   onPress: () => void;
 }
@@ -24,6 +31,7 @@ export default function ConversationRow({
   lastMessage,
   timeLabel,
   unreadCount = 0,
+  isSelected = false,
   isDarkMode,
   onPress,
 }: ConversationRowProps) {
@@ -36,7 +44,14 @@ export default function ConversationRow({
       activeOpacity={0.8}
       accessibilityRole="button"
       accessibilityLabel={name}
-      className={`mb-3 flex-row items-center rounded-2xl border p-3 ${cardBg} ${borderColor}`}>
+      // The selected row is the workspace's "which tab am I on" — a brand border plus a tinted
+      // ground, rather than a border colour alone, which is invisible against an unread row's
+      // bolding at a glance.
+      className={`mb-3 flex-row items-center rounded-2xl border p-3 ${
+        isSelected
+          ? `border-brand-500 ${isDarkMode ? 'bg-[#123326]' : 'bg-brand-50'}`
+          : `${cardBg} ${borderColor}`
+      }`}>
       {avatarUrl ? (
         <Image source={{ uri: avatarUrl }} className="h-12 w-12 rounded-full" />
       ) : (

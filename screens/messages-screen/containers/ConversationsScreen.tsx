@@ -1,97 +1,40 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import { ScrollView, RefreshControl } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
-import { useMessages } from '../../../context/MessagesContext';
+import { useResponsive } from '../../../hooks/useResponsive';
+import { useConversationInbox } from '../../../hooks/useConversationInbox';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
-import ListState from '../../../components/shared/ListState';
-import { ConversationRow } from '../components';
-import { getErrorMessage } from '../../../services/http';
-import { resolveImageUrl } from '../../../services/service-providers';
-import { getConversations, type ConversationDto } from '../../../services/messages';
+import { ConversationList } from '../components';
+import MessagesWorkspace, { WORKSPACE_MIN_WIDTH } from './MessagesWorkspace';
 
-/** Compact relative time for an inbox row ("now", "4m", "3h", "2d", then a date). */
-function relativeTime(iso?: string | null): string {
-  if (!iso) return '';
-  const then = new Date(iso).getTime();
-  if (isNaN(then)) return '';
-  const mins = Math.floor((Date.now() - then) / 60000);
-  if (mins < 1) return 'now';
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(then).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+/**
+ * Messages, in whichever of the app's two designs the window calls for.
+ *
+ * - **Phone** — the inbox is the page, and a row pushes the thread onto the stack (`InboxPage`).
+ * - **Wide window** — the inbox is the left column of `MessagesWorkspace`, with the open thread
+ *   beside it; see that file for why switching threads there is not a navigation.
+ *
+ * The two are separate components rather than branches inside one, because they hold different
+ * state: dragging a window across the breakpoint has to mount the other design cleanly instead of
+ * changing how many hooks this component calls.
+ */
+export default function ConversationsScreen() {
+  const { isWebLayout, width } = useResponsive();
+
+  return isWebLayout && width >= WORKSPACE_MIN_WIDTH ? <MessagesWorkspace /> : <InboxPage />;
 }
 
 /**
- * The message inbox — every thread the signed-in user is part of, newest first.
- *
- * No owner parameter is sent: the backend scopes the list to the session, and merges both sides
- * for a partner (who is a customer of other providers as well as a provider themselves). It also
- * resolves the counterpart per row, so a customer sees the provider and a provider sees the
- * customer off the same field without the client knowing which side it is on.
+ * The phone design's inbox: every thread the signed-in user is part of, newest first, with the
+ * thread itself a screen away.
  */
-export default function ConversationsScreen() {
+function InboxPage() {
   const navigation = useNavigation<any>();
-  const { isDarkMode, bgColor } = useThemeColors();
+  const { bgColor } = useThemeColors();
   const { t } = useLocale();
-  const { refreshUnreadCount, subscribeToInbox } = useMessages();
-
-  const [conversations, setConversations] = useState<ConversationDto[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoadError(null);
-    try {
-      // Already ordered by activity server-side (on message id, which is monotonic), so no
-      // client-side re-sort — one less place for the two to disagree.
-      const page = await getConversations({ perPage: 50 });
-      setConversations(page.items);
-      refreshUnreadCount();
-    } catch (e) {
-      setConversations([]);
-      setLoadError(getErrorMessage(e, t('messages.inboxLoadFailed')));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [t, refreshUnreadCount]);
-
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      setIsLoading(true);
-      (async () => {
-        if (!cancelled) await load();
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [load])
-  );
-
-  // A message arriving in any thread reorders the inbox — but the push carries that thread's
-  // own row (the recipient's view of it, unread count included), so splice it to the front
-  // instead of refetching fifty threads plus the badge to learn what we were just handed. A new
-  // message always makes its thread the most recent, which is exactly where a reload would put
-  // it; the badge is re-seeded by MessagesContext off the same event.
-  useEffect(
-    () =>
-      subscribeToInbox((updated) =>
-        setConversations((prev) => [updated, ...prev.filter((c) => c.id !== updated.id)])
-      ),
-    [subscribeToInbox]
-  );
-
-  const onRefresh = async () => {
-    setIsRefreshing(true);
-    await load();
-    setIsRefreshing(false);
-  };
+  const { conversations, isLoading, isRefreshing, loadError, refresh } = useConversationInbox();
 
   return (
     <ScreenLayout
@@ -106,31 +49,17 @@ export default function ConversationsScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={onRefresh}
+            onRefresh={refresh}
             tintColor={BRAND_GREEN}
             colors={[BRAND_GREEN]}
           />
         }>
-        <ListState
+        <ConversationList
+          conversations={conversations}
           isLoading={isLoading}
           error={loadError}
-          isEmpty={conversations.length === 0}
-          emptyIcon="chatbubbles-outline"
-          emptyMessage={t('messages.emptyInbox')}>
-          {conversations.map((c) => (
-            <ConversationRow
-              key={c.id}
-              name={c.counterpartName || t('messages.conversation')}
-              subtitle={c.serviceName ?? undefined}
-              avatarUrl={resolveImageUrl(c.counterpartAvatarUrl) || null}
-              lastMessage={c.lastMessagePreview}
-              timeLabel={relativeTime(c.lastMessageAt)}
-              unreadCount={c.unreadCount ?? 0}
-              isDarkMode={isDarkMode}
-              onPress={() => navigation.navigate('Chat', { conversationId: c.id })}
-            />
-          ))}
-        </ListState>
+          onSelect={(c) => navigation.navigate('Chat', { conversationId: c.id })}
+        />
       </ScrollView>
     </ScreenLayout>
   );

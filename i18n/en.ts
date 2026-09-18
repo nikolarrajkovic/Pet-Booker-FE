@@ -24,6 +24,7 @@ const en = {
     no: 'No',
     loading: 'Loading…',
     retry: 'Retry',
+    refresh: 'Refresh',
     tryAgain: 'Try Again',
     search: 'Search',
     submit: 'Submit',
@@ -573,6 +574,9 @@ const en = {
     send: 'Send',
     emptyInbox: 'No messages yet',
     emptyThread: 'No messages yet — say hello!',
+    // The web design's two-pane view, before a thread is picked.
+    paneTitle: 'Your messages',
+    paneHint: 'Pick a conversation on the left to read it and reply.',
     loadFailed: 'Could not load this conversation.',
     inboxLoadFailed: 'Could not load your messages.',
     sendFailed: 'Message not sent. Please try again.',

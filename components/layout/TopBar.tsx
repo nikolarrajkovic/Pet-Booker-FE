@@ -7,8 +7,11 @@ import { useLocale } from '../../context/LocaleContext';
 import { useNotifications } from '../../context/NotificationsContext';
 import { useMessages } from '../../context/MessagesContext';
 import { navigateFromOutside } from '../../navigation/navigationRef';
+import { TOPBAR_HEIGHT } from './chrome';
 
-export const TOPBAR_HEIGHT = 64;
+// Re-exported so the existing import path keeps working; the number itself lives in `chrome.ts`,
+// away from this component's dependency tree.
+export { TOPBAR_HEIGHT };
 
 /** Small round icon button with a count badge — the bell and the messages icon. */
 function IconAction({

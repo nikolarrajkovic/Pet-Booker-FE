@@ -6,3 +6,5 @@ export type { MessageComposerProps } from './MessageComposer';
 export type { ConversationRowProps } from './ConversationRow';
 export { default as ComposerLockedNotice } from './ComposerLockedNotice';
 export type { ComposerLockedNoticeProps } from './ComposerLockedNotice';
+export { default as ConversationList, relativeTime } from './ConversationList';
+export type { ConversationListProps } from './ConversationList';
