@@ -27,6 +27,14 @@ export type MessagesWorkspaceProps = {
    * selected and the placeholder beside the list.
    */
   initialThread?: ChatThreadParams;
+  /**
+   * Told which thread is now open, for a route that carries one in its URL.
+   *
+   * Switching threads here is deliberately not a navigation, but the address bar should still say
+   * what is on screen: without this it keeps naming whatever thread you arrived with, so a
+   * refresh — or a copied link — takes you back to a conversation you left three clicks ago.
+   */
+  onThreadOpened?: (conversationId: number) => void;
 };
 
 /**
@@ -39,11 +47,15 @@ export type MessagesWorkspaceProps = {
  * and the conversation you were just in is still one row away.
  *
  * Selection is local state rather than a `navigate`, which is what keeps switching instant — the
- * inbox is not refetched, the list's hub subscription survives, and nothing animates. The URL
- * still addresses a thread on the way *in* (`/messages/:conversationId` renders this with
- * `initialThread`), so deep links and reloads are unaffected.
+ * inbox is not refetched, the list's hub subscription survives, and nothing animates. The address
+ * bar still keeps up: `/messages/:conversationId` opens a thread on the way *in*, and a route that
+ * carries one is told which thread is open (`onThreadOpened`) so a refresh or a copied link lands
+ * on the conversation being read rather than the one it was entered with.
  */
-export default function MessagesWorkspace({ initialThread }: MessagesWorkspaceProps) {
+export default function MessagesWorkspace({
+  initialThread,
+  onThreadOpened,
+}: MessagesWorkspaceProps) {
   const { hex, cardBg, borderColor, textColor, subtextColor } = useThemeColors();
   const { t } = useLocale();
   const { mode } = useResponsive();
@@ -97,18 +109,22 @@ export default function MessagesWorkspace({ initialThread }: MessagesWorkspacePr
       setThread({ conversationId: conversation.id });
       setOpenId(conversation.id);
       markThreadRead(conversation.id);
+      onThreadOpened?.(conversation.id);
     },
-    [markThreadRead]
+    [markThreadRead, onThreadOpened]
   );
 
   const handleLoaded = useCallback(
     (conversation: ConversationDto) => {
       setOpenId(conversation.id);
+      // A thread opened by provider or booking id only learns its conversation id here, which is
+      // the id the URL should carry.
+      onThreadOpened?.(conversation.id);
       // Upsert, not just mark-read: a thread reached from a service page or a booking may be
       // younger than the list beside it.
       noteOpenedThread(conversation);
     },
-    [noteOpenedThread]
+    [noteOpenedThread, onThreadOpened]
   );
 
   const handleSent = useCallback(

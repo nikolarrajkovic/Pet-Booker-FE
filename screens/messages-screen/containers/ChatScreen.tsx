@@ -1,5 +1,6 @@
 import React from 'react';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { useCallback } from 'react';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { useResponsive } from '../../../hooks/useResponsive';
 import ChatThread, { type ChatThreadParams } from './ChatThread';
@@ -27,12 +28,34 @@ export type ChatRouteParams = ChatThreadParams;
  */
 export default function ChatScreen() {
   const route = useRoute<RouteProp<{ params: ChatRouteParams }, 'params'>>();
+  const navigation = useNavigation<any>();
   const { goUp } = useAppNavigation();
   const { isWebLayout, width } = useResponsive();
   const params = route.params ?? {};
 
+  /**
+   * Keep this route's URL on the thread the workspace is actually showing.
+   *
+   * `setParams`, not a navigate: it rewrites the current history entry rather than adding one, so
+   * switching threads stays instant and browser Back still leaves the inbox rather than stepping
+   * back through every conversation read. The get-or-create params are cleared, since the thread
+   * now has an id of its own and re-opening it by provider would be a second round trip.
+   */
+  const trackOpenThread = useCallback(
+    (conversationId: number) => {
+      if (route.params?.conversationId === conversationId) return;
+      navigation.setParams({
+        conversationId,
+        serviceProviderId: undefined,
+        bookingId: undefined,
+        serviceId: undefined,
+      });
+    },
+    [navigation, route.params?.conversationId]
+  );
+
   if (isWebLayout && width >= WORKSPACE_MIN_WIDTH)
-    return <MessagesWorkspace initialThread={params} />;
+    return <MessagesWorkspace initialThread={params} onThreadOpened={trackOpenThread} />;
 
   return (
     <ChatThread

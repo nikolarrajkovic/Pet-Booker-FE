@@ -226,7 +226,7 @@ can be right in one design and broken in the other, so each one is a test case.
 | B14 | Hover / focus | No hover; touch feedback only | Hover states and keyboard focus rings are required |
 | B15 | Deep links | `petbooker://` | Real URLs; any screen reachable by URL must survive a cold load |
 | B16 | Keyboard form submission | Return key advances fields (was: did nothing) | **Enter advances, and submits from the last field** — the convention a browser user assumes. Without it a form reads as broken. See `hooks/useFormChain.ts` |
-| B17 | Messages | Inbox page → thread pushed on top of it; return key writes a new line; pull-to-refresh | Two panes: inbox pinned left, open thread right (`MessagesWorkspace`, at/above `WORKSPACE_MIN_WIDTH` = 1024). Switching threads is local state, not a navigation; the URL still addresses one on the way in. Enter sends (Shift+Enter for a new line), and the pinned list carries a refresh button per B9 |
+| B17 | Messages | Inbox page → thread pushed on top of it; return key writes a new line; pull-to-refresh | Two panes: inbox pinned left, open thread right (`MessagesWorkspace`, at/above `WORKSPACE_MIN_WIDTH` = 1024). Switching threads is local state, not a navigation, but the URL follows the open thread (setParams, so Back still leaves the inbox). Enter sends (Shift+Enter for a new line), and the pinned list carries a refresh button per B9 |
 
 ---
 
