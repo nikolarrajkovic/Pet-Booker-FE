@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
-import { useToast } from '../../../context/ToastContext';
+import { useResource } from '../../../hooks/useResource';
 import ServicePhoto from '../../../components/shared/ServicePhoto';
 import {
   getServices,
@@ -14,7 +14,6 @@ import {
 import { formatMoney } from '../../../services/currency';
 import { getReviews, ReviewDto } from '../../../services/reviews';
 import { ApprovalStatus } from '../../../services/service-providers';
-import { getErrorMessage } from '../../../services/http';
 import { useTopInset } from '../../../hooks/useSafeAreaSpacing';
 import type { ProviderViewModel } from '../../../services/service-providers';
 
@@ -25,44 +24,33 @@ type ProviderDetailRouteParams = {
 // No stock-photo fallback — see the note in HomeScreen. A provider with no photo gets the paw
 // placeholder rather than a hotlinked stock dog presented as their own premises.
 
+// Stable empty defaults: a fresh `[]` per render would be a new dependency for every memo and
+// effect downstream of them.
+const EMPTY_SERVICES: ServiceDto[] = [];
+const EMPTY_REVIEWS: ReviewDto[] = [];
+
 export default function ProviderDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: ProviderDetailRouteParams }, 'params'>>();
   const { provider } = route.params;
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
-  const { showError } = useToast();
   const topInset = useTopInset();
 
-  const [services, setServices] = useState<ServiceDto[]>([]);
-  const [reviews, setReviews] = useState<ReviewDto[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setIsLoading(true);
-      try {
-        const [svc, rev] = await Promise.all([
-          getServices({ serviceProviderId: provider.id }),
-          // Reviews are admin-moderated — only show approved ones publicly
-          getReviews({ serviceProviderId: provider.id, approvalStatus: ApprovalStatus.Approved }),
-        ]);
-        if (!cancelled) {
-          setServices(svc);
-          setReviews(rev);
-        }
-      } catch (e) {
-        if (!cancelled)
-          showError(getErrorMessage(e, 'Could not load provider details. Please try again.'));
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [provider.id, showError]);
+  // Both lists come from the shared cache, so this profile reflects a service the provider just
+  // edited or a review that was just approved — it used to hold whatever it fetched the first
+  // time it was opened, for as long as the screen stayed on the stack.
+  const { data: services = EMPTY_SERVICES, isLoading: servicesLoading } = useResource(
+    ['services', { serviceProviderId: provider.id }],
+    () => getServices({ serviceProviderId: provider.id }),
+    { errorFallback: 'Could not load provider details. Please try again.' }
+  );
+  // Reviews are admin-moderated — only show approved ones publicly
+  const { data: reviews = EMPTY_REVIEWS, isLoading: reviewsLoading } = useResource(
+    ['reviews', { serviceProviderId: provider.id, approvalStatus: ApprovalStatus.Approved }],
+    () => getReviews({ serviceProviderId: provider.id, approvalStatus: ApprovalStatus.Approved }),
+    { errorFallback: 'Could not load provider details. Please try again.' }
+  );
+  const isLoading = servicesLoading || reviewsLoading;
 
   // Derive real rating + starting price from fetched data when available
   const avgRating = reviews.length

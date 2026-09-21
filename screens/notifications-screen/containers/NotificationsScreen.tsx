@@ -77,6 +77,7 @@ export default function NotificationsScreen() {
   } = usePagedList<AppNotificationDto>(fetchPage, {
     enabled: userId != null,
     errorFallback: t('notifications.loadFailed'),
+    resource: 'app-notifications',
   });
   // The "leave a review" modal (shared hook owns the createReview submit).
   const review = useReviewModal();

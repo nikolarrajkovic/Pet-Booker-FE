@@ -19,6 +19,8 @@ import {
   NOTIFICATION_RECEIVED,
 } from '../services/notification-hub';
 import { followNotificationRoute, routeForNotification } from '../navigation/notificationRoute';
+import { invalidate } from '../services/cache';
+import { resourcesForNotification } from '../services/notification-invalidation';
 
 type Listener = (notification: AppNotificationDto) => void;
 
@@ -96,6 +98,10 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       // ("Booking declined") while the message carries the detail that makes the
       // push actionable — the provider's decline reason, the service, the date.
       // Both arrive already localized in the recipient's language.
+      // The push doubles as live cache invalidation: it is the only signal that reaches a screen
+      // the user is sitting on while the OTHER side acts, where no focus or navigation event
+      // will ever fire. See services/notification-invalidation.ts.
+      invalidate(resourcesForNotification(notification));
       const text = notification.message?.trim() || notification.title;
       // Every notification toasts, hidden-from-the-inbox ones included — for a message that
       // toast IS the notification, and tapping it is the way into the thread.
