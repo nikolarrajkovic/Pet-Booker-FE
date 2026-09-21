@@ -296,6 +296,12 @@ const en = {
     loadError: 'Could not load services. Please try again.',
     nothingNearby: 'Nothing near you yet',
     nothingNearbySub: 'Try a wider area, or check back as partners join.',
+    noRecentBookings: 'Nothing booked yet',
+    noRecentBookingsSub: 'Services you book show up here, ready to book again.',
+    noPopular: 'Nothing popular yet',
+    noPopularSub: 'As bookings come in, the most-booked services land here.',
+    noDeals: 'No deals right now',
+    noDealsSub: 'Partners add offers regularly — check back soon.',
   },
   card: {
     popular: 'Popular',

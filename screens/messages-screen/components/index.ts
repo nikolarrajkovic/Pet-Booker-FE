@@ -6,3 +6,7 @@ export type { MessageComposerProps } from './MessageComposer';
 export type { ConversationRowProps } from './ConversationRow';
 export { default as ComposerLockedNotice } from './ComposerLockedNotice';
 export type { ComposerLockedNoticeProps } from './ComposerLockedNotice';
+export { default as ChatThread } from './ChatThread';
+export type { ChatThreadProps, ChatThreadTarget } from './ChatThread';
+export { default as MessagesSplitView } from './MessagesSplitView';
+export type { MessagesSplitViewProps } from './MessagesSplitView';

@@ -139,10 +139,14 @@ export default function HomeScreen() {
   const [recentlyBooked, setRecentlyBooked] = useState<ServiceItem[]>([]);
   const [specialDeals, setSpecialDeals] = useState<ServiceItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // Near You answers on its own clock, so it settles separately. Both flags gate the single
-  // placeholder this screen still draws, which may only appear once every row has answered.
+  // Near You answers on its own clock, so its rail settles separately — sharing the page's flag
+  // would swap its skeletons for "nothing near you" seconds before the location fix lands.
   const [nearYouLoading, setNearYouLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Which rows came back broken. A failed row and an empty one both end up with no cards, but
+  // only a failure is worth a Retry — one page-level flag would either put a Retry button under
+  // "no deals right now" or leave a dead row with no way back.
+  const [failed, setFailed] = useState({ popular: false, deals: false, recent: false });
   const [nearYouFailed, setNearYouFailed] = useState(false);
   const [reloads, setReloads] = useState(0);
   // Live badge counts — kept current by the SignalR pushes in the two providers.
@@ -166,9 +170,9 @@ export default function HomeScreen() {
         setIsLoading(true);
         setLoadError(null);
         // Each Home row is its own backend endpoint. Settle each independently so one failing
-        // section doesn't blank the whole page — a row that answers with nothing is simply not
-        // drawn. Each rail row already carries its own applied discount, rating, image and
-        // post-discount price, so there is nothing else to fetch to render a card.
+        // section doesn't blank the whole page — a row that answers with nothing keeps its
+        // heading and explains itself in place. Each rail row already carries its own applied
+        // discount, rating, image and post-discount price, so there is nothing else to fetch.
         const val = <T,>(r: PromiseSettledResult<T[]>): T[] =>
           r.status === 'fulfilled' ? r.value : [];
         const results = await Promise.allSettled([
@@ -185,10 +189,15 @@ export default function HomeScreen() {
         setMostPopular(toItems(val(popularR)));
         setSpecialDeals(deals);
         setRecentlyBooked(toItems(val(recentR)));
+        setFailed({
+          popular: popularR.status === 'rejected',
+          deals: saleR.status === 'rejected',
+          recent: recentR.status === 'rejected',
+        });
 
-        // A row that failed draws nothing, exactly like a row that came back empty, so the only
-        // place left to report a failure is the all-rows-empty placeholder — which is why any one
-        // rejection is enough to record a message for it.
+        // One message, shared by whichever rows failed: they answer from the same host, so they
+        // fail together far more often than separately, and each rail decides on its own whether
+        // it has anything to show it in.
         const firstError = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
         setLoadError(firstError ? getErrorMessage(firstError.reason, t('home.loadError')) : null);
         setIsLoading(false);
@@ -221,8 +230,8 @@ export default function HomeScreen() {
           setNearYouLoading(false);
         })
         .catch(() => {
-          // A dead request and an empty neighbourhood both draw no row; this flag only decides
-          // which message the all-rows-empty placeholder carries.
+          // A dead request and an empty neighbourhood both leave the rail without cards; this
+          // flag decides whether it offers a Retry or explains an empty catalogue.
           if (cancelled) return;
           setNearYou([]);
           setNearYouFailed(true);
@@ -266,16 +275,18 @@ export default function HomeScreen() {
     icon: string,
     items: ServiceItem[],
     category: string,
-    badge?: 'popular' | 'deal',
-    empty?: React.ReactNode,
+    badge: 'popular' | 'deal' | undefined,
+    /**
+     * Drawn in place of the cards when the row has none — every rail has one, see `emptyFor`.
+     *
+     * A rail that removed itself when it was empty took its heading with it, so the page's
+     * sections moved around between loads and the reader had no way to tell a row with nothing
+     * in it from a row this build doesn't have. The row stays; the gap is explained inside it.
+     */
+    empty: React.ReactNode,
     /** Which clock this row is on. Near You has its own; the other three share the page's. */
     loading = isLoading
   ) => {
-    // A row that loaded nothing is not drawn at all — no heading, no explanatory card. A browse
-    // screen is better off showing what it has than narrating what it hasn't. The one exception
-    // is the row that passes `empty`: Near You, and only when the whole page came back empty.
-    if (!loading && items.length === 0 && !empty) return null;
-
     // Skeletons match the real cards' shape, so the row does not resize when the data lands.
     const cards = loading
       ? Array.from({ length: isWebLayout ? 3 : 3 }).map((_, i) => (
@@ -331,54 +342,77 @@ export default function HomeScreen() {
   };
 
   /**
-   * The one placeholder left on this screen: what the Near You rail shows when the page as a
-   * whole came back empty. Deliberately quiet — a card the row's own width rather than a
-   * full-screen illustration — because it stands in for the content, it is not an announcement.
+   * What a rail shows instead of cards. Deliberately quiet and deliberately SHORT — it stands in
+   * for one row of a browse page, not for the page, so it is a strip the row's own width rather
+   * than a centred illustration. Four of them stacked (a page that loaded nothing at all) still
+   * reads as a page with four sections in it.
    */
-  const emptyRow = (icon: string, title: string, sub: string, action?: () => void) => (
+  const emptyRow = (opts: {
+    icon: string;
+    title: string;
+    sub: string;
+    /** Only a failure gets one — an empty catalogue is not something Retry can fix. */
+    onRetry?: () => void;
+    retryLabel?: string;
+  }) => (
     <View
-      className={`items-center rounded-2xl px-6 py-8 ${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}`}>
-      <Ionicons name={icon as any} size={28} color="#9CA3AF" />
-      <Text className={`mt-3 text-center text-base font-semibold ${textColor}`}>{title}</Text>
-      <Text
-        className={`mt-1 text-center text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-        {sub}
-      </Text>
-      {action && (
+      className={`flex-row items-center rounded-2xl px-4 py-4 ${isDarkMode ? 'bg-[#1a2332]' : 'bg-white'}`}>
+      <View
+        className={`h-10 w-10 items-center justify-center rounded-full ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
+        <Ionicons name={opts.icon as any} size={20} color="#9CA3AF" />
+      </View>
+      <View className="ml-3 flex-1">
+        <Text className={`text-sm font-semibold ${textColor}`}>{opts.title}</Text>
+        <Text className={`mt-0.5 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+          {opts.sub}
+        </Text>
+      </View>
+      {opts.onRetry && (
         <TouchableOpacity
           accessibilityRole="button"
-          onPress={action}
-          className="mt-4 rounded-xl bg-brand-600 px-5 py-2.5">
-          <Text className="font-semibold text-white">{t('common.retry')}</Text>
+          // Named after its row: a page that failed outright shows one of these per rail, and
+          // four bare "Retry" buttons are indistinguishable to a screen reader.
+          accessibilityLabel={opts.retryLabel}
+          onPress={opts.onRetry}
+          className="ml-3 rounded-xl bg-brand-600 px-4 py-2">
+          <Text className="text-sm font-semibold text-white">{t('common.retry')}</Text>
         </TouchableOpacity>
       )}
     </View>
   );
 
-  // An empty row hides itself, so a page whose every row is empty would otherwise be nothing but
-  // category pills. That — and only that — is when a placeholder is drawn, in the Near You rail.
-  // It waits on both clocks: calling the page empty while Near You is still in flight would flash
-  // a wrong message at everyone whose location takes a moment to resolve.
-  const nothingLoaded =
-    !isLoading &&
-    !nearYouLoading &&
-    nearYou.length === 0 &&
-    mostPopular.length === 0 &&
-    recentlyBooked.length === 0 &&
-    specialDeals.length === 0;
+  /**
+   * A rail's stand-in, chosen by WHY it has nothing. Both cases are "no cards", but only one is
+   * worth retrying — and saying "nothing near you yet" on behalf of a request that never answered
+   * is a claim about the catalogue the app has no evidence for.
+   */
+  const emptyFor = (
+    rowTitle: string,
+    rowFailed: boolean,
+    icon: string,
+    title: string,
+    sub: string
+  ) =>
+    rowFailed
+      ? emptyRow({
+          icon: 'cloud-offline-outline',
+          title: t('home.couldntLoad'),
+          sub: loadError ?? t('home.loadError'),
+          // The rows answer from one host, so whatever killed this one most likely killed the
+          // others: Retry reloads the page rather than the row.
+          onRetry: () => setReloads((n) => n + 1),
+          retryLabel: `${t('common.retry')}: ${rowTitle}`,
+        })
+      : emptyRow({ icon, title, sub });
 
-  // A failure and an empty catalogue are both "no cards", but only one of them is worth retrying,
-  // so the placeholder says which it is. Any one row failing is enough: with the others drawing
-  // nothing either, this card is the only place a failure can still be reported.
-  const nothingLoadedRow =
-    loadError || nearYouFailed
-      ? emptyRow(
-          'cloud-offline-outline',
-          t('home.couldntLoad'),
-          loadError ?? t('home.loadError'),
-          () => setReloads((n) => n + 1)
-        )
-      : emptyRow('location-outline', t('home.nothingNearby'), t('home.nothingNearbySub'));
+  // Held in one place because each row's title is used twice — as the section heading, and to
+  // name that section's Retry button.
+  const titles = {
+    recent: t('home.recentlyBooked'),
+    nearYou: t('home.nearYou'),
+    popular: t('home.mostPopular'),
+    deals: t('home.specialDeals'),
+  };
 
   return (
     <ScreenLayout
@@ -512,29 +546,62 @@ export default function HomeScreen() {
           </PillRow>
         </View>
 
-        {renderSection(t('home.recentlyBooked'), 'time-outline', recentlyBooked, 'recently-booked')}
         {renderSection(
-          t('home.nearYou'),
+          titles.recent,
+          'time-outline',
+          recentlyBooked,
+          'recently-booked',
+          undefined,
+          emptyFor(
+            titles.recent,
+            failed.recent,
+            'time-outline',
+            t('home.noRecentBookings'),
+            t('home.noRecentBookingsSub')
+          )
+        )}
+        {renderSection(
+          titles.nearYou,
           'location-outline',
           nearYou,
           'near-you',
           undefined,
-          nothingLoaded ? nothingLoadedRow : undefined,
+          emptyFor(
+            titles.nearYou,
+            nearYouFailed,
+            'location-outline',
+            t('home.nothingNearby'),
+            t('home.nothingNearbySub')
+          ),
           nearYouLoading
         )}
         {renderSection(
-          t('home.mostPopular'),
+          titles.popular,
           'trending-up-outline',
           mostPopular,
           'most-popular',
-          'popular'
+          'popular',
+          emptyFor(
+            titles.popular,
+            failed.popular,
+            'trending-up-outline',
+            t('home.noPopular'),
+            t('home.noPopularSub')
+          )
         )}
         {renderSection(
-          t('home.specialDeals'),
+          titles.deals,
           'pricetag-outline',
           specialDeals,
           'special-deals',
-          'deal'
+          'deal',
+          emptyFor(
+            titles.deals,
+            failed.deals,
+            'pricetag-outline',
+            t('home.noDeals'),
+            t('home.noDealsSub')
+          )
         )}
       </ScrollView>
     </ScreenLayout>

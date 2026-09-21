@@ -17,6 +17,21 @@ type AppShellProps = {
 };
 
 /**
+ * Routes that take the whole window on the web design, chrome included.
+ *
+ * The shell is the right default — a page belongs beside the navigation that got the user to
+ * it. A celebration is not a page: it is a full-bleed moment with one way forward, and drawn
+ * inside the content column it became a green panel in the corner of the app with the sidebar,
+ * the top bar and the page ground framing it, which is the opposite of the effect.
+ *
+ * Handled here rather than with `position: fixed` in the screen, because a fixed box is
+ * positioned against the nearest transformed ancestor rather than the viewport — and the
+ * navigator puts transforms on its scenes whenever anything animates. Unmounting the chrome
+ * cannot be defeated by a transform that appears later.
+ */
+const FULL_BLEED_ROUTES = new Set(['PartnerWelcome']);
+
+/**
  * Wraps the navigator in the web design's chrome: sidebar on the left, top bar above the content.
  *
  * **On mobile it renders `children` untouched** — the phone design is exactly what it was, and
@@ -46,6 +61,8 @@ export default function AppShell({ children, enabled }: AppShellProps) {
   const activeRoute = useCurrentRouteName();
 
   if (!enabled || !isWebLayout) return <>{children}</>;
+  // Same bare render as a signed-out screen: the route on screen wants the whole window.
+  if (activeRoute && FULL_BLEED_ROUTES.has(activeRoute)) return <>{children}</>;
 
   return (
     <View style={{ flex: 1, flexDirection: 'row', backgroundColor: hex.bg }}>

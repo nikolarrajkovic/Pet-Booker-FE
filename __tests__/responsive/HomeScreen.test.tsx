@@ -154,42 +154,52 @@ describeBothLayouts('HomeScreen', ({ renderScreen, isWeb }) => {
 
 describeBothLayouts('HomeScreen empty rails', ({ renderScreen }) => {
   /**
-   * Home is a browse screen, so a row with nothing in it is not news: it is drawn only when it
-   * has cards, and says nothing at all otherwise. Whether the request came back empty or never
-   * came back is the same thing to the reader — either way there is nothing to browse there.
+   * Every rail is drawn, cards or no cards. A row that deleted itself when it was empty took its
+   * heading with it, so the page's sections moved around between loads and a reader could not
+   * tell a row with nothing in it from a row this build does not have — and on a wide window the
+   * page silently collapsed from four sections to one.
    *
-   * The single exception is the page that has nothing anywhere, which would otherwise be a strip
-   * of category pills over blank space. That gets one placeholder, in the Near You rail.
+   * What the row says depends on WHY it is empty: an empty catalogue is a fact about the
+   * catalogue, a dead request is worth a Retry, and the two must not be confused.
    */
 
-  it('hides a rail that came back empty instead of explaining it', async () => {
+  it('keeps a rail that came back empty, and says why', async () => {
     mockGetNearMe.mockResolvedValueOnce([]);
     renderScreen(<HomeScreen />);
 
     await waitFor(() => expect(screen.getByText('Sunny Sitters')).toBeTruthy());
-    expect(screen.queryByText('Near You')).toBeNull();
-    expect(screen.queryByText('Nothing near you yet')).toBeNull();
+    expect(screen.getByText('Near You')).toBeTruthy();
+    expect(screen.getByText('Nothing near you yet')).toBeTruthy();
+    // The other rails are unaffected — one empty row is not a page-wide state.
+    expect(screen.getByText('Deal Walkers')).toBeTruthy();
   });
 
-  it('hides a rail whose request failed, exactly like an empty one', async () => {
+  it('offers a Retry on a rail whose request failed, and only there', async () => {
     mockGetOnSale.mockRejectedValueOnce(new Error('boom'));
     renderScreen(<HomeScreen />);
 
     await waitFor(() => expect(screen.getByText('Sunny Sitters')).toBeTruthy());
-    // No heading, no apology, no "no deals right now" — the rest of the page is unaffected.
-    expect(screen.queryByText('Special Deals')).toBeNull();
+    expect(screen.getByText('Special Deals')).toBeTruthy();
+    expect(screen.getByText('Couldn’t load services')).toBeTruthy();
+    // "No deals right now" is a claim about the catalogue, and a request that never answered is
+    // no evidence for it.
+    expect(screen.queryByText('No deals right now')).toBeNull();
+    expect(screen.getByLabelText('Retry: Special Deals')).toBeTruthy();
+    // The rows that loaded are untouched, and carry no Retry of their own.
     expect(screen.getByText('Local Boarders')).toBeTruthy();
+    expect(screen.queryByLabelText('Retry: Near You')).toBeNull();
   });
 
-  it('keeps hiding Recently Booked, whose absence explains itself', async () => {
+  it('keeps Recently Booked, which a first-time user needs explained', async () => {
     mockGetRecentlyBooked.mockResolvedValueOnce([]);
     renderScreen(<HomeScreen />);
 
     await waitFor(() => expect(screen.getByText('Sunny Sitters')).toBeTruthy());
-    expect(screen.queryByText('Recently Booked')).toBeNull();
+    expect(screen.getByText('Recently Booked')).toBeTruthy();
+    expect(screen.getByText('Nothing booked yet')).toBeTruthy();
   });
 
-  it('shows one placeholder, under Near You, when no row loaded anything', async () => {
+  it('still shows all four sections when no row loaded anything', async () => {
     mockGetMostPopular.mockResolvedValueOnce([]);
     mockGetOnSale.mockResolvedValueOnce([]);
     mockGetRecentlyBooked.mockResolvedValueOnce([]);
@@ -197,38 +207,38 @@ describeBothLayouts('HomeScreen empty rails', ({ renderScreen }) => {
     renderScreen(<HomeScreen />);
 
     await waitFor(() => expect(screen.getByText('Nothing near you yet')).toBeTruthy());
-    // One row carries it; the other three stay away rather than stacking four of these.
+    expect(screen.getByText('Recently Booked')).toBeTruthy();
     expect(screen.getByText('Near You')).toBeTruthy();
-    expect(screen.queryByText('Most Popular')).toBeNull();
-    expect(screen.queryByText('Special Deals')).toBeNull();
+    expect(screen.getByText('Most Popular')).toBeTruthy();
+    expect(screen.getByText('Special Deals')).toBeTruthy();
+    // Nothing failed, so nothing offers a retry.
+    expect(screen.queryByText('Retry')).toBeNull();
   });
 
   it('calls a failure a failure when nothing loaded at all', async () => {
-    // "Nothing near you yet — try a wider area" is a claim about the catalogue, and a page that
-    // failed to load has no evidence for it.
     mockGetMostPopular.mockRejectedValueOnce(new Error('network'));
     mockGetOnSale.mockRejectedValueOnce(new Error('network'));
     mockGetRecentlyBooked.mockRejectedValueOnce(new Error('network'));
     mockGetNearMe.mockRejectedValueOnce(new Error('network'));
     renderScreen(<HomeScreen />);
 
-    await waitFor(() => expect(screen.getByText('Couldn’t load services')).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText('Couldn’t load services').length).toBe(4));
     expect(screen.queryByText('Nothing near you yet')).toBeNull();
   });
 
-  it('retries every row from that placeholder', async () => {
+  it('retries every row from a rail’s Retry', async () => {
     mockGetMostPopular.mockRejectedValueOnce(new Error('network'));
     mockGetOnSale.mockRejectedValueOnce(new Error('network'));
     mockGetRecentlyBooked.mockRejectedValueOnce(new Error('network'));
     mockGetNearMe.mockRejectedValueOnce(new Error('network'));
     renderScreen(<HomeScreen />);
 
-    await waitFor(() => expect(screen.getByText('Couldn’t load services')).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText('Retry: Most Popular')).toBeTruthy());
 
-    fireEvent.press(screen.getByText('Retry'));
+    fireEvent.press(screen.getByLabelText('Retry: Most Popular'));
 
-    // It is the whole page that is empty, so Retry reloads the whole page — a retry that only
-    // refetched Near You would leave the reader pressing it at three rows it never touched.
+    // The rows answer from one host, so they fail together: a retry that refetched only its own
+    // row would leave the reader pressing four buttons to reload one page.
     await waitFor(() => expect(screen.getByText('Sunny Sitters')).toBeTruthy());
     expect(screen.getByText('Local Boarders')).toBeTruthy();
   });

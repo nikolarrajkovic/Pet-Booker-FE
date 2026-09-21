@@ -7,8 +7,9 @@ import { useLocale } from '../../context/LocaleContext';
 import { useNotifications } from '../../context/NotificationsContext';
 import { useMessages } from '../../context/MessagesContext';
 import { navigateFromOutside } from '../../navigation/navigationRef';
+import { TOPBAR_HEIGHT } from './topBarMetrics';
 
-export const TOPBAR_HEIGHT = 64;
+export { TOPBAR_HEIGHT } from './topBarMetrics';
 
 /** Small round icon button with a count badge — the bell and the messages icon. */
 function IconAction({

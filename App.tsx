@@ -59,7 +59,7 @@ import { LocaleProvider, useLocale } from './context/LocaleContext';
 import type { TranslationKey } from './i18n';
 import { ToastProvider } from './context/ToastContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { NotificationsProvider } from './context/NotificationsContext';
+import { NotificationsProvider, useNotifications } from './context/NotificationsContext';
 import { MessagesProvider } from './context/MessagesContext';
 import { EnumsProvider } from './context/EnumsContext';
 import LanguagePicker from './components/shared/LanguagePicker';
@@ -68,7 +68,11 @@ import { useResponsive } from './hooks/useResponsive';
 import { linking } from './navigation/linking';
 import { navigationRef } from './navigation/navigationRef';
 import { usePushNotifications } from './hooks/usePushNotifications';
-import { hasSeenPartnerWelcome, markPartnerWelcomeSeen } from './services/onboarding';
+import {
+  NotificationType,
+  getAppNotifications,
+  markNotificationRead,
+} from './services/app-notifications';
 import PetLoader from './components/shared/PetLoader';
 import TabBar from './components/shared/TabBar';
 import { useTabSlideOptions } from './navigation/tabTransition';
@@ -85,6 +89,7 @@ function AppContent() {
   const { hasChosen, isLoading: localeLoading, language, setLanguage, t } = useLocale();
   const { isLoggedIn, isLoading, isPartner, currentUser } = useAuth();
   const { isWebLayout } = useResponsive();
+  const { refreshUnreadCount } = useNotifications();
   // The app-level ref lives in its own module, so things outside the navigator (a tapped toast,
   // a device push) can route without a screen to hang `useNavigation` on.
   const [navReady, setNavReady] = useState(false);
@@ -122,23 +127,46 @@ function AppContent() {
     enableDocumentScroll();
   }, []);
 
-  // Celebrate once, the first time we observe a user is an approved partner
-  // (the backend adds them to the ServiceProvider group → `isPartner` flips
-  // true on the next getMe). A per-user flag keeps it to a single showing.
+  // Sign-in goes to Home (or Partner Hub for a managed provider account — see `MainTabs`),
+  // with one exception: a partner who has an UNREAD "your application was approved"
+  // notification waiting is taken straight to the celebration, and it is marked read on the
+  // way so it happens exactly once.
+  //
+  // The unread flag is the gate because it is the one record of this that lives on the SERVER.
+  // This used to be a per-device "seen" flag, which is a fact about the browser rather than
+  // about the approval: a partner approved months ago met the confetti and a five-slide tour
+  // again on every fresh browser, cleared profile or reinstall, standing between them and the
+  // app they had signed in to use.
   const userId = currentUser?.id;
   useEffect(() => {
     if (!navReady || !isLoggedIn || !isPartner || !userId) return;
     let cancelled = false;
     (async () => {
-      if (await hasSeenPartnerWelcome(userId)) return;
-      if (cancelled) return;
-      await markPartnerWelcomeSeen(userId);
-      if (!cancelled) (navigationRef as any).navigate('PartnerWelcome');
+      try {
+        // One row is enough — this only asks whether any is waiting.
+        const [approval] = await getAppNotifications({
+          userId,
+          isRead: false,
+          type: NotificationType.ServiceProviderApproved,
+          perPage: 1,
+        });
+        if (cancelled || !approval?.id) return;
+        // Read first, then navigate: a failed mark would otherwise replay the tour on the next
+        // sign-in, and being shown the celebration IS having seen the notification.
+        await markNotificationRead(approval.id);
+        // The bell was seeded on sign-in, a moment before this; without re-reading it the
+        // badge keeps counting a notification the user has just been shown.
+        refreshUnreadCount();
+        if (!cancelled) (navigationRef as any).navigate('PartnerWelcome');
+      } catch {
+        // Fail-soft by design: this is a flourish on top of a successful sign-in, and the
+        // notification stays unread in the inbox, where tapping it opens the same screen.
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [navReady, isLoggedIn, isPartner, userId]);
+  }, [navReady, isLoggedIn, isPartner, userId, refreshUnreadCount]);
 
   // The session restore and the deep-link resolve both show this, so a cold start on a link
   // doesn't flash a different-looking screen halfway through.

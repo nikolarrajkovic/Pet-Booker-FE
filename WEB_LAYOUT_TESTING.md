@@ -84,6 +84,8 @@ documented rule:
 | B6 | `StickyFooter` is absolutely positioned on mobile, in-flow on web; unmounts on keyboard only on mobile |
 | B9 | A list screen exposes a refresh affordance on web (no pull-to-refresh there) |
 | B12 | "Load more" fetches a page that fills whole grid rows on web |
+| B17 | The inbox preselects the newest thread and swaps threads in place on web (`MessagesSplitView.test.tsx`); a phone row navigates to `Chat` instead |
+| B18 | `AppShell` renders no sidebar and no top bar for a `FULL_BLEED_ROUTES` route, and still renders the screen (`shell.test.tsx`) |
 | B16 | Enter advances to the next field and submits from the last; a multiline field gets no submit handler, so Enter inserts a newline; an unknown field name submits **nothing** |
 
 **Screens whose designs differ structurally** get their own test — Home (rails → grid sections),
