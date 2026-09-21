@@ -155,8 +155,17 @@ function PulsingRing({ size }: { size: number }) {
  * and a frosted Skip drive it; pages can also be swiped.
  *
  * Terminal screen: the CTA and Skip both reset the stack onto the PartnerHub tab
- * so back can't re-enter. Triggered from `App.tsx` when `isPartner` first
- * becomes true for a user who hasn't seen it (see `services/onboarding.ts`).
+ * so back can't re-enter.
+ *
+ * **Opened by the approval notification** (`navigation/notificationRoute.ts`), which exists
+ * exactly once — at the moment the decision is made. It used to be triggered at sign-in, on
+ * the first render where `isPartner` was true for a user this device held no "seen" flag for:
+ * a fact about the device, not the approval, so a partner approved months ago met the confetti
+ * again on every fresh browser or reinstall.
+ *
+ * On the web design the shell unmounts for this route, so the celebration owns the whole
+ * window rather than sitting in the content column with the sidebar beside it — see
+ * `FULL_BLEED_ROUTES` in `components/layout/AppShell.tsx`.
  */
 export default function PartnerWelcomeScreen() {
   const { isWebLayout } = useResponsive();

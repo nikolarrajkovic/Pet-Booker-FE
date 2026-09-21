@@ -114,6 +114,25 @@ describe('AppShell', () => {
     expect(screen.getByText('screen body')).toBeTruthy();
   });
 
+  it('steps out of the way for a full-bleed route', () => {
+    // The partner celebration is a moment, not a page. Drawn inside the content column it was
+    // a green panel in the corner of the app, framed by the sidebar and the top bar — the
+    // opposite of the effect. `FULL_BLEED_ROUTES` in AppShell is what gives it the window.
+    mockCurrentRoute = 'PartnerWelcome';
+    setViewport('desktop');
+    render(
+      withProviders(
+        <AppShell enabled>
+          <Body />
+        </AppShell>
+      )
+    );
+
+    expect(screen.queryByLabelText('Main navigation')).toBeNull();
+    expect(screen.queryByLabelText('Account')).toBeNull();
+    expect(screen.getByText('screen body')).toBeTruthy();
+  });
+
   it('draws no chrome for a signed-out user, however wide the window', () => {
     // The auth screens are full-page and have no navigation to offer; a sidebar with every
     // destination behind a login is worse than useless, it is a list of dead links.

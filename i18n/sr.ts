@@ -288,6 +288,12 @@ const sr: TranslationDict = {
     loadError: 'Učitavanje usluga nije uspelo. Pokušajte ponovo.',
     nothingNearby: 'Za sada nema ničega u vašoj blizini',
     nothingNearbySub: 'Probajte šire područje ili navratite kada se pridruži još partnera.',
+    noRecentBookings: 'Još ništa nije rezervisano',
+    noRecentBookingsSub: 'Usluge koje rezervišete pojavljuju se ovde, spremne za novu rezervaciju.',
+    noPopular: 'Još nema popularnih usluga',
+    noPopularSub: 'Kako budu stizale rezervacije, najtraženije usluge pojaviće se ovde.',
+    noDeals: 'Trenutno nema popusta',
+    noDealsSub: 'Partneri redovno dodaju ponude — navratite uskoro.',
   },
   card: {
     popular: 'Popularno',

@@ -79,8 +79,10 @@ describe('a screen that draws its own root is a named exception', () => {
    */
   const OWN_ROOT: Record<string, string> = {
     'screens/messages-screen/containers/ChatScreen.tsx':
-      'a thread, not a page: header and composer pinned with only the messages moving between ' +
-      'them, so it needs the scroll pane of its own that ScreenLayout exists to remove',
+      'picks the frame for components/ChatThread — the bare thread on a phone, the two-pane ' +
+      'messenger on web. The thread is not a page: header and composer pinned with only the ' +
+      'messages moving between them, so it needs the scroll pane of its own that ScreenLayout ' +
+      'exists to remove',
     'screens/booking-confirmed-screen/containers/BookingConfirmedScreen.tsx':
       'a full-bleed confirmation - one centred message, no page chrome to share',
     'screens/partner-welcome-screen/containers/PartnerWelcomeScreen.tsx':
@@ -227,7 +229,7 @@ describe('there is one back affordance on the web design', () => {
     'screens/admin-partners-screen/containers/PartnerDetailsScreen.tsx': 'phone branch only',
     'screens/admin-new-requests-screen/containers/ApplicationReviewScreen.tsx': 'phone branch only',
     'screens/my-schedule-screen/containers/MyScheduleScreen.tsx': 'phone branch only',
-    'screens/messages-screen/containers/ChatScreen.tsx':
+    'screens/messages-screen/components/ChatThread.tsx':
       'a chat thread header is a toolbar beside the avatar, not a page title block',
     'screens/provider-detail-screen/containers/ProviderDetailScreen.tsx':
       'orphaned and unreachable, see CLAUDE.md',

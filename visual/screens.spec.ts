@@ -61,11 +61,6 @@ test.describe('signed in', () => {
    */
   test('notification settings as a provider', async ({ page }, testInfo) => {
     await signIn(page);
-    // A partner session that has not seen the celebration is redirected to PartnerWelcome the
-    // moment it signs in, so without this the baseline photographs "You're Approved!" instead of
-    // the screen under test — a golden that passes forever while covering nothing.
-    // Key shape from services/onboarding.ts, for the id the /auth/me override below returns.
-    await page.addInitScript(() => localStorage.setItem('partner_welcome_seen_12', '1'));
     await mockApi(page, {
       '/auth/me': {
         id: 12,

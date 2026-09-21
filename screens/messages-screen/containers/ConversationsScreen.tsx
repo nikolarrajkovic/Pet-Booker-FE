@@ -1,97 +1,44 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import { ScrollView, RefreshControl } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
+import { useResponsive } from '../../../hooks/useResponsive';
 import { useLocale } from '../../../context/LocaleContext';
-import { useMessages } from '../../../context/MessagesContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ListState from '../../../components/shared/ListState';
-import { ConversationRow } from '../components';
-import { getErrorMessage } from '../../../services/http';
+import { ConversationRow, MessagesSplitView } from '../components';
 import { resolveImageUrl } from '../../../services/service-providers';
-import { getConversations, type ConversationDto } from '../../../services/messages';
-
-/** Compact relative time for an inbox row ("now", "4m", "3h", "2d", then a date). */
-function relativeTime(iso?: string | null): string {
-  if (!iso) return '';
-  const then = new Date(iso).getTime();
-  if (isNaN(then)) return '';
-  const mins = Math.floor((Date.now() - then) / 60000);
-  if (mins < 1) return 'now';
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(then).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
+import { useConversationsInbox, relativeTime } from '../useConversationsInbox';
 
 /**
  * The message inbox — every thread the signed-in user is part of, newest first.
  *
- * No owner parameter is sent: the backend scopes the list to the session, and merges both sides
- * for a partner (who is a customer of other providers as well as a provider themselves). It also
- * resolves the counterpart per row, so a customer sees the provider and a provider sees the
- * customer off the same field without the client knowing which side it is on.
+ * Two designs, and here they are genuinely different screens rather than the same one relaid:
+ *
+ * - **Phone** — the list, and tapping a row pushes the thread over it. The only option at 390px.
+ * - **Web** — the list is the left column of a two-pane messenger with a thread open beside it
+ *   (`MessagesSplitView`). Pushing a thread over the inbox on a 1440px window throws away the
+ *   list the user is choosing from and makes switching threads a Back plus a click.
+ *
+ * The load itself is shared: `useConversationsInbox` holds the fetch, the focus refresh and the
+ * live splice, so the two designs cannot drift into refetching the inbox differently.
  */
 export default function ConversationsScreen() {
   const navigation = useNavigation<any>();
   const { isDarkMode, bgColor } = useThemeColors();
+  const { isWebLayout } = useResponsive();
   const { t } = useLocale();
-  const { refreshUnreadCount, subscribeToInbox } = useMessages();
+  const { conversations, isLoading, isRefreshing, loadError, refresh } = useConversationsInbox();
 
-  const [conversations, setConversations] = useState<ConversationDto[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoadError(null);
-    try {
-      // Already ordered by activity server-side (on message id, which is monotonic), so no
-      // client-side re-sort — one less place for the two to disagree.
-      const page = await getConversations({ perPage: 50 });
-      setConversations(page.items);
-      refreshUnreadCount();
-    } catch (e) {
-      setConversations([]);
-      setLoadError(getErrorMessage(e, t('messages.inboxLoadFailed')));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [t, refreshUnreadCount]);
-
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      setIsLoading(true);
-      (async () => {
-        if (!cancelled) await load();
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [load])
-  );
-
-  // A message arriving in any thread reorders the inbox — but the push carries that thread's
-  // own row (the recipient's view of it, unread count included), so splice it to the front
-  // instead of refetching fifty threads plus the badge to learn what we were just handed. A new
-  // message always makes its thread the most recent, which is exactly where a reload would put
-  // it; the badge is re-seeded by MessagesContext off the same event.
-  useEffect(
-    () =>
-      subscribeToInbox((updated) =>
-        setConversations((prev) => [updated, ...prev.filter((c) => c.id !== updated.id)])
-      ),
-    [subscribeToInbox]
-  );
-
-  const onRefresh = async () => {
-    setIsRefreshing(true);
-    await load();
-    setIsRefreshing(false);
-  };
+  if (isWebLayout) {
+    return (
+      // `webBare`: the split view is a full-height messenger, not a column of page content, so
+      // it wants the viewport rather than the page header and the scrolling content column.
+      <ScreenLayout headerTitle={t('messages.title')} webBare>
+        <MessagesSplitView />
+      </ScreenLayout>
+    );
+  }
 
   return (
     <ScreenLayout
@@ -106,7 +53,7 @@ export default function ConversationsScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={onRefresh}
+            onRefresh={refresh}
             tintColor={BRAND_GREEN}
             colors={[BRAND_GREEN]}
           />

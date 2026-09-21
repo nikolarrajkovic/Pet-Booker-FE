@@ -106,10 +106,17 @@ export function routeForPayload(
         ? [PARTNER_TAB, { name: 'ServiceDetail', params: { serviceId: p.serviceId } }]
         : [PARTNER_TAB];
 
-    // Application and certificate decisions have no screen of their own; the hub is the partner's
-    // home and reflects the new state (an approved partner can list services, a declined one
-    // cannot). The notification's own message carries the decline reason.
+    // An approval is the one partner notification with a screen of its own: the celebration +
+    // tour. It is opened from here rather than at sign-in, where it used to fire for anyone
+    // this device had no "seen" flag for — so a long-approved partner met the confetti on
+    // every new browser. The notification only exists once, the moment the decision is made,
+    // which is exactly when the tour is worth showing.
     case NotificationType.ServiceProviderApproved:
+      return [PARTNER_TAB, { name: 'PartnerWelcome' }];
+
+    // The rest have no screen of their own; the hub is the partner’s home and reflects the new
+    // state (an approved partner can list services, a declined one cannot). The notification’s
+    // own message carries the decline reason.
     case NotificationType.ServiceProviderDeclined:
     case NotificationType.CertificateApproved:
     case NotificationType.CertificateDeclined:

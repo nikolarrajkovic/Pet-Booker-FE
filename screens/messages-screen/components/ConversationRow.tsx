@@ -12,6 +12,11 @@ export interface ConversationRowProps {
   /** Pre-formatted relative time ("2h ago"), so the row stays presentational. */
   timeLabel?: string;
   unreadCount?: number;
+  /**
+   * The thread currently open beside the list — the web design's split view. Unset on the
+   * phone, where opening a thread replaces the list and there is nothing to mark.
+   */
+  isSelected?: boolean;
   isDarkMode: boolean;
   onPress: () => void;
 }
@@ -24,11 +29,21 @@ export default function ConversationRow({
   lastMessage,
   timeLabel,
   unreadCount = 0,
+  isSelected = false,
   isDarkMode,
   onPress,
 }: ConversationRowProps) {
   const { cardBg, textColor, subtextColor, borderColor } = themeColors(isDarkMode);
   const hasUnread = unreadCount > 0;
+
+  // Tinted rather than outlined: the rows sit shoulder to shoulder in a narrow column, so a
+  // border swap only thickens one edge, which reads as a rendering artefact rather than as a
+  // selection. The brand tint is the one the sidebar already marks its active item with.
+  const surface = isSelected
+    ? isDarkMode
+      ? 'border-brand-600 bg-[#14372a]'
+      : 'border-brand-500 bg-brand-50'
+    : `${cardBg} ${borderColor}`;
 
   return (
     <TouchableOpacity
@@ -36,7 +51,8 @@ export default function ConversationRow({
       activeOpacity={0.8}
       accessibilityRole="button"
       accessibilityLabel={name}
-      className={`mb-3 flex-row items-center rounded-2xl border p-3 ${cardBg} ${borderColor}`}>
+      accessibilityState={{ selected: isSelected }}
+      className={`mb-3 flex-row items-center rounded-2xl border p-3 ${surface}`}>
       {avatarUrl ? (
         <Image source={{ uri: avatarUrl }} className="h-12 w-12 rounded-full" />
       ) : (

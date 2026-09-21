@@ -94,7 +94,6 @@ describe('routeForNotification — one destination per type', () => {
 
   it('lands partner verification decisions on the hub, which has no screen of its own', () => {
     for (const name of [
-      'ServiceProviderApproved',
       'ServiceProviderDeclined',
       'CertificateApproved',
       'CertificateDeclined',
@@ -103,6 +102,16 @@ describe('routeForNotification — one destination per type', () => {
         'MainTabs',
       ]);
     }
+  });
+
+  it('celebrates an approval, which is the one decision with a screen of its own', () => {
+    // The tour used to be opened by a per-device "seen" flag at sign-in, so a partner
+    // approved months ago met it again on every new browser. The notification is the
+    // server-side record of the moment, and it exists exactly once.
+    expect(routeOf(routeForNotification(stored('ServiceProviderApproved', {})))).toEqual([
+      'MainTabs',
+      'PartnerWelcome',
+    ]);
   });
 
   it('opens a message in its thread, with the inbox behind it', () => {
