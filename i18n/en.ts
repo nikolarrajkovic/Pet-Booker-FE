@@ -1418,6 +1418,7 @@ const en = {
     colLocation: 'Location',
     reviewBy: 'by {name}',
     endOfList: "That's all of them — {count} in total",
+    declineReasonTooShort: 'Please use at least 10 characters, or leave it blank.',
   },
   shared: {
     clear: 'Clear',

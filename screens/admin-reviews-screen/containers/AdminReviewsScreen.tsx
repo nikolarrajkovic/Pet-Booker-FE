@@ -1,76 +1,75 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { ScrollView, BackHandler } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ScrollView, Text, View, BackHandler } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useResponsive } from '../../../hooks/useResponsive';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
+import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ListState from '../../../components/shared/ListState';
 import FilterTabs, { moderationTabs } from '../../../components/shared/FilterTabs';
-import { ReviewModerationCard } from '../components';
-import type { ReviewStatus } from '../components';
-import { DeclineReviewDialog } from '../components/DeclineReviewDialog';
-import { getReviews, ReviewDto } from '../../../services/reviews';
+import SortMenu from '../../../components/shared/SortMenu';
+import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
+import { useNearBottomLoader } from '../../../hooks/useNearBottomLoader';
+import {
+  useModerationQueue,
+  SUBMISSION_ORDER_OPTIONS,
+  type ModerationPageQuery,
+} from '../../../hooks/useModerationQueue';
+import { countReviews, getReviewsPage, type ReviewDto } from '../../../services/reviews';
 import { approveReview, declineReview } from '../../../services/admin';
-import { getErrorMessage } from '../../../services/http';
-import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
-import { useResponsive } from '../../../hooks/useResponsive';
+import { ReviewModerationCard } from '../components';
+import { ReviewModerationListHeader, ReviewModerationRow } from '../components/ReviewModerationRow';
+import { DeclineReviewDialog, isDeclineReasonTooShort } from '../components/DeclineReviewDialog';
 import { reviewToItem } from '../reviewToItem';
-import AdminReviewsWeb from './AdminReviewsWeb';
-
-type FilterTab = ReviewStatus;
 
 // A declined review reads "Declined" rather than the applications queue's "Rejected".
 const TABS = moderationTabs('admin.statusDeclined');
 
+// Module functions, so their identity is stable for the paging hook.
+const fetchReviewsPage = (query: ModerationPageQuery) => getReviewsPage(query);
+const countByStatus = (approvalStatus: number) => countReviews({ approvalStatus });
+
 /**
- * Review moderation, in whichever of the app's two designs the window calls for: the web design
- * pages a table-like list from the server (`AdminReviewsWeb`), the phone keeps its card queue.
- * Separate components rather than branches, so dragging a window across the breakpoint mounts the
- * other design cleanly instead of changing how many hooks one component calls.
+ * Review moderation: one tab per status, each paging itself from the server as the moderator
+ * scrolls, in its own order — pending oldest first, decisions newest first, both re-orderable.
+ *
+ * Both designs share the list; only the item differs. The web design draws a full-width row per
+ * review under a column header (`ReviewModerationRow`), the phone keeps its card queue
+ * (`ReviewModerationCard`).
+ *
+ * Both used to read the first 200 reviews and split them into tabs on the client, so the 201st
+ * review — pending or not — never appeared anywhere a moderator could act on it.
  */
 export default function AdminReviewsScreen() {
-  const { isWebLayout } = useResponsive();
-  return isWebLayout ? <AdminReviewsWeb /> : <AdminReviewsMobile />;
-}
-
-/** The phone design's queue — unchanged: the first 200 reviews read up front, split into tabs. */
-function AdminReviewsMobile() {
   const navigation = useNavigation<any>();
   const { goUp } = useAppNavigation();
-  const { isDarkMode, hex } = useThemeColors();
+  const { isDarkMode, hex, subtextColor } = useThemeColors();
+  const { isWebLayout } = useResponsive();
   const { showError } = useToast();
   const { t } = useLocale();
-  const [activeTab, setActiveTab] = useState<FilterTab>('pending');
-  const [reviews, setReviews] = useState<ReviewDto[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
-  // Decline-reason modal: the review being declined + the admin's reason text.
+  // Decline-reason prompt: the review being declined + the moderator's reason.
   const [declineTargetId, setDeclineTargetId] = useState<number | null>(null);
   const [declineReason, setDeclineReason] = useState('');
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setLoadError(null);
-    try {
-      // No approvalStatus filter — fetch all so every tab has its data in one call.
-      setReviews(await getReviews({ perPage: 200 }));
-    } catch (e) {
-      setLoadError(getErrorMessage(e, t('admin.reviewsLoadFailed')));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [t]);
+  const queue = useModerationQueue<ReviewDto>({
+    fetchPage: fetchReviewsPage,
+    count: countByStatus,
+    resource: 'reviews',
+    errorFallback: t('admin.reviewsLoadFailed'),
+  });
+  const items = useMemo(() => queue.items.map((r) => reviewToItem(t, r)), [queue.items, t]);
+  const listRef = useNearBottomLoader(true, queue.loadMore);
 
-  // Android hardware back → AdminDashboard
+  // Android hardware back → the header's rule.
   useFocusEffect(
     useCallback(() => {
       const onBack = () => {
-        // Same rule as the header's back button: pop real history when there is some, so a
-        // notification that opened this screen leads back to the feed, and fall back to the
-        // admin home only when there is nothing to pop.
+        // Pop real history when there is some, so a notification that opened this screen leads
+        // back to the feed; fall back to the admin home only when there is nothing to pop.
         if (navigation.canGoBack()) navigation.goBack();
         else navigation.navigate('MainTabs', { screen: 'AdminDashboard' });
         return true;
@@ -80,40 +79,16 @@ function AdminReviewsMobile() {
     }, [navigation])
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        if (!cancelled) await load();
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [load])
-  );
+  // A decided review leaves the tab it was in at once; the write's invalidation re-reads the
+  // loaded pages and the counts behind it.
+  const dropRow = (id: number) => queue.setItems((rows) => rows.filter((r) => r.id !== id));
 
-  const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]';
-  const cardBg = hex.card;
-  const textColor = hex.text;
-  const subTextColor = hex.subtext;
-  const borderColor = hex.border;
-
-  const items = useMemo(() => reviews.map((r) => reviewToItem(t, r)), [reviews, t]);
-
-  const counts = {
-    pending: items.filter((r) => r.status === 'pending').length,
-    approved: items.filter((r) => r.status === 'approved').length,
-    rejected: items.filter((r) => r.status === 'rejected').length,
-  };
-
-  const filtered = items.filter((r) => r.status === activeTab);
-
-  const handleApprove = async (id: number) => {
+  const approve = async (id: number) => {
     if (busyId !== null) return;
     setBusyId(id);
     try {
       await approveReview(id);
-      await load();
+      dropRow(id);
     } catch (e) {
       showError(getErrorMessage(e, t('admin.approveReviewFailed')));
     } finally {
@@ -121,26 +96,22 @@ function AdminReviewsMobile() {
     }
   };
 
-  // Open the decline-reason modal (reason collected, then sent).
-  const handleDecline = (id: number) => {
+  const openDecline = (id: number) => {
     if (busyId !== null) return;
     setDeclineReason('');
     setDeclineTargetId(id);
   };
 
   const confirmDecline = async () => {
-    if (declineTargetId === null) return;
+    if (declineTargetId === null || isDeclineReasonTooShort(declineReason)) return;
     const id = declineTargetId;
-    const trimmed = declineReason.trim();
-    // Server requires a reason of ≥10 chars when one is given; blank is allowed
-    // and uses a generic fallback. Guard the 1–9 char range.
-    if (trimmed.length > 0 && trimmed.length < 10) return;
-    const reason = trimmed || t('admin.declinedByAdminReason');
+    // Blank is allowed and sends a generic reason; a typed one must meet the server's minimum.
+    const reason = declineReason.trim() || t('admin.declinedByAdminReason');
     setDeclineTargetId(null);
     setBusyId(id);
     try {
       await declineReview(id, reason);
-      await load();
+      dropRow(id);
     } catch (e) {
       showError(getErrorMessage(e, t('admin.declineReviewFailed')));
     } finally {
@@ -148,64 +119,114 @@ function AdminReviewsMobile() {
     }
   };
 
+  const emptyMessage =
+    queue.activeTab === 'pending'
+      ? t('admin.noPendingReviews')
+      : queue.activeTab === 'approved'
+        ? t('admin.noApprovedReviews')
+        : t('admin.noDeclinedReviews');
+
+  const tabs = (
+    <FilterTabs
+      tabs={TABS}
+      activeKey={queue.activeTab}
+      onChange={queue.setActiveTab}
+      counts={queue.counts}
+    />
+  );
+  const sort = (
+    <SortMenu value={queue.order} options={SUBMISSION_ORDER_OPTIONS} onChange={queue.setOrder} />
+  );
+
   return (
     <ScreenLayout
       headerVariant="standard"
       showBackButton
       // Pops real history when there is any, so arriving here from the notification feed and
       // pressing Back returns to the feed; the admin home is only the FALLBACK, for when this
-      // screen was opened directly (tab to tab) and there is nothing to pop. Hardcoding the
-      // destination made every arrival behave like the second case.
+      // screen was opened directly (tab to tab) and there is nothing to pop.
       onBackPress={() => goUp('AdminDashboard')}
       headerTitle={t('admin.reviewsTitle')}
       headerSubtitle={t('admin.reviewsSubtitle')}
-      contentBg={contentBg}
+      contentBg={isWebLayout ? undefined : isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]'}
       width="wide">
-      <FilterTabs tabs={TABS} activeKey={activeTab} onChange={setActiveTab} counts={counts} />
+      {/* On the phone the tabs stay put above the scrolling queue, as they always have. */}
+      {!isWebLayout && tabs}
 
-      {/* ── List ── */}
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, paddingTop: 4 }}
-        showsVerticalScrollIndicator={false}>
-        <ListState
-          isLoading={isLoading}
-          error={loadError}
-          isEmpty={filtered.length === 0}
-          emptyIcon="star-outline"
-          emptyMessage={
-            activeTab === 'pending'
-              ? t('admin.noPendingReviews')
-              : activeTab === 'approved'
-                ? t('admin.noApprovedReviews')
-                : t('admin.noDeclinedReviews')
-          }>
-          {/*
-            Moderation cards are full-width rows built for a phone queue. On a wide page they
-            become 1120px bars with an avatar at one end, so the reviewer scrolls past three
-            screenfuls to see what fits in one. `rowGap={0}` lets each card keep the bottom margin
-            it already has rather than making a presentational component width-aware.
-          */}
-          <ResponsiveGrid columns={{ mobile: 1, tablet: 1, desktop: 2 }} gap={12} rowGap={0}>
-            {filtered.map((review) => (
-              <ReviewModerationCard
-                key={review.id}
-                review={review}
-                isDarkMode={isDarkMode}
-                cardBg={cardBg}
-                textColor={textColor}
-                subTextColor={subTextColor}
-                borderColor={borderColor}
-                busy={busyId === review.id}
-                onApprove={busyId !== null ? undefined : handleApprove}
-                onDecline={busyId !== null ? undefined : handleDecline}
-              />
-            ))}
-          </ResponsiveGrid>
-        </ListState>
+        contentContainerStyle={{ paddingBottom: 32 }}
+        showsVerticalScrollIndicator={isWebLayout}
+        scrollEventThrottle={16}
+        onScroll={(e) => (isNearBottom(e) ? queue.loadMore() : undefined)}>
+        {/* The order control out-ranks the rows in paint order, so its panel opens over them
+            rather than under. Web: tabs on the left, order on the right. Phone: the tab row is
+            already full, so the order sits alone above the cards, as it does on Search. */}
+        {isWebLayout ? (
+          <View
+            style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 16, zIndex: 20 }}>
+            <View style={{ flex: 1 }}>{tabs}</View>
+            {sort}
+          </View>
+        ) : (
+          <View style={{ alignItems: 'flex-end', paddingHorizontal: 16, zIndex: 20 }}>{sort}</View>
+        )}
+
+        <View ref={listRef} style={{ paddingHorizontal: 16, paddingTop: isWebLayout ? 4 : 12 }}>
+          <ListState
+            isLoading={queue.isLoading}
+            error={queue.error}
+            isEmpty={items.length === 0}
+            emptyIcon="star-outline"
+            emptyMessage={emptyMessage}>
+            {isWebLayout ? (
+              <>
+                <ReviewModerationListHeader withActions={queue.activeTab === 'pending'} />
+                {items.map((review) => (
+                  <ReviewModerationRow
+                    key={review.id}
+                    review={review}
+                    busy={busyId === review.id}
+                    onApprove={() => approve(review.id)}
+                    onDecline={() => openDecline(review.id)}
+                  />
+                ))}
+              </>
+            ) : (
+              items.map((review) => (
+                <ReviewModerationCard
+                  key={review.id}
+                  review={review}
+                  isDarkMode={isDarkMode}
+                  cardBg={hex.card}
+                  textColor={hex.text}
+                  subTextColor={hex.subtext}
+                  borderColor={hex.border}
+                  busy={busyId === review.id}
+                  onApprove={busyId !== null ? undefined : approve}
+                  onDecline={busyId !== null ? undefined : openDecline}
+                />
+              ))
+            )}
+          </ListState>
+
+          {items.length > 0 && (
+            <LoadMoreFooter
+              loaded={items.length}
+              total={queue.totalItems}
+              hasMore={queue.hasMore}
+              isLoadingMore={queue.isLoadingMore}
+              onLoadMore={queue.loadMore}
+            />
+          )}
+          {items.length > 0 && !queue.hasMore && !queue.isLoadingMore && (
+            <Text className={`pt-4 text-center text-xs ${subtextColor}`}>
+              {t('admin.endOfList', { count: queue.totalItems })}
+            </Text>
+          )}
+        </View>
       </ScrollView>
 
-      {/* ── Decline-reason modal ── */}
       <DeclineReviewDialog
         visible={declineTargetId !== null}
         reason={declineReason}

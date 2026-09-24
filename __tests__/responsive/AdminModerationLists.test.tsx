@@ -3,23 +3,21 @@ import { render, screen, fireEvent, act } from '@testing-library/react-native';
 import { withProviders, setViewport } from '../test-utils';
 
 /**
- * The admin moderation lists on the web design page from the server, one tab per status, each
- * in its own order. What fails silently if it regresses is the *query*, not the pixels:
+ * The admin moderation lists page from the server, one tab per status, each in its own order —
+ * on both designs. What fails silently if it regresses is the *query*, not the pixels:
  *
  *  - a pending queue must be asked for oldest first, and decisions newest first;
  *  - a sort picked on one tab must stay on that tab, not reorder the others;
- *  - the phone design must keep its own data path — it was deliberately left as it was.
+ *  - the phone must page too — it used to read every provider in the system up front.
  */
 
 const mockGetPage = jest.fn();
 const mockCount = jest.fn();
-const mockGetAll = jest.fn();
 
 jest.mock('../../services/service-providers', () => ({
   ...jest.requireActual('../../services/service-providers'),
   getServiceProvidersPage: (...a: unknown[]) => mockGetPage(...a),
   countServiceProviders: (...a: unknown[]) => mockCount(...a),
-  getAllServiceProviders: (...a: unknown[]) => mockGetAll(...a),
 }));
 
 jest.mock('../../services/admin', () => ({
@@ -85,7 +83,6 @@ beforeEach(() => {
     hasMore: false,
   });
   mockCount.mockResolvedValue(2);
-  mockGetAll.mockResolvedValue([provider(1)]);
 });
 
 describe('Partner applications on the web design', () => {
@@ -143,12 +140,18 @@ describe('Partner applications on the web design', () => {
 });
 
 describe('Partner applications on the phone design', () => {
-  it('keeps its own data path: every application read up front, no paged queries', async () => {
+  it('pages the same queue from the server, drawn as cards', async () => {
     setViewport('mobile');
     render(withProviders(<AdminNewRequestsScreen />));
     await screen.findByText('Applicant 1');
 
-    expect(mockGetAll).toHaveBeenCalled();
-    expect(mockGetPage).not.toHaveBeenCalled();
+    expect(lastQuery()).toMatchObject({ approvalStatus: 0, order: 0, page: 1, perPage: 20 });
+    // The phone's card, not the web row: the card carries the expand chevron, the row a
+    // "Submitted" column header.
+    expect(screen.queryByText('Submitted')).toBeNull();
+
+    fireEvent.press(screen.getByText('Approved'));
+    await flush();
+    expect(lastQuery()).toMatchObject({ approvalStatus: 1, order: 1 });
   });
 });

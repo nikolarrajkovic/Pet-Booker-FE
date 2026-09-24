@@ -1396,6 +1396,7 @@ const sr: TranslationDict = {
     colLocation: 'Lokacija',
     reviewBy: 'od {name}',
     endOfList: 'To je sve — ukupno {count}',
+    declineReasonTooShort: 'Unesite najmanje 10 karaktera ili ostavite prazno.',
   },
   shared: {
     clear: 'Obriši',

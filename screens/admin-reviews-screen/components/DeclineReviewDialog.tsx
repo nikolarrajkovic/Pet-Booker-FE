@@ -69,7 +69,7 @@ export function DeclineReviewDialog({
         />
         {tooShort && (
           <Text style={{ color: '#EF4444', fontSize: 12, marginBottom: 12 }}>
-            Please use at least 10 characters, or leave it blank.
+            {t('admin.declineReasonTooShort')}
           </Text>
         )}
         <View style={{ flexDirection: 'row', gap: 12 }}>

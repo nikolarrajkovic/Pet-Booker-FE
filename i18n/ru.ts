@@ -1396,6 +1396,7 @@ const ru: TranslationDict = {
     colLocation: 'Местоположение',
     reviewBy: 'от {name}',
     endOfList: 'Это всё — всего {count}',
+    declineReasonTooShort: 'Введите не менее 10 символов или оставьте поле пустым.',
   },
   shared: {
     clear: 'Очистить',

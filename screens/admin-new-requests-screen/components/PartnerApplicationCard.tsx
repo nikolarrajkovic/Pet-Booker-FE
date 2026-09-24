@@ -116,12 +116,14 @@ export function PartnerApplicationCard({
         borderColor,
         overflow: 'hidden',
       }}>
-      {/* ── Card header row ── */}
+      {/* ── Card header row ── The tap-to-expand area ends above the actions: in a browser a
+          button role renders as <button>, which may not contain the View Details / Approve
+          buttons — and a screen reader read the whole card as one control. */}
       <TouchableOpacity
         accessibilityRole="button"
         activeOpacity={0.8}
         onPress={() => setExpanded((v) => !v)}
-        style={{ padding: 16 }}>
+        style={{ padding: 16, paddingBottom: 0 }}>
         {/* Name + status + chevron */}
         <View
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -177,52 +179,59 @@ export function PartnerApplicationCard({
             </View>
           ))}
         </View>
+      </TouchableOpacity>
 
-        {/* Action buttons */}
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+      {/* Action buttons */}
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: 10,
+          marginTop: 14,
+          paddingHorizontal: 16,
+          paddingBottom: 16,
+        }}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('ApplicationReview', { application })}
+          style={{
+            flex: 1,
+            paddingVertical: 10,
+            borderRadius: 10,
+            borderWidth: 1.5,
+            borderColor: isDarkMode ? '#4B5563' : '#D1D5DB',
+            alignItems: 'center',
+          }}>
+          <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>
+            {t('admin.viewDetails')}
+          </Text>
+        </TouchableOpacity>
+        {application.status === 'pending' && (
           <TouchableOpacity
             accessibilityRole="button"
             activeOpacity={0.8}
-            onPress={() => navigation.navigate('ApplicationReview', { application })}
+            onPress={() => onApprove?.(application.id)}
             style={{
               flex: 1,
               paddingVertical: 10,
               borderRadius: 10,
-              borderWidth: 1.5,
-              borderColor: isDarkMode ? '#4B5563' : '#D1D5DB',
+              backgroundColor: BRAND_GREEN,
               alignItems: 'center',
+              flexDirection: 'row',
+              justifyContent: 'center',
             }}>
-            <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>
-              {t('admin.viewDetails')}
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={16}
+              color="white"
+              style={{ marginRight: 4 }}
+            />
+            <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>
+              {t('admin.approve')}
             </Text>
           </TouchableOpacity>
-          {application.status === 'pending' && (
-            <TouchableOpacity
-              accessibilityRole="button"
-              activeOpacity={0.8}
-              onPress={() => onApprove?.(application.id)}
-              style={{
-                flex: 1,
-                paddingVertical: 10,
-                borderRadius: 10,
-                backgroundColor: BRAND_GREEN,
-                alignItems: 'center',
-                flexDirection: 'row',
-                justifyContent: 'center',
-              }}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={16}
-                color="white"
-                style={{ marginRight: 4 }}
-              />
-              <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>
-                {t('admin.approve')}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </TouchableOpacity>
+        )}
+      </View>
 
       {/* ── Expanded details ── */}
       {expanded && (
