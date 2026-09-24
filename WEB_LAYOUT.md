@@ -227,6 +227,7 @@ can be right in one design and broken in the other, so each one is a test case.
 | B15 | Deep links | `petbooker://` | Real URLs; any screen reachable by URL must survive a cold load |
 | B17 | Messages | Inbox list; tapping a row **pushes** the thread over it | Inbox and thread **side by side**, most recent preselected, clicking a row swaps the thread in place (`MessagesSplitView`) |
 | B18 | Full-bleed routes | Every screen is full-bleed; there is no chrome to escape | `AppShell` unmounts the sidebar and top bar for `FULL_BLEED_ROUTES` (the partner celebration), which is the only way a screen gets the whole window |
+| B19 | Admin lists (New Requests, Partners, Reviews) | Card queue, paged from the server as you scroll, each tab in its own order — pending oldest first, decided newest first — with a `SortMenu` above the cards | The same paged list, drawn as one full-width row per item under a column header (`WebListRow`), the `SortMenu` beside the tabs |
 | B16 | Keyboard form submission | Return key advances fields (was: did nothing) | **Enter advances, and submits from the last field** — the convention a browser user assumes. Without it a form reads as broken. See `hooks/useFormChain.ts` |
 
 ---

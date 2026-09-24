@@ -1,110 +1,80 @@
-import React, { useState, useCallback } from 'react';
-import { ScrollView, BackHandler } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ScrollView, Text, View, BackHandler } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
+import { useResponsive } from '../../../hooks/useResponsive';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
+import { showAlert } from '../../../services/alert';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ListState from '../../../components/shared/ListState';
 import FilterTabs, { moderationTabs } from '../../../components/shared/FilterTabs';
-import { PartnerApplicationCard } from '../components';
-import type { PartnerApplication } from '../components';
-import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
-import { showAlert } from '../../../services/alert';
+import SortMenu from '../../../components/shared/SortMenu';
+import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
+import { useNearBottomLoader } from '../../../hooks/useNearBottomLoader';
 import {
-  getAllServiceProviders,
-  providerTypeLabel,
-  extractProviderDocuments,
-  ApprovalStatus,
-  ServiceProviderDto,
+  useModerationQueue,
+  SUBMISSION_ORDER_OPTIONS,
+  type ModerationPageQuery,
+} from '../../../hooks/useModerationQueue';
+import {
+  countServiceProviders,
+  getServiceProvidersPage,
+  type ServiceProviderDto,
 } from '../../../services/service-providers';
 import {
+  approveCertificate,
   approveServiceProvider,
   declineServiceProvider,
-  approveCertificate,
 } from '../../../services/admin';
-
-// Maps a raw ServiceProviderDto (a partner application) to the card's view shape.
-// Note: the provider DTO does not carry phone/bio/experience/availability —
-// those are blank until the backend exposes them.
-export function providerToApplication(dto: ServiceProviderDto): PartnerApplication {
-  const created = dto.createdAt ? new Date(dto.createdAt) : null;
-  const addr = dto.address;
-  const address = addr
-    ? [addr.line1, addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')
-    : '';
-
-  const documents = extractProviderDocuments(dto);
-
-  return {
-    id: String(dto.id ?? 0),
-    providerId: dto.id ?? 0,
-    applicantName: dto.name ?? 'Applicant',
-    submittedDate: created
-      ? created.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-      : '',
-    submittedTime: created
-      ? created.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })
-      : '',
-    services: [providerTypeLabel(dto.type)],
-    status:
-      dto.approvalStatus === ApprovalStatus.Declined
-        ? 'rejected'
-        : dto.approvalStatus === ApprovalStatus.Approved || dto.isApproved
-          ? 'approved'
-          : 'pending',
-    email: dto.contactEmail ?? '',
-    phone: '',
-    address,
-    experience: '',
-    bio: '',
-    certifications: (dto.certificates ?? [])
-      .map((c) => c.name)
-      .filter(Boolean)
-      .join(', '),
-    availability: '',
-    documents,
-    certificateIds: (dto.certificates ?? []).map((c) => c.id).filter((x): x is number => x != null),
-  };
-}
-
-type FilterTab = 'pending' | 'approved' | 'rejected';
+import { PartnerApplicationCard } from '../components';
+import type { PartnerApplication } from '../components';
+import {
+  PartnerApplicationListHeader,
+  PartnerApplicationRow,
+} from '../components/PartnerApplicationRow';
+import { providerToApplication } from '../providerToApplication';
 
 // A rejected application reads "Rejected" rather than the reviews queue's "Declined".
 const TABS = moderationTabs('admin.statusRejected');
 
+// Module functions, so their identity is stable for the paging hook.
+const fetchApplicationsPage = (query: ModerationPageQuery) => getServiceProvidersPage(query);
+const countApplications = (approvalStatus: number) => countServiceProviders({ approvalStatus });
+
+/**
+ * Partner applications: one tab per status, each paging itself from the server as the reviewer
+ * scrolls, in its own order — pending oldest first, decisions newest first, both re-orderable.
+ *
+ * Both designs share the list; only the item differs. The web design draws a full-width row per
+ * application under a column header (`PartnerApplicationRow`), the phone keeps its expandable
+ * card queue (`PartnerApplicationCard`).
+ *
+ * Both used to read every provider in the system up front — one 200-row page after another — and
+ * split them into tabs on the client, so opening the queue got slower with every partner who had
+ * ever signed up, approved or not.
+ */
 export default function AdminNewRequestsScreen() {
   const navigation = useNavigation<any>();
   const { goUp } = useAppNavigation();
-  const { isDarkMode, hex } = useThemeColors();
+  const { isDarkMode, hex, subtextColor } = useThemeColors();
+  const { isWebLayout } = useResponsive();
   const { showError } = useToast();
   const { t } = useLocale();
-  const [activeTab, setActiveTab] = useState<FilterTab>('pending');
-  const [applications, setApplications] = useState<PartnerApplication[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setLoadError(null);
-    try {
-      // Every provider, not the first 200 of 420: this screen sorts them into its own
-      // pending/approved/rejected tabs on the client, so a capped page made each tab an
-      // arbitrary slice — the pending tab showed 7 of 42, and the missing 35 applications were
-      // unreachable from anywhere in the app.
-      const dtos = await getAllServiceProviders();
-      setApplications(dtos.map(providerToApplication));
-    } catch (e) {
-      setLoadError(getErrorMessage(e, t('admin.applicationsLoadFailed')));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [t]);
+  const queue = useModerationQueue<ServiceProviderDto>({
+    fetchPage: fetchApplicationsPage,
+    count: countApplications,
+    resource: 'service-providers',
+    errorFallback: t('admin.applicationsLoadFailed'),
+  });
+  const applications = useMemo(() => queue.items.map(providerToApplication), [queue.items]);
+  const listRef = useNearBottomLoader(true, queue.loadMore);
 
-  // Android hardware back, kept in step with the header button above
+  // Android hardware back, kept in step with the header button.
   useFocusEffect(
     useCallback(() => {
       const onBack = () => {
@@ -120,42 +90,19 @@ export default function AdminNewRequestsScreen() {
     }, [navigation])
   );
 
-  // Re-fetch on every focus (covers returning from ApplicationReview)
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        if (!cancelled) await load();
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [load])
-  );
+  // A decided application leaves the tab it was in at once. The write also invalidates the
+  // resource, so the loaded pages and the counts are re-read behind it.
+  const dropRow = (providerId: number) =>
+    queue.setItems((rows) => rows.filter((dto) => dto.id !== providerId));
 
-  const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]';
-  const cardBg = hex.card;
-  const textColor = hex.text;
-  const subTextColor = hex.subtext;
-  const borderColor = hex.border;
-
-  const counts = {
-    pending: applications.filter((a) => a.status === 'pending').length,
-    approved: applications.filter((a) => a.status === 'approved').length,
-    rejected: applications.filter((a) => a.status === 'rejected').length,
-  };
-
-  const filtered = applications.filter((a) => a.status === activeTab);
-
-  const handleApprove = async (id: string) => {
-    const app = applications.find((a) => a.id === id);
-    if (!app?.providerId) return;
-    setBusyId(id);
+  const approve = async (app: PartnerApplication) => {
+    if (!app.providerId || busyId != null) return;
+    setBusyId(app.providerId);
     try {
       await approveServiceProvider(app.providerId);
-      // Approve any attached certificates alongside the application
+      // Attached certificates are approved alongside the application.
       await Promise.all((app.certificateIds ?? []).map((cid) => approveCertificate(cid)));
-      await load();
+      dropRow(app.providerId);
     } catch (e) {
       showError(getErrorMessage(e, t('admin.approveFailed')));
     } finally {
@@ -163,19 +110,19 @@ export default function AdminNewRequestsScreen() {
     }
   };
 
-  const handleReject = (id: string) => {
-    const app = applications.find((a) => a.id === id);
-    if (!app?.providerId) return;
+  const reject = (app: PartnerApplication) => {
+    if (!app.providerId || busyId != null) return;
+    const providerId = app.providerId;
     showAlert(t('admin.rejectTitle'), t('admin.rejectMsg', { name: app.applicantName }), [
       { text: t('admin.cancel'), style: 'cancel' },
       {
         text: t('admin.reject'),
         style: 'destructive',
         onPress: async () => {
-          setBusyId(id);
+          setBusyId(providerId);
           try {
-            await declineServiceProvider(app.providerId!, t('admin.declinedByAdmin'));
-            await load();
+            await declineServiceProvider(providerId, t('admin.declinedByAdmin'));
+            dropRow(providerId);
           } catch (e) {
             showError(getErrorMessage(e, t('admin.rejectFailed')));
           } finally {
@@ -186,60 +133,116 @@ export default function AdminNewRequestsScreen() {
     ]);
   };
 
+  // The phone card reports the row by its string id.
+  const byId = (id: string) => applications.find((a) => a.id === id);
+
+  const emptyMessage =
+    queue.activeTab === 'pending'
+      ? t('admin.noPendingApplications')
+      : queue.activeTab === 'approved'
+        ? t('admin.noApprovedApplications')
+        : t('admin.noRejectedApplications');
+
+  const tabs = (
+    <FilterTabs
+      tabs={TABS}
+      activeKey={queue.activeTab}
+      onChange={queue.setActiveTab}
+      counts={queue.counts}
+    />
+  );
+  const sort = (
+    <SortMenu value={queue.order} options={SUBMISSION_ORDER_OPTIONS} onChange={queue.setOrder} />
+  );
+
   return (
     <ScreenLayout
       headerVariant="standard"
       showBackButton
       // Pops real history when there is any, so arriving here from the notification feed and
       // pressing Back returns to the feed; the admin home is only the FALLBACK, for when this
-      // screen was opened directly (tab to tab) and there is nothing to pop. Hardcoding the
-      // destination made every arrival behave like the second case.
+      // screen was opened directly (tab to tab) and there is nothing to pop.
       onBackPress={() => goUp('AdminDashboard')}
       headerTitle={t('admin.requestsTitle')}
       headerSubtitle={t('admin.requestsSubtitle')}
-      contentBg={contentBg}
+      contentBg={isWebLayout ? undefined : isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]'}
       width="wide">
-      <FilterTabs tabs={TABS} activeKey={activeTab} onChange={setActiveTab} counts={counts} />
+      {/* On the phone the tabs stay put above the scrolling queue, as they always have. */}
+      {!isWebLayout && tabs}
 
-      {/* ── List ── */}
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, paddingTop: 4 }}
-        showsVerticalScrollIndicator={false}>
-        <ListState
-          isLoading={isLoading}
-          error={loadError}
-          isEmpty={filtered.length === 0}
-          emptyIcon="clipboard-outline"
-          emptyMessage={
-            activeTab === 'pending'
-              ? t('admin.noPendingApplications')
-              : activeTab === 'approved'
-                ? t('admin.noApprovedApplications')
-                : t('admin.noRejectedApplications')
-          }>
-          {/*
-            Moderation cards are full-width rows built for a phone queue. On a wide page they
-            become 1120px bars with an avatar at one end, so the reviewer scrolls past three
-            screenfuls to see what fits in one. `rowGap={0}` lets each card keep the bottom margin
-            it already has rather than making a presentational component width-aware.
-          */}
-          <ResponsiveGrid columns={{ mobile: 1, tablet: 1, desktop: 2 }} gap={12} rowGap={0}>
-            {filtered.map((application) => (
-              <PartnerApplicationCard
-                key={application.id}
-                application={application}
-                isDarkMode={isDarkMode}
-                cardBg={cardBg}
-                textColor={textColor}
-                subTextColor={subTextColor}
-                borderColor={borderColor}
-                onApprove={busyId ? undefined : handleApprove}
-                onReject={busyId ? undefined : handleReject}
-              />
-            ))}
-          </ResponsiveGrid>
-        </ListState>
+        contentContainerStyle={{ paddingBottom: 32 }}
+        showsVerticalScrollIndicator={isWebLayout}
+        scrollEventThrottle={16}
+        onScroll={(e) => (isNearBottom(e) ? queue.loadMore() : undefined)}>
+        {/* The order control out-ranks the rows in paint order, so its panel opens over them
+            rather than under. Web: tabs on the left, order on the right. Phone: the tab row is
+            already full, so the order sits alone above the cards, as it does on Search. */}
+        {isWebLayout ? (
+          <View
+            style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 16, zIndex: 20 }}>
+            <View style={{ flex: 1 }}>{tabs}</View>
+            {sort}
+          </View>
+        ) : (
+          <View style={{ alignItems: 'flex-end', paddingHorizontal: 16, zIndex: 20 }}>{sort}</View>
+        )}
+
+        <View ref={listRef} style={{ paddingHorizontal: 16, paddingTop: isWebLayout ? 4 : 12 }}>
+          <ListState
+            isLoading={queue.isLoading}
+            error={queue.error}
+            isEmpty={applications.length === 0}
+            emptyIcon="clipboard-outline"
+            emptyMessage={emptyMessage}>
+            {isWebLayout ? (
+              <>
+                <PartnerApplicationListHeader />
+                {applications.map((application) => (
+                  <PartnerApplicationRow
+                    key={application.id}
+                    application={application}
+                    busy={busyId === application.providerId}
+                    onOpen={() => navigation.navigate('ApplicationReview', { application })}
+                    onApprove={() => approve(application)}
+                    onReject={() => reject(application)}
+                  />
+                ))}
+              </>
+            ) : (
+              applications.map((application) => (
+                <PartnerApplicationCard
+                  key={application.id}
+                  application={application}
+                  isDarkMode={isDarkMode}
+                  cardBg={hex.card}
+                  textColor={hex.text}
+                  subTextColor={hex.subtext}
+                  borderColor={hex.border}
+                  onApprove={busyId != null ? undefined : (id) => byId(id) && approve(byId(id)!)}
+                  onReject={busyId != null ? undefined : (id) => byId(id) && reject(byId(id)!)}
+                />
+              ))
+            )}
+          </ListState>
+
+          {applications.length > 0 && (
+            <LoadMoreFooter
+              loaded={applications.length}
+              total={queue.totalItems}
+              hasMore={queue.hasMore}
+              isLoadingMore={queue.isLoadingMore}
+              onLoadMore={queue.loadMore}
+            />
+          )}
+          {/* The end of an endless list should say so, or it reads as a page that failed. */}
+          {applications.length > 0 && !queue.hasMore && !queue.isLoadingMore && (
+            <Text className={`pt-4 text-center text-xs ${subtextColor}`}>
+              {t('admin.endOfList', { count: queue.totalItems })}
+            </Text>
+          )}
+        </View>
       </ScrollView>
     </ScreenLayout>
   );
