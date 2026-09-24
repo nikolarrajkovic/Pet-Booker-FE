@@ -137,6 +137,9 @@ describe('Platform.OS is not used for layout', () => {
     'components/layout/SideNav.tsx':
       'the sidebar sizes to its own labels via CSS width:fit-content, which Yoga has no ' +
       'equivalent for — native falls back to a fixed width',
+    'screens/messages-screen/components/MessageComposer.tsx':
+      'a hardware keyboard: in a browser Enter sends and Shift+Enter adds a line, which a ' +
+      "multiline field's onSubmitEditing never does there; a phone's return key keeps adding a line",
   };
 
   it('only appears where a capability genuinely differs', () => {

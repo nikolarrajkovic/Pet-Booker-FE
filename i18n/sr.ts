@@ -555,6 +555,7 @@ const sr: TranslationDict = {
     subtitle: 'Ćaskajte sa pružaocima usluga',
     conversation: 'Razgovor',
     composerPlaceholder: 'Poruka…',
+    composerKeysHint: 'Enter za slanje, Shift+Enter za novi red',
     send: 'Pošalji',
     emptyInbox: 'Još nema poruka',
     emptyThread: 'Još nema poruka — pozdravite se!',
