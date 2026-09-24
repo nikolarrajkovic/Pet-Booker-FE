@@ -1,4 +1,5 @@
-import { apiJson, apiList, apiPage, type ApiRequestOptions } from './http';
+import { apiJson, apiList, apiPage, type ApiRequestOptions, type PagedResult } from './http';
+import type { SubmissionOrderValue } from './service-providers';
 
 export type ReviewDto = {
   id?: number | null;
@@ -58,6 +59,7 @@ export type GetReviewsParams = {
   bookingId?: number;
   rating?: number;
   approvalStatus?: number; // ApprovalStatus (see services/service-providers.ts)
+  order?: SubmissionOrderValue;
   page?: number;
   perPage?: number;
 };
@@ -71,6 +73,7 @@ function reviewsRequest(params?: GetReviewsParams): ApiRequestOptions {
       BookingId: params?.bookingId,
       Rating: params?.rating,
       ApprovalStatus: params?.approvalStatus,
+      Order: params?.order,
       Page: params?.page ?? 1,
       PerPage: params?.perPage ?? 20,
     },
@@ -81,6 +84,14 @@ function reviewsRequest(params?: GetReviewsParams): ApiRequestOptions {
 
 export async function getReviews(params?: GetReviewsParams): Promise<ReviewDto[]> {
   return apiList<ReviewDto>('/api/reviews', reviewsRequest(params));
+}
+
+/** One page of reviews with its paging wrapper — for a list that pages as it scrolls. */
+export function getReviewsPage(params?: GetReviewsParams): Promise<PagedResult<ReviewDto>> {
+  return apiPage<ReviewDto>('/api/reviews', {
+    ...reviewsRequest(params),
+    context: 'getReviewsPage',
+  });
 }
 
 /**

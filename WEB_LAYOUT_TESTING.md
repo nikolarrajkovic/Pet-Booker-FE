@@ -86,6 +86,7 @@ documented rule:
 | B12 | "Load more" fetches a page that fills whole grid rows on web |
 | B17 | The inbox preselects the newest thread and swaps threads in place on web (`MessagesSplitView.test.tsx`); a phone row navigates to `Chat` instead |
 | B18 | `AppShell` renders no sidebar and no top bar for a `FULL_BLEED_ROUTES` route, and still renders the screen (`shell.test.tsx`) |
+| B19 | Each admin moderation tab asks the server for its own status and order, a picked order stays on its tab, the badges are server counts, and the phone keeps its own data path (`AdminModerationLists.test.tsx`) |
 | B16 | Enter advances to the next field and submits from the last; a multiline field gets no submit handler, so Enter inserts a newline; an unknown field name submits **nothing** |
 
 **Screens whose designs differ structurally** get their own test — Home (rails → grid sections),

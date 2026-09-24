@@ -1,4 +1,12 @@
-import { apiJson, apiList, apiPage, apiVoid, getApiBaseUrl, type ApiRequestOptions } from './http';
+import {
+  apiJson,
+  apiList,
+  apiPage,
+  apiVoid,
+  getApiBaseUrl,
+  type ApiRequestOptions,
+  type PagedResult,
+} from './http';
 import { uploadFilesBulk } from './files';
 
 // ─── Shared DTO types ────────────────────────────────────────────────────────
@@ -52,6 +60,13 @@ export type CertificateFileDto = {
 // ApprovalStatus enum (providers, certificates, reviews): 0=Pending, 1=Approved, 2=Declined
 export const ApprovalStatus = { Pending: 0, Approved: 1, Declined: 2 } as const;
 
+/**
+ * Row order for the admin lists (applications, partners, reviews) — backend `SubmissionOrder`.
+ * Ranked by id, which is arrival order; omitted means oldest first, the historical order.
+ */
+export const SubmissionOrder = { OldestFirst: 0, NewestFirst: 1 } as const;
+export type SubmissionOrderValue = (typeof SubmissionOrder)[keyof typeof SubmissionOrder];
+
 export type CertificateDto = {
   id?: number | null;
   serviceProviderId?: number | null;
@@ -86,6 +101,7 @@ export type ServiceProviderDto = {
   isApproved?: boolean; // legacy mirror of approvalStatus === Approved
   ratingAvg?: number | null; // server-computed average rating (null until reviews exist)
   reviewCount?: number; // number of reviews backing ratingAvg (exposed at list level now)
+  serviceCount?: number; // services the provider lists — filled on find/search in one batched query
   addressId?: number | null;
   isApplicationPartner?: boolean; // true when created via the partner-application flow
   createdAt?: string;
@@ -288,6 +304,7 @@ export type GetServiceProvidersParams = {
   type?: number;
   isApproved?: boolean;
   approvalStatus?: number; // ApprovalStatus
+  order?: SubmissionOrderValue;
   page?: number;
   perPage?: number;
 };
@@ -301,6 +318,7 @@ function providersRequest(params?: GetServiceProvidersParams): ApiRequestOptions
       Type: params?.type,
       IsApproved: params?.isApproved,
       ApprovalStatus: params?.approvalStatus,
+      Order: params?.order,
       Page: params?.page ?? 1,
       PerPage: params?.perPage ?? 50,
     },
@@ -313,6 +331,16 @@ export function getServiceProviders(
   params?: GetServiceProvidersParams
 ): Promise<ServiceProviderDto[]> {
   return apiList<ServiceProviderDto>('/api/service-providers', providersRequest(params));
+}
+
+/** One page of providers with its paging wrapper — for a list that pages as it scrolls. */
+export function getServiceProvidersPage(
+  params?: GetServiceProvidersParams
+): Promise<PagedResult<ServiceProviderDto>> {
+  return apiPage<ServiceProviderDto>('/api/service-providers', {
+    ...providersRequest(params),
+    context: 'getServiceProvidersPage',
+  });
 }
 
 /**

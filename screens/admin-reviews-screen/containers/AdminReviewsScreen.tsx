@@ -1,75 +1,45 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, BackHandler, TextInput } from 'react-native';
+import { ScrollView, BackHandler } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAppNavigation } from '../../../hooks/useAppNavigation';
-import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
+import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ListState from '../../../components/shared/ListState';
 import FilterTabs, { moderationTabs } from '../../../components/shared/FilterTabs';
 import { ReviewModerationCard } from '../components';
-import type { ReviewModerationItem, ReviewStatus } from '../components';
+import type { ReviewStatus } from '../components';
+import { DeclineReviewDialog } from '../components/DeclineReviewDialog';
 import { getReviews, ReviewDto } from '../../../services/reviews';
 import { approveReview, declineReview } from '../../../services/admin';
-import { ApprovalStatus, resolveImageUrl } from '../../../services/service-providers';
 import { getErrorMessage } from '../../../services/http';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
-import ResponsiveModal from '../../../components/shared/ResponsiveModal';
-
-// ReviewDto (with nested user/serviceProvider includes) → the card's view shape.
-// Takes the translate fn so name fallbacks follow the active language.
-function reviewToItem(
-  t: (key: any, params?: Record<string, string | number>) => string,
-  dto: ReviewDto
-): ReviewModerationItem {
-  const created = dto.createdAt ? new Date(dto.createdAt) : null;
-  const providerPhoto =
-    dto.serviceProvider?.photos?.find((p) => p.isSelected)?.src ??
-    dto.serviceProvider?.photos?.[0]?.src ??
-    null;
-  const status: ReviewStatus =
-    dto.approvalStatus === ApprovalStatus.Approved
-      ? 'approved'
-      : dto.approvalStatus === ApprovalStatus.Declined
-        ? 'rejected'
-        : 'pending';
-
-  return {
-    id: dto.id ?? 0,
-    providerName: dto.serviceProvider?.name ?? t('admin.serviceProvider'),
-    providerAvatar: resolveImageUrl(providerPhoto) || null,
-    reviewerName: dto.user?.userName ?? t('admin.user'),
-    reviewerEmail: dto.user?.email ?? '',
-    rating: dto.rating ?? 0,
-    title: dto.title ?? '',
-    comment: dto.comment ?? '',
-    dateLabel: created
-      ? created.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-      : '',
-    status,
-    declineReason: dto.declineReason ?? null,
-  };
-}
+import { useResponsive } from '../../../hooks/useResponsive';
+import { reviewToItem } from '../reviewToItem';
+import AdminReviewsWeb from './AdminReviewsWeb';
 
 type FilterTab = ReviewStatus;
 
 // A declined review reads "Declined" rather than the applications queue's "Rejected".
 const TABS = moderationTabs('admin.statusDeclined');
 
+/**
+ * Review moderation, in whichever of the app's two designs the window calls for: the web design
+ * pages a table-like list from the server (`AdminReviewsWeb`), the phone keeps its card queue.
+ * Separate components rather than branches, so dragging a window across the breakpoint mounts the
+ * other design cleanly instead of changing how many hooks one component calls.
+ */
 export default function AdminReviewsScreen() {
+  const { isWebLayout } = useResponsive();
+  return isWebLayout ? <AdminReviewsWeb /> : <AdminReviewsMobile />;
+}
+
+/** The phone design's queue — unchanged: the first 200 reviews read up front, split into tabs. */
+function AdminReviewsMobile() {
   const navigation = useNavigation<any>();
   const { goUp } = useAppNavigation();
-  const {
-    isDarkMode,
-    hex,
-    inputBg,
-    inputText,
-    textColor: tColor,
-    subtextColor,
-    borderColor: bColor,
-    placeholderColor,
-  } = useThemeColors();
+  const { isDarkMode, hex } = useThemeColors();
   const { showError } = useToast();
   const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<FilterTab>('pending');
@@ -178,9 +148,6 @@ export default function AdminReviewsScreen() {
     }
   };
 
-  // A typed reason must be ≥10 chars (server rule); blank is fine (uses fallback).
-  const declineReasonTooShort = declineReason.trim().length > 0 && declineReason.trim().length < 10;
-
   return (
     <ScreenLayout
       headerVariant="standard"
@@ -239,76 +206,13 @@ export default function AdminReviewsScreen() {
       </ScrollView>
 
       {/* ── Decline-reason modal ── */}
-      {/* ResponsiveModal owns the scrim, the width cap and Esc; centred on both designs because
-          the prompt is a title and one field, not a sheet's worth of content. */}
-      <ResponsiveModal
+      <DeclineReviewDialog
         visible={declineTargetId !== null}
-        onClose={() => setDeclineTargetId(null)}
-        mobilePresentation="centered"
-        dialogWidth={480}>
-        <View style={{ backgroundColor: cardBg, padding: 20 }}>
-          <Text style={{ color: tColor, fontSize: 18, fontWeight: '700', marginBottom: 4 }}>
-            {t('admin.declineReviewTitle')}
-          </Text>
-          <Text style={{ color: subtextColor, fontSize: 13, marginBottom: 16 }}>
-            {t('admin.declineReviewMsg')}
-          </Text>
-          <TextInput
-            value={declineReason}
-            onChangeText={setDeclineReason}
-            placeholder={t('admin.declineReasonPlaceholder')}
-            placeholderTextColor={placeholderColor}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-            className={`${inputBg} ${inputText}`}
-            style={{
-              borderRadius: 12,
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              minHeight: 80,
-              marginBottom: declineReasonTooShort ? 4 : 16,
-            }}
-            selectionColor={BRAND_GREEN}
-          />
-          {declineReasonTooShort && (
-            <Text style={{ color: '#EF4444', fontSize: 12, marginBottom: 12 }}>
-              Please use at least 10 characters, or leave it blank.
-            </Text>
-          )}
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => setDeclineTargetId(null)}
-              activeOpacity={0.7}
-              style={{
-                flex: 1,
-                alignItems: 'center',
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: bColor,
-                paddingVertical: 12,
-              }}>
-              <Text style={{ color: tColor, fontWeight: '600' }}>{t('admin.cancel')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={confirmDecline}
-              disabled={declineReasonTooShort}
-              activeOpacity={0.7}
-              style={{
-                flex: 1,
-                alignItems: 'center',
-                borderRadius: 12,
-                backgroundColor: '#EF4444',
-                paddingVertical: 12,
-                opacity: declineReasonTooShort ? 0.5 : 1,
-              }}>
-              <Text style={{ color: 'white', fontWeight: '600' }}>{t('admin.decline')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ResponsiveModal>
+        reason={declineReason}
+        onChangeReason={setDeclineReason}
+        onCancel={() => setDeclineTargetId(null)}
+        onConfirm={confirmDecline}
+      />
     </ScreenLayout>
   );
 }

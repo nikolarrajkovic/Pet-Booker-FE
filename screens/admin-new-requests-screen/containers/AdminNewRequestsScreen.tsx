@@ -13,69 +13,34 @@ import { PartnerApplicationCard } from '../components';
 import type { PartnerApplication } from '../components';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import { showAlert } from '../../../services/alert';
-import {
-  getAllServiceProviders,
-  providerTypeLabel,
-  extractProviderDocuments,
-  ApprovalStatus,
-  ServiceProviderDto,
-} from '../../../services/service-providers';
+import { getAllServiceProviders } from '../../../services/service-providers';
+import { providerToApplication } from '../providerToApplication';
+import { useResponsive } from '../../../hooks/useResponsive';
+import AdminNewRequestsWeb from './AdminNewRequestsWeb';
 import {
   approveServiceProvider,
   declineServiceProvider,
   approveCertificate,
 } from '../../../services/admin';
 
-// Maps a raw ServiceProviderDto (a partner application) to the card's view shape.
-// Note: the provider DTO does not carry phone/bio/experience/availability —
-// those are blank until the backend exposes them.
-export function providerToApplication(dto: ServiceProviderDto): PartnerApplication {
-  const created = dto.createdAt ? new Date(dto.createdAt) : null;
-  const addr = dto.address;
-  const address = addr
-    ? [addr.line1, addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')
-    : '';
-
-  const documents = extractProviderDocuments(dto);
-
-  return {
-    id: String(dto.id ?? 0),
-    providerId: dto.id ?? 0,
-    applicantName: dto.name ?? 'Applicant',
-    submittedDate: created
-      ? created.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-      : '',
-    submittedTime: created
-      ? created.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })
-      : '',
-    services: [providerTypeLabel(dto.type)],
-    status:
-      dto.approvalStatus === ApprovalStatus.Declined
-        ? 'rejected'
-        : dto.approvalStatus === ApprovalStatus.Approved || dto.isApproved
-          ? 'approved'
-          : 'pending',
-    email: dto.contactEmail ?? '',
-    phone: '',
-    address,
-    experience: '',
-    bio: '',
-    certifications: (dto.certificates ?? [])
-      .map((c) => c.name)
-      .filter(Boolean)
-      .join(', '),
-    availability: '',
-    documents,
-    certificateIds: (dto.certificates ?? []).map((c) => c.id).filter((x): x is number => x != null),
-  };
-}
-
 type FilterTab = 'pending' | 'approved' | 'rejected';
 
 // A rejected application reads "Rejected" rather than the reviews queue's "Declined".
 const TABS = moderationTabs('admin.statusRejected');
 
+/**
+ * Partner applications, in whichever of the app's two designs the window calls for: the web design
+ * pages a table-like list from the server (`AdminNewRequestsWeb`), the phone keeps its card queue.
+ * Separate components rather than branches, so dragging a window across the breakpoint mounts the
+ * other design cleanly instead of changing how many hooks one component calls.
+ */
 export default function AdminNewRequestsScreen() {
+  const { isWebLayout } = useResponsive();
+  return isWebLayout ? <AdminNewRequestsWeb /> : <AdminNewRequestsMobile />;
+}
+
+/** The phone design's queue — unchanged: every application read up front, split into tabs. */
+function AdminNewRequestsMobile() {
   const navigation = useNavigation<any>();
   const { goUp } = useAppNavigation();
   const { isDarkMode, hex } = useThemeColors();
