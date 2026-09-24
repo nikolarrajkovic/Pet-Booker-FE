@@ -16,19 +16,18 @@ import { useConversationsInbox, relativeTime } from '../useConversationsInbox';
  * Two designs, and here they are genuinely different screens rather than the same one relaid:
  *
  * - **Phone** — the list, and tapping a row pushes the thread over it. The only option at 390px.
- * - **Web** — the list is the left column of a two-pane messenger with a thread open beside it
+ * - **Web** — the list is the right column of a two-pane messenger with a thread open beside it
  *   (`MessagesSplitView`). Pushing a thread over the inbox on a 1440px window throws away the
  *   list the user is choosing from and makes switching threads a Back plus a click.
  *
  * The load itself is shared: `useConversationsInbox` holds the fetch, the focus refresh and the
- * live splice, so the two designs cannot drift into refetching the inbox differently.
+ * live splice, so the two designs cannot drift into refetching the inbox differently. Each design
+ * owns its own copy — this component only picks one — because calling the hook here as well meant
+ * the web design loaded the inbox twice and kept two live copies of it, one of them never drawn.
  */
 export default function ConversationsScreen() {
-  const navigation = useNavigation<any>();
-  const { isDarkMode, bgColor } = useThemeColors();
   const { isWebLayout } = useResponsive();
   const { t } = useLocale();
-  const { conversations, isLoading, isRefreshing, loadError, refresh } = useConversationsInbox();
 
   if (isWebLayout) {
     return (
@@ -39,6 +38,16 @@ export default function ConversationsScreen() {
       </ScreenLayout>
     );
   }
+
+  return <InboxList />;
+}
+
+/** The phone design's inbox: the list is the page, and a row pushes the thread over it. */
+function InboxList() {
+  const navigation = useNavigation<any>();
+  const { isDarkMode, bgColor } = useThemeColors();
+  const { t } = useLocale();
+  const { conversations, isLoading, isRefreshing, loadError, refresh } = useConversationsInbox();
 
   return (
     <ScreenLayout

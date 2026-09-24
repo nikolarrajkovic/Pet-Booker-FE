@@ -225,7 +225,7 @@ can be right in one design and broken in the other, so each one is a test case.
 | B13 | Tab screen state | Tab screens stay mounted; refresh via `useFocusEffect` | Same, but a browser refresh remounts everything from the URL |
 | B14 | Hover / focus | No hover; touch feedback only | Hover states and keyboard focus rings are required |
 | B15 | Deep links | `petbooker://` | Real URLs; any screen reachable by URL must survive a cold load |
-| B17 | Messages | Inbox list; tapping a row **pushes** the thread over it | Inbox and thread **side by side**, most recent preselected, clicking a row swaps the thread in place (`MessagesSplitView`) |
+| B17 | Messages | Inbox list; tapping a row **pushes** the thread over it | Thread and inbox **side by side**, inbox on the **right** (the sidebar owns the left edge), most recent preselected, clicking a row swaps the thread in place (`MessagesSplitView`) |
 | B18 | Full-bleed routes | Every screen is full-bleed; there is no chrome to escape | `AppShell` unmounts the sidebar and top bar for `FULL_BLEED_ROUTES` (the partner celebration), which is the only way a screen gets the whole window |
 | B16 | Keyboard form submission | Return key advances fields (was: did nothing) | **Enter advances, and submits from the last field** — the convention a browser user assumes. Without it a form reads as broken. See `hooks/useFormChain.ts` |
 
