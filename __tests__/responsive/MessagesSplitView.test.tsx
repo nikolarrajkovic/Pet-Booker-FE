@@ -141,7 +141,10 @@ describe('Messages on the web design', () => {
   it('opens the most recent thread beside the list, without being asked', async () => {
     setViewport('desktop');
     render(withProviders(<ConversationsScreen />));
-    await screen.findByText('Ana');
+    // By the row's label, not its text: the preselected thread's header shows the same name, so
+    // once the thread has loaded `findByText('Ana')` matches twice and fails. Whether the header
+    // was up by the first poll was a race — green locally, red on a slower CI runner.
+    await screen.findByLabelText('Ana');
     await flush();
 
     // The server orders the inbox by activity, so row one is the most recent conversation.
@@ -169,7 +172,7 @@ describe('Messages on the phone design', () => {
   it('pushes the thread instead of opening one beside the list', async () => {
     setViewport('mobile');
     render(withProviders(<ConversationsScreen />));
-    await screen.findByText('Ana');
+    await screen.findByLabelText('Ana');
     await flush();
 
     // Nothing is preselected: there is no second pane to put it in.
