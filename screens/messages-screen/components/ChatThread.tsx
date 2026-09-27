@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppNavigation } from '../../../hooks/useAppNavigation';
-import { useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { useMessages } from '../../../context/MessagesContext';
 import ListState from '../../../components/shared/ListState';
-import PatternBackground from '../../../components/shared/PatternBackground';
 import MessageBubble from './MessageBubble';
 import MessageComposer from './MessageComposer';
 import ComposerLockedNotice from './ComposerLockedNotice';
@@ -53,7 +53,7 @@ export type ChatThreadTarget = {
 export type ChatThreadProps = ChatThreadTarget & {
   /**
    * Drawn inside a frame the parent owns — the web design's split view, where the inbox is the
-   * column to the left. Drops the back arrow (there is nothing to go back to: the list is on
+   * column to the right. Drops the back arrow (there is nothing to go back to: the list is on
    * screen) and fills the pane instead of pinning itself to the viewport.
    */
   embedded?: boolean;
@@ -66,6 +66,22 @@ export type ChatThreadProps = ChatThreadTarget & {
 };
 
 const PAGE_SIZE = 30;
+
+/**
+ * The ground behind the bubbles: the brand green in the top-left corner, fading to white.
+ *
+ * The green is a tint, not the full `brand-500`, because your own bubbles are solid `brand-500`
+ * and would vanish into it. It runs corner to corner rather than top to bottom so each side of
+ * the conversation lands on the end that sets it off: the other side's white bubbles hug the
+ * left edge, where the green is, and your green bubbles hug the right, where it has faded out.
+ *
+ * Dark mode keeps the hue and drops the white — a white corner in a dark thread would glare.
+ * The stops are the brand green with alpha over the base colour, so a palette change follows.
+ */
+const THREAD_GROUND = {
+  light: [`${BRAND_GREEN}59`, `${BRAND_GREEN}00`],
+  dark: [`${BRAND_GREEN}2E`, `${BRAND_GREEN}00`],
+} as const;
 
 /** Locale-aware clock time for a bubble's timestamp chip. */
 function timeLabel(iso: string): string {
@@ -113,6 +129,7 @@ export default function ChatThread({
     subscribe,
     subscribeToReads,
     subscribeToTyping,
+    subscribeToReconnect,
     joinThread,
     notifyTyping,
     refreshUnreadCount,
@@ -238,6 +255,39 @@ export default function ChatThread({
       }
     });
   }, [conversationId, viewer, subscribe, refreshUnreadCount]);
+
+  /**
+   * Catch up after the live channel was down.
+   *
+   * SignalR does not replay what it missed, so a reply sent while the socket was away — or in
+   * the seconds between the API coming back and the client reconnecting — never reached this
+   * thread and would stay missing until the user left and came back. Re-read the newest page and
+   * merge it by id: the server's copy wins for messages already held, which also brings any read
+   * ticks that flipped during the gap.
+   */
+  useEffect(() => {
+    if (conversationId == null) return;
+    return subscribeToReconnect(() => {
+      getMessagesPage(conversationId, null, PAGE_SIZE)
+        .then((latest) => {
+          setMessages((prev) => {
+            const byId = new Map(prev.map((m) => [m.id, m]));
+            for (const m of latest.items) byId.set(m.id, m);
+            return sortMessages([...byId.values()]);
+          });
+          // The thread is on screen, so whatever just landed in it has been seen. Unconditional:
+          // marking read is idempotent, and a reconnect is rare enough not to count the call.
+          markConversationRead(conversationId)
+            .then(refreshUnreadCount)
+            .catch(() => {});
+          // The verdict may have moved too (their reply lifts a spent enquiry allowance).
+          getConversation(conversationId)
+            .then(setConversation)
+            .catch(() => {});
+        })
+        .catch(() => {});
+    });
+  }, [conversationId, subscribeToReconnect, refreshUnreadCount]);
 
   // The other party opened the thread — flip our ticks to read.
   useEffect(() => {
@@ -462,16 +512,16 @@ export default function ChatThread({
           of the thread empty beneath it. */}
       <KeyboardAvoidingView style={{ flex: 1, minHeight: 0 }} behavior="padding">
         {/*
-          The pet texture from the signed-out screens, here behind the bubbles.
-
-          `onMobile` is on because a thread is the one place the phone design wants it too: the
-          usual argument against it — that on a phone the content fills the screen, so the
-          texture would sit under content rather than beside it — does not hold for a column of
-          bubbles, which by construction leaves most of the width empty. It is drawn inside the
-          thread rather than left to the shell's copy because the thread paints an opaque ground
-          over that one, and because on a phone there is no shell at all.
+          A brand-green gradient behind the bubbles (see `THREAD_GROUND`) — on the phone too,
+          since a column of bubbles leaves most of the width empty on any screen. It replaced the
+          pet texture, which filled the gap with line art at the cost of every bubble reading
+          against it; a plain gradient gives the thread its colour without that competition.
         */}
-        <PatternBackground onMobile style={{ flex: 1, minHeight: 0 }}>
+        <LinearGradient
+          colors={isDarkMode ? THREAD_GROUND.dark : THREAD_GROUND.light}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ flex: 1, minHeight: 0, backgroundColor: isDarkMode ? hex.bg : '#FFFFFF' }}>
           <ScrollView
             ref={scrollRef}
             className="flex-1"
@@ -515,7 +565,7 @@ export default function ChatThread({
               ))}
             </ListState>
           </ScrollView>
-        </PatternBackground>
+        </LinearGradient>
 
         {!!allowanceHint && (
           <Text className={`px-4 pb-1 text-center text-[11px] ${subtextColor}`}>

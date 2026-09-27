@@ -576,6 +576,7 @@ const en = {
     subtitle: 'Chat with providers',
     conversation: 'Conversation',
     composerPlaceholder: 'Message…',
+    composerKeysHint: 'Enter to send, Shift+Enter for a new line',
     send: 'Send',
     emptyInbox: 'No messages yet',
     emptyThread: 'No messages yet — say hello!',

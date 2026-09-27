@@ -13,7 +13,11 @@ import {
   AppNotificationDto,
   getUnreadNotificationCount,
   isInboxNotification,
+  notificationPayload,
+  NotificationType,
 } from '../services/app-notifications';
+import { isActiveConversation } from '../services/active-conversation';
+import { startHubConnection } from '../services/hub-connection';
 import {
   createNotificationHubConnection,
   NOTIFICATION_RECEIVED,
@@ -104,8 +108,14 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       invalidate(resourcesForNotification(notification));
       const text = notification.message?.trim() || notification.title;
       // Every notification toasts, hidden-from-the-inbox ones included — for a message that
-      // toast IS the notification, and tapping it is the way into the thread.
-      if (text) {
+      // toast IS the notification, and tapping it is the way into the thread. Except a message
+      // into the thread already on screen: the backend files one whenever a thread goes from
+      // nothing unread to something unread, and a thread being read is marked read on every
+      // arrival, so without this every line the other side sent toasted over its own bubble.
+      const isOpenThread =
+        notification.type === NotificationType.NewChatMessage &&
+        isActiveConversation(notificationPayload(notification).conversationId);
+      if (text && !isOpenThread) {
         showInfo(text, {
           onPress: () => followNotificationRoute(routeForNotification(notification)),
         });
@@ -116,9 +126,10 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     connection.onreconnected(() => {
       if (!cancelled) refreshUnreadCount();
     });
-    connection.start().catch((error) => {
-      // Non-fatal: the app falls back to the polled REST feed.
-      if (__DEV__) console.warn('[Notifications] hub connect failed', error);
+    // Retried until it connects: a failed first negotiate used to be final for the session. The
+    // REST feed stays the fallback meanwhile; anything pushed before it came up is re-read.
+    startHubConnection(connection, () => cancelled, 'Notifications').then((failedAttempts) => {
+      if (failedAttempts) refreshUnreadCount();
     });
 
     return () => {

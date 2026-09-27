@@ -31,6 +31,7 @@ jest.mock('../context/MessagesContext', () => {
       };
     },
     subscribe: () => () => {},
+    subscribeToReconnect: () => () => {},
     subscribeToReads: () => () => {},
     subscribeToTyping: () => () => {},
     joinThread: () => () => {},

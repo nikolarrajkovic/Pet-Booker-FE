@@ -11,6 +11,7 @@ import { HubConnectionState, type HubConnection } from '@microsoft/signalr';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
 import { getUnreadMessageCount, type ConversationDto, type MessageDto } from '../services/messages';
+import { startHubConnection } from '../services/hub-connection';
 import {
   createMessageHubConnection,
   CONVERSATION_READ,
@@ -24,11 +25,16 @@ import {
   type TypingEvent,
 } from '../services/message-hub';
 import { followNotificationRoute } from '../navigation/notificationRoute';
+import {
+  claimActiveConversation as claimActiveThread,
+  isActiveConversation,
+} from '../services/active-conversation';
 
 type MessageListener = (message: MessageDto) => void;
 type ReadListener = (event: ConversationReadEvent) => void;
 type TypingListener = (event: TypingEvent) => void;
 type InboxListener = (conversation: ConversationDto) => void;
+type ReconnectListener = () => void;
 
 type MessagesContextValue = {
   /** Total unread across every thread — the badge number. */
@@ -43,6 +49,12 @@ type MessagesContextValue = {
   subscribeToTyping: (listener: TypingListener) => () => void;
   /** Any thread of the caller's got a new message — the inbox list refreshes off this. */
   subscribeToInbox: (listener: InboxListener) => () => void;
+  /**
+   * The live channel came back after a gap (a reconnect, or a first connect that had to retry).
+   * Every push sent while it was down is gone and is not replayed, so whatever a screen holds
+   * from the hub has to be re-read over REST.
+   */
+  subscribeToReconnect: (listener: ReconnectListener) => () => void;
   /**
    * Joins a thread's live group for as long as the screen is mounted. Messages only arrive on
    * `subscribe` for threads joined this way — the identity channel carries the badge, not the
@@ -81,9 +93,9 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
   const readListenersRef = useRef<Set<ReadListener>>(new Set());
   const typingListenersRef = useRef<Set<TypingListener>>(new Set());
   const inboxListenersRef = useRef<Set<InboxListener>>(new Set());
+  const reconnectListenersRef = useRef<Set<ReconnectListener>>(new Set());
   const connectionRef = useRef<HubConnection | null>(null);
   const fetchingCountRef = useRef(false);
-  const activeConversationRef = useRef<number | null>(null);
   /** Threads currently open on screen, by id → how many screens hold them. */
   const joinedThreadsRef = useRef<Map<number, number>>(new Map());
 
@@ -114,23 +126,21 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
   /**
    * The in-app announcement of a new message: a toast that opens the thread when tapped.
    *
-   * It is raised HERE, off the chat hub, rather than from the notification feed — verified
-   * against the live backend, which does not file an app-notification for a message while the
-   * recipient is connected to the chat hub (sensibly: they are already being told). Driving the
-   * toast off the notification push therefore meant it only ever appeared for the first message
-   * of a thread received while the app was closed — i.e. almost never, and never in the case the
-   * user actually cares about. The inbox ping is the one event that reliably fires for the
-   * recipient of every message.
+   * It is raised HERE, off the chat hub, rather than from the notification feed: the backend
+   * files a `NewChatMessage` notification only when a thread goes from nothing unread to
+   * something unread, so the notification push announces the first line of a burst and none of
+   * the rest. The inbox ping is the one event that fires for the recipient of every message.
    *
-   * The text matches the notification feed's wording, so on the rare occasion both arrive, the
-   * toast host's identical-message de-duplication collapses them into one.
+   * The text matches the notification's wording, so when both arrive for the same message the
+   * toast host's identical-message de-duplication collapses them into one. Both skip the thread
+   * on screen (`services/active-conversation`).
    */
   const showMessageToast = useCallback(
     (conversation: ConversationDto) => {
       // No unread means this ping was a read-receipt or a send of the user's own, not an arrival.
       if (!conversation?.id || conversation.unreadCount < 1) return;
       // Don't announce the conversation the user is already reading.
-      if (activeConversationRef.current === conversation.id) return;
+      if (isActiveConversation(conversation.id)) return;
 
       const preview = conversation.lastMessagePreview?.trim();
       if (!preview) return;
@@ -146,19 +156,14 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     [showInfo]
   );
 
-  const claimActiveConversation = useCallback((conversationId: number) => {
-    activeConversationRef.current = conversationId;
-    return () => {
-      // Release only if we still hold the claim. Two chat screens overlap more often than it
-      // looks — a params change remounts the screen, and React re-runs effects in development —
-      // and a plain `= null` let the OUTGOING screen's cleanup, which runs after the incoming
-      // one's setup, wipe the claim that had just been made. The thread then toasted itself
-      // while the user sat reading it, which is precisely what this exists to prevent.
-      if (activeConversationRef.current === conversationId) activeConversationRef.current = null;
-    };
-  }, []);
+  // The claim itself lives in `services/active-conversation` so the notification hub, which sits
+  // outside this provider, can honour it too. Exposed here so a thread keeps one place to ask.
+  const claimActiveConversation = useCallback(
+    (conversationId: number) => claimActiveThread(conversationId),
+    []
+  );
 
-  // Four near-identical subscribe fns, written out rather than generated by a helper: a
+  // Five near-identical subscribe fns, written out rather than generated by a helper: a
   // factory-produced callback has dependencies the exhaustive-deps rule cannot see, and these
   // are the identities every consumer's effect keys on — they must stay stable.
   const subscribe = useCallback((listener: MessageListener) => {
@@ -186,6 +191,13 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     inboxListenersRef.current.add(listener);
     return () => {
       inboxListenersRef.current.delete(listener);
+    };
+  }, []);
+
+  const subscribeToReconnect = useCallback((listener: ReconnectListener) => {
+    reconnectListenersRef.current.add(listener);
+    return () => {
+      reconnectListenersRef.current.delete(listener);
     };
   }, []);
 
@@ -289,22 +301,27 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
       joinedThreadsRef.current.forEach((_held, conversationId) => joinIfConnected(conversationId));
     };
 
-    // Anything pushed while disconnected is lost — the REST count is the source of truth.
+    // Anything pushed while disconnected is lost — the REST count is the source of truth, and
+    // the screens holding hub-fed state re-read theirs.
+    const catchUp = () => {
+      refreshUnreadCount();
+      reconnectListenersRef.current.forEach((listener) => listener());
+    };
+
     connection.onreconnected(() => {
       if (cancelled) return;
-      refreshUnreadCount();
       rejoinOpenThreads();
+      catchUp();
     });
 
-    connection
-      .start()
-      .then(() => {
-        if (!cancelled) rejoinOpenThreads();
-      })
-      .catch((error) => {
-        // Non-fatal: messages still send and load over REST, they just don't arrive live.
-        if (__DEV__) console.warn('[Messages] hub connect failed', error);
-      });
+    // Retried until it connects: a failed first negotiate used to be final for the session.
+    // Messages still send and load over REST meanwhile, they just don't arrive live.
+    startHubConnection(connection, () => cancelled, 'Messages').then((failedAttempts) => {
+      if (failedAttempts == null) return;
+      rejoinOpenThreads();
+      // Anything pushed before it came up was lost, exactly as on a reconnect.
+      if (failedAttempts > 0) catchUp();
+    });
 
     return () => {
       cancelled = true;
@@ -321,6 +338,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
       subscribeToReads,
       subscribeToTyping,
       subscribeToInbox,
+      subscribeToReconnect,
       joinThread,
       notifyTyping,
       claimActiveConversation,
@@ -332,6 +350,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
       subscribeToReads,
       subscribeToTyping,
       subscribeToInbox,
+      subscribeToReconnect,
       joinThread,
       notifyTyping,
       claimActiveConversation,

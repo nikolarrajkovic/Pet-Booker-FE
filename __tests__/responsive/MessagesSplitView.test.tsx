@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, act } from '@testing-library/react-native';
+import { render, screen, fireEvent, act, within } from '@testing-library/react-native';
 import { withProviders, setViewport } from '../test-utils';
 
 /**
@@ -34,11 +34,26 @@ jest.mock('../../services/messages', () => ({
   ChatAccessReason: { ActiveBooking: 1 },
 }));
 
+// The hub's listeners, captured so a test can play a push or a reconnect into the screen.
+let mockInboxListener: ((c: unknown) => void) | null = null;
+let mockReconnectListener: (() => void) | null = null;
+
 jest.mock('../../context/MessagesContext', () => {
   const value = {
     unreadCount: 0,
     refreshUnreadCount: jest.fn(),
-    subscribeToInbox: () => () => {},
+    subscribeToInbox: (listener: (c: unknown) => void) => {
+      mockInboxListener = listener;
+      return () => {
+        mockInboxListener = null;
+      };
+    },
+    subscribeToReconnect: (listener: () => void) => {
+      mockReconnectListener = listener;
+      return () => {
+        mockReconnectListener = null;
+      };
+    },
     subscribe: () => () => {},
     subscribeToReads: () => () => {},
     subscribeToTyping: () => () => {},
@@ -147,6 +162,85 @@ describe('Messages on the web design', () => {
     // The server orders the inbox by activity, so row one is the most recent conversation.
     expect(mockGetConversation).toHaveBeenCalledWith(1);
     expect(await screen.findByText('morning walk?')).toBeTruthy();
+  });
+
+  it('puts the inbox on the right of the thread, away from the sidebar', async () => {
+    setViewport('desktop');
+    render(withProviders(<ConversationsScreen />));
+    await screen.findByText('morning walk?');
+
+    // A row lays its children out in order, so which pane comes first is which side it is on.
+    // Read off the host tree: the two panes are siblings in the split view's row.
+    type Node = { props: Record<string, unknown>; children: (Node | string)[] | null };
+    const findRow = (node: Node | string): Node | null => {
+      if (typeof node === 'string' || !node.children) return null;
+      const ids = node.children.map((c) => (typeof c === 'string' ? null : c.props.testID));
+      if (ids.includes('messages-thread-pane')) return node;
+      for (const child of node.children) {
+        const found = findRow(child);
+        if (found) return found;
+      }
+      return null;
+    };
+    const row = findRow(screen.toJSON() as unknown as Node);
+    const panes = row?.children
+      ?.map((c) => (typeof c === 'string' ? null : c.props.testID))
+      .filter(Boolean);
+    expect(panes).toEqual(['messages-thread-pane', 'messages-inbox-pane']);
+  });
+
+  it('never lights an unread pill on the thread being read', async () => {
+    setViewport('desktop');
+    render(withProviders(<ConversationsScreen />));
+    await screen.findByText('morning walk?');
+
+    // The push that follows a message into the open thread carries the row as the server saw it
+    // at sending time — one unread — before the thread's own mark-read has landed.
+    act(() => mockInboxListener?.({ ...thread(1, 'Ana', 'on my way'), unreadCount: 1 }));
+
+    expect(await screen.findByText('on my way')).toBeTruthy();
+    expect(within(screen.getByLabelText('Ana')).queryByText('1')).toBeNull();
+  });
+
+  it('clears the pill of an unread row as soon as it is opened', async () => {
+    mockGetConversations.mockResolvedValueOnce({
+      items: [
+        thread(1, 'Ana', 'see you then'),
+        { ...thread(2, 'Bojan', 'thanks!'), unreadCount: 2 },
+      ],
+      totalItems: 2,
+      totalPages: 1,
+      currentPage: 1,
+      itemsPerPage: 50,
+      hasMore: false,
+    });
+    setViewport('desktop');
+    render(withProviders(<ConversationsScreen />));
+    await screen.findByText('morning walk?');
+    expect(within(screen.getByLabelText('Bojan')).getByText('2')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Bojan'));
+    await flush();
+
+    expect(within(screen.getByLabelText('Bojan')).queryByText('2')).toBeNull();
+  });
+
+  it('catches the open thread up after the live channel was down', async () => {
+    setViewport('desktop');
+    render(withProviders(<ConversationsScreen />));
+    await screen.findByText('morning walk?');
+
+    // A reply sent while the socket was away: no push ever delivers it, only a re-read does.
+    mockGetMessagesPage.mockResolvedValueOnce({
+      items: [message(10, 1, 'morning walk?'), message(11, 1, 'sent while you were offline')],
+      nextBefore: null,
+      hasMore: false,
+    });
+    act(() => mockReconnectListener?.());
+
+    expect(await screen.findByText('sent while you were offline')).toBeTruthy();
+    // Merged, not replaced or doubled.
+    expect(screen.getAllByText('morning walk?')).toHaveLength(1);
   });
 
   it('swaps the thread in place when another row is clicked', async () => {
