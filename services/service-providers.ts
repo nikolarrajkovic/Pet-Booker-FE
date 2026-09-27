@@ -1,4 +1,12 @@
-import { apiJson, apiList, apiPage, apiVoid, getApiBaseUrl, type ApiRequestOptions } from './http';
+import {
+  apiJson,
+  apiList,
+  apiPage,
+  apiVoid,
+  getApiBaseUrl,
+  type ApiRequestOptions,
+  type PagedResult,
+} from './http';
 import { uploadFilesBulk } from './files';
 
 // ─── Shared DTO types ────────────────────────────────────────────────────────
@@ -52,6 +60,13 @@ export type CertificateFileDto = {
 // ApprovalStatus enum (providers, certificates, reviews): 0=Pending, 1=Approved, 2=Declined
 export const ApprovalStatus = { Pending: 0, Approved: 1, Declined: 2 } as const;
 
+/**
+ * Row order for the admin lists (applications, partners, reviews) — backend `SubmissionOrder`.
+ * Ranked by id, which is arrival order; omitted means oldest first, the historical order.
+ */
+export const SubmissionOrder = { OldestFirst: 0, NewestFirst: 1 } as const;
+export type SubmissionOrderValue = (typeof SubmissionOrder)[keyof typeof SubmissionOrder];
+
 export type CertificateDto = {
   id?: number | null;
   serviceProviderId?: number | null;
@@ -86,6 +101,7 @@ export type ServiceProviderDto = {
   isApproved?: boolean; // legacy mirror of approvalStatus === Approved
   ratingAvg?: number | null; // server-computed average rating (null until reviews exist)
   reviewCount?: number; // number of reviews backing ratingAvg (exposed at list level now)
+  serviceCount?: number; // services the provider lists — filled on find/search in one batched query
   addressId?: number | null;
   isApplicationPartner?: boolean; // true when created via the partner-application flow
   createdAt?: string;
@@ -288,6 +304,7 @@ export type GetServiceProvidersParams = {
   type?: number;
   isApproved?: boolean;
   approvalStatus?: number; // ApprovalStatus
+  order?: SubmissionOrderValue;
   page?: number;
   perPage?: number;
 };
@@ -301,6 +318,7 @@ function providersRequest(params?: GetServiceProvidersParams): ApiRequestOptions
       Type: params?.type,
       IsApproved: params?.isApproved,
       ApprovalStatus: params?.approvalStatus,
+      Order: params?.order,
       Page: params?.page ?? 1,
       PerPage: params?.perPage ?? 50,
     },
@@ -316,44 +334,21 @@ export function getServiceProviders(
 }
 
 /**
- * Every provider matching a filter, not just the first page.
+ * One page of providers with its paging wrapper — for a list that pages as it scrolls.
  *
- * The server caps a page at 200 rows. Both admin screens were asking for `perPage: 200` and then
- * counting or filtering the result on the client, which is only correct while there are fewer
- * than 200 providers in total. There are 420:
- *
- *  - Partners listed 200 of the 377 approved, and its own filter chips reported "200" because
- *    they counted the array rather than asking the server.
- *  - New Requests filtered for "pending" *inside* an arbitrary 200-row window and found 7 of 42.
- *    The other 35 applications were unreachable, so those providers were never reviewed.
- *
- * Paging here rather than at each call site so a third screen cannot reintroduce it. The page
- * ceiling is a guard, not a limit anyone should hit: at 200 a page it is 10,000 providers, and
- * past that this should be a server-side search rather than a full read.
+ * The admin lists read through this a page at a time. They used to read *every* provider up front
+ * (200 per request, page after page) and filter or count the array on the client, which was
+ * slower with each partner who had ever signed up and, before that helper existed, silently
+ * wrong past the 200-row page cap. Filter and order on the server (`approvalStatus`, `name`,
+ * `order`) and ask for the next page when the reader gets there.
  */
-export async function getAllServiceProviders(
+export function getServiceProvidersPage(
   params?: GetServiceProvidersParams
-): Promise<ServiceProviderDto[]> {
-  const perPage = 200;
-  const maxPages = 50;
-
-  const first = await apiPage<ServiceProviderDto>('/api/service-providers', {
-    ...providersRequest({ ...params, page: 1, perPage }),
-    context: 'getAllServiceProviders',
+): Promise<PagedResult<ServiceProviderDto>> {
+  return apiPage<ServiceProviderDto>('/api/service-providers', {
+    ...providersRequest(params),
+    context: 'getServiceProvidersPage',
   });
-
-  const items = [...first.items];
-  const pages = Math.min(Math.ceil((first.totalItems || 0) / perPage), maxPages);
-
-  for (let page = 2; page <= pages; page += 1) {
-    const next = await apiPage<ServiceProviderDto>('/api/service-providers', {
-      ...providersRequest({ ...params, page, perPage }),
-      context: 'getAllServiceProviders',
-    });
-    items.push(...next.items);
-  }
-
-  return items;
 }
 
 /**

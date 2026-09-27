@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import Avatar from '../../../components/shared/Avatar';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { providerTypeValue } from '../../../services/service-providers';
@@ -115,10 +116,15 @@ export function PartnerCard({
       }}>
       {/* Image */}
       <View style={{ position: 'relative', marginRight: 12 }}>
-        <Image
-          source={{ uri: partner.image }}
-          style={{ width: 72, height: 72, borderRadius: 12 }}
-          resizeMode="cover"
+        {/* Avatar, not a bare Image: a photo that fails to load (or none at all) falls back to
+            the partner's initial instead of an empty square. */}
+        <Avatar
+          uri={partner.image}
+          name={partner.name}
+          size={72}
+          style={{ borderRadius: 12 }}
+          placeholderClassName={isDarkMode ? 'bg-[#1e3a2f]' : 'bg-brand-50'}
+          textClassName="text-2xl font-bold text-brand-600"
         />
         {partner.status === 'active' && (
           <View
