@@ -1,5 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import {
+  View,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  Platform,
+  type NativeSyntheticEvent,
+  type TextInputKeyPressEventData,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, themeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
@@ -73,6 +81,27 @@ export default function MessageComposer({
     await onSend(trimmed);
   };
 
+  /**
+   * In a browser, Enter sends and Shift+Enter starts a new line — what every web messenger does.
+   *
+   * The field is multiline, and a multiline field never fires `onSubmitEditing` on Enter there:
+   * Enter (and Shift+Enter) both just added a line, so a message could only be sent with the
+   * mouse. Prevented here rather than stripped afterwards, so the newline never lands in the
+   * draft. An IME composing a word (`isComposing`) owns Enter until it commits.
+   *
+   * Phones are left alone: the soft keyboard's return key adds a line, and the send button sends.
+   */
+  const handleKeyPress = (e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
+    if (Platform.OS !== 'web') return;
+    const key = e.nativeEvent as TextInputKeyPressEventData & {
+      shiftKey?: boolean;
+      isComposing?: boolean;
+    };
+    if (key.key !== 'Enter' || key.shiftKey || key.isComposing) return;
+    e.preventDefault();
+    void handleSend();
+  };
+
   return (
     <View className={`flex-row items-end border-t px-3 py-2 ${borderColor} ${cardBg}`}>
       <TextInput
@@ -85,7 +114,9 @@ export default function MessageComposer({
         style={{ maxHeight: 120 }}
         className={`mr-2 flex-1 rounded-2xl px-4 py-2.5 text-[15px] ${inputBg} ${inputText}`}
         onSubmitEditing={handleSend}
+        onKeyPress={handleKeyPress}
         accessibilityLabel={t('messages.composerPlaceholder')}
+        accessibilityHint={Platform.OS === 'web' ? t('messages.composerKeysHint') : undefined}
       />
       <TouchableOpacity
         onPress={handleSend}

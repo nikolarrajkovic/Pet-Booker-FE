@@ -14,6 +14,12 @@ export interface MessageBubbleProps {
   isDarkMode: boolean;
 }
 
+/** Tick colours: grey while sent, blue once read (the lighter blue on the dark ground). */
+const TICK = {
+  light: { sent: '#9CA3AF', read: '#3B82F6' },
+  dark: { sent: '#6B7280', read: '#60A5FA' },
+} as const;
+
 /**
  * One chat bubble: the sender's messages sit right in brand green, the other party's sit left on
  * a card background behind their avatar.
@@ -49,12 +55,14 @@ export default function MessageBubble({
       </View>
 
       {isMine && (
-        // Single tick = sent, double = read. Sits outside the bubble so a long message
-        // never reflows around it.
+        // Single grey tick = sent, double blue tick = read. Sits outside the bubble so a long
+        // message never reflows around it. Blue rather than the brand green: the bubble beside
+        // it is already that green, so a green "read" tick was only a shade off the bubble and
+        // read as decoration — blue is the colour people already take to mean "seen".
         <Ionicons
           name={isRead ? 'checkmark-done' : 'checkmark'}
           size={15}
-          color={isRead ? '#00C870' : isDarkMode ? '#6B7280' : '#9CA3AF'}
+          color={TICK[isDarkMode ? 'dark' : 'light'][isRead ? 'read' : 'sent']}
           style={{ marginLeft: 4, marginBottom: 2 }}
         />
       )}

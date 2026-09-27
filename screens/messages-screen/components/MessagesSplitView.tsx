@@ -29,13 +29,18 @@ export type MessagesSplitViewProps = {
 };
 
 /**
- * Messages on the web design: the inbox beside the open thread.
+ * Messages on the web design: the open thread, with the inbox beside it on the right.
  *
  * The phone design pushes a thread over the inbox because there is no room for both. A 1440px
  * window has room for both twice over, and the push wastes it twice: the list the user picked
  * from disappears the moment they pick, and switching threads costs a Back and a second click
  * through a screen that was already on display. Two panes is what every messenger on a desktop
  * does, and it is the layout the inbox rows were already shaped for.
+ *
+ * The inbox goes on the right, not the left: the sidebar already runs down the left edge, and a
+ * list there put two navigation columns side by side with the conversation pushed out past them.
+ * On the right the thread sits next to the navigation that led to it, and the inbox reads as the
+ * page's own index.
  *
  * Drawn by **both** message routes (`Messages` and `Chat`), so a deep link to a thread lands in
  * the same place as a click from the inbox. `ChatThread` is the same component the phone screen
@@ -45,7 +50,6 @@ export default function MessagesSplitView({ initial, onSelect }: MessagesSplitVi
   const { isDarkMode, textColor, subtextColor, hex } = useThemeColors();
   const { isTablet } = useResponsive();
   const { t } = useLocale();
-  const { conversations, isLoading, loadError } = useConversationsInbox();
 
   const [target, setTarget] = useState<ChatThreadTarget | null>(initial ?? null);
   /**
@@ -56,6 +60,8 @@ export default function MessagesSplitView({ initial, onSelect }: MessagesSplitVi
    * itself finds out which row it landed on.
    */
   const [selectedId, setSelectedId] = useState<number | null>(initial?.conversationId ?? null);
+  // Told which row is open, so the thread being read never wears an unread pill.
+  const { conversations, isLoading, loadError } = useConversationsInbox(selectedId);
 
   // A route param change (a notification tap landing on a thread while the inbox is already
   // open) moves the pane. Keyed on the values rather than the object, which the navigator
@@ -119,12 +125,31 @@ export default function MessagesSplitView({ initial, onSelect }: MessagesSplitVi
           borderColor: hex.border,
           backgroundColor: hex.card,
         }}>
+        {/* ── The open thread ─────────────────────────────────────────────────────────────── */}
+        <View testID="messages-thread-pane" style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+          {target ? (
+            <ChatThread
+              key={threadKey}
+              {...target}
+              embedded
+              onConversationResolved={(c) => setSelectedId(c.id)}
+            />
+          ) : (
+            // Only reachable with an empty (or still-loading) inbox — with any thread at all,
+            // one is preselected above.
+            !isLoading && (
+              <MessageState icon="chatbubble-ellipses-outline" message={t('messages.emptyInbox')} />
+            )
+          )}
+        </View>
+
         {/* ── The inbox ───────────────────────────────────────────────────────────────────── */}
         <View
+          testID="messages-inbox-pane"
           style={{
             width: isTablet ? LIST_WIDTH.tablet : LIST_WIDTH.desktop,
-            borderRightWidth: 1,
-            borderRightColor: hex.border,
+            borderLeftWidth: 1,
+            borderLeftColor: hex.border,
             minHeight: 0,
           }}>
           {/* The page title lives here rather than in a `PageHeader` above the panel: a title
@@ -163,24 +188,6 @@ export default function MessagesSplitView({ initial, onSelect }: MessagesSplitVi
               ))}
             </ListState>
           </ScrollView>
-        </View>
-
-        {/* ── The open thread ─────────────────────────────────────────────────────────────── */}
-        <View style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
-          {target ? (
-            <ChatThread
-              key={threadKey}
-              {...target}
-              embedded
-              onConversationResolved={(c) => setSelectedId(c.id)}
-            />
-          ) : (
-            // Only reachable with an empty (or still-loading) inbox — with any thread at all,
-            // one is preselected above.
-            !isLoading && (
-              <MessageState icon="chatbubble-ellipses-outline" message={t('messages.emptyInbox')} />
-            )
-          )}
         </View>
       </View>
     </View>

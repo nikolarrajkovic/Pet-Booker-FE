@@ -555,6 +555,7 @@ const ru: TranslationDict = {
     subtitle: 'Чат с исполнителями',
     conversation: 'Диалог',
     composerPlaceholder: 'Сообщение…',
+    composerKeysHint: 'Enter — отправить, Shift+Enter — новая строка',
     send: 'Отправить',
     emptyInbox: 'Сообщений пока нет',
     emptyThread: 'Сообщений пока нет — поздоровайтесь!',
