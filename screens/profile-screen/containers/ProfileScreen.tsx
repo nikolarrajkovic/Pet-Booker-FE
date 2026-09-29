@@ -15,6 +15,10 @@ import { getUser, UserDto } from '../../../services/users';
 import { getBookings, parseBookingDate, BookingStatusType } from '../../../services/bookings';
 import { MenuItem } from '../components';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import Constants from 'expo-constants';
+
+/** The running build's version, from app.json via the Expo manifest. */
+const APP_VERSION = Constants.expoConfig?.version ?? '';
 
 const USER_MENU_ITEMS = [
   {
@@ -294,9 +298,13 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           <View className="mb-4 mt-6 items-center">
-            <Text className={`text-sm ${subtextColor}`}>{t('login.appName')} v1.0.0</Text>
+            {/* The version is the build's own (app.json), and the year is today's — both were typed
+                in, so the footer read "v1.0.0" whatever shipped and "© 2025" from January on. */}
+            <Text className={`text-sm ${subtextColor}`}>
+              {t('login.appName')} v{APP_VERSION}
+            </Text>
             <Text className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} mt-1`}>
-              {t('profile.rights')}
+              {t('profile.rights', { year: new Date().getFullYear() })}
             </Text>
           </View>
         </View>

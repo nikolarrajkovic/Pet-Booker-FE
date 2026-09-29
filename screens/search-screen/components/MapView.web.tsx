@@ -221,7 +221,7 @@ export default function MapViewComponent({
   if (location.loading) {
     return (
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ color: '#6b7280' }}>Loading map...</span>
+        <span style={{ color: '#6b7280' }}>{t('shared.loadingMap')}</span>
       </div>
     );
   }

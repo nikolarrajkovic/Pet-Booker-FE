@@ -127,7 +127,7 @@ export default function PersonalInfoStep({
           />
           <TextInput
             className={`flex-1 ${inputText}`}
-            placeholder="john@example.com"
+            placeholder={t('forgotPassword.emailPlaceholderExample')}
             placeholderTextColor={placeholderColor}
             keyboardType="email-address"
             autoCapitalize="none"

@@ -8,7 +8,7 @@ import Rail from '../../../components/shared/Rail';
 import BrandMark from '../../../components/shared/BrandMark';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useLocation } from '../../../hooks/useLocation';
+import { useLocation, locationLabel } from '../../../hooks/useLocation';
 import { BRAND_GREEN, SERVICE_TYPE_COLORS, useThemeColors } from '../../../hooks/useThemeColors';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
@@ -100,7 +100,10 @@ type ServiceItem = {
  * fetch was capped at one page: once the system held more than 100 discounts, services whose row
  * fell off page one silently lost their badge.
  */
-function dealLabel(svc: ServiceDto): string | undefined {
+function dealLabel(
+  svc: ServiceDto,
+  t: Parameters<typeof formatOfferAmount>[4]
+): string | undefined {
   const amount = svc.appliedDiscountAmount;
   if (amount == null) return undefined;
   // formatOfferAmount takes percentAmount separately so it can win over a mislabelled row; for a
@@ -110,7 +113,8 @@ function dealLabel(svc: ServiceDto): string | undefined {
     svc.appliedDiscountType ?? undefined,
     amount,
     serviceCurrency(svc),
-    isPercent ? amount : undefined
+    isPercent ? amount : undefined,
+    t
   );
 }
 
@@ -194,7 +198,7 @@ export default function HomeScreen() {
         if (cancelled) return;
         const [popularR, saleR, recentR] = results;
         const deals = toItems(val(saleR)).map((item) => {
-          const amount = dealLabel(item.dto);
+          const amount = dealLabel(item.dto, t);
           return amount ? { ...item, dealAmount: amount } : item;
         });
         setMostPopular(toItems(val(popularR)));
@@ -442,7 +446,7 @@ export default function HomeScreen() {
                   <ActivityIndicator size="small" color="#ffffff" style={{ marginLeft: 8 }} />
                 ) : (
                   <Text className="ml-2 text-sm text-white" numberOfLines={1}>
-                    {location.address}
+                    {locationLabel(location, t)}
                   </Text>
                 )}
               </View>
@@ -519,7 +523,7 @@ export default function HomeScreen() {
               <ActivityIndicator size="small" color={BRAND_GREEN} style={{ marginLeft: 8 }} />
             ) : (
               <Text className={`ml-2 text-sm ${subtextColor}`} numberOfLines={1}>
-                {location.address}
+                {locationLabel(location, t)}
               </Text>
             )}
           </View>

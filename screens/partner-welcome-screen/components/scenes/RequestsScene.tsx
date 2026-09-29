@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useFloatY, useSlideInRight } from './sceneAnim';
+import { useLocale } from '../../../../context/LocaleContext';
 
 const GREEN = '#22C55E';
 const ROW_DOTS = ['#f87171', '#4ade80', '#60a5fa'];
@@ -28,6 +29,7 @@ function RequestRow({ color, style }: { color: string; style: any }) {
  * bell with a "3" badge, and Accept / Decline pills bobbing out of phase.
  */
 export default function RequestsScene() {
+  const { t } = useLocale();
   const row0 = useSlideInRight(0);
   const row1 = useSlideInRight(130);
   const row2 = useSlideInRight(260);
@@ -87,13 +89,13 @@ export default function RequestsScene() {
         style={[styles.accept, { transform: [{ translateY: acceptY }] }]}
         pointerEvents="none">
         <Ionicons name="checkmark" size={13} color="#fff" />
-        <Text style={styles.acceptText}>Accept</Text>
+        <Text style={styles.acceptText}>{t('partnerWelcome.sceneAccept')}</Text>
       </Animated.View>
       <Animated.View
         style={[styles.decline, { transform: [{ translateY: declineY }] }]}
         pointerEvents="none">
         <Ionicons name="close" size={13} color="#ef4444" />
-        <Text style={styles.declineText}>Decline</Text>
+        <Text style={styles.declineText}>{t('partnerWelcome.sceneDecline')}</Text>
       </Animated.View>
     </LinearGradient>
   );

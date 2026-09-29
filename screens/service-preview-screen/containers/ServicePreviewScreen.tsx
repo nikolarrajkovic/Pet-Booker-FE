@@ -16,10 +16,8 @@ type ServicePreviewRouteParams = {
     duration?: string;
     images?: string[];
     isNew?: boolean;
-    additionalServices?: {
-      pickup?: number;
-      dropOff?: number;
-    };
+    location?: string | null;
+    additionalServices?: { name: string; price: number }[];
     workingHours?: any;
   };
 };

@@ -6,6 +6,7 @@ import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 import { useTopInset } from '../../hooks/useSafeAreaSpacing';
 import { useLocale } from '../../context/LocaleContext';
 import { getCurrentPosition, GeoPoint } from '../../services/geocoding';
+import { osrmRouteUrl, googleDirectionsUrl } from '../../services/route-path';
 
 export type DirectionsModalProps = {
   visible: boolean;
@@ -39,10 +40,7 @@ async function fetchRoute(
   d: GeoPoint
 ): Promise<{ coords: GeoPoint[]; km: number; mins: number } | null> {
   try {
-    const url =
-      `https://router.project-osrm.org/route/v1/driving/` +
-      `${o.longitude},${o.latitude};${d.longitude},${d.latitude}` +
-      `?overview=full&geometries=geojson`;
+    const url = osrmRouteUrl(o, d);
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
@@ -127,7 +125,7 @@ export default function DirectionsModal({
     const { latitude, longitude } = destination;
     // Universal Google Maps directions URL — opens the maps app on device and
     // uses the current location as the origin automatically.
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+    const url = googleDirectionsUrl(latitude, longitude);
     Linking.openURL(url).catch(() => {});
   };
 

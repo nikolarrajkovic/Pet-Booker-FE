@@ -49,6 +49,7 @@ import {
   ArrivalEta,
 } from '../components';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { googleDirectionsUrl } from '../../../services/route-path';
 
 type RouteParams = { mode?: 'partner' | 'user' };
 type Completion = { pickup: boolean; dropoff: boolean };
@@ -507,7 +508,7 @@ export default function LiveSessionScreen() {
   const openExternalNav = () => {
     if (!mapTarget) return;
     const { latitude, longitude } = mapTarget.point;
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+    const url = googleDirectionsUrl(latitude, longitude);
     Linking.openURL(url).catch(() => {});
   };
 

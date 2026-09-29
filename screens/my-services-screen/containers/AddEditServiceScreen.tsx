@@ -369,6 +369,9 @@ export default function AddEditServiceScreen() {
         })),
       workingHours,
       isNew: !isEdit,
+      // The address picked for this service (or the one it already has). With none, the service
+      // is located by its provider's address, which the preview does not know — so it shows none.
+      location: currentAddress ? addressLabel(currentAddress) : null,
     };
 
     (navigation as any).navigate('ServicePreview', { service: serviceData });

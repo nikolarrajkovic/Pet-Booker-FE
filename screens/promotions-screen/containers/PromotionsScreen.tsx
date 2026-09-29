@@ -55,7 +55,8 @@ function discountToPromotion(
     discountValue: value,
     discountPercent: isPercent ? value : undefined,
     offerNote: isPercent ? t('promotions.percentNote') : t('promotions.fixedNote'),
-    usageCount: 0, // BACKEND-GAP: not tracked
+    // usageCount stays unset: redemptions are not tracked (BACKEND-GAP), and the card read
+    // "0 uses" on every offer — a number, just not a true one.
     discountId: d.id ?? undefined,
     serviceId: d.serviceId,
     discountType: d.type,

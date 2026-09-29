@@ -15,6 +15,7 @@ import { useCurrency } from '../../../hooks/useCurrency';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import ListState from '../../../components/shared/ListState';
 import DatePicker from '../../../components/shared/DatePicker';
 import type { Promotion, PromotionType, PromotionStatus } from '../components';
 import {
@@ -69,18 +70,6 @@ interface EditPromotionScreenProps {
   };
 }
 
-// Fallback mock so screen is usable standalone
-const FALLBACK: Promotion = {
-  id: 1,
-  type: 'boost',
-  title: 'Spring Boost - Dog Walking',
-  description: 'Premium Dog Walking in Golden Gate Park',
-  dateRange: 'Apr 15, 2026 - Apr 30, 2026',
-  status: 'active',
-  budgetSpent: 87.5,
-  budgetTotal: 150,
-};
-
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const fmtDate = (d: Date | null) =>
   d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
@@ -96,14 +85,38 @@ function parseInitialDate(iso: string | null | undefined, fallbackStr: string): 
   return null;
 }
 
+/**
+ * Opened without a promotion — a reload on web, where route params do not survive — this used to
+ * fall back to a made-up "Spring Boost - Dog Walking" campaign with an invented budget, which the
+ * partner could then edit as if it were theirs. It now says the promotion is not available.
+ */
 export default function EditPromotionScreen({ route }: EditPromotionScreenProps) {
+  const promotion = route?.params?.promotion;
+  if (!promotion) return <PromotionMissing />;
+  return <EditPromotionForm promotion={promotion} />;
+}
+
+function PromotionMissing() {
+  const { bgColor } = useThemeColors();
+  const { t } = useLocale();
+  return (
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle={t('promotions.editTitle')}
+      contentBg={bgColor}>
+      <ListState isEmpty emptyIcon="pricetag-outline" emptyMessage={t('promotions.notFound')} />
+    </ScreenLayout>
+  );
+}
+
+function EditPromotionForm({ promotion }: { promotion: Promotion }) {
   const gutter = usePageGutter();
   const navigation = useNavigation();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor, inputBg } = useThemeColors();
   const { showError } = useToast();
   const { t } = useLocale();
 
-  const promotion = route?.params?.promotion ?? FALLBACK;
   // Offer amounts are in the discounted service's currency; the mock budget figures fall
   // back to the partner's display preference.
   const { money, prefix: currencyPrefix, suffix: currencySuffix } = useCurrency(promotion.currency);

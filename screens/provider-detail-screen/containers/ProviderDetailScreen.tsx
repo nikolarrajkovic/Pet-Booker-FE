@@ -151,15 +151,8 @@ export default function ProviderDetailScreen() {
           )}
         </View>
 
-        {/* About — BACKEND-GAP P3: provider DTO has no about/bio field, so this copy is mocked */}
-        <View className={`mb-4 ${gutter.px}`}>
-          <Text className={`text-lg font-semibold ${textColor} mb-2`}>About</Text>
-          <Text className={`${subtextColor} leading-6`}>
-            {provider.name} is a trusted {provider.service.toLowerCase()} provider on PawCare,
-            dedicated to giving every pet attentive, loving care.
-          </Text>
-        </View>
-
+        {/* No About section: the provider DTO has no bio (BACKEND-GAP P3), and the invented one
+            that stood here named the product "PawCare". */}
         {/* Location — uses the real provider address when available */}
         <View className={`mb-4 ${gutter.px}`}>
           <Text className={`text-lg font-semibold ${textColor} mb-3`}>Location</Text>

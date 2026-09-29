@@ -197,7 +197,7 @@ export default function PhoneInput({
             onPress={(e) => e.stopPropagation()}>
             {/* Header */}
             <View className={`flex-row items-center justify-between ${sheetPx} pb-3 pt-5`}>
-              <Text className={`text-lg font-bold ${textColor}`}>Select Country</Text>
+              <Text className={`text-lg font-bold ${textColor}`}>{t('shared.selectCountry')}</Text>
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel={t('common.close')}
@@ -246,7 +246,7 @@ export default function PhoneInput({
                 );
               }}
               ListEmptyComponent={
-                <Text className={`py-8 text-center ${subtextColor}`}>No matches</Text>
+                <Text className={`py-8 text-center ${subtextColor}`}>{t('common.noResults')}</Text>
               }
             />
           </Pressable>

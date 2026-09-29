@@ -5,6 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useFloatY, usePopIn, useSlideInRight, useTwinkle } from './sceneAnim';
 import { formatMoney } from '../../../../services/currency';
+import { useLocale } from '../../../../context/LocaleContext';
 
 const GREEN = '#22C55E';
 
@@ -28,6 +29,7 @@ function Sparkle({ posStyle, size, delay }: { posStyle: any; size: number; delay
  * a price-tag badge that pops then wiggles, a floating "20% OFF" pill and sparkles.
  */
 export default function PromotionsScene() {
+  const { t } = useLocale();
   const row0 = useSlideInRight(150);
   const row1 = useSlideInRight(280);
   const pillY = useFloatY(7, 2800);
@@ -64,34 +66,38 @@ export default function PromotionsScene() {
       <View style={styles.card}>
         <View style={styles.titleRow}>
           <Text style={styles.titleEmoji}>📢</Text>
-          <Text style={styles.title}>Promotions</Text>
+          <Text style={styles.title}>{t('partnerWelcome.scenePromotions')}</Text>
         </View>
 
         <Animated.View style={[styles.row, styles.rowOrange, row0]}>
           <View style={[styles.dot, { backgroundColor: '#fb923c' }]} />
-          <Text style={styles.name}>Dog Grooming</Text>
+          <Text style={styles.name}>{t('partnerWelcome.sceneGrooming')}</Text>
           <Text style={styles.strike}>{formatMoney(45)}</Text>
           <Text style={styles.bold}>{formatMoney(36)}</Text>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>20% OFF</Text>
+            <Text style={styles.badgeText}>{t('partnerWelcome.scenePercentOff', { pct: 20 })}</Text>
           </View>
         </Animated.View>
 
         <Animated.View style={[styles.row, styles.rowGreen, row1]}>
           <View style={[styles.dot, { backgroundColor: GREEN }]} />
-          <Text style={styles.name}>Dog Walking</Text>
+          <Text style={styles.name}>{t('partnerWelcome.sceneWalking')}</Text>
           <Text style={styles.strike}>{formatMoney(25)}</Text>
           <Text style={styles.bold}>{formatMoney(20)}</Text>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>{formatMoney(5)} OFF</Text>
+            <Text style={styles.badgeText}>
+              {t('partnerWelcome.sceneAmountOff', { amount: formatMoney(5) })}
+            </Text>
           </View>
         </Animated.View>
 
         <View style={styles.divider} />
         <View style={styles.statRow}>
           <Text style={styles.statEmoji}>📈</Text>
-          <Text style={styles.statUp}>Bookings ↑ 32%</Text>
-          <Text style={styles.statNote}>with offers active</Text>
+          {/* Was "Bookings ↑ 32% with offers active" — a statistic nobody measured. What an
+              offer really does: it puts the service on the Home "Special Deals" rail. */}
+          <Text style={styles.statUp}>{t('partnerWelcome.sceneDealsRail')}</Text>
+          <Text style={styles.statNote}>{t('partnerWelcome.sceneDealsNote')}</Text>
         </View>
       </View>
 
@@ -106,7 +112,7 @@ export default function PromotionsScene() {
       <Animated.View
         style={[styles.pill, { transform: [{ translateY: pillY }] }]}
         pointerEvents="none">
-        <Text style={styles.pillText}>20% OFF</Text>
+        <Text style={styles.pillText}>{t('partnerWelcome.scenePercentOff', { pct: 20 })}</Text>
       </Animated.View>
 
       {/* Sparkles */}

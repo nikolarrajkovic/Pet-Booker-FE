@@ -51,15 +51,24 @@ export interface Promotion {
 // now rejects rows where the two disagree, but rows written before that validation landed are still
 // in the database — a Fixed-labelled row carrying a percentAmount really does bill as a percentage,
 // and reading `discountType` alone rendered those as "0 RSD OFF" on services that were 15% off.
+//
+// `t` is required: the "OFF" was English in every language, so a Serbian reader saw "20% OFF" on
+// the Special Deals rail and on their own promotions.
 export function formatOfferAmount(
   discountType: number | undefined,
   value: number | undefined,
-  currency?: string | null,
-  percentAmount?: number | null
+  currency: string | null | undefined,
+  percentAmount: number | null | undefined,
+  t: (key: 'shared.amountOff', params: { amount: string }) => string
 ): string {
-  if (percentAmount != null) return `${percentAmount}% OFF`;
   const v = value ?? 0;
-  return discountType === 1 ? `${formatMoney(v, currency)} OFF` : `${v}% OFF`;
+  const amount =
+    percentAmount != null
+      ? `${percentAmount}%`
+      : discountType === 1
+        ? formatMoney(v, currency)
+        : `${v}%`;
+  return t('shared.amountOff', { amount });
 }
 
 interface PromotionCardProps {
@@ -74,7 +83,10 @@ interface PromotionCardProps {
 }
 
 // Status labels are translation keys, resolved with t() at render.
-const STATUS_STYLES: Record<PromotionStatus, { bg: string; text: string; labelKey: string }> = {
+export const PROMOTION_STATUS_STYLES: Record<
+  PromotionStatus,
+  { bg: string; text: string; labelKey: string }
+> = {
   active: { bg: 'bg-green-100', text: 'text-green-700', labelKey: 'promotions.statusActive' },
   paused: { bg: 'bg-gray-100', text: 'text-gray-600', labelKey: 'promotions.statusPaused' },
   scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', labelKey: 'promotions.statusScheduled' },
@@ -106,7 +118,7 @@ export default function PromotionCard({
 }: PromotionCardProps) {
   const navigation = useNavigation();
   const { t } = useLocale();
-  const status = STATUS_STYLES[promotion.status];
+  const status = PROMOTION_STATUS_STYLES[promotion.status];
   const typeIcon = TYPE_ICON[promotion.type];
   const isActive = promotion.status === 'active';
   const isScheduled = promotion.status === 'scheduled';
@@ -199,18 +211,23 @@ export default function PromotionCard({
                 promotion.discountType,
                 promotion.discountValue ?? promotion.discountPercent,
                 promotion.currency,
-                promotion.percentAmount
+                promotion.percentAmount,
+                t
               )}
             </Text>
             <Text className={`text-xs ${subtextColor} mt-0.5`}>
               {promotion.offerNote ?? t('promotions.forNewClients')}
             </Text>
           </View>
-          <View className="items-end">
-            <Text className={`text-base font-bold ${textColor}`}>
-              {t('promotions.uses', { n: promotion.usageCount ?? 0 })}
-            </Text>
-          </View>
+          {/* Only when known: nothing counts redemptions yet, and "0 uses" on every offer was a
+              claim, not a measurement. */}
+          {promotion.usageCount != null && (
+            <View className="items-end">
+              <Text className={`text-base font-bold ${textColor}`}>
+                {t('promotions.uses', { n: promotion.usageCount })}
+              </Text>
+            </View>
+          )}
         </View>
       )}
 

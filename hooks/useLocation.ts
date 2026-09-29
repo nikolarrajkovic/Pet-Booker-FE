@@ -2,12 +2,33 @@ import { useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 
+/**
+ * Where the app centres itself before (or without) a device position: central Belgrade, the
+ * service area. One constant — it was typed out in three files, each free to drift.
+ */
+export const DEFAULT_LOCATION = { latitude: 44.8176, longitude: 20.457 } as const;
+
 interface LocationData {
   latitude: number;
   longitude: number;
-  address: string;
+  /**
+   * The reverse-geocoded street address, or `null` when there is none — no fix yet, the default
+   * position, or a platform that does not reverse-geocode. Render a label for `null` with
+   * `locationLabel`; this used to be an English string ("Belgrade, Serbia", "Current Location")
+   * that a Serbian or Russian reader saw untranslated in the Home header.
+   */
+  address: string | null;
   loading: boolean;
   error: string | null;
+}
+
+/** The label for a location: its address, else "your current location" / the default area. */
+export function locationLabel(
+  location: Pick<LocationData, 'address' | 'error'>,
+  t: (key: any) => string
+): string {
+  if (location.address) return location.address;
+  return location.error ? t('home.defaultArea') : t('home.currentLocation');
 }
 
 /**
@@ -20,9 +41,8 @@ interface LocationData {
  */
 export function useLocation() {
   const [location, setLocation] = useState<LocationData>({
-    latitude: 44.8176, // Default to Belgrade
-    longitude: 20.457,
-    address: 'Belgrade, Serbia',
+    ...DEFAULT_LOCATION,
+    address: null,
     loading: true,
     error: null,
   });
@@ -38,7 +58,7 @@ export function useLocation() {
           setLocation({
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
-            address: 'Current Location',
+            address: null,
             loading: false,
             error: null,
           });
@@ -92,7 +112,7 @@ export function useLocation() {
         setLocation({
           latitude: currentLocation.coords.latitude,
           longitude: currentLocation.coords.longitude,
-          address: fullAddress || 'Current Location',
+          address: fullAddress || null,
           loading: false,
           error: null,
         });

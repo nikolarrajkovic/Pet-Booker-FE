@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useFloatY, useSlideInRight } from './sceneAnim';
 import { formatMoney } from '../../../../services/currency';
+import { useLocale } from '../../../../context/LocaleContext';
 
 // Illustration-only sample rows. Prices are AMOUNTS, formatted at render in the viewer's
 // currency — a partner charging in RSD should not see a mocked-up "$45".
@@ -20,6 +21,7 @@ const SERVICES = [
  * and a floating "25 / session" price pill.
  */
 export default function ServicesScene() {
+  const { t } = useLocale();
   const rows = [useSlideInRight(150), useSlideInRight(280), useSlideInRight(410)];
   const pillY = useFloatY(7, 2800);
 
@@ -47,7 +49,7 @@ export default function ServicesScene() {
 
       {/* Services card */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>My Services</Text>
+        <Text style={styles.cardTitle}>{t('partnerWelcome.sceneMyServices')}</Text>
         {SERVICES.map((s, i) => (
           <Animated.View key={s.name} style={[styles.row, { backgroundColor: s.bg }, rows[i]]}>
             <View style={[styles.dot, { backgroundColor: s.color }]} />
@@ -58,7 +60,7 @@ export default function ServicesScene() {
         <View style={styles.divider} />
         <View style={styles.addRow}>
           <Ionicons name="add-circle-outline" size={12} color="#a855f7" />
-          <Text style={styles.addText}>Add service</Text>
+          <Text style={styles.addText}>{t('partnerWelcome.sceneAddService')}</Text>
         </View>
       </View>
 

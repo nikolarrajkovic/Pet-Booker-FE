@@ -5,6 +5,7 @@ import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import { getCurrentPosition, GeoPoint } from '../../services/geocoding';
 import { loadGoogleMaps, DEV_MAP_ID } from '../../services/google-maps';
+import { osrmRouteUrl, googleDirectionsUrl } from '../../services/route-path';
 
 export type DirectionsModalProps = {
   visible: boolean;
@@ -125,9 +126,7 @@ export default function DirectionsModal({
           });
           fit([from, dest]);
         };
-        fetch(
-          `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}?overview=full&geometries=geojson`
-        )
+        fetch(osrmRouteUrl(origin, destination))
           .then((r) => r.json())
           .then((d) => {
             if (cancelled) return;
@@ -156,7 +155,7 @@ export default function DirectionsModal({
   const openExternal = () => {
     if (!destination) return;
     const { latitude, longitude } = destination;
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+    const url = googleDirectionsUrl(latitude, longitude);
     Linking.openURL(url).catch(() => {});
   };
 

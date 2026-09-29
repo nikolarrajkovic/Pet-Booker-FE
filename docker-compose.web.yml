@@ -23,6 +23,8 @@ services:
       args:
         EXPO_PUBLIC_API_BASE_URL: "${EXPO_PUBLIC_API_BASE_URL:?set EXPO_PUBLIC_API_BASE_URL in .env.web}"
         EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY: "${EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY:-}"
+        EXPO_PUBLIC_SUPPORT_EMAIL: "${EXPO_PUBLIC_SUPPORT_EMAIL:-}"
+        EXPO_PUBLIC_SUPPORT_PHONE: "${EXPO_PUBLIC_SUPPORT_PHONE:-}"
     container_name: petbooker-web
     restart: unless-stopped
 

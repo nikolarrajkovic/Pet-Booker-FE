@@ -38,6 +38,8 @@ jest.mock('../../services/home', () => ({
 }));
 
 jest.mock('../../hooks/useLocation', () => ({
+  // The real label helper and default position; only the device fix is faked.
+  ...jest.requireActual('../../hooks/useLocation'),
   useLocation: () => ({
     latitude: 44.8,
     longitude: 20.4,

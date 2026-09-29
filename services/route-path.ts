@@ -1,6 +1,32 @@
 import type { GeoPoint } from './geocoding';
 import { haversineKm } from './distance';
 
+/**
+ * The public OSRM demo router. Defined once — it was typed into three files. It is a free,
+ * rate-limited demo server with no uptime promise, fine for drawing a display polyline and never
+ * a pricing input; swapping it for a hosted router is a change to this line.
+ */
+export const OSRM_ROUTE_URL = 'https://router.project-osrm.org/route/v1/driving/';
+
+/** OSRM request URL for a driving route with a GeoJSON polyline. */
+export function osrmRouteUrl(
+  from: { latitude: number; longitude: number },
+  to: { latitude: number; longitude: number }
+): string {
+  return (
+    `${OSRM_ROUTE_URL}${from.longitude},${from.latitude};${to.longitude},${to.latitude}` +
+    `?overview=full&geometries=geojson`
+  );
+}
+
+/**
+ * Universal Google Maps turn-by-turn link: opens the maps app on a device, the site on web, with
+ * the current position as the origin. Also typed out in three places before.
+ */
+export function googleDirectionsUrl(latitude: number, longitude: number): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`;
+}
+
 export type RoutePath = {
   coords: GeoPoint[];
   km: number;
@@ -19,10 +45,7 @@ export type RoutePath = {
  */
 export async function fetchRoutePath(from: GeoPoint, to: GeoPoint): Promise<RoutePath> {
   try {
-    const url =
-      `https://router.project-osrm.org/route/v1/driving/` +
-      `${from.longitude},${from.latitude};${to.longitude},${to.latitude}` +
-      `?overview=full&geometries=geojson`;
+    const url = osrmRouteUrl(from, to);
     const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
