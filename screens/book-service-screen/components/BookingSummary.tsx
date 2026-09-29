@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 interface Appointment {
   id: number;
@@ -29,12 +30,13 @@ export default function BookingSummary({
   subtextColor,
   currency,
 }: BookingSummaryProps) {
+  const gutter = usePageGutter();
   const { t } = useLocale();
   // Also trims float-sum artifacts to at most 2 decimals.
   const money = (n: number) => formatMoney(n, currency);
   return (
     <View
-      className={`px-6 py-5 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'} mx-6 mb-4 rounded-2xl`}>
+      className={`px-6 py-5 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'} ${gutter.mx} mb-4 rounded-2xl`}>
       <Text className={`text-base font-semibold ${textColor} mb-3`}>
         {t('bookService.bookingSummary')}
       </Text>

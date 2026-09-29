@@ -29,6 +29,7 @@ import {
   declineServiceProvider,
   approveCertificate,
 } from '../../../services/admin';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 function formatBytes(n: number): string {
   if (!n) return '';
@@ -74,6 +75,7 @@ const STATUS_CONFIG: Record<
 };
 
 export default function ApplicationReviewScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { isDarkMode, hex } = useThemeColors();
@@ -159,7 +161,7 @@ export default function ApplicationReviewScreen() {
       <View
         style={{
           backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
-          paddingHorizontal: isWebLayout ? 32 : 20,
+          paddingHorizontal: gutter.value,
           paddingTop: isWebLayout ? 32 : insets.top + 12,
           paddingBottom: isWebLayout ? 12 : 28,
           width: '100%',
@@ -216,14 +218,18 @@ export default function ApplicationReviewScreen() {
           contentContainerStyle={
             isWebLayout
               ? {
-                  padding: 32,
+                  paddingHorizontal: gutter.value,
                   paddingTop: 8,
                   paddingBottom: 60,
                   width: '100%',
                   maxWidth: CONTENT_WIDTHS.default,
                   alignSelf: 'center',
                 }
-              : { padding: 20, paddingBottom: 100 + insets.bottom }
+              : {
+                  paddingHorizontal: gutter.value,
+                  paddingTop: 20,
+                  paddingBottom: 100 + insets.bottom,
+                }
           }
           showsVerticalScrollIndicator={false}>
           {/* ── Applicant summary card ── */}
@@ -629,7 +635,7 @@ export default function ApplicationReviewScreen() {
               left: 0,
               right: 0,
               backgroundColor: sectionBg,
-              paddingHorizontal: 20,
+              paddingHorizontal: gutter.value,
               paddingTop: 12,
               paddingBottom: insets.bottom > 0 ? insets.bottom : 16,
               borderTopWidth: 1,
@@ -706,7 +712,7 @@ export default function ApplicationReviewScreen() {
               left: 0,
               right: 0,
               backgroundColor: STATUS_CONFIG[status].bg,
-              paddingHorizontal: 20,
+              paddingHorizontal: gutter.value,
               paddingTop: 14,
               paddingBottom: insets.bottom > 0 ? insets.bottom : 16,
               borderTopWidth: 1,

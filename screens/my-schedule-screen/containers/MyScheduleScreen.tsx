@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -18,11 +18,12 @@ import {
 } from '../utils/scheduleData';
 import { getBookings } from '../../../services/bookings';
 import { useResponsive } from '../../../hooks/useResponsive';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 type ViewType = 'day' | 'week' | 'month';
 
 export default function MyScheduleScreen() {
-  const navigation = useNavigation();
+  const gutter = usePageGutter();
   const route = useRoute();
   const { currentUser } = useAuth();
   const { isDarkMode, bgColor: contentBg, subtextColor } = useThemeColors();
@@ -85,28 +86,18 @@ export default function MyScheduleScreen() {
 
   return (
     <ScreenLayout
-      headerVariant="large"
+      // The standard header, as on every other pushed screen: the title centred beside the one
+      // back button. This screen used to add its own arrow-and-title row under the header's, so
+      // the phone showed two back buttons stacked on top of each other.
+      headerVariant="standard"
       contentBg={contentBg}
       // A calendar wants width — a week view squeezed into 720px is why the day view exists.
       width="wide"
-      headerTitle={isWebLayout ? title : undefined}
-      showBackButton
-      headerChildren={
-        isWebLayout ? undefined : (
-          <View className="mb-4 flex-row items-center">
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => navigation.goBack()}
-              className="mr-4">
-              <Ionicons name="arrow-back" size={24} color="white" />
-            </TouchableOpacity>
-            <Text className="flex-1 text-2xl font-bold text-white">{title}</Text>
-          </View>
-        )
-      }>
+      headerTitle={title}
+      showBackButton>
       <View className="flex-1">
         {/* Tab Selector */}
-        <View className={`${isWebLayout ? contentBg : bgColor} px-6 py-4`}>
+        <View className={`${isWebLayout ? contentBg : bgColor} ${gutter.px} py-4`}>
           <View
             className={`flex-row rounded-xl p-1 ${isWebLayout ? (isDarkMode ? 'bg-[#243447]' : 'bg-gray-100') : 'bg-white/20'}`}>
             <TouchableOpacity

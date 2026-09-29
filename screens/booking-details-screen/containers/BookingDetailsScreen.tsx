@@ -22,6 +22,7 @@ import { getErrorMessage } from '../../../services/http';
 import { formatMoney } from '../../../services/currency';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 type RouteParams = { bookingId: number };
 
@@ -36,6 +37,7 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; state: number }> 
 };
 
 export default function BookingDetailsScreen() {
+  const gutter = usePageGutter();
   const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
   const { bookingId } = route.params;
   const { isDarkMode, bgColor, textColor, subtextColor, borderColor } = useThemeColors();
@@ -138,7 +140,7 @@ export default function BookingDetailsScreen() {
             <ActivityIndicator size="large" color={BRAND_GREEN} />
           </View>
         ) : error || !dto || !vm ? (
-          <View className="flex-1 items-center justify-center px-6 py-20">
+          <View className={`flex-1 items-center justify-center ${gutter.px} py-20`}>
             <Ionicons
               name="alert-circle-outline"
               size={56}
@@ -151,7 +153,7 @@ export default function BookingDetailsScreen() {
         ) : (
           <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
             {/* Service / provider header */}
-            <View className="flex-row items-center px-6 pt-5">
+            <View className={`flex-row items-center ${gutter.px} pt-5`}>
               {heroImage ? (
                 <Image
                   source={{ uri: heroImage }}
@@ -176,7 +178,7 @@ export default function BookingDetailsScreen() {
             </View>
 
             {/* Appointment */}
-            <View className="mt-6 px-6">
+            <View className={`mt-6 ${gutter.px}`}>
               <Text className={`text-base font-bold ${textColor} mb-1`}>
                 {t('bookingDetails.appointment')}
               </Text>
@@ -198,7 +200,7 @@ export default function BookingDetailsScreen() {
                 photo, so a src that 404s shows a paw rather than an empty 48px box with the pet's
                 name floating beside it, unlabelled, between two sections. */}
             {petImage ? (
-              <View className="mt-4 flex-row items-center px-6">
+              <View className={`mt-4 flex-row items-center ${gutter.px}`}>
                 <ServicePhoto
                   uri={petImage}
                   radiusClass="rounded-xl"
@@ -211,7 +213,7 @@ export default function BookingDetailsScreen() {
 
             {/* Location */}
             {(pickup || dropoff) && (
-              <View className="mt-6 px-6">
+              <View className={`mt-6 ${gutter.px}`}>
                 <Text className={`text-base font-bold ${textColor} mb-1`}>
                   {t('bookingDetails.location')}
                 </Text>
@@ -233,7 +235,7 @@ export default function BookingDetailsScreen() {
             )}
 
             {/* Payment */}
-            <View className="mt-6 px-6">
+            <View className={`mt-6 ${gutter.px}`}>
               <Text className={`text-base font-bold ${textColor} mb-1`}>
                 {t('bookingDetails.payment')}
               </Text>
@@ -320,7 +322,7 @@ export default function BookingDetailsScreen() {
 
             {/* Review — show the existing rating, or a CTA for completed bookings */}
             {reviewRating != null ? (
-              <View className="mt-6 px-6">
+              <View className={`mt-6 ${gutter.px}`}>
                 <Text className={`text-base font-bold ${textColor} mb-2`}>
                   {t('bookingDetails.yourReview')}
                 </Text>
@@ -337,7 +339,7 @@ export default function BookingDetailsScreen() {
                 </View>
               </View>
             ) : isCompleted ? (
-              <View className="mt-6 px-6">
+              <View className={`mt-6 ${gutter.px}`}>
                 <TouchableOpacity
                   accessibilityRole="button"
                   onPress={() =>
@@ -360,7 +362,7 @@ export default function BookingDetailsScreen() {
 
             {/* Cancel — the owner's own way out, available until the service starts. */}
             {canCancel ? (
-              <View className="mt-6 px-6">
+              <View className={`mt-6 ${gutter.px}`}>
                 <TouchableOpacity
                   accessibilityRole="button"
                   accessibilityLabel={t('bookingDetails.cancelBooking')}

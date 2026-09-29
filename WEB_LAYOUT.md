@@ -138,7 +138,7 @@ All live in `components/shared/`.
 
 | Component | What it does |
 |---|---|
-| `ContentContainer` | Centred max-width column + the horizontal padding for the current mode. |
+| `ContentContainer` | Centred max-width column + the horizontal padding for the current mode — the page gutter from `hooks/usePageGutter` (16 phone / 32 web), which screens use for their own bodies too so the two line up. |
 | `ResponsiveGrid` | Lays children out in 1/2/3/4 columns by breakpoint, via `columns={{ mobile: 1, tablet: 2, desktop: 3 }}`. Pass **`rowGap={0}`** for a list whose cards already carry their own bottom margin from the phone design — those cards are presentational (theme via props, no hooks), and making them width-aware just to drop a margin would push a hook into every one of them. |
 | `ResponsiveModal` | Full-screen sheet on mobile, centred dialog with a scrim + Esc-to-close on web. `mobilePresentation="centered"` for a short prompt that should be a card on both. Used by the decline-reason dialogs; reach for it first when adding a dialog. |
 | `TwoColumn` | Main + aside, stacking on mobile. What `ScreenLayout`'s `aside` prop is built on. |

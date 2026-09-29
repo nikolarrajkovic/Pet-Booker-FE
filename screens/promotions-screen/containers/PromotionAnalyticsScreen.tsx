@@ -7,6 +7,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 interface DailyStats {
   date: string;
@@ -38,6 +39,7 @@ interface PromotionAnalyticsScreenProps {
 }
 
 export default function PromotionAnalyticsScreen({ route }: PromotionAnalyticsScreenProps) {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
@@ -117,7 +119,11 @@ export default function PromotionAnalyticsScreen({ route }: PromotionAnalyticsSc
       }>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 32 }}
+        contentContainerStyle={{
+          paddingHorizontal: gutter.value,
+          paddingTop: 20,
+          paddingBottom: 32,
+        }}
         showsVerticalScrollIndicator={false}>
         {/* KPI grid */}
         <View className="mb-5 flex-row flex-wrap gap-3">

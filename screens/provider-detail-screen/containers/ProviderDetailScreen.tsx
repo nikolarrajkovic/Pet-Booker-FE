@@ -16,6 +16,7 @@ import { getReviews, ReviewDto } from '../../../services/reviews';
 import { ApprovalStatus } from '../../../services/service-providers';
 import { useTopInset } from '../../../hooks/useSafeAreaSpacing';
 import type { ProviderViewModel } from '../../../services/service-providers';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 type ProviderDetailRouteParams = {
   provider: ProviderViewModel;
@@ -30,6 +31,7 @@ const EMPTY_SERVICES: ServiceDto[] = [];
 const EMPTY_REVIEWS: ReviewDto[] = [];
 
 export default function ProviderDetailScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: ProviderDetailRouteParams }, 'params'>>();
   const { provider } = route.params;
@@ -99,7 +101,7 @@ export default function ProviderDetailScreen() {
 
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         {/* Header info */}
-        <View className="px-6 py-5">
+        <View className={`${gutter.px} py-5`}>
           <Text className={`text-2xl font-bold ${textColor}`}>{provider.name}</Text>
           <Text className="mt-1 text-base text-brand-600">{provider.service}</Text>
 
@@ -135,7 +137,7 @@ export default function ProviderDetailScreen() {
 
         {/* Pricing summary */}
         <View
-          className={`mx-6 mb-4 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'} rounded-2xl p-4`}>
+          className={`${gutter.mx} mb-4 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'} rounded-2xl p-4`}>
           <Text className={`text-lg font-semibold ${textColor} mb-1`}>Pricing</Text>
           {startingPrice > 0 ? (
             <View className="flex-row items-baseline">
@@ -150,7 +152,7 @@ export default function ProviderDetailScreen() {
         </View>
 
         {/* About — BACKEND-GAP P3: provider DTO has no about/bio field, so this copy is mocked */}
-        <View className="mb-4 px-6">
+        <View className={`mb-4 ${gutter.px}`}>
           <Text className={`text-lg font-semibold ${textColor} mb-2`}>About</Text>
           <Text className={`${subtextColor} leading-6`}>
             {provider.name} is a trusted {provider.service.toLowerCase()} provider on PawCare,
@@ -159,7 +161,7 @@ export default function ProviderDetailScreen() {
         </View>
 
         {/* Location — uses the real provider address when available */}
-        <View className="mb-4 px-6">
+        <View className={`mb-4 ${gutter.px}`}>
           <Text className={`text-lg font-semibold ${textColor} mb-3`}>Location</Text>
           <View
             className={`${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'} items-center rounded-2xl p-4`}>
@@ -183,7 +185,7 @@ export default function ProviderDetailScreen() {
           <>
             {/* Services list — tap a service to book that specific service */}
             {services.length > 0 && (
-              <View className="mb-6 px-6">
+              <View className={`mb-6 ${gutter.px}`}>
                 <Text className={`text-lg font-semibold ${textColor} mb-1`}>Services</Text>
                 <Text className={`text-sm ${subtextColor} mb-3`}>Tap a service to book it</Text>
                 {services.map((svc, idx) => (
@@ -229,7 +231,7 @@ export default function ProviderDetailScreen() {
 
             {/* Reviews list */}
             {reviews.length > 0 && (
-              <View className="mb-6 px-6">
+              <View className={`mb-6 ${gutter.px}`}>
                 <Text className={`text-lg font-semibold ${textColor} mb-3`}>
                   Reviews ({reviewCount})
                 </Text>

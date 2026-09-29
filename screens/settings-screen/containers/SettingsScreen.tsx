@@ -23,8 +23,10 @@ import {
   defaultNotificationSettings,
   type UserNotificationSettingsDto,
 } from '../../../services/notifications';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 export default function SettingsScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const { toggleDarkMode } = useTheme();
   const { t, language, setLanguage } = useLocale();
@@ -101,7 +103,11 @@ export default function SettingsScreen() {
       contentBg={contentBg}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: 40, paddingHorizontal: 24 }}>
+        contentContainerStyle={{
+          paddingTop: 24,
+          paddingBottom: 40,
+          paddingHorizontal: gutter.value,
+        }}>
         {/* Appearance */}
         <Text className={`text-base font-semibold ${sectionTextColor} mb-3`}>
           {t('settings.appearance')}

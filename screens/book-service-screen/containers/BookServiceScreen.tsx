@@ -43,6 +43,7 @@ import {
 } from '../../../services/service-addons';
 import { addressLabel } from '../../../services/geocoding';
 import { getBookingQuote, type BookingQuote } from '../../../services/booking-quote';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // The user books one specific service (chosen before entering this screen), not
 // a provider — the service comes in as a route param and carries serviceProviderId.
@@ -129,6 +130,7 @@ type QuoteState = { quote: BookingQuote | null; loading: boolean; failed: boolea
 // only inside a quote — see useBookingQuote below.
 
 export default function BookServiceScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: BookServiceRouteParams }, 'params'>>();
   const { service } = route.params;
@@ -694,7 +696,6 @@ export default function BookServiceScreen() {
       headerVariant="standard"
       showBackButton
       contentBg={contentBg}
-      contentRounded={false}
       headerTitle={isWebLayout ? t('bookService.title') : undefined}
       headerSubtitle={
         isWebLayout
@@ -703,7 +704,8 @@ export default function BookServiceScreen() {
       }
       headerChildren={
         isWebLayout ? undefined : (
-          <View className="flex-1">
+          // mb-6 clears the rounded content sheet pulled 32px up over the header.
+          <View className="mb-6 flex-1">
             <Text className="text-xl font-bold text-white">{t('bookService.title')}</Text>
             <Text className={`${isDarkMode ? 'text-gray-300' : 'text-brand-100'} text-sm`}>
               {[selectedService.name, selectedService.basicServiceName].filter(Boolean).join(' • ')}
@@ -724,7 +726,7 @@ export default function BookServiceScreen() {
           {/* Step 1: Service (fixed — chosen before entering this screen). When
               the service defines pricing options, picking one is part of this
               step — the booking can't proceed without it. */}
-          <View className="px-6 py-5">
+          <View className={`${gutter.px} py-5`}>
             <View className="mb-4 flex-row items-center">
               {stepDot(optionChosen, 1)}
               <Text className={`text-base font-semibold ${textColor} ml-3`}>
@@ -818,7 +820,7 @@ export default function BookServiceScreen() {
           </View>
 
           {/* Step 2: Additional Services */}
-          <View className={`border-t px-6 py-5 ${borderColor}`}>
+          <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
             <View className="mb-4 flex-row items-center">
               {stepDot(selectedAddons.length > 0, 2)}
               <Text className={`text-base font-semibold ${textColor} ml-3`}>
@@ -951,7 +953,7 @@ export default function BookServiceScreen() {
           </View>
 
           {/* Step 3: Choose Date & Time */}
-          <View className={`border-t px-6 py-5 ${borderColor}`}>
+          <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
             <View className="mb-4 flex-row items-center">
               {stepDot(!!startDateTime, 3)}
               <Text className={`text-base font-semibold ${textColor} ml-3`}>
@@ -1034,7 +1036,7 @@ export default function BookServiceScreen() {
               borderColor={borderColor}
             />
           ) : (
-            <View className={`border-t px-6 py-5 ${borderColor}`}>
+            <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
               <View className="mb-3 flex-row items-center">
                 {stepDot(false, 4)}
                 <Text className={`text-base font-semibold ${textColor} ml-3`}>
@@ -1054,7 +1056,7 @@ export default function BookServiceScreen() {
 
           {/* Add This / Add Another Appointment */}
           {selectionComplete && (
-            <View className="px-6 py-4">
+            <View className={`${gutter.px} py-4`}>
               <TouchableOpacity
                 accessibilityRole="button"
                 onPress={addAppointment}
@@ -1071,7 +1073,7 @@ export default function BookServiceScreen() {
 
           {/* Added Appointments */}
           {appointments.length > 0 && (
-            <View className="px-6 py-5">
+            <View className={`${gutter.px} py-5`}>
               <Text className={`text-base font-semibold ${textColor} mb-4`}>
                 {t('bookService.addedAppointments', { count: appointments.length })}
               </Text>
@@ -1159,7 +1161,7 @@ export default function BookServiceScreen() {
           {/* Running total for the current (unadded) selection */}
           {appointments.length === 0 && selectedService && (
             <View
-              className={`border-t px-6 py-5 ${borderColor} flex-row items-center justify-between`}>
+              className={`border-t ${gutter.px} py-5 ${borderColor} flex-row items-center justify-between`}>
               <Text className={`text-base font-semibold ${textColor}`}>
                 {t('bookService.total')}
               </Text>
@@ -1175,7 +1177,7 @@ export default function BookServiceScreen() {
       )}
 
       {/* Fixed Bottom Button */}
-      <StickyFooter className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
+      <StickyFooter className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
         <TouchableOpacity
           accessibilityRole="button"
           disabled={!canContinue}

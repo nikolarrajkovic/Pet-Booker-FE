@@ -15,6 +15,7 @@ import { useLocale } from '../context/LocaleContext';
 import { useResponsive } from '../hooks/useResponsive';
 import { useEscapeToClose } from '../hooks/useEscapeToClose';
 import SearchFilters, { EMPTY_FILTERS, type FilterState } from './shared/SearchFilters';
+import { usePageGutter } from '../hooks/usePageGutter';
 
 // FilterState moved to components/shared/SearchFilters, where the controls themselves now live —
 // the web design shows them in a sticky rail rather than a sheet. Re-exported so the existing
@@ -56,6 +57,9 @@ export default function FilterModal({
   const insets = useSafeAreaInsets();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
+  const gutter = usePageGutter();
+  // On the phone the sheet IS the page, so it takes the page gutter; the web dialog keeps its own.
+  const sheetPx = isWebLayout ? 'px-6' : gutter.px;
 
   const [draft, setDraft] = useState<FilterState>(currentFilters);
 
@@ -106,11 +110,13 @@ export default function FilterModal({
           onPress={
             isWebLayout ? (e: { stopPropagation: () => void }) => e.stopPropagation() : undefined
           }
-          className={`${bgColor} ${isWebLayout ? 'overflow-hidden rounded-2xl' : 'mt-16 flex-1'}`}
+          // A rounded top edge is what makes the phone version read as a sheet pulled up over the
+          // page rather than a second page with a grey strip above it.
+          className={`${bgColor} overflow-hidden ${isWebLayout ? 'rounded-2xl' : 'mt-16 flex-1 rounded-t-3xl'}`}
           style={isWebLayout ? { width: '100%', maxWidth: 560, maxHeight: '85%' } : { flex: 1 }}>
           {/* Header */}
           <View
-            className={`flex-row items-center justify-between border-b px-6 py-4 ${borderColor}`}>
+            className={`flex-row items-center justify-between border-b ${sheetPx} py-4 ${borderColor}`}>
             <Text className={`text-xl font-bold ${textColor}`}>{t('shared.filters')}</Text>
             <TouchableOpacity
               accessibilityRole="button"
@@ -121,7 +127,7 @@ export default function FilterModal({
             </TouchableOpacity>
           </View>
 
-          <ScrollView className="flex-1 px-6 py-4">
+          <ScrollView className={`flex-1 ${sheetPx} py-4`}>
             <SearchFilters
               value={draft}
               onChange={setDraft}
@@ -133,7 +139,7 @@ export default function FilterModal({
 
           {/* Footer Buttons */}
           <View
-            className={`flex-row gap-3 border-t px-6 ${borderColor} ${bgColor}`}
+            className={`flex-row gap-3 border-t ${sheetPx} ${borderColor} ${bgColor}`}
             style={{ paddingTop: 16, paddingBottom: Math.max(insets.bottom, 16) }}>
             <TouchableOpacity
               accessibilityRole="button"

@@ -25,6 +25,7 @@ import { uploadFile } from '../../../services/files';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
 import { showAlert } from '../../../services/alert';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 type PickedPhoto = { uri: string; fileName?: string; mimeType?: string };
 
@@ -40,6 +41,7 @@ type PickedPhoto = { uri: string; fileName?: string; mimeType?: string };
 const FALLBACK_REGION = { latitude: 44.8176, longitude: 20.457 };
 
 export default function AccountScreen() {
+  const gutter = usePageGutter();
   const { currentUser, refreshUser } = useAuth();
   const {
     isDarkMode,
@@ -252,7 +254,7 @@ export default function AccountScreen() {
             </TouchableOpacity>
           </View>
 
-          <View className="px-6">
+          <View className={`${gutter.px}`}>
             <Text className={`text-lg font-bold ${textColor} mb-4`}>
               {t('account.personalInfo')}
             </Text>

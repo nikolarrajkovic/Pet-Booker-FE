@@ -23,6 +23,25 @@ export const BRAND = {
 export const BRAND_GREEN = BRAND[500];
 
 /**
+ * One colour per service type, keyed by the `ServiceProviderType` value, for everywhere a type is
+ * colour-coded: the Home category pills and the admin revenue-by-type bars. Those two used to
+ * disagree (Sitter was blue on Home and pink on the dashboard), and Home only had three colours
+ * for six types — blue, purple, then green four times over.
+ *
+ * Brand green is deliberately **last**: the pills sit right under the green header, so a green
+ * pill up front blended into it. Orange and cyan are the 600 shades, not 500, to keep white label
+ * text legible on them (a 500 orange is under 3:1 against white).
+ */
+export const SERVICE_TYPE_COLORS: Record<number, string> = {
+  0: '#3B82F6', // Sitter — blue-500
+  1: '#A855F7', // Walker — purple-500
+  2: '#EA580C', // Boarder — orange-600
+  3: '#EC4899', // Pet Hotel — pink-500
+  4: '#0891B2', // Groomer — cyan-600
+  5: BRAND[500], // Transporter — brand green
+};
+
+/**
  * Single source of truth for the app's dark/light color palette.
  *
  * Replaces the per-screen `const cardBg = isDarkMode ? ... : ...` blocks that

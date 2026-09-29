@@ -24,6 +24,7 @@ import { ReviewModerationCard } from '../components';
 import { ReviewModerationListHeader, ReviewModerationRow } from '../components/ReviewModerationRow';
 import { DeclineReviewDialog, isDeclineReasonTooShort } from '../components/DeclineReviewDialog';
 import { reviewToItem } from '../reviewToItem';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // A declined review reads "Declined" rather than the applications queue's "Rejected".
 const TABS = moderationTabs('admin.statusDeclined');
@@ -44,6 +45,7 @@ const countByStatus = (approvalStatus: number) => countReviews({ approvalStatus 
  * review — pending or not — never appeared anywhere a moderator could act on it.
  */
 export default function AdminReviewsScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation<any>();
   const { goUp } = useAppNavigation();
   const { isDarkMode, hex, subtextColor } = useThemeColors();
@@ -169,10 +171,14 @@ export default function AdminReviewsScreen() {
             {sort}
           </View>
         ) : (
-          <View style={{ alignItems: 'flex-end', paddingHorizontal: 16, zIndex: 20 }}>{sort}</View>
+          <View style={{ alignItems: 'flex-end', paddingHorizontal: gutter.value, zIndex: 20 }}>
+            {sort}
+          </View>
         )}
 
-        <View ref={listRef} style={{ paddingHorizontal: 16, paddingTop: isWebLayout ? 4 : 12 }}>
+        <View
+          ref={listRef}
+          style={{ paddingHorizontal: gutter.value, paddingTop: isWebLayout ? 4 : 12 }}>
           <ListState
             isLoading={queue.isLoading}
             error={queue.error}

@@ -24,6 +24,7 @@ import {
 import { formatMoney } from '../../../services/currency';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import ResponsiveModal from '../../../components/shared/ResponsiveModal';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // Translate function shape shared by the helpers below (labels follow the
 // active language; the container passes its useLocale().t down).
@@ -113,6 +114,7 @@ const TABS: { key: FilterTab; labelKey: string }[] = [
 ];
 
 export default function NewRequestsScreen() {
+  const gutter = usePageGutter();
   const { currentUser } = useAuth();
   const {
     isDarkMode,
@@ -239,7 +241,8 @@ export default function NewRequestsScreen() {
       showNotificationButton
       width="wide">
       {/* Filter tabs */}
-      <View className={`mx-4 mb-3 mt-4 ${tabBg} flex-row rounded-2xl border p-1 ${borderColor}`}>
+      <View
+        className={`${gutter.mx} mb-3 mt-4 ${tabBg} flex-row rounded-2xl border p-1 ${borderColor}`}>
         {TABS.map((tab) => {
           const count =
             tab.key === 'new'
@@ -282,7 +285,11 @@ export default function NewRequestsScreen() {
 
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32, paddingTop: 4 }}
+        contentContainerStyle={{
+          paddingHorizontal: gutter.value,
+          paddingBottom: 32,
+          paddingTop: 4,
+        }}
         showsVerticalScrollIndicator={false}>
         <ListState
           isLoading={isLoading}

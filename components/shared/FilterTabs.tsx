@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
+import { useResponsive } from '../../hooks/useResponsive';
+import { usePageGutter } from '../../hooks/usePageGutter';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -42,68 +44,87 @@ export default function FilterTabs<K extends string>({
 }: FilterTabsProps<K>) {
   const { cardBg, hex } = useThemeColors();
   const { t } = useLocale();
+  const { isWebLayout } = useResponsive();
+  const gutter = usePageGutter();
+
+  const pills = tabs.map((tab) => {
+    const isActive = activeKey === tab.key;
+    return (
+      <TouchableOpacity
+        key={tab.key}
+        onPress={() => onChange(tab.key)}
+        activeOpacity={0.8}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: isActive }}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          borderRadius: 20,
+          backgroundColor: isActive ? tab.activeBg : cardBg,
+          borderWidth: 1.5,
+          borderColor: isActive ? tab.activeColor + '55' : hex.border,
+        }}>
+        <Ionicons name={tab.icon} size={14} color={isActive ? tab.activeColor : hex.subtext} />
+        <Text
+          style={{
+            color: isActive ? tab.activeColor : hex.subtext,
+            fontSize: 13,
+            fontWeight: '600',
+            marginLeft: 5,
+          }}>
+          {t(tab.labelKey as any)}
+        </Text>
+        <View
+          style={{
+            marginLeft: 5,
+            backgroundColor: isActive ? tab.activeColor : hex.chipBg,
+            borderRadius: 8,
+            minWidth: 18,
+            height: 18,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 4,
+          }}>
+          <Text
+            style={{
+              color: isActive ? 'white' : hex.subtext,
+              fontSize: 10,
+              fontWeight: '700',
+            }}>
+            {counts[tab.key]}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  });
+
+  // Three pills with counts are wider than a 390px phone once the counts reach two digits, and a
+  // plain row simply ran the last one off the screen with no way to reach it. On the phone the row
+  // scrolls sideways, edge to edge; on the web it has the room and stays a plain row.
+  if (!isWebLayout) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ marginTop: 20, marginBottom: 12, flexGrow: 0 }}
+        contentContainerStyle={{ paddingHorizontal: gutter.value, gap: 8 }}>
+        {pills}
+      </ScrollView>
+    );
+  }
 
   return (
     <View
       style={{
         flexDirection: 'row',
-        marginHorizontal: 16,
+        marginHorizontal: gutter.value,
         marginTop: 20,
         marginBottom: 12,
         gap: 8,
       }}>
-      {tabs.map((tab) => {
-        const isActive = activeKey === tab.key;
-        return (
-          <TouchableOpacity
-            key={tab.key}
-            onPress={() => onChange(tab.key)}
-            activeOpacity={0.8}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: isActive }}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              borderRadius: 20,
-              backgroundColor: isActive ? tab.activeBg : cardBg,
-              borderWidth: 1.5,
-              borderColor: isActive ? tab.activeColor + '55' : hex.border,
-            }}>
-            <Ionicons name={tab.icon} size={14} color={isActive ? tab.activeColor : hex.subtext} />
-            <Text
-              style={{
-                color: isActive ? tab.activeColor : hex.subtext,
-                fontSize: 13,
-                fontWeight: '600',
-                marginLeft: 5,
-              }}>
-              {t(tab.labelKey as any)}
-            </Text>
-            <View
-              style={{
-                marginLeft: 5,
-                backgroundColor: isActive ? tab.activeColor : hex.chipBg,
-                borderRadius: 8,
-                minWidth: 18,
-                height: 18,
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingHorizontal: 4,
-              }}>
-              <Text
-                style={{
-                  color: isActive ? 'white' : hex.subtext,
-                  fontSize: 10,
-                  fontWeight: '700',
-                }}>
-                {counts[tab.key]}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        );
-      })}
+      {pills}
     </View>
   );
 }

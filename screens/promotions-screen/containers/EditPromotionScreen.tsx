@@ -25,6 +25,7 @@ import {
 } from '../../../services/service-discounts';
 import { getErrorMessage } from '../../../services/http';
 import { showAlert } from '../../../services/alert';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // Labels are translation keys, resolved with t() at render.
 const TYPE_META: Record<
@@ -96,6 +97,7 @@ function parseInitialDate(iso: string | null | undefined, fallbackStr: string): 
 }
 
 export default function EditPromotionScreen({ route }: EditPromotionScreenProps) {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor, inputBg } = useThemeColors();
   const { showError } = useToast();
@@ -257,7 +259,11 @@ export default function EditPromotionScreen({ route }: EditPromotionScreenProps)
       width="narrow">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 }}
+        contentContainerStyle={{
+          paddingHorizontal: gutter.value,
+          paddingTop: 20,
+          paddingBottom: 40,
+        }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
         {/* Promotion type banner */}

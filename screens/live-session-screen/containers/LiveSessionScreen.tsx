@@ -48,6 +48,7 @@ import {
   LiveDirectionsMap,
   ArrivalEta,
 } from '../components';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 type RouteParams = { mode?: 'partner' | 'user' };
 type Completion = { pickup: boolean; dropoff: boolean };
@@ -176,6 +177,7 @@ function firstPhoto(photos?: { src?: string | null; isSelected?: boolean }[] | n
 }
 
 export default function LiveSessionScreen() {
+  const gutter = usePageGutter();
   const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
   const navigation = useNavigation();
   const mode = route.params?.mode ?? 'partner';
@@ -760,7 +762,13 @@ export default function LiveSessionScreen() {
           </Text>
         </View>
       ) : (
-        <ScrollView className="flex-1" contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{
+            paddingHorizontal: gutter.value,
+            paddingTop: 20,
+            paddingBottom: 40,
+          }}>
           {/* Concurrent-session pager — only when the partner is running several */}
           {isPartner && sessions.length > 1 ? (
             <View

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 interface EnableNotificationsCardProps {
   isDarkMode: boolean;
@@ -14,18 +15,18 @@ export default function EnableNotificationsCard({
   onEnable,
   onDismiss,
 }: EnableNotificationsCardProps) {
+  const gutter = usePageGutter();
   const { t } = useLocale();
   const enableModalBg = isDarkMode ? 'bg-[#1a2332]' : 'bg-green-50';
 
   return (
     <View
-      className={`${enableModalBg} mx-4 mt-4 rounded-2xl border p-6 ${isDarkMode ? 'border-[#243447]' : 'border-green-100'}`}>
+      className={`${enableModalBg} ${gutter.mx} mt-4 rounded-2xl border p-6 ${isDarkMode ? 'border-[#243447]' : 'border-green-100'}`}>
       <View className="mb-4 items-center">
         <View className="mb-3 h-16 w-16 items-center justify-center rounded-full bg-brand-500">
           <Ionicons name="notifications" size={28} color="white" />
         </View>
-        <Text
-          className={`text-base font-bold ${isDarkMode ? 'text-white' : 'text-[#1a365d]'} mb-2`}>
+        <Text className={`text-base font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-2`}>
           {t('notificationSettings.enableTitle')}
         </Text>
         <Text className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-center`}>

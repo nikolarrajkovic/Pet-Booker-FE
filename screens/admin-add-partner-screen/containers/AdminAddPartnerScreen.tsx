@@ -10,8 +10,10 @@ import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { AddressDto } from '../../../services/service-providers';
 import { PersonalInfoStep, ServiceInfoStep } from '../../partner-application-screen/components';
 import { showAlert } from '../../../services/alert';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 export default function AdminAddPartnerScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const location = useLocation();
   const { t } = useLocale();
@@ -94,7 +96,6 @@ export default function AdminAddPartnerScreen() {
       headerTitle={t('admin.addPartnerTitle')}
       headerSubtitle={t('admin.addPartnerSubtitle')}
       contentBg={bgColor}
-      contentRounded={false}
       headerChildren={
         <>
           <View className="mb-2 mt-4">
@@ -105,7 +106,9 @@ export default function AdminAddPartnerScreen() {
               />
             </View>
           </View>
-          <Text className="text-sm text-white">
+          {/* mb-6: clears the rounded content sheet, which is pulled 32px up over the header
+              (AppHeader's own pb-6 covers 24 of it). */}
+          <Text className="mb-6 text-sm text-white">
             {t('partnerWelcome.stepOf', { current: step, total: totalSteps })}
           </Text>
         </>
@@ -115,7 +118,11 @@ export default function AdminAddPartnerScreen() {
       width="narrow">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: 100, paddingHorizontal: 24 }}>
+        contentContainerStyle={{
+          paddingTop: 24,
+          paddingBottom: 100,
+          paddingHorizontal: gutter.value,
+        }}>
         <FormCard>
           {step === 1 && (
             <PersonalInfoStep
@@ -139,7 +146,7 @@ export default function AdminAddPartnerScreen() {
       </ScrollView>
 
       {/* Fixed Bottom Button */}
-      <View className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
+      <View className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
         <TouchableOpacity
           accessibilityRole="button"
           onPress={handleContinue}

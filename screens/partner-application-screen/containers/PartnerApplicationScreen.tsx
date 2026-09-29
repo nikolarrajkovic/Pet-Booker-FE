@@ -23,6 +23,7 @@ import { createServiceProvider, AddressDto } from '../../../services/service-pro
 import { getUser, UserDto } from '../../../services/users';
 import { getErrorMessage } from '../../../services/http';
 import { showAlert } from '../../../services/alert';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // Reads a native File object as a base64 data URI using FileReader — pure memory, no network.
 function fileToDataUri(file: File): Promise<string> {
@@ -35,6 +36,7 @@ function fileToDataUri(file: File): Promise<string> {
 }
 
 export default function PartnerApplicationScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const {
     isDarkMode,
@@ -341,7 +343,6 @@ export default function PartnerApplicationScreen() {
       showBackButton
       headerTitle={t('partnerApplication.title')}
       contentBg={bgColor}
-      contentRounded={false}
       headerChildren={
         <>
           {/* Progress Bar */}
@@ -353,14 +354,20 @@ export default function PartnerApplicationScreen() {
               />
             </View>
           </View>
-          <Text className="text-sm text-white">
+          {/* mb-6: clears the rounded content sheet, which is pulled 32px up over the header
+              (AppHeader's own pb-6 covers 24 of it). */}
+          <Text className="mb-6 text-sm text-white">
             {t('partnerWelcome.stepOf', { current: step, total: totalSteps })}
           </Text>
         </>
       }>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: 100, paddingHorizontal: 24 }}>
+        contentContainerStyle={{
+          paddingTop: 24,
+          paddingBottom: 100,
+          paddingHorizontal: gutter.value,
+        }}>
         {step === 1 && (
           <PersonalInfoStep
             formData={formData}
@@ -400,7 +407,7 @@ export default function PartnerApplicationScreen() {
       </ScrollView>
 
       {/* Fixed Bottom Button */}
-      <View className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
+      <View className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
         <TouchableOpacity
           accessibilityRole="button"
           disabled={isSubmitting}

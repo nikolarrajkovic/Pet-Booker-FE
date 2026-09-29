@@ -9,6 +9,7 @@ import {
 import { themeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { DAY_KEYS, DAY_SHORT_KEYS, MONTH_SHORT_KEYS } from '../../../i18n';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 interface WeekViewProps {
   selectedDate: Date;
@@ -71,6 +72,7 @@ export default function WeekView({
   onDateChange,
   mode,
 }: WeekViewProps) {
+  const gutter = usePageGutter();
   const [pressedDay, setPressedDay] = useState<string | null>(null);
   const { textColor, subtextColor, cardBg } = themeColors(isDarkMode);
   const { t } = useLocale();
@@ -103,7 +105,8 @@ export default function WeekView({
   return (
     <View className="flex-1">
       {/* Week Navigation */}
-      <View className={`border-b px-6 py-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+      <View
+        className={`border-b ${gutter.px} py-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
         <View className="mb-4 flex-row items-center justify-between">
           <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToPreviousWeek}>
             <Text className={`text-2xl ${textColor}`}>‹</Text>
@@ -158,7 +161,7 @@ export default function WeekView({
       </View>
 
       {/* Week Calendar */}
-      <View className="px-6 py-4">
+      <View className={`${gutter.px} py-4`}>
         <View className="mb-4 flex-row">
           {dayNames.map((day, index) => (
             <View key={day} className="flex-1 items-center">
@@ -209,7 +212,7 @@ export default function WeekView({
       </View>
 
       {/* Services List */}
-      <ScrollView className="flex-1 px-6">
+      <ScrollView className={`flex-1 ${gutter.px}`}>
         {weekDays.map((day, index) => {
           const all = getServicesForDate(day);
           const services =

@@ -17,6 +17,7 @@ import { useResponsive } from '../../../hooks/useResponsive';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { useNearBottomLoader } from '../../../hooks/useNearBottomLoader';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 export interface ServiceSearchItem {
   id: number;
@@ -99,6 +100,7 @@ interface ListViewProps {
  */
 const RICH_ROW_MIN_WIDTH = 640;
 export default function ListView({ services, badge, paging, sort, header }: ListViewProps) {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const tabBarSpacing = useTabBarSpacing();
   const { t } = useLocale();
@@ -203,7 +205,7 @@ export default function ListView({ services, badge, paging, sort, header }: List
           pixels to the left of their own heading. The phone keeps its 24. */}
       <View
         ref={listRef}
-        className={isWebLayout ? 'px-8 pt-2' : 'px-6 pt-6'}
+        className={`${gutter.px} ${isWebLayout ? 'pt-2' : 'pt-6'}`}
         onLayout={(e) => setColumnWidth(e.nativeEvent.layout.width)}>
         {header}
 
@@ -319,7 +321,7 @@ export default function ListView({ services, badge, paging, sort, header }: List
       {/* The end of an endless scroll should say so — otherwise a list that simply stops looks
           like one that failed to load the next page. */}
       {paging && !paging.hasMore && !paging.isLoadingMore && services.length > 0 && (
-        <Text className={`${subtextColor} px-6 pb-2 pt-4 text-center text-xs`}>
+        <Text className={`${subtextColor} ${gutter.px} pb-2 pt-4 text-center text-xs`}>
           {t('search.endOfResults', { count: services.length })}
         </Text>
       )}

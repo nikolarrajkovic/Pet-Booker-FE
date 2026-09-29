@@ -25,6 +25,7 @@ import {
   createPaymentMethod,
   PaymentMethodStatus,
 } from '../../../services/payment-methods';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 type Appointment = {
   id: number;
@@ -101,6 +102,7 @@ async function resolvePaymentMethodId(userId: number, isCash: boolean): Promise<
 }
 
 export default function ReviewBookingScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: ReviewBookingRouteParams }, 'params'>>();
   const { service, appointments } = route.params;
@@ -259,7 +261,6 @@ export default function ReviewBookingScreen() {
       showBackButton
       headerTitle={t('reviewBooking.title')}
       contentBg={contentBg}
-      contentRounded={false}
       width="wide">
       {/*
         The checkout shape. On a phone the total and the confirm button are at the bottom of a
@@ -273,7 +274,7 @@ export default function ReviewBookingScreen() {
           className="flex-1"
           contentContainerStyle={{ paddingBottom: isWebLayout ? 32 : 100 }}>
           {/* Service Info */}
-          <View className="flex-row items-center px-6 py-5">
+          <View className={`flex-row items-center ${gutter.px} py-5`}>
             {serviceImage ? (
               <Image
                 source={{ uri: serviceImage }}
@@ -295,7 +296,7 @@ export default function ReviewBookingScreen() {
           </View>
 
           {/* Booking Details — one block per appointment */}
-          <View className={`border-t px-6 py-5 ${borderColor}`}>
+          <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
             <Text className={`text-base font-semibold ${textColor} mb-4`}>
               {t('reviewBooking.bookingDetails')}
               {appointments.length > 1 ? ` (${appointments.length})` : ''}
@@ -403,7 +404,7 @@ export default function ReviewBookingScreen() {
           />
 
           {/* Cancellation Policy */}
-          <View className={`border-t px-6 py-5 ${borderColor}`}>
+          <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
             <Text className={`text-base font-semibold ${textColor} mb-3`}>
               {t('reviewBooking.cancellationPolicy')}
             </Text>
@@ -430,7 +431,7 @@ export default function ReviewBookingScreen() {
       </View>
 
       {!isWebLayout && (
-        <StickyFooter className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
+        <StickyFooter className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
           {confirmButton}
         </StickyFooter>
       )}

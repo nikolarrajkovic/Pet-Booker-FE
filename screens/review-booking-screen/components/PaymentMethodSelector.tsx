@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 interface PaymentMethodSelectorProps {
   isDarkMode: boolean;
@@ -20,9 +21,10 @@ export default function PaymentMethodSelector({
   selectedMethod,
   onSelectMethod,
 }: PaymentMethodSelectorProps) {
+  const gutter = usePageGutter();
   const { t } = useLocale();
   return (
-    <View className={`border-t px-6 py-5 ${borderColor}`}>
+    <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
       <Text className={`text-base font-semibold ${textColor} mb-4`}>
         {t('reviewBooking.paymentMethod')}
       </Text>

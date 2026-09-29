@@ -20,6 +20,7 @@ import {
   ServiceDiscountDto,
   DiscountType,
 } from '../../../services/service-discounts';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 const fmtDate = (iso?: string | null) =>
   iso
@@ -158,6 +159,7 @@ interface PromotionsScreenProps {
 }
 
 export default function PromotionsScreen({ route }: PromotionsScreenProps) {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const { currentUser } = useAuth();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
@@ -278,7 +280,11 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
       width="wide">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 32 }}
+        contentContainerStyle={{
+          paddingHorizontal: gutter.value,
+          paddingTop: 20,
+          paddingBottom: 32,
+        }}
         showsVerticalScrollIndicator={false}>
         {/* Performance Overview — hidden when viewAll */}
         {!viewAll && (

@@ -3,6 +3,7 @@ import { View, Text } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 interface BookingDetailsProps {
   isDarkMode: boolean;
   textColor: string;
@@ -16,8 +17,9 @@ export default function BookingDetails({
   subtextColor,
   borderColor,
 }: BookingDetailsProps) {
+  const gutter = usePageGutter();
   return (
-    <View className={`border-t px-6 py-5 ${borderColor}`}>
+    <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
       <Text className={`text-base font-semibold ${textColor} mb-4`}>Booking Details</Text>
       <View className="mb-4 flex-row items-start">
         <View

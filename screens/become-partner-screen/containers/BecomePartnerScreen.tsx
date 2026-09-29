@@ -15,6 +15,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { getPlatformStats, type PlatformStats } from '../../../services/stats';
 import { BenefitCard, HowItWorksStep } from '../components';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // Titles/descriptions are translation keys, resolved with t() at render.
 const benefits = [
@@ -86,6 +87,7 @@ function trimZero(value: number): string {
 }
 
 export default function BecomePartnerScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const {
     isDarkMode,
@@ -174,7 +176,11 @@ export default function BecomePartnerScreen() {
       contentBg={contentBg}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: 40, paddingHorizontal: 24 }}
+        contentContainerStyle={{
+          paddingTop: 24,
+          paddingBottom: 40,
+          paddingHorizontal: gutter.value,
+        }}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
           useNativeDriver: false,
         })}
@@ -264,7 +270,7 @@ export default function BecomePartnerScreen() {
       </ScrollView>
 
       {/* Fixed Bottom Button */}
-      <View className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
+      <View className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
         <TouchableOpacity
           accessibilityRole="button"
           onPress={() => (navigation as any).navigate('PartnerApplication')}

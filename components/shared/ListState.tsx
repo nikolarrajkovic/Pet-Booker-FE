@@ -3,6 +3,7 @@ import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import PetLoader from './PetLoader';
+import { usePageGutter } from '../../hooks/usePageGutter';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -50,6 +51,7 @@ export function MessageState({
   tone?: 'empty' | 'error';
 }) {
   const { textColor, cardBg, isDarkMode } = useThemeColors();
+  const gutter = usePageGutter();
   const isError = tone === 'error';
   const badgeBg = isError
     ? isDarkMode
@@ -66,7 +68,7 @@ export function MessageState({
     <StatePad>
       {/* On a card, not loose on the page. Every other block of content on these screens sits on
           one, and against the pattern an uncontained state reads as part of the wallpaper. */}
-      <View className={`${cardBg} mx-4 items-center self-stretch rounded-2xl px-6 py-10`}>
+      <View className={`${cardBg} ${gutter.mx} items-center self-stretch rounded-2xl px-6 py-10`}>
         <View className={`mb-4 h-20 w-20 items-center justify-center rounded-full ${badgeBg}`}>
           <Ionicons name={icon} size={36} color={isError ? '#EF4444' : BRAND_GREEN} />
         </View>

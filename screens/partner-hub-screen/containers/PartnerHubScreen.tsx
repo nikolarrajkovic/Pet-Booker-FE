@@ -26,6 +26,7 @@ import {
 import { getServices } from '../../../services/services';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { useResponsive } from '../../../hooks/useResponsive';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // ─── Formatting / time helpers ───────────────────────────────────────────────
 const fmtPct = (p: number | null): string | undefined =>
@@ -296,6 +297,7 @@ const QUICK_ACTIONS = [
  * the pills wrap into place instead of hiding four of five off the right edge.
  */
 function PillRow({ isWebLayout, children }: { isWebLayout: boolean; children: React.ReactNode }) {
+  const gutter = usePageGutter();
   if (isWebLayout) {
     return (
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 20 }}>
@@ -309,17 +311,21 @@ function PillRow({ isWebLayout, children }: { isWebLayout: boolean; children: Re
     // own `pb-6` only covers 24 of those 32px. The last thing in `headerChildren` has to clear the
     // remainder itself or the sheet cuts across it — which is what was slicing the bottom off
     // these pills. Same reason `ProfileScreen`'s header card carries `mb-8`.
+    // Bleeds to the window edges (cancelling the header's gutter, then padding the content by
+    // it), so the row scrolls out from under the edge instead of stopping at an invisible line
+    // one gutter in — the same treatment as the Home category pills.
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      style={{ marginTop: 16, marginBottom: 32 }}
-      contentContainerStyle={{ gap: 10, paddingRight: 4 }}>
+      style={{ marginTop: 16, marginBottom: 32, marginHorizontal: -gutter.value }}
+      contentContainerStyle={{ gap: 10, paddingHorizontal: gutter.value }}>
       {children}
     </ScrollView>
   );
 }
 
 export default function PartnerHubScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const { isDarkMode, hex } = useThemeColors();
   const { currentUser } = useAuth();
@@ -648,7 +654,7 @@ export default function PartnerHubScreen() {
               activeOpacity={0.9}
               onPress={() => (navigation as any).navigate('LiveSession', { mode: 'partner' })}
               style={{
-                marginHorizontal: 20,
+                marginHorizontal: gutter.value,
                 marginTop: 24,
                 backgroundColor: '#EF4444',
                 borderRadius: 16,
@@ -681,7 +687,7 @@ export default function PartnerHubScreen() {
           )}
 
           {/* ── Quick Actions ── */}
-          <View style={{ paddingHorizontal: 20, paddingTop: 24 }}>
+          <View style={{ paddingHorizontal: gutter.value, paddingTop: 24 }}>
             <Text
               style={{
                 fontSize: 18,
@@ -780,7 +786,7 @@ export default function PartnerHubScreen() {
           </View>
 
           {/* ── Recent Activity ── */}
-          <View style={{ paddingHorizontal: 20, paddingTop: 28 }}>
+          <View style={{ paddingHorizontal: gutter.value, paddingTop: 28 }}>
             <Text
               style={{
                 fontSize: 18,
@@ -863,7 +869,7 @@ export default function PartnerHubScreen() {
           </View>
 
           {/* ── Growth Tip ── */}
-          <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+          <View style={{ paddingHorizontal: gutter.value, paddingTop: 20 }}>
             <View
               style={{
                 backgroundColor: isDarkMode ? '#1e1b4b' : '#EEF2FF',

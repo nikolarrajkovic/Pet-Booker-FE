@@ -24,6 +24,7 @@ import { createPet, updatePet } from '../../../services/pets';
 import { getErrorMessage } from '../../../services/http';
 import { useAuth } from '../../../context/AuthContext';
 import { showAlert } from '../../../services/alert';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 type AddPetRouteParams = {
   // Set by flows that push AddPet mid-task (e.g. BookService with no pets):
@@ -56,6 +57,7 @@ type AddPetRouteParams = {
 };
 
 export default function AddPetScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: AddPetRouteParams }, 'params'>>();
   const existingPet = route.params?.pet;
@@ -265,14 +267,17 @@ export default function AddPetScreen() {
       showBackButton
       headerTitle={existingPet ? t('addPet.titleEdit') : t('addPet.titleAdd')}
       contentBg={contentBg}
-      contentRounded={false}
       // A form: one column of fields. Capped narrow so a label never sits a screen-width
       // away from the input it names.
       width="narrow">
       <ScrollView
         ref={scrollRef}
         className="flex-1"
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: 32, paddingHorizontal: 24 }}>
+        contentContainerStyle={{
+          paddingTop: 24,
+          paddingBottom: 32,
+          paddingHorizontal: gutter.value,
+        }}>
         <FormCard>
           <PetPhotoUploader
             photos={petPhotos.map((p) => p.uri)}

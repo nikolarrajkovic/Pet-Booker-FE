@@ -8,6 +8,7 @@ import { useLocale } from '../../context/LocaleContext';
 import { BRAND_GREEN } from '../../hooks/useThemeColors';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';
+import { usePageGutter } from '../../hooks/usePageGutter';
 interface PhoneInputProps {
   /** Stored phone value (dial code + national number, e.g. "+38164 123 4567"). */
   value: string;
@@ -129,6 +130,10 @@ export default function PhoneInput({
     : COUNTRIES;
 
   const { isWebLayout } = useResponsive();
+  const gutter = usePageGutter();
+  // The phone's country list is a bottom sheet the width of the screen, so it takes the page
+  // gutter; the web dialog keeps its own inset.
+  const sheetPx = isWebLayout ? 'px-5' : gutter.px;
   useEscapeToClose(pickerVisible, () => setPickerVisible(false));
 
   return (
@@ -191,7 +196,7 @@ export default function PhoneInput({
             }
             onPress={(e) => e.stopPropagation()}>
             {/* Header */}
-            <View className="flex-row items-center justify-between px-5 pb-3 pt-5">
+            <View className={`flex-row items-center justify-between ${sheetPx} pb-3 pt-5`}>
               <Text className={`text-lg font-bold ${textColor}`}>Select Country</Text>
               <TouchableOpacity
                 accessibilityRole="button"
@@ -202,7 +207,7 @@ export default function PhoneInput({
             </View>
 
             {/* Search */}
-            <View className="px-5 pb-3">
+            <View className={`${sheetPx} pb-3`}>
               <View
                 className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-2.5 ${borderColor}`}>
                 <Ionicons
@@ -232,7 +237,7 @@ export default function PhoneInput({
                   <TouchableOpacity
                     accessibilityRole="button"
                     onPress={() => selectCountry(item)}
-                    className="flex-row items-center px-5 py-3">
+                    className={`flex-row items-center ${sheetPx} py-3`}>
                     <CountryFlag iso={item.iso} width={30} />
                     <Text className={`ml-3 flex-1 ${textColor}`}>{item.name}</Text>
                     <Text className={`${subtextColor} mr-2`}>{item.dialCode}</Text>

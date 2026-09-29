@@ -9,6 +9,7 @@ import {
 import { themeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { DAY_SHORT_KEYS, MONTH_KEYS } from '../../../i18n';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 interface MonthViewProps {
   selectedDate: Date;
@@ -55,6 +56,7 @@ export default function MonthView({
   onDateChange,
   mode,
 }: MonthViewProps) {
+  const gutter = usePageGutter();
   const [pressedDay, setPressedDay] = useState<string | null>(null);
   const { textColor, subtextColor } = themeColors(isDarkMode);
   const { t } = useLocale();
@@ -84,7 +86,8 @@ export default function MonthView({
   return (
     <View className="flex-1">
       {/* Month Navigation */}
-      <View className={`border-b px-6 py-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+      <View
+        className={`border-b ${gutter.px} py-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
         <View className="mb-4 flex-row items-center justify-between">
           <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToPreviousMonth}>
             <Text className={`text-2xl ${textColor}`}>‹</Text>
@@ -137,7 +140,7 @@ export default function MonthView({
       </View>
 
       {/* Calendar Grid */}
-      <View className="px-6 py-4">
+      <View className={`${gutter.px} py-4`}>
         {/* Day names */}
         <View className="mb-2 flex-row">
           {dayNames.map((day) => (
@@ -190,7 +193,8 @@ export default function MonthView({
       </View>
 
       {/* Stats */}
-      <View className={`mx-6 mt-6 rounded-2xl p-6 ${isDarkMode ? 'bg-[#1a2332]' : 'bg-gray-50'}`}>
+      <View
+        className={`${gutter.mx} mt-6 rounded-2xl p-6 ${isDarkMode ? 'bg-[#1a2332]' : 'bg-gray-50'}`}>
         <View className="flex-row justify-around">
           <View className="items-center">
             <Text className={`text-3xl font-bold ${textColor}`}>{totalServices}</Text>

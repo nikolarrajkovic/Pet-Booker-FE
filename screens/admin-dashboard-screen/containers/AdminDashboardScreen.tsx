@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
+import { BRAND_GREEN, SERVICE_TYPE_COLORS, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
@@ -13,23 +13,10 @@ import { formatMoney } from '../../../services/currency';
 import { getErrorMessage } from '../../../services/http';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
-// One page gutter for every block, matching the header's px-6 — the stat grid sat at 16 and the
-// cards under it at 20, so their edges visibly stepped in and out down the page.
-const GUTTER = 24;
-
 const fmtCount = (n: number) => n.toLocaleString('en-US');
-
-// Stable color per ServiceProviderType for the revenue breakdown bars.
-const TYPE_COLORS: Record<number, string> = {
-  0: '#EC4899', // Sitter
-  1: '#3B82F6', // Walker
-  2: '#F97316', // Boarder
-  3: '#10B981', // Pet Hotel
-  4: '#8B5CF6', // Groomer
-  5: '#0EA5E9', // Transporter
-};
 
 type AdminMetrics = {
   currency: string | null;
@@ -94,7 +81,7 @@ async function loadAdminMetrics(): Promise<AdminMetrics> {
       // English fallback — display localizes via tEnum('serviceProviderType', type).
       label: r.serviceType,
       value: r.amount,
-      color: TYPE_COLORS[r.serviceTypeValue] ?? '#9CA3AF',
+      color: SERVICE_TYPE_COLORS[r.serviceTypeValue] ?? '#9CA3AF',
     }))
     .sort((a, b) => b.value - a.value);
 
@@ -112,6 +99,7 @@ async function loadAdminMetrics(): Promise<AdminMetrics> {
 }
 
 export default function AdminDashboardScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation<any>();
   const { isDarkMode, hex } = useThemeColors();
   const { showError } = useToast();
@@ -212,7 +200,7 @@ export default function AdminDashboardScreen() {
             style={{
               flexDirection: 'row',
               flexWrap: 'wrap',
-              marginHorizontal: GUTTER,
+              marginHorizontal: gutter.value,
               marginTop: 24,
               gap: 12,
               marginBottom: 24,
@@ -287,7 +275,7 @@ export default function AdminDashboardScreen() {
           {/* ── Revenue by Service Type ── */}
           <View
             style={{
-              marginHorizontal: GUTTER,
+              marginHorizontal: gutter.value,
               backgroundColor: cardBg,
               borderRadius: 16,
               padding: 20,
@@ -344,7 +332,7 @@ export default function AdminDashboardScreen() {
           </View>
 
           {/* ── Quick Actions ── */}
-          <View style={{ marginHorizontal: GUTTER }}>
+          <View style={{ marginHorizontal: gutter.value }}>
             <Text
               style={{ color: sectionTitle, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>
               {t('admin.quickActions')}

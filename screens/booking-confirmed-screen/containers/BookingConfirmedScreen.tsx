@@ -7,12 +7,14 @@ import { useLocale } from '../../../context/LocaleContext';
 import AnimatedCheckmark from '../../../components/shared/AnimatedCheckmark';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { useTopInset, useBottomInset } from '../../../hooks/useSafeAreaSpacing';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 type BookingConfirmedRouteParams = {
   serviceName: string;
 };
 
 export default function BookingConfirmedScreen() {
+  const gutter = usePageGutter();
   // Terminal screen — reset so back can't re-enter the completed booking flow.
   const { resetToTab, resetToScreen } = useAppNavigation();
   const route = useRoute<RouteProp<{ params: BookingConfirmedRouteParams }, 'params'>>();
@@ -32,7 +34,7 @@ export default function BookingConfirmedScreen() {
         the two buttons stretch to 1400px and the message runs as a single line across the monitor.
       */}
       <View
-        className="flex-1 items-center justify-center px-6"
+        className={`flex-1 items-center justify-center ${gutter.px}`}
         style={isWebLayout ? { maxWidth: 520, alignSelf: 'center', width: '100%' } : undefined}>
         <View className="mb-8">
           <AnimatedCheckmark size={128} isDarkMode={isDarkMode} />

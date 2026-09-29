@@ -5,6 +5,7 @@ import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import { formatMoney } from '../../services/currency';
 import StickyFooter from './StickyFooter';
+import { usePageGutter } from '../../hooks/usePageGutter';
 
 interface ServiceDetailViewProps {
   service: {
@@ -40,6 +41,7 @@ export default function ServiceDetailView({
   currency,
 }: ServiceDetailViewProps) {
   const { t } = useLocale();
+  const gutter = usePageGutter();
   const money = (n: number) => formatMoney(n, currency);
   const { textColor, subtextColor, cardBg } = themeColors(isDarkMode);
 
@@ -47,7 +49,7 @@ export default function ServiceDetailView({
     <ScrollView
       className="flex-1"
       contentContainerStyle={{ paddingBottom: showBookButton ? 100 : 20 }}>
-      <View className="px-6 py-5">
+      <View className={`${gutter.px} py-5`}>
         {/* Title and Badge */}
         <View className="flex-row items-start justify-between">
           <View className="flex-1">
@@ -177,7 +179,7 @@ export default function ServiceDetailView({
       {/* Book Button - only shown if showBookButton is true */}
       {showBookButton && (
         <StickyFooter
-          className={`${cardBg} border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} px-6 py-4`}>
+          className={`${cardBg} border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} ${gutter.px} py-4`}>
           <TouchableOpacity
             accessibilityRole="button"
             onPress={onBookPress}

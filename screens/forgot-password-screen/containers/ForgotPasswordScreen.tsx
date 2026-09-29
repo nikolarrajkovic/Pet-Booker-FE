@@ -9,8 +9,10 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { forgotPassword, resetPassword } from '../../../services/auth';
 import { getErrorMessage } from '../../../services/http';
 import { showAlert } from '../../../services/alert';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 export default function ForgotPasswordScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation<any>();
   const { bgColor, textColor, subtextColor, inputBg, inputText, borderColor, placeholderColor } =
     useThemeColors();
@@ -98,7 +100,7 @@ export default function ForgotPasswordScreen() {
       width="narrow">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ padding: 24 }}
+        contentContainerStyle={{ paddingVertical: 24, paddingHorizontal: gutter.value }}
         keyboardShouldPersistTaps="handled">
         {step === 'request' ? (
           <>

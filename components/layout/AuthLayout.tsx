@@ -6,6 +6,7 @@ import { useResponsive } from '../../hooks/useResponsive';
 import { useTopInset, useBottomInset } from '../../hooks/useSafeAreaSpacing';
 import PatternBackground from '../shared/PatternBackground';
 import BrandMark from '../shared/BrandMark';
+import { usePageGutter } from '../../hooks/usePageGutter';
 
 type AuthLayoutProps = {
   /** Big line in the brand band — the app name, or the screen's purpose. */
@@ -38,6 +39,7 @@ type AuthLayoutProps = {
  */
 export default function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   const { isWebLayout } = useResponsive();
+  const gutter = usePageGutter();
   const { isDarkMode, bgColor, hex, borderColor } = useThemeColors();
   const topInset = useTopInset();
   const bottomInset = useBottomInset();
@@ -46,7 +48,7 @@ export default function AuthLayout({ title, subtitle, children }: AuthLayoutProp
 
   const band = (
     <View
-      className={`${bandBg} items-center px-6 ${
+      className={`${bandBg} items-center ${gutter.px} ${
         isWebLayout ? 'pb-8 pt-10' : 'rounded-b-3xl pb-12'
       }`}
       // The band runs to the top of the window so the brand colour fills the status bar, and pads
@@ -87,7 +89,7 @@ export default function AuthLayout({ title, subtitle, children }: AuthLayoutProp
           <ScrollView
             className="flex-1"
             contentContainerStyle={{
-              paddingHorizontal: 24,
+              paddingHorizontal: gutter.value,
               paddingTop: 32,
               paddingBottom: 40 + bottomInset,
             }}

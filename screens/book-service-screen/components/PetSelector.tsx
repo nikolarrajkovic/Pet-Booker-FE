@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 interface Pet {
   id: number;
@@ -31,9 +32,10 @@ export default function PetSelector({
   cardBg,
   borderColor,
 }: PetSelectorProps) {
+  const gutter = usePageGutter();
   const { t } = useLocale();
   return (
-    <View className={`border-t px-6 py-5 ${borderColor}`}>
+    <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
       <View className="mb-4 flex-row items-center">
         <View
           className={`h-6 w-6 items-center justify-center rounded-full ${selectedPet ? 'bg-brand-500' : 'bg-gray-300'}`}>
