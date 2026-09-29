@@ -32,21 +32,28 @@ interface BookingCardProps {
   onMessage?: () => void;
 }
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'upcoming':
-      return 'text-blue-600';
-    case 'booked':
-      return 'text-indigo-600';
-    case 'in-progress':
-      return 'text-amber-600';
-    case 'completed':
-      return 'text-green-600';
-    case 'cancelled':
-      return 'text-red-600';
-    default:
-      return 'text-gray-600';
-  }
+// Tinted pill per state — the same treatment Booking Details gives the status, so the list and the
+// detail screen read as one design. Fill + text pairs are chosen per theme so the pill keeps its
+// contrast on the dark card too.
+const getStatusPill = (status: string, isDarkMode: boolean) => {
+  const light: Record<string, string> = {
+    upcoming: 'bg-blue-50 text-blue-700',
+    booked: 'bg-indigo-50 text-indigo-700',
+    'in-progress': 'bg-amber-50 text-amber-700',
+    completed: 'bg-green-50 text-green-700',
+    cancelled: 'bg-red-50 text-red-700',
+  };
+  const dark: Record<string, string> = {
+    upcoming: 'bg-blue-500/15 text-blue-300',
+    booked: 'bg-indigo-500/15 text-indigo-300',
+    'in-progress': 'bg-amber-500/15 text-amber-300',
+    completed: 'bg-green-500/15 text-green-300',
+    cancelled: 'bg-red-500/15 text-red-300',
+  };
+  return (
+    (isDarkMode ? dark : light)[status] ??
+    (isDarkMode ? 'bg-white/10 text-gray-300' : 'bg-gray-100 text-gray-700')
+  );
 };
 
 // statusLabel string → BookingState enum value (for the localized tEnum lookup).
@@ -80,7 +87,11 @@ export default function BookingCard({
             <Text className={`text-base font-semibold ${textColor} flex-1`}>
               {booking.providerName}
             </Text>
-            <Text className={`text-sm font-semibold ${getStatusColor(booking.status)}`}>
+            <Text
+              className={`ml-2 overflow-hidden rounded-full px-2.5 py-0.5 text-xs font-semibold ${getStatusPill(
+                booking.status,
+                isDarkMode
+              )}`}>
               {tEnum('bookingState', STATUS_TO_STATE[booking.status] ?? 0, booking.status)}
             </Text>
           </View>
@@ -100,11 +111,13 @@ export default function BookingCard({
             />
             <Text className={`text-xs ${subtextColor} ml-1`}>{booking.time}</Text>
           </View>
-          <View className="flex-row items-center justify-between">
-            <Text className="text-base font-bold text-brand-600">
+          {/* `gap` keeps the price from touching the chat bubble, and the price never shrinks —
+              it is the one figure on the card that must read in full. */}
+          <View className="flex-row items-center justify-between" style={{ gap: 6 }}>
+            <Text className="text-base font-bold text-brand-600" style={{ flexShrink: 0 }}>
               {formatMoney(booking.price, booking.currency)}
             </Text>
-            <View className="flex-row items-center" style={{ gap: 12 }}>
+            <View className="flex-row items-center" style={{ gap: 8 }}>
               {booking.rating ? (
                 <View className="flex-row items-center">
                   <Ionicons name="star" size={16} color="#FFC107" />
@@ -133,7 +146,7 @@ export default function BookingCard({
                   accessibilityRole="button"
                   accessibilityLabel={t('messages.messageProvider')}
                   className={`h-8 w-8 items-center justify-center rounded-full ${
-                    isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'
+                    isDarkMode ? 'bg-brand-500/15' : 'bg-brand-50'
                   }`}>
                   <Ionicons name="chatbubble-outline" size={15} color={BRAND_GREEN} />
                 </TouchableOpacity>

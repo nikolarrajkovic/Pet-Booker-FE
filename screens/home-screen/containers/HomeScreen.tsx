@@ -61,7 +61,14 @@ function PillRow({ isWebLayout, children }: { isWebLayout: boolean; children: Re
     return <View className="-mx-2 flex-row flex-wrap">{children}</View>;
   }
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-2 flex-row">
+    // Bleeds to the screen edges (cancelling the section's px-6) and pads its content instead, so
+    // the row scrolls out from under the edge like the rails below it rather than being sliced off
+    // at the gutter. 16 + each pill's own 8px margin keeps the first pill on the 24px column.
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      className="-mx-6 flex-row"
+      contentContainerStyle={{ paddingHorizontal: 16 }}>
       {children}
     </ScrollView>
   );

@@ -29,6 +29,14 @@ import { primaryNavItems } from '../../navigation/navItems';
  * move. It still positions itself absolutely, so it overlays the content exactly as it did from
  * inside a screen and costs the scenes no height.
  */
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+/** The filled glyph for the selected tab, the outline one otherwise. */
+function tabIcon(name: IoniconName, selected: boolean): IoniconName {
+  const base = String(name).replace(/-outline$/, '');
+  return (selected ? base : `${base}-outline`) as IoniconName;
+}
+
 export default function TabBar({
   state,
   navigation: tabNavigation,
@@ -76,7 +84,7 @@ export default function TabBar({
           return (
             <TouchableOpacity
               key={tab.route}
-              className="items-center px-4 py-2"
+              className="flex-1 items-center py-1.5"
               activeOpacity={0.8}
               // `selected` is what tells a screen reader which tab you are on — without it every
               // tab announces identically and the current one is indistinguishable.
@@ -86,13 +94,21 @@ export default function TabBar({
               // Plain `navigate` (not the shell's ref helper): `navigation` is MainTabs's own
               // object either way, so the tab name resolves without addressing a parent.
               onPress={() => navigation.navigate(tab.route, tab.params)}>
-              <Ionicons
-                name={tab.icon}
-                size={24}
-                color={isSelected ? BRAND_GREEN : inactiveColor}
-              />
+              {/* Active tab: filled glyph on a soft pill; the rest outline — the current phone
+                  convention (Material 3 / iOS), and it keeps the bar consistent even though
+                  navItems mixes filled and outline names for the sidebar's sake. */}
+              <View
+                className={`items-center justify-center rounded-full px-5 py-1 ${
+                  isSelected ? (isDarkMode ? 'bg-brand-500/20' : 'bg-brand-50') : ''
+                }`}>
+                <Ionicons
+                  name={tabIcon(tab.icon, isSelected)}
+                  size={22}
+                  color={isSelected ? BRAND_GREEN : inactiveColor}
+                />
+              </View>
               <Text
-                className={`mt-1 text-xs ${isSelected ? 'font-semibold text-brand-500' : inactiveTextColor}`}>
+                className={`mt-1 text-xs ${isSelected ? 'font-semibold text-brand-600' : inactiveTextColor}`}>
                 {t(tab.labelKey)}
               </Text>
             </TouchableOpacity>

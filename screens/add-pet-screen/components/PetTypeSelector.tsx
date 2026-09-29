@@ -53,10 +53,12 @@ export default function PetTypeSelector({
               selectedType === type.value
                 ? 'border-brand-500 bg-brand-500'
                 : error
-                  ? `${inputBg} border-red-500`
-                  : `${inputBg} ${isDarkMode ? 'border-gray-600' : 'border-gray-300'}`
+                  ? `${isDarkMode ? inputBg : 'bg-white'} border-red-500`
+                  : `${isDarkMode ? inputBg : 'bg-white'} ${isDarkMode ? 'border-gray-600' : 'border-gray-200'}`
             }`}
-            style={isWebLayout ? undefined : { width: '30%' }}>
+            // Three to a row that actually fill it: a fixed 30% plus two 12px gaps stopped ~20px
+            // short of the right edge, so the grid never lined up with the fields above it.
+            style={isWebLayout ? undefined : { flexGrow: 1, flexBasis: '28%', maxWidth: '33.33%' }}>
             <Text
               style={
                 isWebLayout ? { fontSize: 18, marginRight: 8 } : { fontSize: 32, marginBottom: 4 }

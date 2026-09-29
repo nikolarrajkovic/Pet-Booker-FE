@@ -15,6 +15,10 @@ import { useResponsive } from '../../../hooks/useResponsive';
 import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
+// One page gutter for every block, matching the header's px-6 — the stat grid sat at 16 and the
+// cards under it at 20, so their edges visibly stepped in and out down the page.
+const GUTTER = 24;
+
 const fmtCount = (n: number) => n.toLocaleString('en-US');
 
 // Stable color per ServiceProviderType for the revenue breakdown bars.
@@ -208,7 +212,7 @@ export default function AdminDashboardScreen() {
             style={{
               flexDirection: 'row',
               flexWrap: 'wrap',
-              marginHorizontal: 16,
+              marginHorizontal: GUTTER,
               marginTop: 24,
               gap: 12,
               marginBottom: 24,
@@ -283,7 +287,7 @@ export default function AdminDashboardScreen() {
           {/* ── Revenue by Service Type ── */}
           <View
             style={{
-              marginHorizontal: 20,
+              marginHorizontal: GUTTER,
               backgroundColor: cardBg,
               borderRadius: 16,
               padding: 20,
@@ -340,7 +344,7 @@ export default function AdminDashboardScreen() {
           </View>
 
           {/* ── Quick Actions ── */}
-          <View style={{ marginHorizontal: 20 }}>
+          <View style={{ marginHorizontal: GUTTER }}>
             <Text
               style={{ color: sectionTitle, fontSize: 18, fontWeight: '700', marginBottom: 12 }}>
               {t('admin.quickActions')}
@@ -580,6 +584,10 @@ function StatCard({
   const isNegative = !!change && change.startsWith('-');
   const trendColor = isNegative ? '#EF4444' : changeColor;
   const { isWebLayout } = useResponsive();
+  const { isDarkMode } = useThemeColors();
+  // The pastel tiles are light-theme colours; on the dark card they glowed as bright squares.
+  // In dark mode the tile is the icon's own hue at low alpha — the trend chip's treatment.
+  const tileBg = isDarkMode ? `${iconColor}26` : iconBg;
   return (
     <View
       style={{
@@ -605,7 +613,7 @@ function StatCard({
             width: 38,
             height: 38,
             borderRadius: 10,
-            backgroundColor: iconBg,
+            backgroundColor: tileBg,
             alignItems: 'center',
             justifyContent: 'center',
           }}>

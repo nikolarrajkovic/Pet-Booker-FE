@@ -176,6 +176,10 @@ export default function AdminPartnersScreen() {
         ...(isWebLayout
           ? { borderWidth: 1, borderColor: hex.border, height: 42, maxWidth: 420 }
           : {
+              // Clears the sheet overlap (ScreenLayout's -mt-8 is 8px more than AppHeader's pb-6)
+              // plus a little green below the field — without it the content sheet slices across
+              // the bottom of the field. See AdminDashboardScreen.
+              marginBottom: 20,
               paddingVertical: 10,
               backgroundColor: isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.9)',
             }),
