@@ -57,7 +57,7 @@ function DrawDot({ x, y, delay }: { x: number; y: number; delay: number }) {
  * expanding ping ring), a pulsing "LIVE" badge and a floating distance chip.
  */
 export default function LiveSessionScene() {
-  const { t } = useLocale();
+  const { t, language } = useLocale();
   const pinY = useFloatY(9, 700); // brisk bounce
   const chipY = useFloatY(6, 2600);
 
@@ -133,7 +133,12 @@ export default function LiveSessionScene() {
         style={[styles.chip, { transform: [{ translateY: chipY }] }]}
         pointerEvents="none">
         <Ionicons name="location-outline" size={12} color={TEAL} />
-        <Text style={styles.chipText}>{t('partnerWelcome.sceneKmAway', { km: 1.2 })}</Text>
+        <Text style={styles.chipText}>
+          {t('partnerWelcome.sceneKmAway', {
+            // 1,2 in Serbian and Russian — a bare number would print the English decimal point.
+            km: (1.2).toLocaleString(language === 'sr' ? 'sr-Latn' : language),
+          })}
+        </Text>
       </Animated.View>
     </LinearGradient>
   );

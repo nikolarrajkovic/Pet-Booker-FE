@@ -163,17 +163,31 @@ const styles = StyleSheet.create({
   rowOrange: { backgroundColor: '#fff7ed' },
   rowGreen: { backgroundColor: '#f0fdf4' },
   dot: { width: 6, height: 6, borderRadius: 3, marginRight: 5 },
-  name: { flex: 1, fontSize: 9, fontWeight: '600', color: '#475569' },
-  strike: { textDecorationLine: 'line-through', color: '#94a3b8', fontSize: 8, marginRight: 3 },
-  bold: { fontSize: 10, fontWeight: '800', color: '#1e293b', marginRight: 4 },
-  badge: { backgroundColor: GREEN, paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
+  name: { flex: 1, fontSize: 9, fontWeight: '600', color: '#475569', marginRight: 4 },
+  // The prices and the badge keep their width; the service name is what gives way. With an
+  // amount like "45 RSD" the prices used to wrap onto two lines inside the card.
+  strike: {
+    textDecorationLine: 'line-through',
+    color: '#94a3b8',
+    fontSize: 8,
+    marginRight: 3,
+    flexShrink: 0,
+  },
+  bold: { fontSize: 10, fontWeight: '800', color: '#1e293b', marginRight: 4, flexShrink: 0 },
+  badge: {
+    backgroundColor: GREEN,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
   badgeText: { fontSize: 7, fontWeight: '700', color: '#fff' },
 
   divider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 5 },
   statRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   statEmoji: { fontSize: 9 },
   statUp: { fontSize: 9, fontWeight: '700', color: GREEN },
-  statNote: { fontSize: 8, color: '#94a3b8' },
+  statNote: { flex: 1, fontSize: 8, color: '#94a3b8' },
 
   tag: {
     position: 'absolute',

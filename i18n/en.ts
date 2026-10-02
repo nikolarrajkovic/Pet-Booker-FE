@@ -1002,6 +1002,8 @@ const en = {
     scenePromotions: 'Promotions',
     sceneGrooming: 'Dog Grooming',
     sceneWalking: 'Dog Walking',
+    sceneSitting: 'Pet Sitting',
+    scenePerSession: '{price} / session',
     scenePercentOff: '{pct}% OFF',
     sceneAmountOff: '{amount} OFF',
     sceneDealsRail: 'Shown in Special Deals',
