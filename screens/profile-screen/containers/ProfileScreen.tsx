@@ -14,6 +14,11 @@ import { resolveImageUrl } from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
 import { getBookings, parseBookingDate, BookingStatusType } from '../../../services/bookings';
 import { MenuItem } from '../components';
+import { usePageGutter } from '../../../hooks/usePageGutter';
+import Constants from 'expo-constants';
+
+/** The running build's version, from app.json via the Expo manifest. */
+const APP_VERSION = Constants.expoConfig?.version ?? '';
 
 const USER_MENU_ITEMS = [
   {
@@ -106,6 +111,7 @@ const withoutUserScopedItems = (items: typeof USER_MENU_ITEMS) =>
   items.filter((item) => !PROFILE_ONLY_HIDDEN_IDS.includes(item.id));
 
 export default function ProfileScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const {
     isDarkMode,
@@ -234,7 +240,7 @@ export default function ProfileScreen() {
         contentContainerStyle={{ paddingTop: 24, paddingBottom: isWebLayout ? 32 : tabBarSpacing }}>
         {/* Become a Partner Banner — only for non-partners */}
         {!isPartner && (
-          <View className="mx-6 mb-6 rounded-2xl bg-brand-500 p-6">
+          <View className={`${gutter.mx} mb-6 rounded-2xl bg-brand-500 p-6`}>
             <Text className="mb-2 text-xl font-bold text-white">{t('profile.becomePartner')}</Text>
             <Text className="mb-4 text-sm text-brand-100">{t('profile.becomePartnerSub')}</Text>
             <TouchableOpacity
@@ -249,7 +255,7 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        <View className="px-6">
+        <View className={`${gutter.px}`}>
           {/*
             Nine settings rows stacked full-width read as a phone list on a desktop — each one a
             1120px-wide bar holding an icon and two short lines. As a grid they become tiles the
@@ -292,9 +298,13 @@ export default function ProfileScreen() {
           </TouchableOpacity>
 
           <View className="mb-4 mt-6 items-center">
-            <Text className={`text-sm ${subtextColor}`}>{t('login.appName')} v1.0.0</Text>
+            {/* The version is the build's own (app.json), and the year is today's — both were typed
+                in, so the footer read "v1.0.0" whatever shipped and "© 2025" from January on. */}
+            <Text className={`text-sm ${subtextColor}`}>
+              {t('login.appName')} v{APP_VERSION}
+            </Text>
             <Text className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} mt-1`}>
-              {t('profile.rights')}
+              {t('profile.rights', { year: new Date().getFullYear() })}
             </Text>
           </View>
         </View>

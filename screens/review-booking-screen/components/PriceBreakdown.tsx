@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text } from 'react-native';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // Aggregated distance-pricing components behind a location add-on's total,
 // summed across appointments (see ReviewBookingScreen). Present only for
@@ -67,11 +68,12 @@ export default function PriceBreakdown({
   addons,
   total,
 }: PriceBreakdownProps) {
+  const gutter = usePageGutter();
   const { t } = useLocale();
   // Also trims float artifacts from price subtraction (e.g. 9.999999 → "10").
   const money = (n: number) => formatMoney(n, currency);
   return (
-    <View className={`border-t px-6 py-5 ${borderColor}`}>
+    <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
       <Text className={`text-base font-semibold ${textColor} mb-4`}>
         {t('reviewBooking.priceBreakdown')}
       </Text>

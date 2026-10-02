@@ -8,8 +8,8 @@ import Rail from '../../../components/shared/Rail';
 import BrandMark from '../../../components/shared/BrandMark';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useLocation } from '../../../hooks/useLocation';
-import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
+import { useLocation, locationLabel } from '../../../hooks/useLocation';
+import { BRAND_GREEN, SERVICE_TYPE_COLORS, useThemeColors } from '../../../hooks/useThemeColors';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { useLocale } from '../../../context/LocaleContext';
@@ -21,6 +21,7 @@ import { useNotifications } from '../../../context/NotificationsContext';
 import { useMessages } from '../../../context/MessagesContext';
 import { DiscountType } from '../../../services/service-discounts';
 import { formatOfferAmount } from '../../../screens/promotions-screen/components';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // No stock-photo fallback.
 //
@@ -57,11 +58,20 @@ const SERVICE_TYPES = [
  * markup (colours, labels, accessibility) in one place rather than duplicated per design.
  */
 function PillRow({ isWebLayout, children }: { isWebLayout: boolean; children: React.ReactNode }) {
+  const gutter = usePageGutter();
   if (isWebLayout) {
     return <View className="-mx-2 flex-row flex-wrap">{children}</View>;
   }
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-2 flex-row">
+    // Bleeds to the screen edges (cancelling the section's gutter) and pads its content instead,
+    // so the row scrolls out from under the edge like the rails below it rather than being sliced
+    // off at the gutter. Each pill carries an 8px side margin, so the content padding is the
+    // gutter less 8 — which keeps the first pill on the page column.
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      className={`${gutter.negMx} flex-row`}
+      contentContainerStyle={{ paddingHorizontal: gutter.value - 8 }}>
       {children}
     </ScrollView>
   );
@@ -90,7 +100,10 @@ type ServiceItem = {
  * fetch was capped at one page: once the system held more than 100 discounts, services whose row
  * fell off page one silently lost their badge.
  */
-function dealLabel(svc: ServiceDto): string | undefined {
+function dealLabel(
+  svc: ServiceDto,
+  t: Parameters<typeof formatOfferAmount>[4]
+): string | undefined {
   const amount = svc.appliedDiscountAmount;
   if (amount == null) return undefined;
   // formatOfferAmount takes percentAmount separately so it can win over a mislabelled row; for a
@@ -100,7 +113,8 @@ function dealLabel(svc: ServiceDto): string | undefined {
     svc.appliedDiscountType ?? undefined,
     amount,
     serviceCurrency(svc),
-    isPercent ? amount : undefined
+    isPercent ? amount : undefined,
+    t
   );
 }
 
@@ -127,6 +141,7 @@ const toItems = (dtos: ServiceDto[]): ServiceItem[] =>
   dtos.map(toServiceItem).filter((i): i is ServiceItem => i !== null);
 
 export default function HomeScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const location = useLocation();
   const { isDarkMode, textColor, subtextColor } = useThemeColors();
@@ -183,7 +198,7 @@ export default function HomeScreen() {
         if (cancelled) return;
         const [popularR, saleR, recentR] = results;
         const deals = toItems(val(saleR)).map((item) => {
-          const amount = dealLabel(item.dto);
+          const amount = dealLabel(item.dto, t);
           return amount ? { ...item, dealAmount: amount } : item;
         });
         setMostPopular(toItems(val(popularR)));
@@ -431,7 +446,7 @@ export default function HomeScreen() {
                   <ActivityIndicator size="small" color="#ffffff" style={{ marginLeft: 8 }} />
                 ) : (
                   <Text className="ml-2 text-sm text-white" numberOfLines={1}>
-                    {location.address}
+                    {locationLabel(location, t)}
                   </Text>
                 )}
               </View>
@@ -502,27 +517,27 @@ export default function HomeScreen() {
           so this is the web design's only copy of it — one line, and no greeting card around it.
         */}
         {isWebLayout && (
-          <View className="flex-row items-center px-6 pt-4">
+          <View className={`flex-row items-center ${gutter.px} pt-4`}>
             <Ionicons name="location-outline" size={16} color={BRAND_GREEN} />
             {location.loading ? (
               <ActivityIndicator size="small" color={BRAND_GREEN} style={{ marginLeft: 8 }} />
             ) : (
               <Text className={`ml-2 text-sm ${subtextColor}`} numberOfLines={1}>
-                {location.address}
+                {locationLabel(location, t)}
               </Text>
             )}
           </View>
         )}
 
         {/* Service Type Pills */}
-        <View className="px-6 pb-4 pt-4">
+        <View className={`${gutter.px} pb-4 pt-4`}>
           {/*
             Six pills fit comfortably across a desktop column, so they wrap into place instead of
             hiding behind a horizontal scrollbar — a sideways scroller is a phone affordance, and
             on a mouse it is the one gesture people do not think to try.
           */}
           <PillRow isWebLayout={isWebLayout}>
-            {SERVICE_TYPES.map((service, index) => {
+            {SERVICE_TYPES.map((service) => {
               const typeLabel = tEnum('serviceProviderType', service.value, service.label);
               return (
                 <TouchableOpacity
@@ -535,9 +550,10 @@ export default function HomeScreen() {
                   accessible
                   // `my-1` is what keeps the rows apart once they wrap on the web design; in the
                   // phone's single-row scroller it is 4px of harmless breathing room.
-                  className={`mx-2 my-1 flex-row items-center rounded-full px-6 py-3 ${
-                    index === 0 ? 'bg-blue-500' : index === 1 ? 'bg-purple-500' : 'bg-brand-500'
-                  }`}>
+                  className="mx-2 my-1 flex-row items-center rounded-full px-6 py-3"
+                  // Each type has its own colour (SERVICE_TYPE_COLORS), shared with the admin
+                  // dashboard so a type reads the same everywhere.
+                  style={{ backgroundColor: SERVICE_TYPE_COLORS[service.value] ?? BRAND_GREEN }}>
                   <Ionicons name={service.icon as any} size={18} color="white" />
                   <Text className="ml-2 font-semibold text-white">{typeLabel}</Text>
                 </TouchableOpacity>

@@ -10,6 +10,7 @@ import { PetCard } from '../components';
 import { getPets, deletePet, PetResponse } from '../../../services/pets';
 import ActionPopup from '../../../components/shared/ActionPopup';
 import IllustratedEmptyState from '../../../components/shared/IllustratedEmptyState';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 function resolveUrl(path: string | null | undefined): string | null {
   if (!path) return null;
@@ -19,6 +20,7 @@ function resolveUrl(path: string | null | undefined): string | null {
 }
 
 export default function MyPetsScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const route = useRoute<any>();
   const {
@@ -125,7 +127,11 @@ export default function MyPetsScreen() {
       }>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: 20, paddingHorizontal: 24 }}>
+        contentContainerStyle={{
+          paddingTop: 24,
+          paddingBottom: 20,
+          paddingHorizontal: gutter.value,
+        }}>
         {isLoading ? (
           <ActivityIndicator size="large" color={BRAND_GREEN} style={{ marginTop: 40 }} />
         ) : error ? (

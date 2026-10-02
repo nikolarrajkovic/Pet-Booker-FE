@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTopInset } from '../../hooks/useSafeAreaSpacing';
 import { useTheme } from '../../context/ThemeContext';
 import { useLocale } from '../../context/LocaleContext';
+import { usePageGutter } from '../../hooks/usePageGutter';
 
 type AppHeaderProps = {
   // Size variant
@@ -44,6 +45,7 @@ export default function AppHeader({
 }: AppHeaderProps) {
   const navigation = useNavigation();
   const { isDarkMode } = useTheme();
+  const gutter = usePageGutter();
   const { t } = useLocale();
   const topInset = useTopInset();
 
@@ -88,7 +90,7 @@ export default function AppHeader({
 
   return (
     <View
-      className={`${bgColor} px-6 ${paddingBottom} ${rounded ? 'rounded-b-3xl' : ''}`}
+      className={`${bgColor} ${gutter.px} ${paddingBottom} ${rounded ? 'rounded-b-3xl' : ''}`}
       style={{ paddingTop: totalPaddingTop }}>
       {/* Navigation Row - show if we have back button or actions */}
       {(showBackButton || showNotificationButton || rightAction) && (

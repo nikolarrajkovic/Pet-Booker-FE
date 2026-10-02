@@ -23,8 +23,17 @@ import {
   defaultNotificationSettings,
   type UserNotificationSettingsDto,
 } from '../../../services/notifications';
+import { usePageGutter } from '../../../hooks/usePageGutter';
+import {
+  SUPPORT_EMAIL,
+  SUPPORT_PHONE,
+  hasSupportContact,
+  emailSupport,
+  callSupport,
+} from '../../../services/support';
 
 export default function SettingsScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const { toggleDarkMode } = useTheme();
   const { t, language, setLanguage } = useLocale();
@@ -101,7 +110,11 @@ export default function SettingsScreen() {
       contentBg={contentBg}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: 40, paddingHorizontal: 24 }}>
+        contentContainerStyle={{
+          paddingTop: 24,
+          paddingBottom: 40,
+          paddingHorizontal: gutter.value,
+        }}>
         {/* Appearance */}
         <Text className={`text-base font-semibold ${sectionTextColor} mb-3`}>
           {t('settings.appearance')}
@@ -189,17 +202,27 @@ export default function SettingsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
-          <TouchableOpacity className="flex-row items-center border-b border-gray-100 p-4">
-            <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-orange-50">
-              <Ionicons name="help-circle" size={24} color="#F97316" />
-            </View>
-            <View className="flex-1">
-              <Text className={`text-base font-semibold ${textColor}`}>
-                {t('settings.helpSupport')}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
+          {/* Opens the configured support contact. It had no handler at all — a row that looked
+              tappable and did nothing — so with no contact configured it is left out. */}
+          {hasSupportContact() && (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={SUPPORT_EMAIL ? emailSupport : callSupport}
+              className="flex-row items-center border-b border-gray-100 p-4">
+              <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-orange-50">
+                <Ionicons name="help-circle" size={24} color="#F97316" />
+              </View>
+              <View className="flex-1">
+                <Text className={`text-base font-semibold ${textColor}`}>
+                  {t('settings.helpSupport')}
+                </Text>
+                <Text className={`text-sm ${subtextColor} mt-0.5`}>
+                  {SUPPORT_EMAIL ?? SUPPORT_PHONE}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity className="flex-row items-center p-4">
             <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-green-50">
               <Ionicons name="document-text" size={24} color={BRAND_GREEN} />

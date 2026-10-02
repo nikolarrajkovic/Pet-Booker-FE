@@ -25,6 +25,8 @@ import { uploadFile } from '../../../services/files';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
 import { showAlert } from '../../../services/alert';
+import { usePageGutter } from '../../../hooks/usePageGutter';
+import { DEFAULT_LOCATION } from '../../../hooks/useLocation';
 
 type PickedPhoto = { uri: string; fileName?: string; mimeType?: string };
 
@@ -37,9 +39,9 @@ type PickedPhoto = { uri: string; fileName?: string; mimeType?: string };
  * produced. MapAddressPicker recentres on the real position when it opens, so this is only the
  * first frame: the saved address when it carries coordinates, else Belgrade.
  */
-const FALLBACK_REGION = { latitude: 44.8176, longitude: 20.457 };
 
 export default function AccountScreen() {
+  const gutter = usePageGutter();
   const { currentUser, refreshUser } = useAuth();
   const {
     isDarkMode,
@@ -252,7 +254,7 @@ export default function AccountScreen() {
             </TouchableOpacity>
           </View>
 
-          <View className="px-6">
+          <View className={`${gutter.px}`}>
             <Text className={`text-lg font-bold ${textColor} mb-4`}>
               {t('account.personalInfo')}
             </Text>
@@ -343,33 +345,6 @@ export default function AccountScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Payment Methods (mock — no backend) */}
-            <View className="mb-3 flex-row items-center justify-between">
-              <Text className={`text-lg font-bold ${textColor}`}>
-                {t('account.paymentMethods')}
-              </Text>
-              <TouchableOpacity>
-                <Text className="font-semibold text-brand-600">{t('account.addCard')}</Text>
-              </TouchableOpacity>
-            </View>
-            <View
-              className={`${cardBg} mb-4 rounded-xl border p-4 ${borderColor} flex-row items-center justify-between`}>
-              <View className="flex-1 flex-row items-center">
-                <View className="mr-3 rounded-lg bg-blue-600 px-3 py-2">
-                  <Text className="text-xs font-bold text-white">VISA</Text>
-                </View>
-                <View className="flex-1">
-                  <Text className={`text-sm font-semibold ${textColor}`}>•••• •••• •••• 4242</Text>
-                  <Text className={`text-xs ${subtextColor} mt-1`}>
-                    {t('account.expires', { date: '12/25' })}
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity>
-                <Text className="font-semibold text-red-500">{t('account.remove')}</Text>
-              </TouchableOpacity>
-            </View>
-
             {/* Save — in the flow of the form, not a bar hovering over it. See the note in
               AddPetScreen for why an edit form does not earn a permanent strip of screen. */}
             <TouchableOpacity
@@ -393,7 +368,7 @@ export default function AccountScreen() {
         <MapAddressPicker
           visible
           title={t('account.yourAddress')}
-          initialRegion={currentAddress?.location ?? FALLBACK_REGION}
+          initialRegion={currentAddress?.location ?? DEFAULT_LOCATION}
           isDarkMode={isDarkMode}
           onClose={() => setPickerVisible(false)}
           onSelect={(picked) => setAddress(picked)}

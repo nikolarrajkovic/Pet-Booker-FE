@@ -35,10 +35,16 @@ COPY . .
 #                                   Absent is a supported build: maps render blank, the rest of
 #                                   the app is unaffected. The key must allow this deployment's
 #                                   origin as an HTTP referrer or Google blocks it at runtime.
+#   EXPO_PUBLIC_SUPPORT_EMAIL /     The support contact shown to partners and in Settings. Optional:
+#   EXPO_PUBLIC_SUPPORT_PHONE       unset hides those surfaces instead of showing a made-up one.
 ARG EXPO_PUBLIC_API_BASE_URL
 ARG EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY
+ARG EXPO_PUBLIC_SUPPORT_EMAIL
+ARG EXPO_PUBLIC_SUPPORT_PHONE
 ENV EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL}
 ENV EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY=${EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY}
+ENV EXPO_PUBLIC_SUPPORT_EMAIL=${EXPO_PUBLIC_SUPPORT_EMAIL}
+ENV EXPO_PUBLIC_SUPPORT_PHONE=${EXPO_PUBLIC_SUPPORT_PHONE}
 
 # Fail the build rather than ship a bundle pointing at localhost, which would look fine until the
 # first API call from someone else's browser.

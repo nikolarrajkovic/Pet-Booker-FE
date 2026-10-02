@@ -26,6 +26,7 @@ import {
   DiscountType,
   endOfDayIso,
 } from '../../../services/service-discounts';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 const fmtDate = (d: Date | null) =>
   d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
@@ -33,6 +34,7 @@ const fmtDate = (d: Date | null) =>
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 export default function CreatePromotionScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const { currentUser } = useAuth();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor, inputBg } = useThemeColors();
@@ -140,7 +142,11 @@ export default function CreatePromotionScreen() {
       width="narrow">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: 40 }}
+        contentContainerStyle={{
+          paddingHorizontal: gutter.value,
+          paddingTop: 20,
+          paddingBottom: 40,
+        }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
         <FormCard>

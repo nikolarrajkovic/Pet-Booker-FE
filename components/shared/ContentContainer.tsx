@@ -1,6 +1,7 @@
 import React, { ReactNode } from 'react';
 import { View, ViewStyle } from 'react-native';
 import { useResponsive, byMode } from '../../hooks/useResponsive';
+import { PAGE_GUTTER } from '../../hooks/usePageGutter';
 
 /**
  * How wide the content column is allowed to grow on the web design.
@@ -53,7 +54,7 @@ type ContentContainerProps = {
 /**
  * The centred, width-capped column the web design lays its content in.
  *
- * On **mobile this is a plain `View`** with the phone's usual 24px gutters, so wrapping a screen
+ * On **mobile this is a plain `View`** with the phone's page gutter, so wrapping a screen
  * body in it changes nothing about the shipped phone design. On tablet/desktop it centres the
  * content and stops it growing past `CONTENT_WIDTHS[width]`.
  *
@@ -69,9 +70,10 @@ export default function ContentContainer({
 }: ContentContainerProps) {
   const { mode } = useResponsive();
 
-  // Desktop padding sits *inside* the width cap, so it stacks with the centring margin. 32 keeps
-  // content clear of the sidebar without adding to gutters that are already generous.
-  const horizontalPadding = noPadding ? 0 : byMode(mode, { mobile: 24, tablet: 32, desktop: 32 });
+  // Desktop padding sits *inside* the width cap, so it stacks with the centring margin. The value
+  // is the app-wide page gutter (hooks/usePageGutter), so a screen body padded with the same
+  // token lines up under the title this container pads.
+  const horizontalPadding = noPadding ? 0 : byMode(mode, PAGE_GUTTER);
 
   return (
     <View

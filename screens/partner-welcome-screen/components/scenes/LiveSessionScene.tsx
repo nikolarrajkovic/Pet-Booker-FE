@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useFloatY } from './sceneAnim';
+import { useLocale } from '../../../../context/LocaleContext';
 
 const TEAL = '#14b8a6';
 
@@ -56,6 +57,7 @@ function DrawDot({ x, y, delay }: { x: number; y: number; delay: number }) {
  * expanding ping ring), a pulsing "LIVE" badge and a floating distance chip.
  */
 export default function LiveSessionScene() {
+  const { t, language } = useLocale();
   const pinY = useFloatY(9, 700); // brisk bounce
   const chipY = useFloatY(6, 2600);
 
@@ -123,7 +125,7 @@ export default function LiveSessionScene() {
       {/* LIVE badge */}
       <Animated.View style={[styles.live, { opacity: pulse }]} pointerEvents="none">
         <View style={styles.liveDot} />
-        <Text style={styles.liveText}>LIVE</Text>
+        <Text style={styles.liveText}>{t('partnerWelcome.sceneLive')}</Text>
       </Animated.View>
 
       {/* Distance chip */}
@@ -131,7 +133,12 @@ export default function LiveSessionScene() {
         style={[styles.chip, { transform: [{ translateY: chipY }] }]}
         pointerEvents="none">
         <Ionicons name="location-outline" size={12} color={TEAL} />
-        <Text style={styles.chipText}>1.2 km away</Text>
+        <Text style={styles.chipText}>
+          {t('partnerWelcome.sceneKmAway', {
+            // 1,2 in Serbian and Russian — a bare number would print the English decimal point.
+            km: (1.2).toLocaleString(language === 'sr' ? 'sr-Latn' : language),
+          })}
+        </Text>
       </Animated.View>
     </LinearGradient>
   );

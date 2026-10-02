@@ -5,13 +5,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useReducedMotion } from 'react-native-reanimated';
 import { useFloatY, useSlideInRight } from './sceneAnim';
 import { formatMoney } from '../../../../services/currency';
+import { useLocale } from '../../../../context/LocaleContext';
 
 // Illustration-only sample rows. Prices are AMOUNTS, formatted at render in the viewer's
 // currency — a partner charging in RSD should not see a mocked-up "$45".
 const SERVICES = [
-  { name: 'Dog Grooming', price: 45, color: '#a855f7', bg: '#faf5ff' },
-  { name: 'Dog Walking', price: 25, color: '#22C55E', bg: '#f0fdf4' },
-  { name: 'Pet Sitting', price: 60, color: '#eab308', bg: '#fefce8' },
+  // Names are translation keys, resolved at render — the tour was English in every language.
+  { nameKey: 'partnerWelcome.sceneGrooming', price: 45, color: '#a855f7', bg: '#faf5ff' },
+  { nameKey: 'partnerWelcome.sceneWalking', price: 25, color: '#22C55E', bg: '#f0fdf4' },
+  { nameKey: 'partnerWelcome.sceneSitting', price: 60, color: '#eab308', bg: '#fefce8' },
 ];
 
 /**
@@ -20,6 +22,7 @@ const SERVICES = [
  * and a floating "25 / session" price pill.
  */
 export default function ServicesScene() {
+  const { t } = useLocale();
   const rows = [useSlideInRight(150), useSlideInRight(280), useSlideInRight(410)];
   const pillY = useFloatY(7, 2800);
 
@@ -47,18 +50,18 @@ export default function ServicesScene() {
 
       {/* Services card */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>My Services</Text>
+        <Text style={styles.cardTitle}>{t('partnerWelcome.sceneMyServices')}</Text>
         {SERVICES.map((s, i) => (
-          <Animated.View key={s.name} style={[styles.row, { backgroundColor: s.bg }, rows[i]]}>
+          <Animated.View key={s.nameKey} style={[styles.row, { backgroundColor: s.bg }, rows[i]]}>
             <View style={[styles.dot, { backgroundColor: s.color }]} />
-            <Text style={styles.rowName}>{s.name}</Text>
+            <Text style={styles.rowName}>{t(s.nameKey as any)}</Text>
             <Text style={[styles.rowPrice, { color: s.color }]}>{formatMoney(s.price)}</Text>
           </Animated.View>
         ))}
         <View style={styles.divider} />
         <View style={styles.addRow}>
           <Ionicons name="add-circle-outline" size={12} color="#a855f7" />
-          <Text style={styles.addText}>Add service</Text>
+          <Text style={styles.addText}>{t('partnerWelcome.sceneAddService')}</Text>
         </View>
       </View>
 
@@ -73,7 +76,9 @@ export default function ServicesScene() {
       <Animated.View
         style={[styles.pill, { transform: [{ translateY: pillY }] }]}
         pointerEvents="none">
-        <Text style={styles.pillText}>{formatMoney(25)} / session</Text>
+        <Text style={styles.pillText}>
+          {t('partnerWelcome.scenePerSession', { price: formatMoney(25) })}
+        </Text>
       </Animated.View>
     </LinearGradient>
   );

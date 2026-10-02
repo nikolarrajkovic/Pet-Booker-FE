@@ -27,6 +27,7 @@ import { PartnerCard } from '../components';
 import type { Partner, PartnerStatus } from '../components';
 import { PartnerListHeader, PartnerRow } from '../components/PartnerRow';
 import { providerToPartner } from '../providerToPartner';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 type Tab = 'all' | PartnerStatus;
 
@@ -79,6 +80,7 @@ const PAGE_SIZE = 20;
  * tabs list the partners overridden this session, and "Active" is the server's list without them.
  */
 export default function AdminPartnersScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { goUp } = useAppNavigation();
@@ -176,6 +178,10 @@ export default function AdminPartnersScreen() {
         ...(isWebLayout
           ? { borderWidth: 1, borderColor: hex.border, height: 42, maxWidth: 420 }
           : {
+              // Clears the sheet overlap (ScreenLayout's -mt-8 is 8px more than AppHeader's pb-6)
+              // plus a little green below the field — without it the content sheet slices across
+              // the bottom of the field. See AdminDashboardScreen.
+              marginBottom: 20,
               paddingVertical: 10,
               backgroundColor: isDarkMode ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.9)',
             }),
@@ -252,7 +258,7 @@ export default function AdminPartnersScreen() {
           </View>
         ) : (
           sort && (
-            <View style={{ alignItems: 'flex-end', paddingHorizontal: 16, zIndex: 20 }}>
+            <View style={{ alignItems: 'flex-end', paddingHorizontal: gutter.value, zIndex: 20 }}>
               {sort}
             </View>
           )
@@ -260,7 +266,7 @@ export default function AdminPartnersScreen() {
 
         <View
           ref={listRef}
-          style={{ paddingHorizontal: 16, paddingTop: isWebLayout || !sort ? 4 : 12 }}>
+          style={{ paddingHorizontal: gutter.value, paddingTop: isWebLayout || !sort ? 4 : 12 }}>
           <ListState
             isLoading={isPagedTab && list.isLoading}
             error={isPagedTab ? list.error : null}
@@ -324,6 +330,7 @@ function PhoneTabs({
   onChange: (tab: Tab) => void;
   counts: Record<Tab, number>;
 }) {
+  const gutter = usePageGutter();
   const { isDarkMode, hex } = useThemeColors();
   const { t } = useLocale();
 
@@ -332,7 +339,7 @@ function PhoneTabs({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10, gap: 8 }}>
+        contentContainerStyle={{ paddingHorizontal: gutter.value, paddingVertical: 10, gap: 8 }}>
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key;
           return (

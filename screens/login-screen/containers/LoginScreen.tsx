@@ -3,14 +3,13 @@ import { Text, View, TouchableOpacity, TextInput } from 'react-native';
 
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useFormChain } from '../../../hooks/useFormChain';
 import { useAuth } from '../../../context/AuthContext';
 import { getErrorMessage, isNetworkError, statusOf } from '../../../services/http';
 import { useLocale } from '../../../context/LocaleContext';
 import Button from '../../../components/shared/Button';
-import { SocialButton } from '../components';
 import AuthLayout from '../../../components/layout/AuthLayout';
 
 type RootStackParamList = {
@@ -61,7 +60,7 @@ function resolveLoginError(error: unknown, t: (key: string) => string): string {
 
 export default function LoginScreen() {
   const { isDarkMode, textColor, subtextColor } = useThemeColors();
-  const { signInWithCredentials, signInWithGoogle } = useAuth();
+  const { signInWithCredentials } = useAuth();
   const { t } = useLocale();
   const navigation = useNavigation<NavigationProp>();
 
@@ -77,7 +76,6 @@ export default function LoginScreen() {
   const inputTextColor = isDarkMode ? '#ffffff' : '#111827';
   const defaultBorder = isDarkMode ? '#374151' : '#E5E7EB';
   const placeholderColor = '#9CA3AF';
-  const dividerColor = isDarkMode ? 'bg-gray-700' : 'bg-gray-300';
 
   const errors = {
     identifier: validateIdentifier(identifier),
@@ -214,29 +212,9 @@ export default function LoginScreen() {
         disabled={isSubmitting}
       />
 
-      {/* Divider */}
-      <View className="mb-6 flex-row items-center">
-        <View className={`h-px flex-1 ${dividerColor}`} />
-        <Text className={`mx-4 ${subtextColor} text-sm`}>{t('common.or')}</Text>
-        <View className={`h-px flex-1 ${dividerColor}`} />
-      </View>
-
-      {/* Social Buttons */}
-      <View className="gap-3">
-        <SocialButton
-          text={t('login.continueWithGoogle')}
-          icon={<MaterialCommunityIcons name="google" size={22} color="#DB4437" />}
-          onPress={signInWithGoogle}
-          isDarkMode={isDarkMode}
-        />
-        <SocialButton
-          text={t('login.continueWithFacebook')}
-          icon={<MaterialCommunityIcons name="facebook" size={22} color="#1877F2" />}
-          onPress={() => {}}
-          isDarkMode={isDarkMode}
-        />
-      </View>
-
+      {/* No "Continue with Google / Facebook": neither ever worked — Google ran on placeholder
+          client ids, Facebook's button had an empty handler, and the backend has no social-login
+          endpoint to exchange a provider token for ours. Removed until that exists. */}
       {/* Sign Up Link */}
       <View className="mt-6 flex-row justify-center">
         <Text className={`text-sm ${subtextColor}`}>{t('login.noAccount')}</Text>

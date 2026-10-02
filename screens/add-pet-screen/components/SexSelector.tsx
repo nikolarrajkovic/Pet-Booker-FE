@@ -52,8 +52,8 @@ export default function SexSelector({
               selectedSex === option.value
                 ? 'border-brand-500 bg-brand-500'
                 : error
-                  ? `${inputBg} border-red-500`
-                  : `${inputBg} ${isDarkMode ? 'border-gray-600' : 'border-gray-300'}`
+                  ? `${isDarkMode ? inputBg : 'bg-white'} border-red-500`
+                  : `${isDarkMode ? inputBg : 'bg-white'} ${isDarkMode ? 'border-gray-600' : 'border-gray-200'}`
             }`}>
             <Ionicons
               name={option.icon}

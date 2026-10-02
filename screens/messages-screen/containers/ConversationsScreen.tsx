@@ -9,6 +9,7 @@ import ListState from '../../../components/shared/ListState';
 import { ConversationRow, MessagesSplitView } from '../components';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { useConversationsInbox, relativeTime } from '../useConversationsInbox';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 /**
  * The message inbox — every thread the signed-in user is part of, newest first.
@@ -44,6 +45,7 @@ export default function ConversationsScreen() {
 
 /** The phone design's inbox: the list is the page, and a row pushes the thread over it. */
 function InboxList() {
+  const gutter = usePageGutter();
   const navigation = useNavigation<any>();
   const { isDarkMode, bgColor } = useThemeColors();
   const { t } = useLocale();
@@ -57,7 +59,11 @@ function InboxList() {
       contentBg={bgColor}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32 }}
+        contentContainerStyle={{
+          paddingHorizontal: gutter.value,
+          paddingTop: 16,
+          paddingBottom: 32,
+        }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl

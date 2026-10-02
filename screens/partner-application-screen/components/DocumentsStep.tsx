@@ -303,15 +303,16 @@ export default function DocumentsStep({
         </Text>
       </TouchableOpacity>
 
-      {/* Background Check Notice */}
+      {/* How the documents are used. This was titled "Background Check" (there is none) and told
+          the applicant to "check the submitted ID before approving" — the admin's instruction. */}
       <View
         className={`${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'} rounded-2xl border p-4 ${isDarkMode ? 'border-blue-800' : 'border-blue-200'}`}>
         <Text
           className={`text-sm font-semibold ${isDarkMode ? 'text-blue-200' : 'text-blue-900'} mb-2`}>
-          {t('partnerApplication.backgroundCheck')}
+          {t('partnerApplication.verificationNotice')}
         </Text>
         <Text className={`text-xs ${isDarkMode ? 'text-blue-300' : 'text-blue-700'} leading-5`}>
-          {t('partnerApplication.backgroundCheckText')}
+          {t('partnerApplication.verificationNoticeText')}
         </Text>
       </View>
     </View>

@@ -66,6 +66,7 @@ export default function RequestCard({
   const { t } = useLocale();
   const sectionBg = isDarkMode ? 'bg-[#243447]' : 'bg-gray-50';
   const specialNeedsBg = isDarkMode ? 'bg-yellow-900/30' : 'bg-yellow-50';
+  const petFacts = [request.petBreed, request.petAge].filter(Boolean).join(' • ');
 
   return (
     <View className={`${cardBg} mb-4 rounded-2xl border ${borderColor} overflow-hidden`}>
@@ -111,10 +112,12 @@ export default function RequestCard({
         )}
         <View className="flex-1 justify-center">
           <Text className={`text-base font-bold ${textColor}`}>{request.petName}</Text>
-          <Text className={`text-xs ${subtextColor} mt-0.5`}>
-            {request.petBreed} • {request.petAge}
-          </Text>
-          <Text className={`text-xs ${subtextColor} mt-0.5`}>{request.petWeight}</Text>
+          {/* Joined from whatever is known, so a pet with no breed/age on record doesn't render a
+              lone "•" under its name. */}
+          {petFacts ? <Text className={`text-xs ${subtextColor} mt-0.5`}>{petFacts}</Text> : null}
+          {request.petWeight ? (
+            <Text className={`text-xs ${subtextColor} mt-0.5`}>{request.petWeight}</Text>
+          ) : null}
         </View>
       </View>
 
@@ -148,15 +151,17 @@ export default function RequestCard({
           <Ionicons name="time-outline" size={14} color={BRAND_GREEN} style={{ marginRight: 6 }} />
           <Text className={`text-sm ${subtextColor}`}>{request.serviceTime}</Text>
         </View>
-        <View className="flex-row items-center">
-          <Ionicons
-            name="location-outline"
-            size={14}
-            color={BRAND_GREEN}
-            style={{ marginRight: 6 }}
-          />
-          <Text className={`text-sm ${subtextColor}`}>{request.serviceLocation}</Text>
-        </View>
+        {request.serviceLocation ? (
+          <View className="flex-row items-center">
+            <Ionicons
+              name="location-outline"
+              size={14}
+              color={BRAND_GREEN}
+              style={{ marginRight: 6 }}
+            />
+            <Text className={`text-sm ${subtextColor}`}>{request.serviceLocation}</Text>
+          </View>
+        ) : null}
       </View>
 
       {/* Duration & price */}

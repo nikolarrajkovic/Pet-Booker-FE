@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';
+import { usePageGutter } from '../../hooks/usePageGutter';
 
 type ReviewModalProps = {
   visible: boolean;
@@ -62,6 +63,7 @@ export default function ReviewModal({
 }: ReviewModalProps) {
   const { isDarkMode, hex, placeholderColor } = useThemeColors();
   const { t } = useLocale();
+  const gutter = usePageGutter();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
 
@@ -96,7 +98,7 @@ export default function ReviewModal({
             flex: 1,
             backgroundColor: 'rgba(0,0,0,0.5)',
             justifyContent: 'center',
-            paddingHorizontal: 24,
+            paddingHorizontal: gutter.value,
           }}>
           {/* Stop backdrop taps from closing when they land on the card */}
           <Pressable

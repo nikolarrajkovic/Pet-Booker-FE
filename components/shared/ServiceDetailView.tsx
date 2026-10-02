@@ -5,6 +5,7 @@ import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import { formatMoney } from '../../services/currency';
 import StickyFooter from './StickyFooter';
+import { usePageGutter } from '../../hooks/usePageGutter';
 
 interface ServiceDetailViewProps {
   service: {
@@ -17,10 +18,15 @@ interface ServiceDetailViewProps {
     rating?: number;
     reviews?: number;
     distance?: string;
-    additionalServices?: {
-      pickup?: number;
-      dropOff?: number;
-    };
+    /** Where the service takes place, already formatted. Omitted when none was picked. */
+    location?: string | null;
+    /**
+     * The extras on offer, by name and headline price (0 = included free). The service's catalogue
+     * is open-ended now — this used to be two fixed `pickup` / `dropOff` numbers, and the preview
+     * kept expecting them after the form moved to a list, so its extras section rendered a heading
+     * with nothing under it.
+     */
+    additionalServices?: { name: string; price: number }[];
   };
   isDarkMode: boolean;
   showBookButton?: boolean;
@@ -40,6 +46,7 @@ export default function ServiceDetailView({
   currency,
 }: ServiceDetailViewProps) {
   const { t } = useLocale();
+  const gutter = usePageGutter();
   const money = (n: number) => formatMoney(n, currency);
   const { textColor, subtextColor, cardBg } = themeColors(isDarkMode);
 
@@ -47,7 +54,7 @@ export default function ServiceDetailView({
     <ScrollView
       className="flex-1"
       contentContainerStyle={{ paddingBottom: showBookButton ? 100 : 20 }}>
-      <View className="px-6 py-5">
+      <View className={`${gutter.px} py-5`}>
         {/* Title and Badge */}
         <View className="flex-row items-start justify-between">
           <View className="flex-1">
@@ -110,74 +117,57 @@ export default function ServiceDetailView({
         </View>
 
         {/* Additional Services */}
-        {service.additionalServices &&
-          Object.values(service.additionalServices).some((v) => v !== undefined && v !== null) && (
-            <View className="mt-6">
-              <Text className={`text-lg font-semibold ${textColor} mb-3`}>
-                {t('shared.additionalServices')}
-              </Text>
-              <View className="space-y-2">
-                {service.additionalServices.pickup !== undefined &&
-                  service.additionalServices.pickup !== null && (
-                    <View
-                      className={`flex-row items-center justify-between rounded-xl p-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-green-50'}`}>
-                      <View className="flex-1 flex-row items-center">
-                        <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-100">
-                          <Ionicons name="car-outline" size={20} color={BRAND_GREEN} />
-                        </View>
-                        <Text className={`font-medium ${textColor}`}>
-                          {t('shared.petPickupAvailable')}
-                        </Text>
-                      </View>
-                      <Text className="font-semibold text-brand-600">
-                        {service.additionalServices.pickup === 0
-                          ? t('shared.includedFree')
-                          : money(service.additionalServices.pickup)}
-                      </Text>
-                    </View>
-                  )}
-                {service.additionalServices.dropOff !== undefined &&
-                  service.additionalServices.dropOff !== null && (
-                    <View
-                      className={`flex-row items-center justify-between rounded-xl p-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-green-50'} mt-2`}>
-                      <View className="flex-1 flex-row items-center">
-                        <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-100">
-                          <Ionicons name="home-outline" size={20} color={BRAND_GREEN} />
-                        </View>
-                        <Text className={`font-medium ${textColor}`}>
-                          {t('shared.petDropoffAvailable')}
-                        </Text>
-                      </View>
-                      <Text className="font-semibold text-brand-600">
-                        {service.additionalServices.dropOff === 0
-                          ? t('shared.includedFree')
-                          : money(service.additionalServices.dropOff)}
-                      </Text>
-                    </View>
-                  )}
-              </View>
-            </View>
-          )}
-
-        {/* Location */}
-        <View className="mt-6">
-          <Text className={`text-lg font-semibold ${textColor} mb-3`}>{t('shared.location')}</Text>
-          <View
-            className={`${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'} items-center rounded-2xl p-4`}>
-            <View className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-brand-100">
-              <Ionicons name="location" size={24} color={BRAND_GREEN} />
-            </View>
-            <Text className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'} font-medium`}>
-              San Francisco, CA
+        {!!service.additionalServices?.length && (
+          <View className="mt-6">
+            <Text className={`text-lg font-semibold ${textColor} mb-3`}>
+              {t('shared.additionalServices')}
             </Text>
+            <View style={{ gap: 8 }}>
+              {service.additionalServices.map((extra, index) => (
+                <View
+                  key={`${extra.name}-${index}`}
+                  className={`flex-row items-center justify-between rounded-xl p-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-green-50'}`}>
+                  <View className="flex-1 flex-row items-center">
+                    <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-100">
+                      <Ionicons name="add-circle-outline" size={20} color={BRAND_GREEN} />
+                    </View>
+                    <Text className={`flex-1 font-medium ${textColor}`}>{extra.name}</Text>
+                  </View>
+                  <Text className="ml-3 font-semibold text-brand-600">
+                    {extra.price === 0 ? t('shared.includedFree') : money(extra.price)}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
+
+        {/* Location — the address the partner picked for this service. This used to be the literal
+            "San Francisco, CA" whatever they had chosen; with no address picked the section is left
+            out rather than invented. */}
+        {!!service.location && (
+          <View className="mt-6">
+            <Text className={`text-lg font-semibold ${textColor} mb-3`}>
+              {t('shared.location')}
+            </Text>
+            <View
+              className={`${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'} items-center rounded-2xl p-4`}>
+              <View className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-brand-100">
+                <Ionicons name="location" size={24} color={BRAND_GREEN} />
+              </View>
+              <Text
+                className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'} text-center font-medium`}>
+                {service.location}
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Book Button - only shown if showBookButton is true */}
       {showBookButton && (
         <StickyFooter
-          className={`${cardBg} border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} px-6 py-4`}>
+          className={`${cardBg} border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} ${gutter.px} py-4`}>
           <TouchableOpacity
             accessibilityRole="button"
             onPress={onBookPress}

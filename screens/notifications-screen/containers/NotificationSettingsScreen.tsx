@@ -27,6 +27,7 @@ import {
   deviceTimezone,
   UserNotificationSettingsDto,
 } from '../../../services/notifications';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // "HH:MM:SS" → "22:00" (24-hour)
 function formatTime(t?: string): string {
@@ -55,8 +56,9 @@ function dateToTime(date: Date): string {
 type QuietEdge = 'start' | 'end';
 
 export default function NotificationSettingsScreen() {
+  const gutter = usePageGutter();
   const { currentUser, isProviderProfile } = useAuth();
-  const { isDarkMode, cardBg, textColor, subtextColor } = useThemeColors();
+  const { isDarkMode, bgColor, cardBg, textColor, subtextColor } = useThemeColors();
   const { t } = useLocale();
   const { showError } = useToast();
   // The device's own answer, kept live across a trip to the OS settings app.
@@ -118,9 +120,9 @@ export default function NotificationSettingsScreen() {
     });
   };
 
-  const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
   const borderColor = isDarkMode ? 'border-[#243447]' : 'border-gray-200';
-  const sectionHeaderColor = isDarkMode ? 'text-white' : 'text-[#1a365d]';
+  // The app's heading colour, not the navy these screens had on their own.
+  const sectionHeaderColor = textColor;
   const divider = <View className={`h-px ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'} mx-4`} />;
 
   const s = settings ?? defaultNotificationSettings(userId ?? 0);
@@ -236,7 +238,8 @@ export default function NotificationSettingsScreen() {
           )}
 
           {saveError && (
-            <View className="mx-4 mt-4 flex-row items-center rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3">
+            <View
+              className={`${gutter.mx} mt-4 flex-row items-center rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3`}>
               <Ionicons
                 name="warning-outline"
                 size={16}
@@ -250,7 +253,7 @@ export default function NotificationSettingsScreen() {
           )}
 
           {/* Notification Channels */}
-          <View className="mt-6 px-4">
+          <View className={`mt-6 ${gutter.px}`}>
             <Text className={`text-sm font-bold ${sectionHeaderColor} mb-3`}>
               {t('notificationSettings.channels')}
             </Text>
@@ -288,7 +291,7 @@ export default function NotificationSettingsScreen() {
           </View>
 
           {/* Quiet Hours */}
-          <View className="mb-6 mt-6 px-4">
+          <View className={`mb-6 mt-6 ${gutter.px}`}>
             <Text className={`text-sm font-bold ${sectionHeaderColor} mb-3`}>
               {t('notificationSettings.quietHours')}
             </Text>
@@ -371,7 +374,7 @@ export default function NotificationSettingsScreen() {
           renders a plain card and leaves presentation to the caller. */}
       {quietEdge && (
         <Modal visible transparent animationType="fade" onRequestClose={() => setQuietEdge(null)}>
-          <View className="flex-1 items-center justify-center bg-black/50 px-6">
+          <View className={`flex-1 items-center justify-center bg-black/50 ${gutter.px}`}>
             <View className="w-full max-w-sm">
               <TimePicker
                 value={timeToDate(quietTime(quietEdge), quietEdge === 'start' ? 22 : 8)}

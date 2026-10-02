@@ -36,6 +36,7 @@ import {
   PartnerApplicationRow,
 } from '../components/PartnerApplicationRow';
 import { providerToApplication } from '../providerToApplication';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // A rejected application reads "Rejected" rather than the reviews queue's "Declined".
 const TABS = moderationTabs('admin.statusRejected');
@@ -57,6 +58,7 @@ const countApplications = (approvalStatus: number) => countServiceProviders({ ap
  * ever signed up, approved or not.
  */
 export default function AdminNewRequestsScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation<any>();
   const { goUp } = useAppNavigation();
   const { isDarkMode, hex, subtextColor } = useThemeColors();
@@ -186,10 +188,14 @@ export default function AdminNewRequestsScreen() {
             {sort}
           </View>
         ) : (
-          <View style={{ alignItems: 'flex-end', paddingHorizontal: 16, zIndex: 20 }}>{sort}</View>
+          <View style={{ alignItems: 'flex-end', paddingHorizontal: gutter.value, zIndex: 20 }}>
+            {sort}
+          </View>
         )}
 
-        <View ref={listRef} style={{ paddingHorizontal: 16, paddingTop: isWebLayout ? 4 : 12 }}>
+        <View
+          ref={listRef}
+          style={{ paddingHorizontal: gutter.value, paddingTop: isWebLayout ? 4 : 12 }}>
           <ListState
             isLoading={queue.isLoading}
             error={queue.error}

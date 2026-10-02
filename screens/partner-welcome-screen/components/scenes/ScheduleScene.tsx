@@ -3,9 +3,9 @@ import { Animated, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFloatY, usePopIn } from './sceneAnim';
+import { useLocale } from '../../../../context/LocaleContext';
 
 const PURPLE = '#6d28d9';
-const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const DATES = Array.from({ length: 30 }, (_, i) => i + 1);
 const TINTED = new Set([8, 22, 23]); // soft-lavender days
 const HIGHLIGHT = 15; // the booked day that pops
@@ -16,6 +16,18 @@ const HIGHLIGHT = 15; // the booked day that pops
  * A booking chip and a green check float gently.
  */
 export default function ScheduleScene() {
+  const { t, language } = useLocale();
+  // Serbian is written in Latin script in this app; a bare 'sr' tag formats in Cyrillic.
+  const dateLocale = language === 'sr' ? 'sr-Latn' : language;
+  // The current month in the reader's language — this was "JUNE 2025" in English for everyone,
+  // which dated the tour and ignored the chosen language.
+  const monthLabel = new Date()
+    .toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' })
+    .toUpperCase();
+  // Monday-first narrow weekday names (2024-01-01 was a Monday).
+  const dayLabels = Array.from({ length: 7 }, (_, i) =>
+    new Date(2024, 0, 1 + i).toLocaleDateString(dateLocale, { weekday: 'narrow' })
+  );
   const popScale = usePopIn(450);
   const chipY = useFloatY(6, 2600);
   const checkY = useFloatY(7, 2200, 400);
@@ -27,12 +39,12 @@ export default function ScheduleScene() {
       {/* Calendar card */}
       <View style={styles.card}>
         <View style={styles.header}>
-          <Text style={styles.headerMonth}>JUNE 2025</Text>
-          <Text style={styles.headerTitle}>Schedule</Text>
+          <Text style={styles.headerMonth}>{monthLabel}</Text>
+          <Text style={styles.headerTitle}>{t('partnerWelcome.sceneSchedule')}</Text>
         </View>
 
         <View style={styles.grid}>
-          {DAY_LABELS.map((d, i) => (
+          {dayLabels.map((d, i) => (
             <View key={`l${i}`} style={styles.cell}>
               <Text style={styles.dayLabel}>{d}</Text>
             </View>
@@ -65,8 +77,8 @@ export default function ScheduleScene() {
         pointerEvents="none">
         <View style={styles.eventBar} />
         <View>
-          <Text style={styles.eventTitle}>Max — Grooming</Text>
-          <Text style={styles.eventTime}>10:00 AM · 1h</Text>
+          <Text style={styles.eventTitle}>{t('partnerWelcome.sceneEvent')}</Text>
+          <Text style={styles.eventTime}>10:00 · 1h</Text>
         </View>
       </Animated.View>
 

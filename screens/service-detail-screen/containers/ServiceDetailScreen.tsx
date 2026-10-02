@@ -42,6 +42,7 @@ import {
   durationDisplayLabel,
 } from '../../my-services-screen/serviceModel';
 import { PetSpecies } from '../../../services/pets';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // The booker reads everything about ONE specific service here, then taps
 // "Book Now" to proceed.
@@ -79,6 +80,7 @@ const speciesKeys = (flags?: number): string[] => {
 };
 
 export default function ServiceDetailScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: ServiceDetailRouteParams }, 'params'>>();
   const { service, serviceId } = route.params ?? {};
@@ -294,7 +296,7 @@ export default function ServiceDetailScreen() {
 
   // Render helper (not a nested component) so subtrees don't remount each render.
   const section = (title: string, content: React.ReactNode) => (
-    <View className={`border-t px-6 py-5 ${borderColor}`}>
+    <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
       <Text className={`text-lg font-semibold ${textColor} mb-3`}>{title}</Text>
       {content}
     </View>
@@ -305,12 +307,12 @@ export default function ServiceDetailScreen() {
       headerVariant="standard"
       showBackButton
       contentBg={contentBg}
-      contentRounded={false}
       headerTitle={isWebLayout ? t('serviceDetail.title') : undefined}
       headerSubtitle={isWebLayout ? t('serviceDetail.subtitle') : undefined}
       headerChildren={
         isWebLayout ? undefined : (
-          <View className="flex-1">
+          // mb-6 clears the rounded content sheet pulled 32px up over the header.
+          <View className="mb-6 flex-1">
             <Text className="text-xl font-bold text-white">{t('serviceDetail.title')}</Text>
             <Text className={`${isDarkMode ? 'text-gray-300' : 'text-brand-100'} text-sm`}>
               {t('serviceDetail.subtitle')}
@@ -364,7 +366,7 @@ export default function ServiceDetailScreen() {
           )}
 
           {/* Title / type / rating / price */}
-          <View className="px-6 py-5">
+          <View className={`${gutter.px} py-5`}>
             <Text className={`text-2xl font-bold ${textColor}`}>{svc.name ?? 'Service'}</Text>
             {serviceTypeLabel ? (
               <Text className="mt-1 text-base text-brand-600">{serviceTypeLabel}</Text>
@@ -599,7 +601,8 @@ export default function ServiceDetailScreen() {
       {/* Sticky footer: ask a question, or book. The chat button sits alongside Book Now
           because the question that stops someone booking ("do you take reactive dogs?")
           occurs to them right here, before any booking exists to hang a thread off. */}
-      <StickyFooter className={`flex-row items-center ${cardBg} border-t ${borderColor} px-6 py-4`}>
+      <StickyFooter
+        className={`flex-row items-center ${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
         <TouchableOpacity
           onPress={onMessage}
           disabled={isLoading}

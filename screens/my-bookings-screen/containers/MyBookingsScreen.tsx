@@ -17,8 +17,10 @@ import {
   BookingViewModel,
   ACTIVE_STATUS_LABELS,
 } from '../../../services/bookings';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 export default function MyBookingsScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const { currentUser } = useAuth();
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
@@ -189,7 +191,7 @@ export default function MyBookingsScreen() {
         <ScrollView
           className="flex-1"
           contentContainerStyle={{ paddingTop: 16, paddingBottom: 24 }}>
-          <View className="mb-4 px-6">
+          <View className={`mb-4 ${gutter.px}`}>
             <View className="flex-row">
               <TouchableOpacity
                 accessibilityRole="button"
@@ -213,7 +215,7 @@ export default function MyBookingsScreen() {
             </View>
           </View>
 
-          <View className="px-6">{renderBody()}</View>
+          <View className={`${gutter.px}`}>{renderBody()}</View>
         </ScrollView>
       </ScreenLayout>
 

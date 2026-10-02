@@ -168,7 +168,7 @@ export default function ScreenLayout({
         {...({ dataSet: { pageScroll: 'true' } } as any)}>
         {/*
           Two containers, not one: the header needs the column's horizontal gutters, but the body
-          does not — screens already pad their own ScrollViews (`px-6`), and nesting a padded
+          does not — screens already pad their own ScrollViews (with `usePageGutter`), and nesting a padded
           container around that would double every gutter on every screen at once. So the body
           gets the width cap and centring without the padding, and screens keep owning their own.
 

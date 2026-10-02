@@ -5,6 +5,7 @@ import { getServicesForDate, ScheduleMode } from '../utils/scheduleData';
 import { themeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { DAY_KEYS, MONTH_KEYS } from '../../../i18n';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 interface DayViewProps {
   selectedDate: Date;
@@ -40,6 +41,7 @@ const getTypeBg = (type: string, isDarkMode: boolean) => {
 };
 
 export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }: DayViewProps) {
+  const gutter = usePageGutter();
   const { textColor, subtextColor, cardBg, borderColor } = themeColors(isDarkMode);
   const { t } = useLocale();
 
@@ -66,7 +68,7 @@ export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }
   const isToday = selectedDate.toDateString() === new Date().toDateString();
 
   return (
-    <View className="px-6 py-6">
+    <View className={`${gutter.px} py-6`}>
       {/* Date Navigation */}
       <View className="mb-6 flex-row items-center justify-between">
         <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToPreviousDay}>

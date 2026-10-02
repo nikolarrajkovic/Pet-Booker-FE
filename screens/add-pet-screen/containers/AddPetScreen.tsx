@@ -24,6 +24,7 @@ import { createPet, updatePet } from '../../../services/pets';
 import { getErrorMessage } from '../../../services/http';
 import { useAuth } from '../../../context/AuthContext';
 import { showAlert } from '../../../services/alert';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 type AddPetRouteParams = {
   // Set by flows that push AddPet mid-task (e.g. BookService with no pets):
@@ -56,10 +57,19 @@ type AddPetRouteParams = {
 };
 
 export default function AddPetScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: AddPetRouteParams }, 'params'>>();
   const existingPet = route.params?.pet;
-  const { isDarkMode, bgColor: contentBg, textColor, inputBg, inputText } = useThemeColors();
+  const {
+    isDarkMode,
+    bgColor: contentBg,
+    textColor,
+    inputBg,
+    inputText,
+    borderColor,
+    hex,
+  } = useThemeColors();
   const { showError } = useToast();
   const { currentUser } = useAuth();
   const { t } = useLocale();
@@ -257,14 +267,17 @@ export default function AddPetScreen() {
       showBackButton
       headerTitle={existingPet ? t('addPet.titleEdit') : t('addPet.titleAdd')}
       contentBg={contentBg}
-      contentRounded={false}
       // A form: one column of fields. Capped narrow so a label never sits a screen-width
       // away from the input it names.
       width="narrow">
       <ScrollView
         ref={scrollRef}
         className="flex-1"
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: 32, paddingHorizontal: 24 }}>
+        contentContainerStyle={{
+          paddingTop: 24,
+          paddingBottom: 32,
+          paddingHorizontal: gutter.value,
+        }}>
         <FormCard>
           <PetPhotoUploader
             photos={petPhotos.map((p) => p.uri)}
@@ -290,7 +303,7 @@ export default function AddPetScreen() {
                 placeholderTextColor={placeholderColor}
                 value={petName}
                 onChangeText={setPetName}
-                className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${errors.petName ? 'border-2 border-red-500' : ''}`}
+                className={`${inputBg} rounded-xl border px-4 py-3 ${inputText} ${errors.petName ? 'border-red-500' : borderColor}`}
               />
               {errors.petName ? (
                 <Text className="mt-1 text-xs text-red-500">{errors.petName}</Text>
@@ -307,7 +320,7 @@ export default function AddPetScreen() {
                 placeholderTextColor={placeholderColor}
                 value={breed}
                 onChangeText={setBreed}
-                className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${errors.breed ? 'border-2 border-red-500' : ''}`}
+                className={`${inputBg} rounded-xl border px-4 py-3 ${inputText} ${errors.breed ? 'border-red-500' : borderColor}`}
               />
               {errors.breed ? (
                 <Text className="mt-1 text-xs text-red-500">{errors.breed}</Text>
@@ -348,8 +361,8 @@ export default function AddPetScreen() {
                   borderRadius: 12,
                   paddingHorizontal: 16,
                   paddingVertical: 13,
-                  borderWidth: errors.birthDate ? 2 : 0,
-                  borderColor: errors.birthDate ? '#EF4444' : undefined,
+                  borderWidth: 1,
+                  borderColor: errors.birthDate ? '#EF4444' : hex.border,
                 }}
                 className={`${inputBg}`}>
                 <Ionicons
@@ -415,7 +428,7 @@ export default function AddPetScreen() {
                 value={weight}
                 onChangeText={setWeight}
                 keyboardType="numeric"
-                className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${errors.weight ? 'border-2 border-red-500' : ''}`}
+                className={`${inputBg} rounded-xl border px-4 py-3 ${inputText} ${errors.weight ? 'border-red-500' : borderColor}`}
               />
               {errors.weight ? (
                 <Text className="mt-1 text-xs text-red-500">{errors.weight}</Text>
@@ -432,7 +445,7 @@ export default function AddPetScreen() {
                 value={height}
                 onChangeText={setHeight}
                 keyboardType="numeric"
-                className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${errors.height ? 'border-2 border-red-500' : ''}`}
+                className={`${inputBg} rounded-xl border px-4 py-3 ${inputText} ${errors.height ? 'border-red-500' : borderColor}`}
               />
               {errors.height ? (
                 <Text className="mt-1 text-xs text-red-500">{errors.height}</Text>
@@ -452,7 +465,7 @@ export default function AddPetScreen() {
                 placeholderTextColor={placeholderColor}
                 value={dietaryNotes}
                 onChangeText={setDietaryNotes}
-                className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
+                className={`${inputBg} rounded-xl border px-4 py-3 ${inputText} ${borderColor}`}
               />
             </View>
             {/* Favorite Food */}
@@ -466,7 +479,7 @@ export default function AddPetScreen() {
                 placeholderTextColor={placeholderColor}
                 value={favoriteFood}
                 onChangeText={setFavoriteFood}
-                className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
+                className={`${inputBg} rounded-xl border px-4 py-3 ${inputText} ${borderColor}`}
               />
             </View>
           </FormRow>
@@ -484,7 +497,7 @@ export default function AddPetScreen() {
               multiline
               numberOfLines={4}
               textAlignVertical="top"
-              className={`${inputBg} rounded-xl px-4 py-3 ${inputText}`}
+              className={`${inputBg} rounded-xl border px-4 py-3 ${inputText} ${borderColor}`}
             />
           </View>
 

@@ -20,6 +20,7 @@ import { providerTypeValue } from '../../../services/service-providers';
 import { AdditionalServiceChargeType } from '../../../services/service-addons';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import { showAlert } from '../../../services/alert';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // Extras are provider-named free text now, so there's no fixed name→icon table to key off.
 // A per-distance extra is a trip, everything else is a generic service.
@@ -29,6 +30,7 @@ const addonIcon = (chargeType: number) =>
     : 'checkmark-circle-outline';
 
 export default function MyServicesScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const { currentUser } = useAuth();
   const { isDarkMode, hex } = useThemeColors();
@@ -152,7 +154,7 @@ export default function MyServicesScreen() {
       contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50'}
       width="wide">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="px-4 py-4" style={{ gap: 16 }}>
+        <View className={`${gutter.px} py-4`} style={{ gap: 16 }}>
           {isLoading ? (
             <View style={{ alignItems: 'center', paddingVertical: 64 }}>
               <ActivityIndicator size="large" color={BRAND_GREEN} />

@@ -9,6 +9,7 @@ import type { ServiceSearchItem } from './ListView';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 import { useTabBarHeight } from '../../../hooks/useSafeAreaSpacing';
+import { useLocale } from '../../../context/LocaleContext';
 interface LocationData {
   latitude: number;
   longitude: number;
@@ -40,13 +41,14 @@ export default function MapViewComponent({
   isDarkMode,
 }: MapViewComponentProps) {
   const navigation = useNavigation();
+  const { t } = useLocale();
   const tabBarHeight = useTabBarHeight();
   const [selected, setSelected] = useState<ServiceSearchItem | null>(null);
 
   if (location.loading) {
     return (
       <View className="flex-1 items-center justify-center">
-        <Text className="text-gray-500">Loading map...</Text>
+        <Text className="text-gray-500">{t('shared.loadingMap')}</Text>
       </View>
     );
   }
@@ -73,7 +75,7 @@ export default function MapViewComponent({
             latitude: location.latitude,
             longitude: location.longitude,
           }}
-          title="You are here"
+          title={t('shared.youAreHere')}
           pinColor={BRAND_GREEN}
         />
 

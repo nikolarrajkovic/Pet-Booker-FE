@@ -7,6 +7,7 @@ import { fetchRoutePath } from '../../../services/route-path';
 import { loadGoogleMaps, DEV_MAP_ID } from '../../../services/google-maps';
 import { BRAND_GREEN, themeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
+import { DEFAULT_LOCATION } from '../../../hooks/useLocation';
 
 export type LiveDirectionsMapProps = {
   /** Moving end of the route: the partner's GPS, or the tracked provider. */
@@ -104,7 +105,7 @@ export default function LiveDirectionsMap({
       .then((maps) => {
         if (cancelled || !containerRef.current) return;
         const map = new maps.Map(containerRef.current, {
-          center: { lat: 44.8176, lng: 20.457 },
+          center: { lat: DEFAULT_LOCATION.latitude, lng: DEFAULT_LOCATION.longitude },
           zoom: 13,
           mapId: DEV_MAP_ID,
           disableDefaultUI: true,

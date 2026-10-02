@@ -18,8 +18,10 @@ import FormRow from '../../../components/shared/FormRow';
 import { changePassword } from '../../../services/auth';
 import { getErrorMessage } from '../../../services/http';
 import { showAlert } from '../../../services/alert';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 export default function ChangePasswordScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const { bgColor, textColor, inputBg, inputText, borderColor, placeholderColor } =
     useThemeColors();
@@ -83,7 +85,7 @@ export default function ChangePasswordScreen() {
       width="narrow">
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ padding: 24 }}
+        contentContainerStyle={{ paddingVertical: 24, paddingHorizontal: gutter.value }}
         keyboardShouldPersistTaps="handled">
         <FormCard>
           {field(

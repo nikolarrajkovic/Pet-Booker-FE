@@ -33,6 +33,7 @@ import {
   followNotificationRoute,
   routeForNotification,
 } from '../../../navigation/notificationRoute';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // One screenful plus headroom. Small enough that the first page is fast on a phone, large enough
 // that most users never need a second.
@@ -49,9 +50,10 @@ function isReviewInvitation(type: number): boolean {
 }
 
 export default function NotificationsScreen() {
+  const gutter = usePageGutter();
   const { currentUser } = useAuth();
   const { subscribe, refreshUnreadCount } = useNotifications();
-  const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
+  const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -93,7 +95,6 @@ export default function NotificationsScreen() {
   const reviewOpenRef = useRef(false);
   reviewOpenRef.current = review.target !== null;
 
-  const bgColor = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   // Mark a notification read once (optimistic UI + best-effort persist), then
@@ -247,7 +248,12 @@ export default function NotificationsScreen() {
         ) : (
           <ScrollView
             className="flex-1"
-            contentContainerStyle={{ padding: 16, paddingBottom: 40, flexGrow: 1 }}
+            contentContainerStyle={{
+              paddingHorizontal: gutter.value,
+              paddingTop: 16,
+              paddingBottom: 40,
+              flexGrow: 1,
+            }}
             showsVerticalScrollIndicator={false}
             // Phone-first: the next page loads as you approach the bottom. loadMore() is a no-op
             // while a page is in flight, so the repeated scroll events are harmless.
@@ -264,7 +270,7 @@ export default function NotificationsScreen() {
               />
             }>
             {error ? (
-              <View className="flex-1 items-center justify-center px-6 py-20">
+              <View className={`flex-1 items-center justify-center ${gutter.px} py-20`}>
                 <Ionicons name="cloud-offline-outline" size={48} color="#9CA3AF" />
                 <Text className={`text-base font-semibold ${textColor} mt-4 text-center`}>
                   {t('notifications.couldNotLoad')}

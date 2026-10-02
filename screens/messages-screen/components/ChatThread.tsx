@@ -31,6 +31,7 @@ import {
   type ConversationDto,
   type MessageDto,
 } from '../../../services/messages';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 /**
  * Which thread to open. Either identifies an existing one by `conversationId` (inbox, deep link),
@@ -118,6 +119,7 @@ export default function ChatThread({
   onConversationResolved,
   ...params
 }: ChatThreadProps) {
+  const gutter = usePageGutter();
   const { goUp } = useAppNavigation();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor, hex } = useThemeColors();
   const { showError } = useToast();
@@ -525,7 +527,11 @@ export default function ChatThread({
           <ScrollView
             ref={scrollRef}
             className="flex-1"
-            contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 12, flexGrow: 1 }}
+            contentContainerStyle={{
+              paddingHorizontal: gutter.value,
+              paddingVertical: 12,
+              flexGrow: 1,
+            }}
             onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
             onScroll={({ nativeEvent }) => {
               // Reaching the top pulls in older history — the natural direction for a thread.

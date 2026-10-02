@@ -29,6 +29,7 @@ import {
   type ProviderDocuments,
   type ProviderDocumentImage,
 } from '../../../services/service-providers';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // Labels are translation keys, resolved with t() at render.
 const STATUS_CFG: Record<
@@ -83,6 +84,7 @@ async function openDownload(
 }
 
 export default function PartnerDetailsScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { isDarkMode, hex } = useThemeColors();
@@ -214,7 +216,7 @@ export default function PartnerDetailsScreen() {
       <View
         style={{
           backgroundColor: isWebLayout ? 'transparent' : BRAND_GREEN,
-          paddingHorizontal: isWebLayout ? 32 : 20,
+          paddingHorizontal: gutter.value,
           paddingTop: isWebLayout ? 32 : insets.top + 12,
           paddingBottom: isWebLayout ? 12 : 28,
           width: '100%',
@@ -275,7 +277,7 @@ export default function PartnerDetailsScreen() {
           <View
             style={{
               backgroundColor: cardBg,
-              marginHorizontal: 20,
+              marginHorizontal: gutter.value,
               marginTop: 20,
               borderRadius: 16,
               overflow: 'hidden',
@@ -442,7 +444,7 @@ export default function PartnerDetailsScreen() {
           <View
             style={{
               flexDirection: 'row',
-              marginHorizontal: 20,
+              marginHorizontal: gutter.value,
               marginBottom: 16,
               backgroundColor: cardBg,
               borderRadius: 16,
@@ -479,7 +481,7 @@ export default function PartnerDetailsScreen() {
           </View>
 
           {/* ── Partner Documents ── */}
-          <View style={{ marginHorizontal: 20, marginBottom: 16 }}>
+          <View style={{ marginHorizontal: gutter.value, marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
               <View
                 style={{
@@ -697,7 +699,7 @@ export default function PartnerDetailsScreen() {
 
           {/* ── Recent Service History ── */}
           {partner.serviceHistory.length > 0 && (
-            <View style={{ marginHorizontal: 20, marginBottom: 16 }}>
+            <View style={{ marginHorizontal: gutter.value, marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                 <View
                   style={{
@@ -738,7 +740,7 @@ export default function PartnerDetailsScreen() {
             left: 0,
             right: 0,
             backgroundColor: cardBg,
-            paddingHorizontal: 20,
+            paddingHorizontal: gutter.value,
             paddingTop: 12,
             paddingBottom: insets.bottom > 0 ? insets.bottom : 16,
             borderTopWidth: 1,

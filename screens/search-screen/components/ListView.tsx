@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Image } from 'react-native';
+import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -12,10 +12,12 @@ import { formatMoney } from '../../../services/currency';
 import { useLocale } from '../../../context/LocaleContext';
 import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import ServiceResultRow from '../../../components/shared/ServiceResultRow';
+import ServicePhoto from '../../../components/shared/ServicePhoto';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { useNearBottomLoader } from '../../../hooks/useNearBottomLoader';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 export interface ServiceSearchItem {
   id: number;
@@ -98,6 +100,7 @@ interface ListViewProps {
  */
 const RICH_ROW_MIN_WIDTH = 640;
 export default function ListView({ services, badge, paging, sort, header }: ListViewProps) {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const tabBarSpacing = useTabBarSpacing();
   const { t } = useLocale();
@@ -134,8 +137,9 @@ export default function ListView({ services, badge, paging, sort, header }: List
       className={`${cardBg} mb-3 flex-row rounded-2xl border p-3 shadow-sm ${borderColor}`}
       activeOpacity={0.9}>
       {/* Service image + category banner (Popular / Deal) */}
-      <View className="relative">
-        <Image source={{ uri: item.image }} className="h-20 w-20 rounded-xl" resizeMode="cover" />
+      {/* ServicePhoto layers the paw placeholder behind the photo, so a service with no photo (or
+          a dead URL) reads as "no photo yet" instead of a blank white hole in the card. */}
+      <ServicePhoto uri={item.image} radiusClass="rounded-xl" iconSize={26} className="h-20 w-20">
         {badge === 'popular' && (
           <View className="absolute left-1 top-1 flex-row items-center rounded-full bg-amber-500 px-1.5 py-0.5">
             <Ionicons name="flame" size={10} color="white" />
@@ -148,7 +152,7 @@ export default function ListView({ services, badge, paging, sort, header }: List
             <Text className="ml-0.5 text-[9px] font-bold text-white">{t('card.deal')}</Text>
           </View>
         )}
-      </View>
+      </ServicePhoto>
 
       {/* Service info */}
       <View className="ml-3 flex-1 justify-between">
@@ -201,7 +205,7 @@ export default function ListView({ services, badge, paging, sort, header }: List
           pixels to the left of their own heading. The phone keeps its 24. */}
       <View
         ref={listRef}
-        className={isWebLayout ? 'px-8 pt-2' : 'px-6 pt-6'}
+        className={`${gutter.px} ${isWebLayout ? 'pt-2' : 'pt-6'}`}
         onLayout={(e) => setColumnWidth(e.nativeEvent.layout.width)}>
         {header}
 
@@ -317,7 +321,7 @@ export default function ListView({ services, badge, paging, sort, header }: List
       {/* The end of an endless scroll should say so — otherwise a list that simply stops looks
           like one that failed to load the next page. */}
       {paging && !paging.hasMore && !paging.isLoadingMore && services.length > 0 && (
-        <Text className={`${subtextColor} px-6 pb-2 pt-4 text-center text-xs`}>
+        <Text className={`${subtextColor} ${gutter.px} pb-2 pt-4 text-center text-xs`}>
           {t('search.endOfResults', { count: services.length })}
         </Text>
       )}

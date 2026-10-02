@@ -6,8 +6,10 @@ import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import AnimatedCheckmark from '../../../components/shared/AnimatedCheckmark';
 import { VerificationProgress, NeedHelpCard, WhileYouWaitCard } from '../components';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 export default function ApplicationSubmittedScreen() {
+  const gutter = usePageGutter();
   // Terminal screen — reset so back can't re-enter the application form.
   const { resetToTab } = useAppNavigation();
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
@@ -17,9 +19,9 @@ export default function ApplicationSubmittedScreen() {
     <ScreenLayout
       headerVariant="large"
       contentBg={bgColor}
-      contentRounded={false}
       headerChildren={
-        <View className="items-center py-4">
+        // pb-8 rather than py-4's 16: the rounded content sheet is pulled 32px up over this.
+        <View className="items-center pb-8 pt-4">
           <View className="mb-6">
             <AnimatedCheckmark size={96} color="white" ringColor="rgba(255,255,255,0.2)" />
           </View>
@@ -33,7 +35,11 @@ export default function ApplicationSubmittedScreen() {
       }>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: 40, paddingHorizontal: 24 }}>
+        contentContainerStyle={{
+          paddingTop: 24,
+          paddingBottom: 40,
+          paddingHorizontal: gutter.value,
+        }}>
         {/* What Happens Next */}
         <View
           className={`${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'} mb-6 rounded-2xl border p-5 ${isDarkMode ? 'border-blue-800' : 'border-blue-200'}`}>
@@ -63,7 +69,7 @@ export default function ApplicationSubmittedScreen() {
       </ScrollView>
 
       {/* Fixed Bottom Buttons */}
-      <View className={`${cardBg} border-t ${borderColor} px-6 py-4`}>
+      <View className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
         <TouchableOpacity
           accessibilityRole="button"
           onPress={() => resetToTab('Home')}

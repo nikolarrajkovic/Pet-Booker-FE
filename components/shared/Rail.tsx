@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useResponsive } from '../../hooks/useResponsive';
+import { usePageGutter } from '../../hooks/usePageGutter';
 import { useLocale } from '../../context/LocaleContext';
 import ResponsiveGrid from './ResponsiveGrid';
 
@@ -53,13 +54,14 @@ export default function Rail({
 }: RailProps) {
   const { textColor } = useThemeColors();
   const { isWebLayout, isWide } = useResponsive();
+  const gutter = usePageGutter();
   const { t } = useLocale();
 
   const items = Children.toArray(children);
   const isEmpty = items.length === 0;
 
   const header = (
-    <View className="mb-3 flex-row items-center justify-between px-6">
+    <View className={`mb-3 flex-row items-center justify-between ${gutter.px}`}>
       <View className="flex-row items-center">
         {icon && <Ionicons name={icon} size={20} color={BRAND_GREEN} />}
         <Text className={`${icon ? 'ml-2' : ''} text-base font-semibold ${textColor}`}>
@@ -90,7 +92,7 @@ export default function Rail({
     return (
       <View className={`${isWebLayout ? 'mb-8' : 'mb-6'} ${className}`}>
         {header}
-        <View className="px-6">{empty}</View>
+        <View className={gutter.px}>{empty}</View>
       </View>
     );
   }
@@ -103,7 +105,7 @@ export default function Rail({
     return (
       <View className={`mb-8 ${className}`}>
         {header}
-        <View className="px-6">
+        <View className={gutter.px}>
           <ResponsiveGrid columns={{ mobile: 1, tablet: 2, desktop: 3, wide: 4 }}>
             {visible}
           </ResponsiveGrid>
@@ -115,7 +117,12 @@ export default function Rail({
   return (
     <View className={`mb-6 ${className}`}>
       {header}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-6">
+      {/* Padded through the content container, so a card scrolled left passes under the screen
+          edge instead of stopping at an invisible line one gutter in. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: gutter.value }}>
         <View className="flex-row gap-3">
           {children}
           {mobileTrailing}

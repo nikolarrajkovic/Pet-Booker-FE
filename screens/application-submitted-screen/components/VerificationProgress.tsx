@@ -37,7 +37,7 @@ export default function VerificationProgress({
         </View>
       </View>
 
-      {/* Step 2: Document Review */}
+      {/* Step 2: the review — the step the applicant is on. */}
       <View className="mb-6 flex-row">
         <View className="mr-4 items-center">
           <View className="h-12 w-12 items-center justify-center rounded-full bg-blue-500">
@@ -49,37 +49,15 @@ export default function VerificationProgress({
           <Text className={`text-base font-semibold ${textColor} mb-1`}>
             {t('applicationSubmitted.step2Title')}
           </Text>
-          <Text className={`text-sm ${subtextColor} mb-2`}>
-            {t('applicationSubmitted.step2Text')}
-          </Text>
-          <View className="h-2 overflow-hidden rounded-full bg-gray-200">
-            <View className="h-full rounded-full bg-blue-500" style={{ width: '60%' }} />
-          </View>
+          {/* No progress bar: it was a fixed 60% that never moved, and nothing measures how far
+              through a review an application is. */}
+          <Text className={`text-sm ${subtextColor}`}>{t('applicationSubmitted.step2Text')}</Text>
         </View>
       </View>
 
-      {/* Step 3: Background Check */}
-      <View className="mb-6 flex-row">
-        <View className="mr-4 items-center">
-          <View
-            className={`h-12 w-12 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-300'} items-center justify-center rounded-full`}>
-            <Ionicons
-              name="shield-checkmark"
-              size={24}
-              color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-            />
-          </View>
-          <View className="mt-2 w-0.5 flex-1 bg-gray-200" style={{ height: 40 }} />
-        </View>
-        <View className="flex-1">
-          <Text className={`text-base font-semibold ${textColor} mb-1`}>
-            {t('applicationSubmitted.step3Title')}
-          </Text>
-          <Text className={`text-sm ${subtextColor}`}>{t('applicationSubmitted.step3Text')}</Text>
-        </View>
-      </View>
-
-      {/* Step 4: Final Approval */}
+      {/* Step 3: the decision. There used to be a "Background Check" step before this — the
+          approval flow has none: an admin reviews the application and its documents, then
+          approves or declines. */}
       <View className="mb-8 flex-row">
         <View className="mr-4 items-center">
           <View

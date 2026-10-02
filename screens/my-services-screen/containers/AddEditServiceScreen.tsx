@@ -53,6 +53,7 @@ import {
   DURATION_OPTION_LABELS,
   PricingTier,
 } from '../serviceModel';
+import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // serviceProviderType enum `displayName`s — the selected label maps back to a
 // real numeric `type` on save via providerTypeValue().
@@ -106,6 +107,7 @@ function getInitialAdditionalServices(existing?: ExistingService): AdditionalSer
 }
 
 export default function AddEditServiceScreen() {
+  const gutter = usePageGutter();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: AddEditServiceParams }, 'params'>>();
   const params = route.params;
@@ -367,6 +369,9 @@ export default function AddEditServiceScreen() {
         })),
       workingHours,
       isNew: !isEdit,
+      // The address picked for this service (or the one it already has). With none, the service
+      // is located by its provider's address, which the preview does not know — so it shows none.
+      location: currentAddress ? addressLabel(currentAddress) : null,
     };
 
     (navigation as any).navigate('ServicePreview', { service: serviceData });
@@ -496,7 +501,7 @@ export default function AddEditServiceScreen() {
       // A form: one column of fields. Capped narrow so a label never sits a screen-width
       // away from the input it names.
       width="narrow">
-      <ScrollView className="flex-1 px-6 py-6" showsVerticalScrollIndicator={false}>
+      <ScrollView className={`flex-1 ${gutter.px} py-6`} showsVerticalScrollIndicator={false}>
         <FormCard>
           {/* Service Type */}
           <View className="mb-4">
@@ -1241,7 +1246,7 @@ export default function AddEditServiceScreen() {
           transparent
           animationType="fade"
           onRequestClose={() => setShowTimePicker(false)}>
-          <View className="flex-1 items-center justify-center bg-black/50 px-6">
+          <View className={`flex-1 items-center justify-center bg-black/50 ${gutter.px}`}>
             <View className="w-full max-w-sm">
               <TimePicker
                 value={selectedTime}
