@@ -17,6 +17,11 @@ interface MapViewComponentProps {
   services: ServiceSearchItem[];
   location: LocationData;
   isDarkMode?: boolean;
+  /** Selection mode - see MapView.tsx. Clicking a pin toggles it instead of opening a card. */
+  selectedIds?: number[];
+  onToggleSelect?: (item: ServiceSearchItem) => void;
+  /** Native only (card placement); accepted here so both variants share one signature. */
+  bottomOffset?: number;
 }
 
 // Hide POI icons/labels and transit clutter so the service pins stand out.
@@ -35,8 +40,15 @@ const escapeXml = (s: string) =>
 // Green price-pill marker icon as an SVG data URI — the classic-Marker equivalent of the
 // old AdvancedMarkerElement div. It's a WIDTH-FITTED pill rather than a fixed circle: a
 // formatted price carries its currency ("1200 RSD", "52 €"), which a 40px circle clipped.
-function pricePinSvg(label: string): { svg: string; width: number; height: number } {
+function pricePinSvg(
+  label: string,
+  variant: 'filled' | 'outline' = 'filled'
+): { svg: string; width: number; height: number } {
   const text = escapeXml(label);
+  // Selection mode draws an unpicked pin as an outline, so what is picked reads at a glance.
+  const fill = variant === 'filled' ? BRAND_GREEN : 'white';
+  const ink = variant === 'filled' ? 'white' : BRAND_GREEN;
+  const stroke = variant === 'filled' ? 'white' : BRAND_GREEN;
   const height = 30;
   // ~6.6px per character at font-size 11 bold, plus padding; never narrower than a circle.
   const width = Math.max(40, Math.round(label.length * 6.6) + 16);
@@ -45,8 +57,8 @@ function pricePinSvg(label: string): { svg: string; width: number; height: numbe
     height,
     svg:
       `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
-      `<rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="${(height - 2) / 2}" fill="${BRAND_GREEN}" stroke="white" stroke-width="2"/>` +
-      `<text x="${width / 2}" y="${height / 2 + 4}" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">${text}</text>` +
+      `<rect x="1" y="1" width="${width - 2}" height="${height - 2}" rx="${(height - 2) / 2}" fill="${fill}" stroke="${stroke}" stroke-width="2"/>` +
+      `<text x="${width / 2}" y="${height / 2 + 4}" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="${ink}">${text}</text>` +
       '</svg>',
   };
 }
@@ -149,11 +161,22 @@ export default function MapViewComponent({
   services,
   location,
   isDarkMode = false,
+  selectedIds,
+  onToggleSelect,
 }: MapViewComponentProps) {
   const navigation = useNavigation();
   const { t, language } = useLocale();
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapError, setMapError] = useState(false);
+  const selectMode = onToggleSelect != null;
+  // Read through refs inside the marker listeners, so a selection change restyles the pins
+  // (effect below) without tearing the whole map down and losing the reader's pan and zoom.
+  const toggleRef = useRef(onToggleSelect);
+  toggleRef.current = onToggleSelect;
+  const markersRef = useRef<Map<number, { marker: any; item: ServiceSearchItem; maps: any }>>(
+    new Map()
+  );
+  const selectedKey = (selectedIds ?? []).join(',');
 
   useEffect(() => {
     if (location.loading) return;
@@ -191,16 +214,26 @@ export default function MapViewComponent({
         // Service markers — price pill + a styled info-window card on click.
         // Trim the InfoWindow's default white chrome so the card fills it.
         const info = new maps.InfoWindow();
+        markersRef.current = new Map();
         services
           .filter((s) => s.latitude != null && s.longitude != null)
           .forEach((s) => {
-            const pin = pricePinSvg(formatMoney(s.price, serviceCurrency(s.dto)));
+            const pin = pricePinSvg(
+              formatMoney(s.price, serviceCurrency(s.dto)),
+              selectMode ? 'outline' : 'filled'
+            );
             const marker = new maps.Marker({
               map,
               position: { lat: s.latitude!, lng: s.longitude! },
               icon: svgIcon(pin.svg, pin.width, pin.height),
+              title: s.name,
             });
+            markersRef.current.set(s.id, { marker, item: s, maps });
             marker.addListener('click', () => {
+              if (toggleRef.current) {
+                toggleRef.current(s);
+                return;
+              }
               const card = buildInfoCard(s, isDarkMode, () =>
                 (navigation as any).navigate('ServiceDetail', { service: s.dto })
               );
@@ -216,7 +249,23 @@ export default function MapViewComponent({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [services, location.loading, location.latitude, location.longitude, isDarkMode]);
+  }, [services, location.loading, location.latitude, location.longitude, isDarkMode, selectMode]);
+
+  // Selection mode: restyle the pins in place as the selection changes.
+  useEffect(() => {
+    if (!selectMode) return;
+    const picked = new Set(selectedKey ? selectedKey.split(',').map(Number) : []);
+    markersRef.current.forEach(({ marker, item, maps }, id) => {
+      const isPicked = picked.has(id);
+      const label = `${isPicked ? '✓ ' : ''}${formatMoney(item.price, serviceCurrency(item.dto))}`;
+      const pin = pricePinSvg(label, isPicked ? 'filled' : 'outline');
+      marker.setIcon({
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(pin.svg),
+        scaledSize: new maps.Size(pin.width, pin.height),
+        anchor: new maps.Point(pin.width / 2, pin.height / 2),
+      });
+    });
+  }, [selectMode, selectedKey, services]);
 
   if (location.loading) {
     return (

@@ -197,7 +197,11 @@ export function fetchInto<T>(key: string, fetcher: () => Promise<T>): Promise<T>
 const RESOURCE_FANOUT: Record<string, string[]> = {
   // A booking changes the provider's calendar, both dashboards, the "recently booked" rail and
   // the service's own free/busy — none of which live under /api/bookings.
-  bookings: ['stats', 'home', 'services', 'app-notifications'],
+  // A booking moves a group request too: accepting one is what creates the booking.
+  bookings: ['stats', 'home', 'services', 'app-notifications', 'group-booking-requests'],
+  // Accepting a group request creates a confirmed booking, so everything a booking write
+  // refreshes is refreshed by it as well.
+  'group-booking-requests': ['bookings', 'stats', 'home', 'services'],
   services: ['home', 'stats', 'service-providers'],
   'service-providers': ['services', 'home', 'stats'],
   // Rating and review count are rendered on the service row and the provider profile.

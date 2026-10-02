@@ -63,3 +63,33 @@ export function deletePaymentMethod(id: number): Promise<void> {
     context: 'deletePaymentMethod',
   });
 }
+
+/**
+ * A usable paymentMethodId for the user — their default (or first) active method, creating a
+ * placeholder one when they have none.
+ *
+ * Every booking must reference a real PaymentMethod row, and so must a group request (the
+ * booking a provider creates by accepting it carries the request's method). Real payment UX is
+ * future work, so a user with no saved method gets a `manual` placeholder rather than a dead end.
+ * Shared by ReviewBooking and the group-request form so the two cannot drift.
+ *
+ * @param paymentType PaymentType for the placeholder, when one has to be created.
+ */
+export async function ensurePaymentMethodId(userId: number, paymentType: number): Promise<number> {
+  const existing = await getPaymentMethods(userId);
+  if (existing.length) {
+    const def = existing.find((m) => m.isDefault) ?? existing[0];
+    if (def.id != null) return def.id;
+  }
+  const created = await createPaymentMethod({
+    userId,
+    type: paymentType,
+    provider: 'manual',
+    providerPaymentMethodId: `manual-${userId}-${Date.now()}`,
+    isDefault: true,
+    status: PaymentMethodStatus.Active,
+    cardHolderName: 'Account Holder',
+  });
+  if (created.id == null) throw new Error('Could not create a payment method.');
+  return created.id;
+}

@@ -20,6 +20,14 @@ interface MapViewComponentProps {
   services: ServiceSearchItem[];
   location: LocationData;
   isDarkMode?: boolean;
+  /**
+   * Selection mode (the group-request picker). When given, a pin's card toggles the service in
+   * or out of the selection instead of opening ServiceDetail, and selected pins are drawn filled.
+   */
+  selectedIds?: number[];
+  onToggleSelect?: (item: ServiceSearchItem) => void;
+  /** Distance of the card from the bottom edge. Defaults to clearing the tab bar. */
+  bottomOffset?: number;
 }
 
 // Hide POI icons/labels and transit clutter so the service pins stand out.
@@ -39,11 +47,16 @@ export default function MapViewComponent({
   services,
   location,
   isDarkMode,
+  selectedIds,
+  onToggleSelect,
+  bottomOffset,
 }: MapViewComponentProps) {
   const navigation = useNavigation();
   const { t } = useLocale();
   const tabBarHeight = useTabBarHeight();
   const [selected, setSelected] = useState<ServiceSearchItem | null>(null);
+  const selectMode = onToggleSelect != null;
+  const isPicked = (id: number) => selectedIds?.includes(id) ?? false;
 
   if (location.loading) {
     return (
@@ -96,14 +109,17 @@ export default function MapViewComponent({
               <View className="items-center">
                 <View
                   className={`rounded-full border px-3 py-1.5 shadow-lg ${
-                    selected?.id === item.id
+                    selected?.id === item.id || (selectMode && isPicked(item.id))
                       ? 'border-brand-600 bg-brand-500'
                       : 'border-gray-200 bg-white'
                   }`}>
                   <Text
                     className={`text-xs font-bold ${
-                      selected?.id === item.id ? 'text-white' : 'text-gray-900'
+                      selected?.id === item.id || (selectMode && isPicked(item.id))
+                        ? 'text-white'
+                        : 'text-gray-900'
                     }`}>
+                    {selectMode && isPicked(item.id) ? '✓ ' : ''}
                     {formatMoney(item.price, serviceCurrency(item.dto))}
                   </Text>
                 </View>
@@ -117,14 +133,25 @@ export default function MapViewComponent({
         <TouchableOpacity
           accessibilityRole="button"
           activeOpacity={0.9}
-          onPress={() => (navigation as any).navigate('ServiceDetail', { service: selected.dto })}
+          accessibilityLabel={
+            selectMode
+              ? isPicked(selected.id)
+                ? t('groupRequest.removeProvider')
+                : t('groupRequest.addProvider')
+              : undefined
+          }
+          onPress={() =>
+            selectMode
+              ? onToggleSelect!(selected)
+              : (navigation as any).navigate('ServiceDetail', { service: selected.dto })
+          }
           className={`absolute left-4 right-4 flex-row items-center rounded-2xl p-3 shadow-lg ${
             isDarkMode ? 'bg-[#1a2332]' : 'bg-white'
           }`}
           // Sits above the tab bar rather than behind it. `bottom-4` measured from the screen edge,
           // which put the card under the bar on a phone — and under the system navigation buttons
           // below that.
-          style={{ elevation: 6, bottom: tabBarHeight + 16 }}>
+          style={{ elevation: 6, bottom: (bottomOffset ?? tabBarHeight) + 16 }}>
           <Image source={{ uri: selected.image }} className="h-16 w-16 rounded-xl" />
           <View className="ml-3 flex-1">
             <Text
@@ -153,7 +180,19 @@ export default function MapViewComponent({
             <Text className="text-base font-bold text-brand-500">
               {formatMoney(selected.price, serviceCurrency(selected.dto))}
             </Text>
-            <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+            {selectMode ? (
+              <Ionicons
+                name={isPicked(selected.id) ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={BRAND_GREEN}
+              />
+            ) : (
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+              />
+            )}
           </View>
         </TouchableOpacity>
       )}

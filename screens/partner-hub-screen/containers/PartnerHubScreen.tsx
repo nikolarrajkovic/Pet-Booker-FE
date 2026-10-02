@@ -260,6 +260,16 @@ const QUICK_ACTIONS = [
     route: 'NewRequests',
   },
   {
+    // Requests sent to several providers at once; the first to accept gets the booking.
+    id: 'group-requests',
+    titleKey: 'groupRequest.navInbox',
+    subtitleKey: 'groupRequest.hubSub',
+    icon: 'people-outline' as const,
+    iconBg: '#E0F2FE',
+    iconColor: '#0284C7',
+    route: 'GroupRequests',
+  },
+  {
     // A customer can now ask a question before booking anything, so the provider needs a way
     // in that doesn't go through a booking — this is where those enquiries land.
     id: 'messages',

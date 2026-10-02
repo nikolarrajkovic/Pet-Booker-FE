@@ -8,6 +8,7 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import TwoColumn from '../../../components/shared/TwoColumn';
 import { useResponsive } from '../../../hooks/useResponsive';
 import FilterModal from '../../../components/FilterModal';
+import GroupRequestCta from '../../../components/shared/GroupRequestCta';
 import SearchFilters, {
   EMPTY_FILTERS,
   activeFilterCount,
@@ -613,6 +614,18 @@ export default function SearchScreen() {
     </View>
   );
 
+  // "Ask several providers" above the results, carrying what the user is filtering by — so its
+  // "every matching provider" option means the providers on this screen.
+  const groupRequestCta = (
+    <GroupRequestCta
+      params={{
+        serviceType: filters.serviceTypes.length === 1 ? filters.serviceTypes[0] : undefined,
+        filters,
+        priceTouched,
+      }}
+    />
+  );
+
   const listContent = (
     <ListView
       services={services}
@@ -621,7 +634,12 @@ export default function SearchScreen() {
       // A complete Home list has its own meaning-bearing order (most booked, nearest); re-sorting
       // it would quietly turn it into a different rail.
       sort={clientFiltered ? undefined : { value: sortBy, onChange: setSortBy }}
-      header={inlineFilterBar}
+      header={
+        <>
+          {groupRequestCta}
+          {inlineFilterBar}
+        </>
+      }
     />
   );
 

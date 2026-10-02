@@ -63,6 +63,10 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       MyPets: 'pets',
       AddPet: 'pets/new',
       MyBookings: 'bookings',
+      // Group requests ("ask several providers"). The create form's browse-filter hand-off is a
+      // convenience, not an address: opened from a URL it simply starts unfiltered.
+      MyGroupRequests: 'group-requests',
+      CreateGroupRequest: 'group-requests/new',
       Account: 'account',
       ChangePassword: 'account/password',
       Settings: 'settings',
@@ -86,6 +90,7 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       MySchedule: 'partner/schedule',
       MyServices: 'partner/services',
       NewRequests: 'partner/requests',
+      GroupRequests: 'partner/group-requests',
       Promotions: 'partner/promotions',
       CreatePromotion: 'partner/promotions/new',
       LiveSession: 'partner/live-session',

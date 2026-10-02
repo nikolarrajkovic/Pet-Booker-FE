@@ -66,6 +66,7 @@ const VISUAL_BY_NAME: Record<
   PaymentOverdue: { icon: 'wallet-outline', accent: 'danger' },
   CertificateExpiring: { icon: 'ribbon-outline', accent: 'warning' },
   BookingRequestStale: { icon: 'hourglass-outline', accent: 'warning' },
+  GroupBookingRequested: { icon: 'people-outline', accent: 'brand' },
   // Admin queue digest. The pending one is work to do; "all caught up" is the opposite, and
   // the accent is the whole difference between them at a glance.
   AdminPendingQueue: { icon: 'file-tray-full-outline', accent: 'warning' },

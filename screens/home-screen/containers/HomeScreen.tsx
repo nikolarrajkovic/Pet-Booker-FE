@@ -5,6 +5,7 @@ import ServiceCard from '../../../components/shared/ServiceCard';
 import SeeMoreCard from '../../../components/shared/SeeMoreCard';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import Rail from '../../../components/shared/Rail';
+import GroupRequestCta from '../../../components/shared/GroupRequestCta';
 import BrandMark from '../../../components/shared/BrandMark';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -560,6 +561,12 @@ export default function HomeScreen() {
               );
             })}
           </PillRow>
+        </View>
+
+        {/* "Ask several providers" sits with the category pills — both are ways to start looking —
+            and above the rails, so it is seen before the reader has committed to one listing. */}
+        <View className={`${gutter.px} pb-4`}>
+          <GroupRequestCta variant="banner" />
         </View>
 
         {renderSection(
