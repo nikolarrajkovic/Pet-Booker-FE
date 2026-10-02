@@ -428,7 +428,6 @@ non-nullable column gives a **500 with an empty body** where omitting the key su
 | `signIn(accessToken, refreshToken?)` | fn | Saves tokens + calls getMe() |
 | `signInWithCredentials(email, password)` | fn | Calls loginWithEmailPassword + signIn |
 | `signOut()` | fn | clearTokens() + reset state |
-| `signInWithGoogle()` | fn | expo-auth-session Google OAuth (client IDs are placeholders) |
 | `refreshUser()` | fn | Re-fetches `getMe()` and updates `currentUser` (used after profile edits) |
 
 Auth flow:
@@ -597,7 +596,7 @@ Implementation notes (`App.tsx`):
 | AdminPartnersScreen | `screens/admin-partners-screen/containers/` | Admin partner management list **Paged from the server on both designs (2026-09):** approved providers newest first (re-orderable), name search server-side, exact service / review counts off the provider row (`serviceCount`, `reviewCount`) instead of tallying the first 200 of each; web rows (`PartnerRow`) vs phone cards. Timeout/ban stay session-only overrides. |
 | AdminReviewsScreen | `screens/admin-reviews-screen/containers/` | **API-wired** — review moderation. `getReviews({ perPage: 200 })` on focus (uses the embedded `user`/`serviceProvider` includes to render each card); Pending/Approved/Declined tabs split on `approvalStatus`. Approve → `approveReview()` (POST /admin/reviews/{id}/approve), decline → a reason-input modal → `declineReview(id, reason)`. Reached from the AdminDashboard "Reviews" quick action. **Paged from the server on both designs (2026-09):** `useModerationQueue` (per-tab `ApprovalStatus` + `Order`, pending oldest first / decided newest first, re-orderable via `SortMenu`, tab badges from `count*` one-row requests); the web design draws full-width `WebListRow` rows under a column header, the phone its cards. |
 | AdminAddPartnerScreen | `screens/admin-add-partner-screen/containers/` | Admin manually adds partner |
-| LoginScreen | `screens/login-screen/containers/` | Email/username + password + Google OAuth |
+| LoginScreen | `screens/login-screen/containers/` | Email/username + password. No social sign-in: the Google/Facebook buttons were removed 2026-10-02 (placeholder client ids, no backend endpoint) — see `HARDCODED_VALUES.md` |
 | RegisterScreen | `screens/register-screen/` | New user registration |
 | VerifyEmailScreen | `screens/verify-email-screen/` | Email code verification |
 

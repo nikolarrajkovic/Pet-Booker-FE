@@ -28,6 +28,9 @@ const FABRICATED = [
   '586%',
   '50% charge',
   'Background Check',
+  // Social sign-in ran on these until it was removed (no backend endpoint behind it).
+  'YOUR_WEB_CLIENT_ID',
+  'YOUR_ANDROID_CLIENT_ID',
 ];
 
 function sourceFiles(dir: string): string[] {

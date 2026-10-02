@@ -1,14 +1,10 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
 import { loginWithEmailPassword, getMe, logout as logoutApi, CurrentUser } from '../services/auth';
 import { saveTokens, getAccessToken, clearTokens } from '../services/token-storage';
 import { clearCache } from '../services/cache';
 import { registerSessionExpiredHandler, statusOf } from '../services/http';
 import { resetShownOnce } from '../hooks/useShowOnce';
 import { registerDisplayCurrency, DEFAULT_CURRENCY } from '../services/currency';
-
-WebBrowser.maybeCompleteAuthSession();
 
 type AuthContextType = {
   isLoggedIn: boolean;
@@ -20,7 +16,6 @@ type AuthContextType = {
   signIn: (accessToken: string, refreshToken?: string) => Promise<void>;
   signInWithCredentials: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  signInWithGoogle: () => void;
   refreshUser: () => Promise<void>;
 };
 
@@ -48,12 +43,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // settings, pets, push devices — can exist for this session. /auth/me returns 0 here for every
   // account that does have a user row.
   const isProviderProfile = (currentUser?.providerProfileId ?? 0) > 0;
-
-  const [, googleResponse, googlePromptAsync] = Google.useAuthRequest({
-    androidClientId: 'YOUR_ANDROID_CLIENT_ID',
-    iosClientId: 'YOUR_IOS_CLIENT_ID',
-    webClientId: 'YOUR_WEB_CLIENT_ID',
-  });
 
   useEffect(() => {
     const checkAuthStatus = async () => {
@@ -107,15 +96,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  useEffect(() => {
-    if (googleResponse?.type === 'success') {
-      const token = googleResponse.authentication?.accessToken;
-      if (token) {
-        signIn(token);
-      }
-    }
-  }, [googleResponse]);
-
   const signIn = async (accessToken: string, refreshToken?: string) => {
     await saveTokens(accessToken, refreshToken);
     const user = await getMe();
@@ -152,10 +132,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setCurrentUser(user);
   };
 
-  const signInWithGoogle = () => {
-    googlePromptAsync();
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -168,7 +144,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signIn,
         signInWithCredentials,
         signOut,
-        signInWithGoogle,
         refreshUser,
       }}>
       {children}
