@@ -23,6 +23,7 @@ import { useMessages } from '../../../context/MessagesContext';
 import { DiscountType } from '../../../services/service-discounts';
 import { formatOfferAmount } from '../../../screens/promotions-screen/components';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { serviceDetailParams } from '../../../navigation/linking';
 
 // No stock-photo fallback.
 //
@@ -275,7 +276,7 @@ export default function HomeScreen() {
   const handleServicePress = (item: ServiceItem) => {
     // Open the service detail screen first — the booker reads everything about
     // the service there, then proceeds to BookService from its "Book Now" CTA.
-    (navigation as any).navigate('ServiceDetail', { service: item.dto });
+    (navigation as any).navigate('ServiceDetail', serviceDetailParams(item.dto));
   };
 
   const handleServiceTypePress = (serviceType: string) => {

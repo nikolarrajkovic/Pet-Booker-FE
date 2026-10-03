@@ -10,6 +10,7 @@ import type { ServiceSearchItem } from './ListView';
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 import { useTabBarHeight } from '../../../hooks/useSafeAreaSpacing';
 import { useLocale } from '../../../context/LocaleContext';
+import { serviceDetailParams } from '../../../navigation/linking';
 interface LocationData {
   latitude: number;
   longitude: number;
@@ -143,7 +144,7 @@ export default function MapViewComponent({
           onPress={() =>
             selectMode
               ? onToggleSelect!(selected)
-              : (navigation as any).navigate('ServiceDetail', { service: selected.dto })
+              : (navigation as any).navigate('ServiceDetail', serviceDetailParams(selected.dto))
           }
           className={`absolute left-4 right-4 flex-row items-center rounded-2xl p-3 shadow-lg ${
             isDarkMode ? 'bg-[#1a2332]' : 'bg-white'

@@ -1,4 +1,5 @@
 import type { LinkingOptions } from '@react-navigation/native';
+import type { ServiceDto } from '../services/services';
 
 /**
  * URL scheme for the app.
@@ -51,7 +52,13 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       ServiceDetail: {
         path: 'services/:serviceId',
         parse: { serviceId: Number },
-        stringify: { serviceId: (id: number) => String(id) },
+        stringify: {
+          serviceId: (id: number) => String(id),
+          // The in-memory head start (see serviceDetailParams) stays out of the address bar:
+          // getPathFromState drops a param that stringifies to 'undefined'. Left in, it rendered
+          // as `?service=[object Object]`, which a reload then parsed back as that string.
+          service: () => 'undefined',
+        },
       },
       BookingDetails: {
         path: 'bookings/:bookingId',
@@ -111,3 +118,10 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
     },
   },
 };
+
+/**
+ * Params for opening a service from a list. The id is what the URL (and a reload) needs; the
+ * service itself lets the screen render before its fetch lands. Every list used to pass only the
+ * service, so the address bar read `/services/undefined` and a reload or a shared link broke.
+ */
+export const serviceDetailParams = (service: ServiceDto) => ({ serviceId: service.id, service });
