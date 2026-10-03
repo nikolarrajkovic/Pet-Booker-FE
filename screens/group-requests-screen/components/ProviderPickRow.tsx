@@ -31,6 +31,9 @@ export default function ProviderPickRow({ item, selected, disabled, onToggle }: 
     <TouchableOpacity
       accessibilityRole="checkbox"
       accessibilityState={{ checked: active, disabled }}
+      // react-native-web 0.21 reads aria-* (accessibilityState alone never reaches the DOM).
+      aria-checked={active}
+      aria-disabled={disabled}
       accessibilityLabel={item.name}
       disabled={disabled}
       activeOpacity={0.7}

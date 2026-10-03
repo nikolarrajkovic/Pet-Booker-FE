@@ -48,6 +48,8 @@ export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }
     <TouchableOpacity
       accessibilityRole="radio"
       accessibilityState={{ checked: active }}
+      // react-native-web 0.21 reads aria-* (accessibilityState alone never reaches the DOM).
+      aria-checked={active}
       onPress={onPress}
       className={`mb-2 flex-row items-center rounded-2xl border-2 p-3 ${
         active

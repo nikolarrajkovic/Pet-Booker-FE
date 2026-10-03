@@ -33,6 +33,7 @@ import { usePagedList } from '../../../hooks/usePagedList';
 import { useNearBottomLoader } from '../../../hooks/useNearBottomLoader';
 import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { useFormChain } from '../../../hooks/useFormChain';
+import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import { useAuth } from '../../../context/AuthContext';
 import { useEnums } from '../../../context/EnumsContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -171,6 +172,11 @@ export default function CreateGroupRequestScreen() {
   const [priceTouched, setPriceTouched] = useState(route.params?.priceTouched ?? false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  /** Narrows the hand-picked list by service name — with hundreds of providers of one type, the
+   *  one the owner has in mind is otherwise pages deep. Never part of an "every matching" audience:
+   *  the server stores filters, not a name, so it is ignored (and hidden) then. */
+  const [nameQuery, setNameQuery] = useState('');
+  const debouncedName = useDebouncedValue(nameQuery.trim(), 300);
   /** serviceId → the pick. A browse row is a service; the request names its provider. */
   const [picked, setPicked] = useState<Map<number, ServiceSearchItem>>(new Map());
   const [facets, setFacets] = useState<{ maxPrice: number; addOns: string[] }>({
@@ -291,10 +297,11 @@ export default function CreateGroupRequestScreen() {
         isActive: true,
         types: serviceType != null ? [serviceType] : undefined,
         ...(JSON.parse(filterKey) as GetServicesParams),
+        name: !anyMatching && debouncedName ? debouncedName : undefined,
         page,
         perPage: PAGE_SIZE,
       }),
-    [serviceType, filterKey]
+    [serviceType, filterKey, anyMatching, debouncedName]
   );
   const candidates = usePagedList<ServiceDto>(fetchPage, {
     enabled: serviceType != null,
@@ -546,6 +553,7 @@ export default function CreateGroupRequestScreen() {
     <TouchableOpacity
       accessibilityRole="checkbox"
       accessibilityState={{ checked: anyMatching }}
+      aria-checked={anyMatching}
       onPress={() => setAnyMatching((v) => !v)}
       className={`mb-3 flex-row items-start rounded-2xl border-2 p-4 ${
         anyMatching
@@ -614,15 +622,19 @@ export default function CreateGroupRequestScreen() {
     serviceType == null ? (
       <Text className={`text-sm ${subtextColor}`}>{t('groupRequest.chooseTypeFirst')}</Text>
     ) : viewMode === 'map' ? (
-      <View style={{ height: isWebLayout ? 460 : 420 }} className="overflow-hidden rounded-2xl">
-        <MapViewComponent
-          services={items}
-          location={location}
-          isDarkMode={isDarkMode}
-          selectedIds={anyMatching ? [] : [...picked.keys()]}
-          onToggleSelect={anyMatching ? undefined : togglePick}
-          bottomOffset={0}
-        />
+      <View>
+        {/* The hint sits below the fixed-height map box, not inside it — inside, the map took
+            the whole height and pushed the hint against the clipped bottom edge. */}
+        <View style={{ height: isWebLayout ? 460 : 420 }} className="overflow-hidden rounded-2xl">
+          <MapViewComponent
+            services={items}
+            location={location}
+            isDarkMode={isDarkMode}
+            selectedIds={anyMatching ? [] : [...picked.keys()]}
+            onToggleSelect={anyMatching ? undefined : togglePick}
+            bottomOffset={0}
+          />
+        </View>
         <Text className={`mt-2 text-xs ${subtextColor}`}>{t('groupRequest.mapHint')}</Text>
       </View>
     ) : (
@@ -659,6 +671,29 @@ export default function CreateGroupRequestScreen() {
     <View>
       {sectionTitle(2, t('groupRequest.stepWho'), !step2Error)}
       {audienceToggle}
+      {!anyMatching && serviceType != null && (
+        <View
+          className={`mb-3 flex-row items-center rounded-xl border px-3 ${borderColor} ${inputBg}`}>
+          <Ionicons name="search" size={16} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+          <TextInput
+            value={nameQuery}
+            onChangeText={setNameQuery}
+            placeholder={t('groupRequest.searchByName')}
+            placeholderTextColor={placeholderColor}
+            accessibilityLabel={t('groupRequest.searchByName')}
+            className={`ml-2 flex-1 py-2.5 ${inputText}`}
+            selectionColor={BRAND_GREEN}
+          />
+          {nameQuery ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t('common.clear')}
+              onPress={() => setNameQuery('')}>
+              <Ionicons name="close-circle" size={18} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      )}
       {whoToolbar}
       {candidateList}
     </View>
@@ -669,6 +704,7 @@ export default function CreateGroupRequestScreen() {
       key={choice}
       accessibilityRole="radio"
       accessibilityState={{ checked: where === choice }}
+      aria-checked={where === choice}
       onPress={() => {
         setWhere(choice);
         if (choice === 'map') setMapPickerVisible(true);

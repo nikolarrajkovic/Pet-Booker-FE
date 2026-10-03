@@ -1395,6 +1395,7 @@ const ru: TranslationDict = {
     declineReasonTooShort: 'Введите не менее 10 символов или оставьте поле пустым.',
   },
   groupRequest: {
+    searchByName: 'Поиск исполнителей по названию',
     navMine: 'Мои групповые запросы',
     navInbox: 'Групповые запросы',
     profileSub: 'Запросы, отправленные нескольким исполнителям',

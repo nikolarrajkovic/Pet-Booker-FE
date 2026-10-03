@@ -177,6 +177,11 @@ export default function MapViewComponent({
     new Map()
   );
   const selectedKey = (selectedIds ?? []).join(',');
+  // The current selection, readable from inside the (async) marker build: when the markers are
+  // rebuilt — more results paging in, the location resolving late — a pin that is already picked
+  // must be drawn picked, or it reverts to an outline while still counted as selected.
+  const pickedRef = useRef<Set<number>>(new Set());
+  pickedRef.current = new Set(selectedIds ?? []);
 
   useEffect(() => {
     if (location.loading) return;
@@ -218,9 +223,10 @@ export default function MapViewComponent({
         services
           .filter((s) => s.latitude != null && s.longitude != null)
           .forEach((s) => {
+            const picked = selectMode && pickedRef.current.has(s.id);
             const pin = pricePinSvg(
-              formatMoney(s.price, serviceCurrency(s.dto)),
-              selectMode ? 'outline' : 'filled'
+              `${picked ? '✓ ' : ''}${formatMoney(s.price, serviceCurrency(s.dto))}`,
+              selectMode && !picked ? 'outline' : 'filled'
             );
             const marker = new maps.Marker({
               map,

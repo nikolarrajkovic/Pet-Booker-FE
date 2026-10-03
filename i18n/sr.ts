@@ -1394,6 +1394,7 @@ const sr: TranslationDict = {
     declineReasonTooShort: 'Unesite najmanje 10 karaktera ili ostavite prazno.',
   },
   groupRequest: {
+    searchByName: 'Pretraži pružaoce po nazivu',
     navMine: 'Moji grupni zahtevi',
     navInbox: 'Grupni zahtevi',
     profileSub: 'Zahtevi poslati većem broju pružalaca',

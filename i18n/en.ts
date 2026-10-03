@@ -1418,6 +1418,7 @@ const en = {
     declineReasonTooShort: 'Please use at least 10 characters, or leave it blank.',
   },
   groupRequest: {
+    searchByName: 'Search providers by name',
     navMine: 'My group requests',
     navInbox: 'Group requests',
     profileSub: 'Requests sent to several providers',
