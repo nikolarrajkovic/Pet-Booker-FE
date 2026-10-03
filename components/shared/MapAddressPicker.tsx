@@ -113,8 +113,7 @@ export default function MapAddressPicker({
         <View
           style={{
             // A full-screen Modal covers the status bar, so its own header has to clear it. This
-            // was a fixed 48 here and a Platform ternary in DirectionsModal — one device's status
-            // bar written down as a constant.
+            // was a fixed 48 — one device's status bar written down as a constant.
             paddingTop: topInset + 12,
             paddingHorizontal: 16,
             paddingBottom: 12,

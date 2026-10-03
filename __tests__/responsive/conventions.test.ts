@@ -165,8 +165,6 @@ describe('dialogs can be dismissed with Esc', () => {
     // the address the user just placed.
     'components/shared/MapAddressPicker.tsx': 'map picker with explicit confirm',
     'components/shared/MapAddressPicker.web.tsx': 'map picker with explicit confirm',
-    'components/shared/DirectionsModal.tsx': 'full-screen directions view',
-    'components/shared/DirectionsModal.web.tsx': 'full-screen directions view',
   };
 
   it('every <Modal> either handles Esc or is listed as exempt', () => {
