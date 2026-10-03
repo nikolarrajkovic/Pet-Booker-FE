@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import FormCard from '../../../components/shared/FormCard';
@@ -42,7 +42,7 @@ import { getErrorMessage, type PagedResult } from '../../../services/http';
 import { getPets, type PetResponse } from '../../../services/pets';
 import { getUser } from '../../../services/users';
 import { createAddress } from '../../../services/addresses';
-import { addressLabel } from '../../../services/geocoding';
+import { addressLabel, reverseGeocodeToAddress, type GeoPoint } from '../../../services/geocoding';
 import { ensurePaymentMethodId } from '../../../services/payment-methods';
 import { formatBookingDate, PaymentType } from '../../../services/bookings';
 import {
@@ -53,7 +53,11 @@ import {
   type GetServicesParams,
   type ServiceDto,
 } from '../../../services/services';
-import { resolveImageUrl, type AddressDto } from '../../../services/service-providers';
+import {
+  resolveImageUrl,
+  ServiceProviderType,
+  type AddressDto,
+} from '../../../services/service-providers';
 import {
   createGroupBookingRequest,
   GroupBookingAudience,
@@ -79,7 +83,30 @@ const PAGE_SIZE = 20;
 const DEFAULT_MAX_PRICE = 200;
 const NOTE_LIMIT = 1000;
 
-type WhereChoice = 'none' | 'account' | 'map';
+type WhereChoice = 'none' | 'account' | 'current' | 'map';
+
+/**
+ * Service types that come to the pet: a walker, a sitter or a transporter starts at the owner's,
+ * so the owner's own place is the natural default for "Where". Boarding, a pet hotel and a
+ * groomer work at their own premises, so those default to "At the provider's".
+ */
+const COMES_TO_THE_PET = new Set<number>([
+  ServiceProviderType.Sitter,
+  ServiceProviderType.Walker,
+  ServiceProviderType.Transporter,
+]);
+
+const pointOf = (a?: AddressDto | null): GeoPoint | null =>
+  a?.location?.latitude != null && a?.location?.longitude != null
+    ? { latitude: a.location.latitude, longitude: a.location.longitude }
+    : null;
+
+/** The API wants a non-empty state; a reverse-geocoded place does not always carry one. */
+const withState = (a: AddressDto): AddressDto => ({
+  ...a,
+  id: undefined,
+  state: a.state || a.city || a.country || '-',
+});
 
 /** '4+' → 4, 'Any' → undefined — the same reading SearchScreen gives the rating chips. */
 function ratingThreshold(minimumRating: string): number | undefined {
@@ -132,6 +159,7 @@ export default function CreateGroupRequestScreen() {
   const route = useRoute<RouteProp<{ params: CreateGroupRequestParams }, 'params'>>();
   const gutter = usePageGutter();
   const { resetToScreen } = useAppNavigation();
+  const navigation = useNavigation();
   const { isWebLayout, isDesktop } = useResponsive();
   const {
     isDarkMode,
@@ -186,40 +214,100 @@ export default function CreateGroupRequestScreen() {
   });
 
   // ── details ────────────────────────────────────────────────────────────────
+  // Where defaults to the owner's own place for a service that comes to the pet: their saved
+  // address first, else where the device is now; for one that does not, the provider's. It
+  // follows the type until the owner chooses for themselves.
   const [where, setWhere] = useState<WhereChoice>('none');
+  const [whereTouched, setWhereTouched] = useState(false);
   const [accountAddress, setAccountAddress] = useState<AddressDto | null>(null);
+  const [currentPlace, setCurrentPlace] = useState<AddressDto | null>(null);
+  const [currentPlaceState, setCurrentPlaceState] = useState<'locating' | 'ready' | 'unavailable'>(
+    'locating'
+  );
   const [mapAddress, setMapAddress] = useState<AddressDto | null>(null);
   const [mapPickerVisible, setMapPickerVisible] = useState(false);
+  // What "Where" was before the map opened, to go back to if the picker closes with no pin.
+  const whereBeforeMap = useRef<WhereChoice>('none');
+  // The picker calls onSelect and then onClose in the same tick, so onClose would read the
+  // render's stale `mapAddress` (still null on a first pick) and undo the pick just made.
+  const mapAddressRef = useRef<AddressDto | null>(null);
   const [note, setNote] = useState('');
   const [payByCash, setPayByCash] = useState(false);
 
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
 
-  // Pets + the saved account address, once.
+  // Pets + the saved account address — on every focus, not once: "Add a pet" goes to Add Pet
+  // and comes back here, and the pet just added is the one this request is for.
+  const knownPetIds = useRef<Set<string> | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      if (!currentUser?.id) return;
+      let cancelled = false;
+      (async () => {
+        try {
+          const [mine, user] = await Promise.all([
+            getPets(currentUser.id),
+            getUser(currentUser.id).catch(() => null),
+          ]);
+          if (cancelled) return;
+          setPets(mine);
+          const before = knownPetIds.current;
+          const added = before ? mine.filter((p) => p.id != null && !before.has(p.id)) : [];
+          knownPetIds.current = new Set(mine.flatMap((p) => (p.id != null ? [p.id] : [])));
+          if (added.length > 0) setPetId(added[added.length - 1].id ?? null);
+          else if (mine.length === 1 && mine[0].id != null)
+            setPetId((cur) => cur ?? mine[0].id ?? null);
+          setAccountAddress(user?.address?.id ? user.address : null);
+        } catch (e) {
+          if (!cancelled) showError(getErrorMessage(e, t('groupRequest.petsLoadFailed')));
+        } finally {
+          if (!cancelled) setPetsLoading(false);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [currentUser?.id, showError, t])
+  );
+
+  // Where the device is now, as an address — offered as "My current location".
   useEffect(() => {
-    if (!currentUser?.id) return;
+    if (location.loading) return;
+    if (location.error) {
+      setCurrentPlaceState('unavailable');
+      return;
+    }
     let cancelled = false;
-    (async () => {
-      try {
-        const [mine, user] = await Promise.all([
-          getPets(currentUser.id),
-          getUser(currentUser.id).catch(() => null),
-        ]);
+    reverseGeocodeToAddress({ latitude: location.latitude, longitude: location.longitude })
+      .then((a) => {
         if (cancelled) return;
-        setPets(mine);
-        if (mine.length === 1 && mine[0].id != null) setPetId(mine[0].id);
-        if (user?.address?.id) setAccountAddress(user.address);
-      } catch (e) {
-        if (!cancelled) showError(getErrorMessage(e, t('groupRequest.petsLoadFailed')));
-      } finally {
-        if (!cancelled) setPetsLoading(false);
-      }
-    })();
+        if (a.line1 || a.city) {
+          setCurrentPlace(a);
+          setCurrentPlaceState('ready');
+        } else {
+          setCurrentPlaceState('unavailable');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCurrentPlaceState('unavailable');
+      });
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.id, showError, t]);
+  }, [location.loading, location.error, location.latitude, location.longitude]);
+
+  const preferredWhere: WhereChoice =
+    serviceType != null && !COMES_TO_THE_PET.has(serviceType)
+      ? 'none'
+      : accountAddress
+        ? 'account'
+        : currentPlace
+          ? 'current'
+          : 'none';
+  useEffect(() => {
+    if (!whereTouched) setWhere(preferredWhere);
+  }, [preferredWhere, whereTouched]);
 
   // Filter options for the chosen type: the price ceiling and the extras on offer. Sampled once
   // per type rather than derived from the rows on screen — see SearchScreen's `facets`.
@@ -381,12 +469,9 @@ export default function CreateGroupRequestScreen() {
 
       let addressId: number | null = null;
       if (where === 'account' && accountAddress?.id) addressId = accountAddress.id;
-      if (where === 'map' && mapAddress) {
-        // The API wants a non-empty state; a reverse-geocoded pin does not always carry one.
-        const saved = await createAddress({
-          ...mapAddress,
-          state: mapAddress.state || mapAddress.city || mapAddress.country || '-',
-        });
+      const placed = where === 'map' ? mapAddress : where === 'current' ? currentPlace : null;
+      if (placed) {
+        const saved = await createAddress(withState(placed));
         addressId = saved.id ?? null;
       }
 
@@ -456,6 +541,8 @@ export default function CreateGroupRequestScreen() {
       key={key ?? text}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
+      // react-native-web reads aria-*, not accessibilityState.
+      aria-pressed={active}
       onPress={onPress}
       className={`rounded-full border px-4 py-2 ${
         active
@@ -503,6 +590,9 @@ export default function CreateGroupRequestScreen() {
     return d;
   };
 
+  // Add Pet returns here on save (goBackOnSave), and the focus reload picks the new pet.
+  const addPet = () => (navigation as any).navigate('AddPet', { goBackOnSave: true });
+
   const whatAndWhen = (
     <View>
       {sectionTitle(1, t('groupRequest.stepWhat'), !step1Error)}
@@ -522,12 +612,45 @@ export default function CreateGroupRequestScreen() {
       {petsLoading ? (
         <ActivityIndicator color={BRAND_GREEN} />
       ) : pets.length === 0 ? (
-        <Text className={`text-sm ${subtextColor}`}>{t('groupRequest.noPets')}</Text>
+        <View
+          className={`rounded-2xl border border-dashed p-4 ${isDarkMode ? 'border-gray-600' : 'border-brand-300'} ${
+            isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-50'
+          }`}>
+          <View className="flex-row items-center">
+            <View
+              className={`h-10 w-10 items-center justify-center rounded-full ${isDarkMode ? 'bg-[#243447]' : 'bg-white'}`}>
+              <Ionicons name="paw" size={20} color={BRAND_GREEN} />
+            </View>
+            <View className="ml-3 flex-1">
+              <Text className={`text-sm font-semibold ${textColor}`}>
+                {t('groupRequest.noPetsTitle')}
+              </Text>
+              <Text className={`text-xs ${subtextColor}`}>{t('groupRequest.noPets')}</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={addPet}
+            className="mt-3 flex-row items-center justify-center rounded-xl bg-brand-500 py-3">
+            <Ionicons name="add" size={18} color="white" />
+            <Text className="ml-1.5 text-sm font-bold text-white">{t('bookService.addAPet')}</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <View className="flex-row flex-wrap gap-2">
           {pets.map((p) =>
             chip(petId === p.id, p.name, () => setPetId(p.id ?? null), p.id ?? p.name)
           )}
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t('bookService.addAPet')}
+            onPress={addPet}
+            className={`flex-row items-center rounded-full border border-dashed px-3 py-2 ${borderColor}`}>
+            <Ionicons name="add" size={15} color={BRAND_GREEN} />
+            <Text className="ml-1 text-sm font-medium text-brand-600">
+              {t('groupRequest.addPetChip')}
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -701,15 +824,21 @@ export default function CreateGroupRequestScreen() {
     </View>
   );
 
-  const whereOption = (choice: WhereChoice, text: string, sub?: string) => (
+  const whereOption = (choice: WhereChoice, text: string, sub?: string, disabled = false) => (
     <TouchableOpacity
       key={choice}
       accessibilityRole="radio"
-      accessibilityState={{ checked: where === choice }}
+      accessibilityState={{ checked: where === choice, disabled }}
       aria-checked={where === choice}
+      aria-disabled={disabled}
+      disabled={disabled}
       onPress={() => {
+        setWhereTouched(true);
+        if (choice === 'map') {
+          if (where !== 'map') whereBeforeMap.current = where;
+          setMapPickerVisible(true);
+        }
         setWhere(choice);
-        if (choice === 'map') setMapPickerVisible(true);
       }}
       className={`mb-2 flex-row items-center rounded-2xl border-2 px-4 py-3 ${
         where === choice
@@ -736,9 +865,16 @@ export default function CreateGroupRequestScreen() {
     <View>
       {sectionTitle(3, t('groupRequest.stepDetails'), !step3Error, t('bookService.optional'))}
       {label(t('groupRequest.where'))}
-      {whereOption('none', t('groupRequest.whereNone'))}
       {accountAddress &&
         whereOption('account', t('groupRequest.whereAccount'), addressLabel(accountAddress))}
+      {currentPlaceState !== 'unavailable' &&
+        whereOption(
+          'current',
+          t('groupRequest.whereCurrent'),
+          currentPlace ? addressLabel(currentPlace) : t('groupRequest.whereLocating'),
+          !currentPlace
+        )}
+      {whereOption('none', t('groupRequest.whereNone'))}
       {whereOption(
         'map',
         t('groupRequest.whereMap'),
@@ -777,6 +913,21 @@ export default function CreateGroupRequestScreen() {
     </View>
   );
   const petName = pets.find((p) => p.id === petId)?.name;
+  const whereLabel =
+    where === 'account' && accountAddress
+      ? addressLabel(accountAddress)
+      : where === 'current' && currentPlace
+        ? addressLabel(currentPlace)
+        : where === 'map' && mapAddress
+          ? addressLabel(mapAddress)
+          : t('groupRequest.whereNone');
+  // The picker opens on the place in play: a pin already dropped, else the chosen address,
+  // else the saved one, else where the device is.
+  const pickerStart =
+    pointOf(mapAddress) ??
+    (where === 'current' ? pointOf(currentPlace) : null) ??
+    pointOf(accountAddress) ??
+    pointOf(currentPlace);
 
   const summary = (
     <View className={`rounded-2xl border p-5 ${borderColor} ${cardBg}`}>
@@ -784,6 +935,7 @@ export default function CreateGroupRequestScreen() {
       {summaryLine('pricetag-outline', typeLabel || t('groupRequest.chooseType'))}
       {summaryLine('paw-outline', petName ?? t('groupRequest.choosePet'))}
       {summaryLine('calendar-outline', formatDateWindow(t, from, to))}
+      {summaryLine('location-outline', whereLabel)}
       {summaryLine(
         'people-outline',
         anyMatching
@@ -860,13 +1012,19 @@ export default function CreateGroupRequestScreen() {
         <MapAddressPicker
           visible
           title={t('groupRequest.whereMap')}
-          initialRegion={{ latitude: location.latitude, longitude: location.longitude }}
+          initialRegion={
+            pickerStart ?? { latitude: location.latitude, longitude: location.longitude }
+          }
+          // Open on the place already chosen rather than jumping to the GPS fix — an owner placing
+          // the pin near home should not start from wherever they are sitting.
+          locateOnOpen={!pickerStart}
           isDarkMode={isDarkMode}
           onClose={() => {
             setMapPickerVisible(false);
-            if (!mapAddress) setWhere('none');
+            if (!mapAddressRef.current) setWhere(whereBeforeMap.current);
           }}
           onSelect={(address) => {
+            mapAddressRef.current = address;
             setMapAddress(address);
             setWhere('map');
           }}

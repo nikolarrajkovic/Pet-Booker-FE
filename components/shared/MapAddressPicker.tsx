@@ -18,6 +18,12 @@ export type MapAddressPickerProps = {
   visible: boolean;
   title: string;
   initialRegion: GeoPoint;
+  /**
+   * Jump to the device's position once the picker opens (default). Pass false when
+   * `initialRegion` is a place the user already chose — a saved address, a pin already dropped —
+   * so the map opens there instead of wherever the device happens to be.
+   */
+  locateOnOpen?: boolean;
   isDarkMode: boolean;
   onClose: () => void;
   onSelect: (address: AddressDto, label: string) => void;
@@ -35,6 +41,7 @@ export default function MapAddressPicker({
   visible,
   title,
   initialRegion,
+  locateOnOpen = true,
   isDarkMode,
   onClose,
   onSelect,
@@ -55,8 +62,9 @@ export default function MapAddressPicker({
     mapRef.current?.animateToRegion({ ...p, ...DELTA }, 500);
   };
 
-  // Centre on the user's current location when the picker opens.
+  // Centre on the user's current location when the picker opens (unless told where to open).
   useEffect(() => {
+    if (!locateOnOpen) return;
     let active = true;
     (async () => {
       const p = await getCurrentPosition();
@@ -67,7 +75,7 @@ export default function MapAddressPicker({
     return () => {
       active = false;
     };
-  }, []);
+  }, [locateOnOpen]);
 
   const runSearch = async () => {
     if (!query.trim()) return;
