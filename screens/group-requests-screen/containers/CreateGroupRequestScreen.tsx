@@ -42,7 +42,7 @@ import { getErrorMessage, type PagedResult } from '../../../services/http';
 import { getPets, type PetResponse } from '../../../services/pets';
 import { getUser } from '../../../services/users';
 import { createAddress } from '../../../services/addresses';
-import { addressLabel, reverseGeocodeToAddress, type GeoPoint } from '../../../services/geocoding';
+import { addressLabel } from '../../../services/geocoding';
 import { ensurePaymentMethodId } from '../../../services/payment-methods';
 import { formatBookingDate, PaymentType } from '../../../services/bookings';
 import {
@@ -53,11 +53,7 @@ import {
   type GetServicesParams,
   type ServiceDto,
 } from '../../../services/services';
-import {
-  resolveImageUrl,
-  ServiceProviderType,
-  type AddressDto,
-} from '../../../services/service-providers';
+import { resolveImageUrl } from '../../../services/service-providers';
 import {
   createGroupBookingRequest,
   GroupBookingAudience,
@@ -67,6 +63,8 @@ import type { ServiceSearchItem } from '../../search-screen/components/ListView'
 import ProviderPickRow from '../components/ProviderPickRow';
 import { formatDateWindow } from '../groupRequestFormat';
 import { formatWeekdayDayMonth } from '../../../i18n/dates';
+import { useRequestPlace, type WhereChoice } from '../useRequestPlace';
+import { useProviderSelection } from '../useProviderSelection';
 
 /**
  * What a caller (Search, Home) hands over: the browse filters it had applied, so "send to every
@@ -82,31 +80,6 @@ export type CreateGroupRequestParams = {
 const PAGE_SIZE = 20;
 const DEFAULT_MAX_PRICE = 200;
 const NOTE_LIMIT = 1000;
-
-type WhereChoice = 'none' | 'account' | 'current' | 'map';
-
-/**
- * Service types that come to the pet: a walker, a sitter or a transporter starts at the owner's,
- * so the owner's own place is the natural default for "Where". Boarding, a pet hotel and a
- * groomer work at their own premises, so those default to "At the provider's".
- */
-const COMES_TO_THE_PET = new Set<number>([
-  ServiceProviderType.Sitter,
-  ServiceProviderType.Walker,
-  ServiceProviderType.Transporter,
-]);
-
-const pointOf = (a?: AddressDto | null): GeoPoint | null =>
-  a?.location?.latitude != null && a?.location?.longitude != null
-    ? { latitude: a.location.latitude, longitude: a.location.longitude }
-    : null;
-
-/** The API wants a non-empty state; a reverse-geocoded place does not always carry one. */
-const withState = (a: AddressDto): AddressDto => ({
-  ...a,
-  id: undefined,
-  state: a.state || a.city || a.country || '-',
-});
 
 /** '4+' → 4, 'Any' → undefined — the same reading SearchScreen gives the rating chips. */
 function ratingThreshold(minimumRating: string): number | undefined {
@@ -190,7 +163,9 @@ export default function CreateGroupRequestScreen() {
   const [picker, setPicker] = useState<null | 'fromDate' | 'fromTime' | 'toDate' | 'toTime'>(null);
 
   // ── who ────────────────────────────────────────────────────────────────────
-  const [anyMatching, setAnyMatching] = useState(false);
+  const selection = useProviderSelection(serviceType);
+  const { anyMatching, toggleAnyMatching, isTicked, pickedProviderCount, excludedCount } =
+    selection;
   const [filters, setFilters] = useState<FilterState>(() => ({
     ...EMPTY_FILTERS,
     priceRange: [0, DEFAULT_MAX_PRICE],
@@ -201,36 +176,20 @@ export default function CreateGroupRequestScreen() {
   const [priceTouched, setPriceTouched] = useState(route.params?.priceTouched ?? false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-  /** Narrows the hand-picked list by service name — with hundreds of providers of one type, the
-   *  one the owner has in mind is otherwise pages deep. Never part of an "every matching" audience:
-   *  the server stores filters, not a name, so it is ignored (and hidden) then. */
+  /** Narrows the list by name — with hundreds of providers of one type, the one the owner has in
+   *  mind is otherwise pages deep. Under "every matching" it only helps find someone to leave out:
+   *  the server stores filters, not a name, so it never narrows who gets the request. */
   const [nameQuery, setNameQuery] = useState('');
   const debouncedName = useDebouncedValue(nameQuery.trim(), 300);
-  /** serviceId → the pick. A browse row is a service; the request names its provider. */
-  const [picked, setPicked] = useState<Map<number, ServiceSearchItem>>(new Map());
   const [facets, setFacets] = useState<{ maxPrice: number; addOns: string[] }>({
     maxPrice: Math.max(DEFAULT_MAX_PRICE, route.params?.filters?.priceRange?.[1] ?? 0),
     addOns: [],
   });
 
   // ── details ────────────────────────────────────────────────────────────────
-  // Where defaults to the owner's own place for a service that comes to the pet: their saved
-  // address first, else where the device is now; for one that does not, the provider's. It
-  // follows the type until the owner chooses for themselves.
-  const [where, setWhere] = useState<WhereChoice>('none');
-  const [whereTouched, setWhereTouched] = useState(false);
-  const [accountAddress, setAccountAddress] = useState<AddressDto | null>(null);
-  const [currentPlace, setCurrentPlace] = useState<AddressDto | null>(null);
-  const [currentPlaceState, setCurrentPlaceState] = useState<'locating' | 'ready' | 'unavailable'>(
-    'locating'
-  );
-  const [mapAddress, setMapAddress] = useState<AddressDto | null>(null);
-  const [mapPickerVisible, setMapPickerVisible] = useState(false);
-  // What "Where" was before the map opened, to go back to if the picker closes with no pin.
-  const whereBeforeMap = useRef<WhereChoice>('none');
-  // The picker calls onSelect and then onClose in the same tick, so onClose would read the
-  // render's stale `mapAddress` (still null on a first pick) and undo the pick just made.
-  const mapAddressRef = useRef<AddressDto | null>(null);
+  const place = useRequestPlace(serviceType, location);
+  const { where, accountAddress, currentPlace, currentPlaceState, mapAddress, setAccountAddress } =
+    place;
   const [note, setNote] = useState('');
   const [payByCash, setPayByCash] = useState(false);
 
@@ -268,46 +227,8 @@ export default function CreateGroupRequestScreen() {
       return () => {
         cancelled = true;
       };
-    }, [currentUser?.id, showError, t])
+    }, [currentUser?.id, showError, t, setAccountAddress])
   );
-
-  // Where the device is now, as an address — offered as "My current location".
-  useEffect(() => {
-    if (location.loading) return;
-    if (location.error) {
-      setCurrentPlaceState('unavailable');
-      return;
-    }
-    let cancelled = false;
-    reverseGeocodeToAddress({ latitude: location.latitude, longitude: location.longitude })
-      .then((a) => {
-        if (cancelled) return;
-        if (a.line1 || a.city) {
-          setCurrentPlace(a);
-          setCurrentPlaceState('ready');
-        } else {
-          setCurrentPlaceState('unavailable');
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setCurrentPlaceState('unavailable');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [location.loading, location.error, location.latitude, location.longitude]);
-
-  const preferredWhere: WhereChoice =
-    serviceType != null && !COMES_TO_THE_PET.has(serviceType)
-      ? 'none'
-      : accountAddress
-        ? 'account'
-        : currentPlace
-          ? 'current'
-          : 'none';
-  useEffect(() => {
-    if (!whereTouched) setWhere(preferredWhere);
-  }, [preferredWhere, whereTouched]);
 
   // Filter options for the chosen type: the price ceiling and the extras on offer. Sampled once
   // per type rather than derived from the rows on screen — see SearchScreen's `facets`.
@@ -388,11 +309,13 @@ export default function CreateGroupRequestScreen() {
         ...(JSON.parse(filterKey) as GetServicesParams),
         // `query`, not `name`: the field promises a provider's name, and `name` matched only the
         // service's own title — typing "Marko" found nothing unless his listing said so.
-        query: !anyMatching && debouncedName ? debouncedName : undefined,
+        // Under "every matching" it only narrows what is shown, to find someone to leave out —
+        // the audience is the filters, never a name.
+        query: debouncedName || undefined,
         page,
         perPage: PAGE_SIZE,
       }),
-    [serviceType, filterKey, anyMatching, debouncedName]
+    [serviceType, filterKey, debouncedName]
   );
   const candidates = usePagedList<ServiceDto>(fetchPage, {
     enabled: serviceType != null,
@@ -414,24 +337,6 @@ export default function CreateGroupRequestScreen() {
   );
   const listRef = useNearBottomLoader(step === 2 || isWebLayout, candidates.loadMore);
 
-  // Changing the type invalidates every pick: a groomer picked for a walk is not a walker.
-  useEffect(() => {
-    setPicked(new Map());
-  }, [serviceType]);
-
-  const togglePick = (item: ServiceSearchItem) =>
-    setPicked((prev) => {
-      const next = new Map(prev);
-      if (next.has(item.id)) next.delete(item.id);
-      else next.set(item.id, item);
-      return next;
-    });
-
-  const pickedProviderCount = useMemo(
-    () => new Set([...picked.values()].map((p) => p.dto.serviceProviderId)).size,
-    [picked]
-  );
-
   // ── validation ─────────────────────────────────────────────────────────────
   const whenError =
     to <= from
@@ -447,12 +352,11 @@ export default function CreateGroupRequestScreen() {
         : whenError;
   const step2Error =
     !anyMatching && pickedProviderCount === 0 ? t('groupRequest.chooseProviders') : null;
-  const step3Error =
-    where === 'map' && !mapAddress
-      ? t('groupRequest.pickAddress')
-      : note.length > NOTE_LIMIT
-        ? t('groupRequest.noteTooLong', { max: NOTE_LIMIT })
-        : null;
+  const step3Error = place.needsMapPin
+    ? t('groupRequest.pickAddress')
+    : note.length > NOTE_LIMIT
+      ? t('groupRequest.noteTooLong', { max: NOTE_LIMIT })
+      : null;
   const firstError = step1Error ?? step2Error ?? step3Error;
 
   // ── submit ─────────────────────────────────────────────────────────────────
@@ -467,13 +371,7 @@ export default function CreateGroupRequestScreen() {
       const paymentType = payByCash ? PaymentType.Cash : PaymentType.Card;
       const paymentMethodId = await ensurePaymentMethodId(currentUser.id, paymentType);
 
-      let addressId: number | null = null;
-      if (where === 'account' && accountAddress?.id) addressId = accountAddress.id;
-      const placed = where === 'map' ? mapAddress : where === 'current' ? currentPlace : null;
-      if (placed) {
-        const saved = await createAddress(withState(placed));
-        addressId = saved.id ?? null;
-      }
+      const addressId = await place.resolveAddressId(createAddress);
 
       await createGroupBookingRequest({
         petId: Number(petId),
@@ -487,12 +385,8 @@ export default function CreateGroupRequestScreen() {
         audience: anyMatching
           ? GroupBookingAudience.AnyEligible
           : GroupBookingAudience.SelectedProviders,
-        providers: anyMatching
-          ? []
-          : [...picked.values()].map((p) => ({
-              serviceProviderId: p.dto.serviceProviderId!,
-              serviceId: p.id,
-            })),
+        excludedProviderIds: selection.excludedProviderIds,
+        providers: selection.providers,
         ...(anyMatching
           ? {
               minPrice: filterParams.minPrice,
@@ -679,7 +573,7 @@ export default function CreateGroupRequestScreen() {
       accessibilityRole="checkbox"
       accessibilityState={{ checked: anyMatching }}
       aria-checked={anyMatching}
-      onPress={() => setAnyMatching((v) => !v)}
+      onPress={toggleAnyMatching}
       className={`mb-3 flex-row items-start rounded-2xl border-2 p-4 ${
         anyMatching
           ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
@@ -737,7 +631,14 @@ export default function CreateGroupRequestScreen() {
       ))}
       <Text className={`ml-auto text-xs ${subtextColor}`}>
         {anyMatching
-          ? t('groupRequest.matchingCount', { count: candidates.totalItems })
+          ? debouncedName
+            ? t('groupRequest.excludedCount', { count: excludedCount })
+            : excludedCount > 0
+              ? t('groupRequest.matchingExceptCount', {
+                  count: candidates.totalItems,
+                  excluded: excludedCount,
+                })
+              : t('groupRequest.matchingCount', { count: candidates.totalItems })
           : t('groupRequest.selectedCount', { count: pickedProviderCount })}
       </Text>
     </View>
@@ -755,12 +656,14 @@ export default function CreateGroupRequestScreen() {
             services={items}
             location={location}
             isDarkMode={isDarkMode}
-            selectedIds={anyMatching ? [] : [...picked.keys()]}
-            onToggleSelect={anyMatching ? undefined : togglePick}
+            selectedIds={items.filter(isTicked).map((i) => i.id)}
+            onToggleSelect={selection.toggle}
             bottomOffset={0}
           />
         </View>
-        <Text className={`mt-2 text-xs ${subtextColor}`}>{t('groupRequest.mapHint')}</Text>
+        <Text className={`mt-2 text-xs ${subtextColor}`}>
+          {anyMatching ? t('groupRequest.mapHintAny') : t('groupRequest.mapHint')}
+        </Text>
       </View>
     ) : (
       <View ref={listRef}>
@@ -774,9 +677,8 @@ export default function CreateGroupRequestScreen() {
             <ProviderPickRow
               key={item.id}
               item={item}
-              selected={picked.has(item.id)}
-              disabled={anyMatching}
-              onToggle={togglePick}
+              selected={isTicked(item)}
+              onToggle={selection.toggle}
             />
           ))}
         </ListState>
@@ -796,7 +698,7 @@ export default function CreateGroupRequestScreen() {
     <View>
       {sectionTitle(2, t('groupRequest.stepWho'), !step2Error)}
       {audienceToggle}
-      {!anyMatching && serviceType != null && (
+      {serviceType != null && (
         <View
           className={`mb-3 flex-row items-center rounded-xl border px-3 ${borderColor} ${inputBg}`}>
           <Ionicons name="search" size={16} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
@@ -819,6 +721,11 @@ export default function CreateGroupRequestScreen() {
           ) : null}
         </View>
       )}
+      {anyMatching && serviceType != null && (
+        <Text className={`-mt-1 mb-3 text-xs ${subtextColor}`}>
+          {t('groupRequest.anyMatchingUntickHint')}
+        </Text>
+      )}
       {whoToolbar}
       {candidateList}
     </View>
@@ -832,14 +739,7 @@ export default function CreateGroupRequestScreen() {
       aria-checked={where === choice}
       aria-disabled={disabled}
       disabled={disabled}
-      onPress={() => {
-        setWhereTouched(true);
-        if (choice === 'map') {
-          if (where !== 'map') whereBeforeMap.current = where;
-          setMapPickerVisible(true);
-        }
-        setWhere(choice);
-      }}
+      onPress={() => place.choose(choice)}
       className={`mb-2 flex-row items-center rounded-2xl border-2 px-4 py-3 ${
         where === choice
           ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
@@ -913,21 +813,7 @@ export default function CreateGroupRequestScreen() {
     </View>
   );
   const petName = pets.find((p) => p.id === petId)?.name;
-  const whereLabel =
-    where === 'account' && accountAddress
-      ? addressLabel(accountAddress)
-      : where === 'current' && currentPlace
-        ? addressLabel(currentPlace)
-        : where === 'map' && mapAddress
-          ? addressLabel(mapAddress)
-          : t('groupRequest.whereNone');
-  // The picker opens on the place in play: a pin already dropped, else the chosen address,
-  // else the saved one, else where the device is.
-  const pickerStart =
-    pointOf(mapAddress) ??
-    (where === 'current' ? pointOf(currentPlace) : null) ??
-    pointOf(accountAddress) ??
-    pointOf(currentPlace);
+  const whereLabel = place.chosen ? addressLabel(place.chosen) : t('groupRequest.whereNone');
 
   const summary = (
     <View className={`rounded-2xl border p-5 ${borderColor} ${cardBg}`}>
@@ -939,7 +825,9 @@ export default function CreateGroupRequestScreen() {
       {summaryLine(
         'people-outline',
         anyMatching
-          ? t('groupRequest.summaryAny', { count: candidates.totalItems })
+          ? excludedCount > 0
+            ? t('groupRequest.summaryAnyExcept', { excluded: excludedCount })
+            : t('groupRequest.summaryAny', { count: candidates.totalItems })
           : t('groupRequest.selectedCount', { count: pickedProviderCount })
       )}
       <Text className={`mb-4 mt-2 text-xs ${subtextColor}`}>{t('groupRequest.firstToAccept')}</Text>
@@ -1008,26 +896,19 @@ export default function CreateGroupRequestScreen() {
         availableAddOns={facets.addOns}
         hideServiceTypes
       />
-      {mapPickerVisible && (
+      {place.picker.visible && (
         <MapAddressPicker
           visible
           title={t('groupRequest.whereMap')}
           initialRegion={
-            pickerStart ?? { latitude: location.latitude, longitude: location.longitude }
+            place.picker.start ?? { latitude: location.latitude, longitude: location.longitude }
           }
           // Open on the place already chosen rather than jumping to the GPS fix — an owner placing
           // the pin near home should not start from wherever they are sitting.
-          locateOnOpen={!pickerStart}
+          locateOnOpen={!place.picker.start}
           isDarkMode={isDarkMode}
-          onClose={() => {
-            setMapPickerVisible(false);
-            if (!mapAddressRef.current) setWhere(whereBeforeMap.current);
-          }}
-          onSelect={(address) => {
-            mapAddressRef.current = address;
-            setMapAddress(address);
-            setWhere('map');
-          }}
+          onClose={place.picker.onClose}
+          onSelect={place.picker.onSelect}
         />
       )}
     </>
@@ -1046,7 +927,10 @@ export default function CreateGroupRequestScreen() {
             container between the aside and it is what stops `position: sticky` from holding the
             summary (and its Send button) in view. Paging the candidate list rides on
             useNearBottomLoader, which listens to the page scroller. */}
-        <View style={{ paddingBottom: 32 }}>
+        {/* The page gutter: ScreenLayout pads the header but leaves the body to the screen, and
+            without it the cards sat flush against the sidebar and the summary against the
+            window's right edge. */}
+        <View className={gutter.px} style={{ paddingBottom: 32 }}>
           <TwoColumn aside={summary} asideWidth={isDesktop ? 340 : 300}>
             <View style={{ gap: 16 }}>
               <FormCard>{whatAndWhen}</FormCard>

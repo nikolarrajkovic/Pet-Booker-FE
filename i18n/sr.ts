@@ -1435,6 +1435,11 @@ const sr: TranslationDict = {
       'Videće ga svaki pružalac koji odgovara vašim filterima ({count}) — i oni koji se kasnije pridruže.',
     selectedCount: 'Izabrano pružalaca: {count}',
     matchingCount: 'Trenutno odgovara usluga: {count}',
+    matchingExceptCount: 'Odgovarajućih usluga: {count} · izostavljeno: {excluded}',
+    excludedCount: 'Izostavljeno: {count}',
+    anyMatchingUntickHint:
+      'Svi ispod dobijaju zahtev. Isključite pružaoca da ga izostavite — pretraga ga samo pronalazi, ne sužava kome se šalje.',
+    mapHintAny: 'Dodirnite oznaku da izostavite tog pružaoca ili da ga vratite.',
     noProviders:
       'Još nijedan pružalac ne nudi ovo uz ove filtere. Ublažite filter ili pošaljite svima koji odgovaraju, pa će ga videti i novi.',
     providersLoadFailed: 'Učitavanje pružalaca nije uspelo.',
@@ -1462,6 +1467,7 @@ const sr: TranslationDict = {
       'Cena je cena pružaoca koji prihvati, izračunata kada prihvati — videćete je na rezervaciji.',
     summary: 'Vaš zahtev',
     summaryAny: 'Svi pružaoci koji odgovaraju (trenutno odgovara usluga: {count})',
+    summaryAnyExcept: 'Svi odgovarajući pružaoci, osim {excluded} koje ste izostavili',
     firstToAccept:
       'Rezervaciju dobija prvi pružalac koji prihvati; zahtev se tada zatvara za sve ostale.',
     send: 'Pošalji zahtev',
@@ -1480,6 +1486,7 @@ const sr: TranslationDict = {
     statusCancelled: 'Otkazan',
     statusExpired: 'Istekao',
     audienceAny: 'Otvoren za sve pružaoce koji odgovaraju',
+    audienceAnyExcept: 'Otvoren za sve pružaoce koji odgovaraju, osim: {names}',
     audienceSelected: 'Poslat pružaocima: {count}',
     declinedCount: 'odbilo: {count}',
     takenBy: 'Preuzeo: {name}',

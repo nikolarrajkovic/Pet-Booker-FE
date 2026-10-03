@@ -119,7 +119,11 @@ export default function MyGroupRequestsScreen() {
 
   const audienceText = (r: GroupBookingRequestDto) =>
     r.audience === GroupBookingAudience.AnyEligible
-      ? t('groupRequest.audienceAny')
+      ? (r.excluded?.length ?? 0) > 0
+        ? t('groupRequest.audienceAnyExcept', {
+            names: (r.excluded ?? []).map((x) => x.serviceProviderName ?? '').join(', '),
+          })
+        : t('groupRequest.audienceAny')
       : t('groupRequest.audienceSelected', { count: r.invitedCount });
 
   const card = (r: GroupBookingRequestDto) => {

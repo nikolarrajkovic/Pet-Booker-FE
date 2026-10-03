@@ -1460,6 +1460,11 @@ const en = {
       'Every provider matching your {count} filters will see it — including ones who join later.',
     selectedCount: '{count} providers selected',
     matchingCount: '{count} matching services right now',
+    matchingExceptCount: '{count} matching services · {excluded} left out',
+    excludedCount: '{count} left out',
+    anyMatchingUntickHint:
+      'Everyone below gets it. Untick a provider to leave them out — searching only finds them, it does not narrow who gets it.',
+    mapHintAny: 'Tap a pin to leave that provider out, or to bring them back.',
     noProviders:
       'No provider offers this with these filters yet. Loosen a filter, or send it to every matching provider so new ones see it too.',
     providersLoadFailed: "Couldn't load providers.",
@@ -1487,6 +1492,7 @@ const en = {
       "The price is the accepting provider's own, worked out when they accept — you will see it on the booking.",
     summary: 'Your request',
     summaryAny: 'Every matching provider ({count} matching services now)',
+    summaryAnyExcept: 'Every matching provider, except {excluded} you left out',
     firstToAccept:
       'The first provider to accept gets the booking; the request then closes for everyone else.',
     send: 'Send request',
@@ -1505,6 +1511,7 @@ const en = {
     statusCancelled: 'Cancelled',
     statusExpired: 'Expired',
     audienceAny: 'Open to every matching provider',
+    audienceAnyExcept: 'Open to every matching provider, except {names}',
     audienceSelected: 'Sent to {count} providers',
     declinedCount: '{count} declined',
     takenBy: 'Taken by {name}',

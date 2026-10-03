@@ -105,6 +105,8 @@ export type GroupBookingRequestDto = {
   createdAt: string;
   /** Owner/admin: every recipient. Provider: only their own row. */
   recipients: GroupBookingRecipientReadDto[];
+  /** Owner/admin, AnyEligible: the providers left out. Always empty for a provider. */
+  excluded?: GroupBookingRecipientReadDto[];
   invitedCount: number;
   declinedCount: number;
   /** Provider reader only. */
@@ -126,6 +128,8 @@ export type CreateGroupBookingRequestInput = {
   audience: GroupBookingAudienceValue;
   /** SelectedProviders: the picks, each with the service it was picked from. */
   providers?: { serviceProviderId: number; serviceId?: number | null }[];
+  /** AnyEligible: providers the owner unticked — every matching provider except these. */
+  excludedProviderIds?: number[];
   /** AnyEligible: the browse filters applied when "any matching provider" was chosen. */
   minPrice?: number;
   maxPrice?: number;
