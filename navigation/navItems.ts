@@ -97,6 +97,13 @@ export const NAV_ITEMS: NavItem[] = [
     requires: 'user',
   },
   {
+    route: 'MyGroupRequests',
+    labelKey: 'groupRequest.navMine',
+    icon: 'people-outline',
+    group: 'manage',
+    requires: 'user',
+  },
+  {
     route: 'MyPets',
     labelKey: 'profile.pets',
     icon: 'paw-outline',
@@ -124,6 +131,13 @@ export const NAV_ITEMS: NavItem[] = [
     route: 'NewRequests',
     labelKey: 'partnerHub.requests',
     icon: 'file-tray-full-outline',
+    group: 'partner',
+    requires: 'partner',
+  },
+  {
+    route: 'GroupRequests',
+    labelKey: 'groupRequest.navInbox',
+    icon: 'people-circle-outline',
     group: 'partner',
     requires: 'partner',
   },

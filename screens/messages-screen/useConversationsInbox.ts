@@ -4,20 +4,26 @@ import { useLocale } from '../../context/LocaleContext';
 import { useMessages } from '../../context/MessagesContext';
 import { getErrorMessage } from '../../services/http';
 import { getConversations, type ConversationDto } from '../../services/messages';
+import { formatDayMonth } from '../../i18n/dates';
 
-/** Compact relative time for an inbox row ("now", "4m", "3h", "2d", then a date). */
-export function relativeTime(iso?: string | null): string {
+type TFn = ReturnType<typeof useLocale>['t'];
+
+/**
+ * Compact relative time for an inbox row ("now", "4m", "3h", "2d", then a date), in the app's
+ * language — it was hardcoded English, the one corner of the inbox that was.
+ */
+export function relativeTime(t: TFn, iso?: string | null): string {
   if (!iso) return '';
   const then = new Date(iso).getTime();
   if (isNaN(then)) return '';
   const mins = Math.floor((Date.now() - then) / 60000);
-  if (mins < 1) return 'now';
-  if (mins < 60) return `${mins}m`;
+  if (mins < 1) return t('messages.timeNow');
+  if (mins < 60) return t('messages.timeMinutes', { m: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
+  if (hours < 24) return t('messages.timeHours', { h: hours });
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(then).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  if (days < 7) return t('messages.timeDays', { d: days });
+  return formatDayMonth(new Date(then));
 }
 
 /** The row as the open thread sees it: nothing unread, since the thread has just read it. */

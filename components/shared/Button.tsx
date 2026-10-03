@@ -23,6 +23,11 @@ type Props = {
   accessibilityLabel?: string;
   /** Longer explanation of what happens on activation, when the label alone is ambiguous. */
   accessibilityHint?: string;
+  /**
+   * For a button that is one side of a toggle (List / Map): whether it is the active one.
+   * Announced as pressed — react-native-web reads `aria-pressed`, not `accessibilityState`.
+   */
+  selected?: boolean;
 };
 
 const variantStyles: Record<ButtonVariant, string> = {
@@ -52,6 +57,7 @@ export default function Button({
   activeOpacity = 0.7,
   accessibilityLabel,
   accessibilityHint,
+  selected,
 }: Props) {
   const variantClass = variantStyles[variant];
   const textColorClass = textColorMap[variant];
@@ -92,7 +98,8 @@ export default function Button({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? text}
       accessibilityHint={accessibilityHint}
-      accessibilityState={{ disabled: isDisabled }}
+      accessibilityState={{ disabled: isDisabled, selected }}
+      aria-pressed={selected}
       style={style}
       className={`items-center justify-center rounded-xl px-4 py-3 ${variantClass} ${
         isDisabled ? 'opacity-50' : ''

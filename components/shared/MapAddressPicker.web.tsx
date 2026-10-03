@@ -11,19 +11,26 @@ import {
   GeoPoint,
 } from '../../services/geocoding';
 import { AddressDto } from '../../services/service-providers';
-import { loadGoogleMaps, DEV_MAP_ID } from '../../services/google-maps';
+import { createWebMap, type WebMap } from '../../services/web-map';
 
 export type MapAddressPickerProps = {
   visible: boolean;
   title: string;
   initialRegion: GeoPoint;
+  /**
+   * Jump to the device's position once the picker opens (default). Pass false when
+   * `initialRegion` is a place the user already chose — a saved address, a pin already dropped —
+   * so the map opens there instead of wherever the device happens to be.
+   */
+  locateOnOpen?: boolean;
   isDarkMode: boolean;
   onClose: () => void;
   onSelect: (address: AddressDto, label: string) => void;
 };
 
 /**
- * Web map picker — a Google Map rendered into a plain div. The user can type an
+ * Web map picker — a Google Map rendered into a plain div (OpenStreetMap via Leaflet when
+ * Google is unavailable, see services/web-map.ts). The user can type an
  * address to jump to it, or pan the map under a fixed centre pin. On confirm the
  * centre is reverse-geocoded (Nominatim) into the booking AddressDto. Opens
  * centred on the user's current location when available.
@@ -33,14 +40,17 @@ export default function MapAddressPicker({
   visible,
   title,
   initialRegion,
+  locateOnOpen = true,
   isDarkMode,
   onClose,
   onSelect,
 }: MapAddressPickerProps) {
   const { t, language } = useLocale();
   const { hex } = themeColors(isDarkMode);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
+  // State, not a ref: the div mounts inside the modal's portal, possibly a commit after `visible`
+  // flips, and the map must be built once it exists.
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+  const mapRef = useRef<WebMap | null>(null);
   const pendingRef = useRef<GeoPoint | null>(null);
   const [center, setCenter] = useState<GeoPoint>(initialRegion);
   const [query, setQuery] = useState('');
@@ -51,8 +61,7 @@ export default function MapAddressPicker({
   const applyToMap = (p: GeoPoint) => {
     const map = mapRef.current;
     if (map) {
-      map.setCenter({ lat: p.latitude, lng: p.longitude });
-      map.setZoom(16);
+      map.setCenter({ lat: p.latitude, lng: p.longitude }, 16);
     } else {
       pendingRef.current = p;
     }
@@ -65,29 +74,28 @@ export default function MapAddressPicker({
 
   // Create the map when the modal opens (the div only exists while visible).
   useEffect(() => {
-    if (!visible) {
+    if (!visible || !container) {
       mapRef.current = null;
       return;
     }
     let cancelled = false;
-    loadGoogleMaps(language)
-      .then((maps) => {
-        if (cancelled || !containerRef.current) return;
-        const map = new maps.Map(containerRef.current, {
-          center: { lat: center.latitude, lng: center.longitude },
-          zoom: 15,
-          mapId: DEV_MAP_ID,
-          disableDefaultUI: true,
-          zoomControl: true,
-          // Google's default zoom position is bottom-right, which collides with
-          // the "locate me" button; keep the old MapLibre top-left placement.
-          zoomControlOptions: { position: maps.ControlPosition.LEFT_TOP },
-          colorScheme: isDarkMode ? maps.ColorScheme?.DARK : maps.ColorScheme?.LIGHT,
-        });
+    let created: WebMap | null = null;
+    createWebMap(container, {
+      center: { lat: center.latitude, lng: center.longitude },
+      zoom: 15,
+      language,
+      isDarkMode,
+    })
+      .then((map) => {
+        if (cancelled) {
+          map.destroy();
+          return;
+        }
+        created = map;
         // Track the centre under the fixed pin after every pan/zoom settles.
-        map.addListener('idle', () => {
+        map.onIdle(() => {
           const c = map.getCenter();
-          if (c) setCenter({ latitude: c.lat(), longitude: c.lng() });
+          setCenter({ latitude: c.lat, longitude: c.lng });
         });
         mapRef.current = map;
         if (pendingRef.current) {
@@ -100,12 +108,15 @@ export default function MapAddressPicker({
       });
     return () => {
       cancelled = true;
+      mapRef.current = null;
+      created?.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+  }, [visible, container]);
 
-  // Centre on the user's current location when the picker opens.
+  // Centre on the user's current location when the picker opens (unless told where to open).
   useEffect(() => {
+    if (!locateOnOpen) return;
     let active = true;
     (async () => {
       const p = await getCurrentPosition();
@@ -202,7 +213,7 @@ export default function MapAddressPicker({
               <Text style={{ color: hex.subtext, marginTop: 12 }}>{t('shared.mapLoadFailed')}</Text>
             </View>
           ) : (
-            <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+            <div ref={setContainer} style={{ width: '100%', height: '100%' }} />
           )}
           <View
             pointerEvents="none"
@@ -242,7 +253,7 @@ export default function MapAddressPicker({
         {/* Footer */}
         <View style={{ padding: 16, backgroundColor: hex.card }}>
           <Text style={{ color: hex.subtext, fontSize: 13, marginBottom: 10, textAlign: 'center' }}>
-            Search, or move the map to place the pin on the exact spot.
+            {t('shared.mapPickerHint')}
           </Text>
           <TouchableOpacity
             accessibilityRole="button"

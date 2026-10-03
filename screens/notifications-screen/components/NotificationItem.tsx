@@ -5,6 +5,7 @@ import { AppNotificationDto, NotificationType } from '../../../services/app-noti
 import { useLocale } from '../../../context/LocaleContext';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
+import { formatDayMonth } from '../../../i18n/dates';
 type Accent = 'brand' | 'danger' | 'warning' | 'info';
 type Visual = { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string };
 
@@ -66,6 +67,7 @@ const VISUAL_BY_NAME: Record<
   PaymentOverdue: { icon: 'wallet-outline', accent: 'danger' },
   CertificateExpiring: { icon: 'ribbon-outline', accent: 'warning' },
   BookingRequestStale: { icon: 'hourglass-outline', accent: 'warning' },
+  GroupBookingRequested: { icon: 'people-outline', accent: 'brand' },
   // Admin queue digest. The pending one is work to do; "all caught up" is the opposite, and
   // the accent is the whole difference between them at a glance.
   AdminPendingQueue: { icon: 'file-tray-full-outline', accent: 'warning' },
@@ -101,7 +103,7 @@ function formatRelativeTime(
   if (hours < 24) return t('notifications.hoursAgo', { h: hours });
   const days = Math.floor(hours / 24);
   if (days < 7) return t('notifications.daysAgo', { d: days });
-  return new Date(then).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return formatDayMonth(new Date(then));
 }
 
 type NotificationItemProps = {

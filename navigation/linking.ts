@@ -1,4 +1,5 @@
 import type { LinkingOptions } from '@react-navigation/native';
+import type { ServiceDto } from '../services/services';
 
 /**
  * URL scheme for the app.
@@ -51,7 +52,13 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       ServiceDetail: {
         path: 'services/:serviceId',
         parse: { serviceId: Number },
-        stringify: { serviceId: (id: number) => String(id) },
+        stringify: {
+          serviceId: (id: number) => String(id),
+          // The in-memory head start (see serviceDetailParams) stays out of the address bar:
+          // getPathFromState drops a param that stringifies to 'undefined'. Left in, it rendered
+          // as `?service=[object Object]`, which a reload then parsed back as that string.
+          service: () => 'undefined',
+        },
       },
       BookingDetails: {
         path: 'bookings/:bookingId',
@@ -63,6 +70,18 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       MyPets: 'pets',
       AddPet: 'pets/new',
       MyBookings: 'bookings',
+      // Group requests ("ask several providers"). The create form's browse-filter hand-off is a
+      // convenience, not an address: opened from a URL it simply starts unfiltered.
+      MyGroupRequests: 'group-requests',
+      // Opened from Search/Home with the browse state in memory. The type is the part worth a
+      // URL; the filter set is an object, which in the query string read "[object Object]" and
+      // came back on reload as that string — so it stays out (a reload starts a fresh form), and
+      // the type parses back to the number the screen compares chips against.
+      CreateGroupRequest: {
+        path: 'group-requests/new',
+        parse: { serviceType: Number },
+        stringify: { filters: () => 'undefined', priceTouched: () => 'undefined' },
+      },
       Account: 'account',
       ChangePassword: 'account/password',
       Settings: 'settings',
@@ -86,6 +105,7 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       MySchedule: 'partner/schedule',
       MyServices: 'partner/services',
       NewRequests: 'partner/requests',
+      GroupRequests: 'partner/group-requests',
       Promotions: 'partner/promotions',
       CreatePromotion: 'partner/promotions/new',
       LiveSession: 'partner/live-session',
@@ -106,3 +126,10 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
     },
   },
 };
+
+/**
+ * Params for opening a service from a list. The id is what the URL (and a reload) needs; the
+ * service itself lets the screen render before its fetch lands. Every list used to pass only the
+ * service, so the address bar read `/services/undefined` and a reload or a shared link broke.
+ */
+export const serviceDetailParams = (service: ServiceDto) => ({ serviceId: service.id, service });

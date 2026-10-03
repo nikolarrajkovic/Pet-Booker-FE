@@ -1,6 +1,7 @@
 import type { ReviewDto } from '../../services/reviews';
 import { ApprovalStatus, resolveImageUrl } from '../../services/service-providers';
 import type { ReviewModerationItem, ReviewStatus } from './components';
+import { formatShortDate } from '../../i18n/dates';
 
 // ReviewDto (with nested user/serviceProvider includes) → the card's view shape.
 // Takes the translate fn so name fallbacks follow the active language.
@@ -29,9 +30,7 @@ export function reviewToItem(
     rating: dto.rating ?? 0,
     title: dto.title ?? '',
     comment: dto.comment ?? '',
-    dateLabel: created
-      ? created.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-      : '',
+    dateLabel: created ? formatShortDate(created) : '',
     status,
     declineReason: dto.declineReason ?? null,
   };

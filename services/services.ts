@@ -188,6 +188,10 @@ export type ServiceDto = {
   rating?: number | null; // service-level average rating
   totalRatingNumber?: number | null; // service-level review count
   distanceFromMyLocationKm?: number | null;
+  // Where to pin the service on a map: its own address's coordinates, else its provider's (the
+  // rule near-me ranks by). Most services have no address of their own, so `address.location`
+  // alone left them without a pin. Null only when neither address is geocoded.
+  mapLocation?: { latitude: number; longitude: number } | null;
   price?: number | null; // effective price after any applied discount
   appliedDiscountType?: number | null;
   appliedDiscountAmount?: number | null;
@@ -298,7 +302,13 @@ export type ServiceSortByValue = (typeof ServiceSortBy)[keyof typeof ServiceSort
 
 export type GetServicesParams = {
   serviceProviderId?: number;
+  /** The service's own name only. For a search box use `query`. */
   name?: string;
+  /**
+   * Free text, as typed into a search box: the service's name, its provider's name, or its type
+   * as the reader sees it ("walk" → walkers). Matched by the server over the whole catalogue.
+   */
+  query?: string;
   // ServiceProviderType filter on the service's own `type`
   type?: number;
   /** ServiceProviderType filter on the owning PROVIDER's type (distinct from `type` above). */
@@ -355,6 +365,7 @@ function servicesRequest(params?: GetServicesParams): ApiRequestOptions {
     query: {
       ServiceProviderId: params?.serviceProviderId,
       Name: params?.name,
+      Query: params?.query,
       Type: params?.type,
       IsActive: params?.isActive,
       ProviderType: params?.providerType,

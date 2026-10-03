@@ -36,8 +36,8 @@ type PickedPhoto = { uri: string; fileName?: string; mimeType?: string };
  * The screen deliberately does NOT ask for the device position on mount: `useLocation()` fired
  * Android's location-permission prompt while the push animation from Profile was still running,
  * and the dialog's scrim greyed out the screen behind it — a dim no other Profile menu item
- * produced. MapAddressPicker recentres on the real position when it opens, so this is only the
- * first frame: the saved address when it carries coordinates, else Belgrade.
+ * produced. The address picker opens on the saved address when it carries coordinates; only
+ * without one does it recentre on the real position when it opens.
  */
 
 export default function AccountScreen() {
@@ -363,12 +363,14 @@ export default function AccountScreen() {
         </FormCard>
       </ScrollView>
 
-      {/* Map picker for the address — opens on the user's current location */}
+      {/* Map picker for the address — opens on the saved address, else the current location */}
       {pickerVisible && (
         <MapAddressPicker
           visible
           title={t('account.yourAddress')}
           initialRegion={currentAddress?.location ?? DEFAULT_LOCATION}
+          // A saved address opens where it is; only a profile without one starts from the GPS fix.
+          locateOnOpen={!currentAddress?.location}
           isDarkMode={isDarkMode}
           onClose={() => setPickerVisible(false)}
           onSelect={(picked) => setAddress(picked)}

@@ -94,6 +94,11 @@ export function routeForPayload(
     case NotificationType.BookingRequested:
       return [PARTNER_TAB, { name: 'NewRequests' }];
 
+    // Same reasoning for a group request — and more urgent, since the first provider to accept
+    // gets it: straight to the inbox with the Accept button.
+    case NotificationType.GroupBookingRequested:
+      return [PARTNER_TAB, { name: 'GroupRequests' }];
+
     // The terms changed under a provider who had already agreed to them, or the slot came back.
     // Both are things they act on from the hub, so it sits behind the booking.
     case NotificationType.BookingUpdated:

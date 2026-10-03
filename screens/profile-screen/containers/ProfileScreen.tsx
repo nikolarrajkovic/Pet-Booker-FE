@@ -46,6 +46,15 @@ const USER_MENU_ITEMS = [
     color: BRAND_GREEN,
   },
   {
+    // Requests sent to several providers at once — not bookings until one of them accepts.
+    id: 'group-requests',
+    icon: 'people-outline',
+    iconType: 'ionicons',
+    titleKey: 'groupRequest.navMine',
+    subtitleKey: 'groupRequest.profileSub',
+    color: BRAND_GREEN,
+  },
+  {
     id: 'schedule',
     icon: 'calendar-outline',
     iconType: 'ionicons',
@@ -98,6 +107,7 @@ const PARTNER_MENU_ITEMS = USER_MENU_ITEMS;
  *    applied and changed nothing.
  *  - **pets** — `SearchPets` is a 401, and the screen rendered the raw backend text
  *    "Missing permission for command 'SearchPets'." at the user.
+ *  - **group-requests** — a group request is the owner's, keyed on their UserId like bookings.
  *  - **bookings** — the personal booking list is scoped to the caller's UserId, so it always came
  *    back empty and told a provider with a full diary "No upcoming bookings". Their real diary is
  *    My Schedule, which is listed separately and works.
@@ -105,7 +115,7 @@ const PARTNER_MENU_ITEMS = USER_MENU_ITEMS;
  * Mirrors the `requires: 'user'` gate in navigation/navItems.ts, which does the same for the web
  * sidebar and the phone tab bar.
  */
-const PROFILE_ONLY_HIDDEN_IDS = ['notification-settings', 'pets', 'bookings'];
+const PROFILE_ONLY_HIDDEN_IDS = ['notification-settings', 'pets', 'bookings', 'group-requests'];
 
 const withoutUserScopedItems = (items: typeof USER_MENU_ITEMS) =>
   items.filter((item) => !PROFILE_ONLY_HIDDEN_IDS.includes(item.id));
@@ -200,6 +210,7 @@ export default function ProfileScreen() {
     else if (id === 'account') (navigation as any).navigate('Account');
     else if (id === 'pets') (navigation as any).navigate('MyPets');
     else if (id === 'bookings') (navigation as any).navigate('MyBookings');
+    else if (id === 'group-requests') (navigation as any).navigate('MyGroupRequests');
     else if (id === 'new-requests') (navigation as any).navigate('NewRequests');
     else if (id === 'schedule') (navigation as any).navigate('MySchedule', { mode: 'user' });
     else if (id === 'services') (navigation as any).navigate('MyServices');

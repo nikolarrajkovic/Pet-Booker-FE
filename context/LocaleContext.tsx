@@ -10,6 +10,7 @@ import React, {
 import { translate, tEnumLabel, type Language, type TranslationKey, type EnumName } from '../i18n';
 import { getLanguage, saveLanguage } from '../services/locale-storage';
 import { registerApiLanguage } from '../services/http';
+import { registerDateLanguage } from '../i18n/dates';
 
 type TFn = (key: TranslationKey, params?: Record<string, string | number>) => string;
 type TEnumFn = (enumName: EnumName, value: number | null | undefined, fallback?: string) => string;
@@ -44,6 +45,7 @@ export const LocaleProvider = ({ children }: { children: ReactNode }) => {
           setLanguageState(stored);
           setHasChosen(true);
           registerApiLanguage(stored);
+          registerDateLanguage(stored);
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -60,6 +62,8 @@ export const LocaleProvider = ({ children }: { children: ReactNode }) => {
     // Backend localizes validation messages / notifications / emails from the
     // Accept-Language header — keep the HTTP layer in sync with the UI language.
     registerApiLanguage(lang);
+    // View-model builders format dates outside React; keep them on the UI language too.
+    registerDateLanguage(lang);
     // Persist best-effort; failure just means we ask again next cold start.
     saveLanguage(lang).catch(() => {});
   }, []);

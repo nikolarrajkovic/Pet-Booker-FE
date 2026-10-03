@@ -10,6 +10,8 @@ import React, {
 import { StyleSheet, View } from 'react-native';
 import { useTheme } from './ThemeContext';
 import { useTopInset } from '../hooks/useSafeAreaSpacing';
+import { useResponsive } from '../hooks/useResponsive';
+import { TOPBAR_HEIGHT } from '../components/layout/topBarMetrics';
 import ToastView, { ToastItem, ToastVariant } from '../components/shared/Toast';
 
 export type ToastOptions = {
@@ -45,6 +47,7 @@ const MAX_TOASTS = 3;
 export function ToastProvider({ children }: { children: ReactNode }) {
   const { isDarkMode } = useTheme();
   const topInset = useTopInset();
+  const { isWebLayout } = useResponsive();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const idRef = useRef(0);
   const timers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
@@ -108,7 +111,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           unreliable under edge-to-edge. There is no SafeAreaView around this any more: React
           Native's insets on iOS only, so on Android the first toast landed under the status bar.
         */}
-        <View pointerEvents="box-none" style={{ paddingTop: topInset + 8, paddingHorizontal: 16 }}>
+        {/* On the web design a toast is a card at the top right, under the top bar. Stretched
+            across the window like the phone's, it was a 1400px strip laid over the top bar —
+            hiding search and the account menu for as long as it showed. */}
+        <View
+          pointerEvents="box-none"
+          style={
+            isWebLayout
+              ? {
+                  position: 'absolute',
+                  top: TOPBAR_HEIGHT + 12,
+                  right: 24,
+                  width: 400,
+                  maxWidth: '90%',
+                }
+              : { paddingTop: topInset + 8, paddingHorizontal: 16 }
+          }>
           {toasts.map((t) => (
             <ToastView key={t.id} toast={t} isDarkMode={isDarkMode} onDismiss={dismiss} />
           ))}

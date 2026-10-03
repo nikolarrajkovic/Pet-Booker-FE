@@ -18,6 +18,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { useNearBottomLoader } from '../../../hooks/useNearBottomLoader';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { serviceDetailParams } from '../../../navigation/linking';
 
 export interface ServiceSearchItem {
   id: number;
@@ -133,7 +134,7 @@ export default function ListView({ services, badge, paging, sort, header }: List
     <TouchableOpacity
       accessibilityRole="button"
       key={item.id}
-      onPress={() => (navigation as any).navigate('ServiceDetail', { service: item.dto })}
+      onPress={() => (navigation as any).navigate('ServiceDetail', serviceDetailParams(item.dto))}
       className={`${cardBg} mb-3 flex-row rounded-2xl border p-3 shadow-sm ${borderColor}`}
       activeOpacity={0.9}>
       {/* Service image + category banner (Popular / Deal) */}
@@ -291,7 +292,9 @@ export default function ListView({ services, badge, paging, sort, header }: List
               typeLabel={item.service}
               distance={item.distance}
               badge={badge}
-              onPress={() => (navigation as any).navigate('ServiceDetail', { service: item.dto })}
+              onPress={() =>
+                (navigation as any).navigate('ServiceDetail', serviceDetailParams(item.dto))
+              }
             />
           ) : (
             compactCard(item)

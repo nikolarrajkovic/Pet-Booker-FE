@@ -27,6 +27,7 @@ import {
 import { getErrorMessage } from '../../../services/http';
 import { showAlert } from '../../../services/alert';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { formatShortDate } from '../../../i18n/dates';
 
 // Labels are translation keys, resolved with t() at render.
 const TYPE_META: Record<
@@ -71,8 +72,7 @@ interface EditPromotionScreenProps {
 }
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const fmtDate = (d: Date | null) =>
-  d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+const fmtDate = (d: Date | null) => (d ? formatShortDate(d) : '');
 
 // Prefer the ISO field (real offers), else best-effort parse the display string (mock entries).
 function parseInitialDate(iso: string | null | undefined, fallbackStr: string): Date | null {

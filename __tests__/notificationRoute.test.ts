@@ -56,6 +56,12 @@ describe('routeForNotification — one destination per type', () => {
     ]);
   });
 
+  it('sends a group request to the inbox with the Accept button — the first to accept gets it', () => {
+    expect(
+      routeOf(routeForNotification(stored('GroupBookingRequested', { groupBookingRequestId: 4 })))
+    ).toEqual(['MainTabs', 'GroupRequests']);
+  });
+
   it('watches a live-tracked service on the map rather than reading about it', () => {
     expect(
       routeOf(routeForNotification(stored('LiveTrackingStarted', { bookingId: 3, sessionId: 9 })))

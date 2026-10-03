@@ -34,6 +34,8 @@ interface FilterModalProps {
    * now, so there is no fixed catalog to render as chips — the options come from the data.
    */
   availableAddOns?: string[];
+  /** Passed to SearchFilters — see its prop of the same name. */
+  hideServiceTypes?: boolean;
 }
 
 /**
@@ -52,6 +54,7 @@ export default function FilterModal({
   currentFilters,
   maxPrice,
   availableAddOns = [],
+  hideServiceTypes = false,
 }: FilterModalProps) {
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -129,6 +132,7 @@ export default function FilterModal({
 
           <ScrollView className={`flex-1 ${sheetPx} py-4`}>
             <SearchFilters
+              hideServiceTypes={hideServiceTypes}
               value={draft}
               onChange={setDraft}
               maxPrice={maxPrice}

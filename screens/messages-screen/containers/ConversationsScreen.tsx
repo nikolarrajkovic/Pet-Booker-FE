@@ -86,7 +86,7 @@ function InboxList() {
               subtitle={c.serviceName ?? undefined}
               avatarUrl={resolveImageUrl(c.counterpartAvatarUrl) || null}
               lastMessage={c.lastMessagePreview}
-              timeLabel={relativeTime(c.lastMessageAt)}
+              timeLabel={relativeTime(t, c.lastMessageAt)}
               unreadCount={c.unreadCount ?? 0}
               isDarkMode={isDarkMode}
               onPress={() => navigation.navigate('Chat', { conversationId: c.id })}

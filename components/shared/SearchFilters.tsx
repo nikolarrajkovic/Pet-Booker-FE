@@ -63,6 +63,11 @@ interface SearchFiltersProps {
    * fixed catalog — the options come from the data.
    */
   availableAddOns?: string[];
+  /**
+   * Leaves out the service-type chips. The group-request form picks exactly one type itself (a
+   * request names one kind of service), so a multi-select of types beside it would contradict it.
+   */
+  hideServiceTypes?: boolean;
 }
 
 /**
@@ -82,6 +87,7 @@ export default function SearchFilters({
   onChange,
   maxPrice,
   availableAddOns = [],
+  hideServiceTypes = false,
 }: SearchFiltersProps) {
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { enums } = useEnums();
@@ -149,7 +155,7 @@ export default function SearchFilters({
       </TouchableOpacity>
 
       {/* Service Type — serviceProviderType enum */}
-      <View className="mb-6">
+      <View className="mb-6" style={hideServiceTypes ? { display: 'none' } : undefined}>
         {sectionTitle(t('shared.serviceType'))}
         <View className="flex-row flex-wrap gap-2">
           {serviceTypeOptions.map((opt) => {

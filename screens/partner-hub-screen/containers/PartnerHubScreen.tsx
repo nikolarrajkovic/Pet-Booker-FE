@@ -27,6 +27,7 @@ import { getServices } from '../../../services/services';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { formatDayMonth } from '../../../i18n/dates';
 
 // ─── Formatting / time helpers ───────────────────────────────────────────────
 const fmtPct = (p: number | null): string | undefined =>
@@ -47,7 +48,7 @@ function relativeTime(t: TFn, iso?: string | null): string {
   const days = Math.floor(hrs / 24);
   if (days === 1) return t('partnerHub.yesterday');
   if (days < 7) return t('notifications.daysAgo', { d: days });
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return formatDayMonth(d);
 }
 
 // ─── Computed dashboard shape ────────────────────────────────────────────────
@@ -258,6 +259,16 @@ const QUICK_ACTIONS = [
     iconBg: '#FEE2E2',
     iconColor: '#EF4444',
     route: 'NewRequests',
+  },
+  {
+    // Requests sent to several providers at once; the first to accept gets the booking.
+    id: 'group-requests',
+    titleKey: 'groupRequest.navInbox',
+    subtitleKey: 'groupRequest.hubSub',
+    icon: 'people-outline' as const,
+    iconBg: '#E0F2FE',
+    iconColor: '#0284C7',
+    route: 'GroupRequests',
   },
   {
     // A customer can now ask a question before booking anything, so the provider needs a way
