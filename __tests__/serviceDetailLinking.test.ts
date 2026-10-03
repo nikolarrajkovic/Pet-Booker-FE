@@ -24,3 +24,30 @@ describe('ServiceDetail URL', () => {
     expect(route.params).toEqual({ serviceId: 42 });
   });
 });
+
+// The group-request form is opened with the browse state, an object, as a param.
+describe('CreateGroupRequest URL', () => {
+  const config = linking.config as any;
+
+  it('carries the service type, never the filter object', () => {
+    const path = getPathFromState(
+      {
+        routes: [
+          {
+            name: 'CreateGroupRequest',
+            params: { serviceType: 1, filters: { petTypes: [1] }, priceTouched: true },
+          },
+        ],
+      } as any,
+      config
+    );
+    expect(path).toBe('/group-requests/new?serviceType=1');
+  });
+
+  it('parses the type back to a number', () => {
+    const state = getStateFromPath('/group-requests/new?serviceType=1', config) as any;
+    const route = state.routes[state.routes.length - 1];
+    expect(route.name).toBe('CreateGroupRequest');
+    expect(route.params).toEqual({ serviceType: 1 });
+  });
+});

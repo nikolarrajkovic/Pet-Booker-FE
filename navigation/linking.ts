@@ -73,7 +73,15 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       // Group requests ("ask several providers"). The create form's browse-filter hand-off is a
       // convenience, not an address: opened from a URL it simply starts unfiltered.
       MyGroupRequests: 'group-requests',
-      CreateGroupRequest: 'group-requests/new',
+      // Opened from Search/Home with the browse state in memory. The type is the part worth a
+      // URL; the filter set is an object, which in the query string read "[object Object]" and
+      // came back on reload as that string — so it stays out (a reload starts a fresh form), and
+      // the type parses back to the number the screen compares chips against.
+      CreateGroupRequest: {
+        path: 'group-requests/new',
+        parse: { serviceType: Number },
+        stringify: { filters: () => 'undefined', priceTouched: () => 'undefined' },
+      },
       Account: 'account',
       ChangePassword: 'account/password',
       Settings: 'settings',
