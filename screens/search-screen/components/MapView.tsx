@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatMoney } from '../../../services/currency';
 import { serviceCurrency } from '../../../services/services';
 import type { ServiceSearchItem } from './ListView';
+import { groupByLocation, pinLabel, type PinGroup } from './pinGroups';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 import { useTabBarHeight } from '../../../hooks/useSafeAreaSpacing';
@@ -42,7 +43,8 @@ const MAP_DECLUTTER_STYLE = [
  * Search results map (native). Tapping a price pin opens a bottom card with the
  * service photo/name/type/rating/price (custom, instead of the default callout
  * — Android callouts render as a static bitmap and won't show async-loaded
- * images); tapping the card goes to ServiceDetail, tapping the map dismisses.
+ * images); tapping the card goes to ServiceDetail, tapping the map dismisses. Services at the
+ * same spot share one pin ("3 · 900 RSD+", see pinGroups.ts) whose card lists them.
  */
 export default function MapViewComponent({
   services,
@@ -55,9 +57,16 @@ export default function MapViewComponent({
   const navigation = useNavigation();
   const { t } = useLocale();
   const tabBarHeight = useTabBarHeight();
-  const [selected, setSelected] = useState<ServiceSearchItem | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<PinGroup | null>(null);
   const selectMode = onToggleSelect != null;
   const isPicked = (id: number) => selectedIds?.includes(id) ?? false;
+  const groups = groupByLocation(services);
+  // The card shows the one service of a single pin; a shared pin's card lists them instead.
+  const selected = selectedGroup?.items.length === 1 ? selectedGroup.items[0] : null;
+  const openOrToggle = (item: ServiceSearchItem) =>
+    selectMode
+      ? onToggleSelect!(item)
+      : (navigation as any).navigate('ServiceDetail', serviceDetailParams(item.dto));
 
   if (location.loading) {
     return (
@@ -82,7 +91,7 @@ export default function MapViewComponent({
         showsMyLocationButton={true}
         showsPointsOfInterest={false}
         customMapStyle={MAP_DECLUTTER_STYLE}
-        onPress={() => setSelected(null)}>
+        onPress={() => setSelectedGroup(null)}>
         {/* Current location marker */}
         <Marker
           coordinate={{
@@ -93,40 +102,32 @@ export default function MapViewComponent({
           pinColor={BRAND_GREEN}
         />
 
-        {/* Service markers — only services with a geocoded address get a pin */}
-        {services
-          .filter((item) => item.latitude != null && item.longitude != null)
-          .map((item) => (
+        {/* Service markers — one per spot; only services with a location get a pin */}
+        {groups.map((group) => {
+          const label = pinLabel(group, selectMode, isPicked);
+          const highlighted = selectedGroup?.key === group.key || (selectMode && label.filled);
+          return (
             <Marker
-              key={item.id}
-              coordinate={{
-                latitude: item.latitude!,
-                longitude: item.longitude!,
-              }}
+              key={group.key}
+              coordinate={{ latitude: group.latitude, longitude: group.longitude }}
               onPress={(e) => {
                 e.stopPropagation();
-                setSelected(item);
+                setSelectedGroup(group);
               }}>
               <View className="items-center">
                 <View
                   className={`rounded-full border px-3 py-1.5 shadow-lg ${
-                    selected?.id === item.id || (selectMode && isPicked(item.id))
-                      ? 'border-brand-600 bg-brand-500'
-                      : 'border-gray-200 bg-white'
+                    highlighted ? 'border-brand-600 bg-brand-500' : 'border-gray-200 bg-white'
                   }`}>
                   <Text
-                    className={`text-xs font-bold ${
-                      selected?.id === item.id || (selectMode && isPicked(item.id))
-                        ? 'text-white'
-                        : 'text-gray-900'
-                    }`}>
-                    {selectMode && isPicked(item.id) ? '✓ ' : ''}
-                    {formatMoney(item.price, serviceCurrency(item.dto))}
+                    className={`text-xs font-bold ${highlighted ? 'text-white' : 'text-gray-900'}`}>
+                    {label.text}
                   </Text>
                 </View>
               </View>
             </Marker>
-          ))}
+          );
+        })}
       </MapView>
 
       {/* Selected-service card — replaces the default marker callout */}
@@ -141,11 +142,7 @@ export default function MapViewComponent({
                 : t('groupRequest.addProvider')
               : undefined
           }
-          onPress={() =>
-            selectMode
-              ? onToggleSelect!(selected)
-              : (navigation as any).navigate('ServiceDetail', serviceDetailParams(selected.dto))
-          }
+          onPress={() => openOrToggle(selected)}
           className={`absolute left-4 right-4 flex-row items-center rounded-2xl p-3 shadow-lg ${
             isDarkMode ? 'bg-[#1a2332]' : 'bg-white'
           }`}
@@ -196,6 +193,58 @@ export default function MapViewComponent({
             )}
           </View>
         </TouchableOpacity>
+      )}
+
+      {/* A shared pin's card: the services at that spot, each opening (or ticking) itself. */}
+      {selectedGroup && !selected && (
+        <View
+          className={`absolute left-4 right-4 rounded-2xl py-2 shadow-lg ${
+            isDarkMode ? 'bg-[#1a2332]' : 'bg-white'
+          }`}
+          style={{ elevation: 6, bottom: (bottomOffset ?? tabBarHeight) + 16 }}>
+          <Text
+            className={`px-4 pb-1 pt-1 text-xs font-semibold ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+            {t('search.servicesHere', { count: selectedGroup.items.length })}
+          </Text>
+          <ScrollView style={{ maxHeight: 220 }}>
+            {selectedGroup.items.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                accessibilityRole={selectMode ? 'checkbox' : 'button'}
+                accessibilityState={selectMode ? { checked: isPicked(item.id) } : undefined}
+                onPress={() => openOrToggle(item)}
+                className="flex-row items-center px-4 py-2.5">
+                {selectMode && (
+                  <Ionicons
+                    name={isPicked(item.id) ? 'checkbox' : 'square-outline'}
+                    size={20}
+                    color={BRAND_GREEN}
+                    style={{ marginRight: 10 }}
+                  />
+                )}
+                <View className="flex-1">
+                  <Text
+                    numberOfLines={1}
+                    className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {item.name}
+                  </Text>
+                  {!!item.service && (
+                    <Text
+                      numberOfLines={1}
+                      className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {item.service}
+                    </Text>
+                  )}
+                </View>
+                <Text className="ml-2 text-sm font-bold text-brand-500">
+                  {formatMoney(item.price, serviceCurrency(item.dto))}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
       )}
     </View>
   );

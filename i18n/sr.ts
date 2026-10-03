@@ -333,6 +333,7 @@ const sr: TranslationDict = {
     clearFilters: 'Obriši sve',
     activeFilters: 'aktivno: {count}',
     endOfResults: 'Videli ste sve rezultate ({count})',
+    servicesHere: 'Usluga na ovom mestu: {count}',
     queryPlaceholder: 'Pretražite po nazivu, pružaocu ili vrsti',
     resultsFor: 'Rezultati za „{query}”',
     clearQuery: 'Obriši pretragu',

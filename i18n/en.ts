@@ -343,6 +343,7 @@ const en = {
     clearFilters: 'Clear all',
     activeFilters: '{count} active',
     endOfResults: "You've seen all {count} results",
+    servicesHere: '{count} services here',
     queryPlaceholder: 'Search by name, provider or type',
     resultsFor: 'Results for “{query}”',
     clearQuery: 'Clear search',

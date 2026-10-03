@@ -5,6 +5,7 @@ import { createWebMap, type WebMap, type WebMapMarker } from '../../../services/
 import { formatMoney } from '../../../services/currency';
 import { serviceCurrency } from '../../../services/services';
 import type { ServiceSearchItem } from './ListView';
+import { groupByLocation, pinLabel, type PinGroup } from './pinGroups';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 import { serviceDetailParams } from '../../../navigation/linking';
@@ -152,10 +153,142 @@ function buildInfoCard(s: ServiceSearchItem, isDarkMode: boolean, onView: () => 
 }
 
 /**
+ * The list a pin opens when several services share its spot: one row per service — the same
+ * name/type/price the single card shows — that opens it, or in selection mode ticks it.
+ * Built with DOM APIs (textContent), like the single card. Returns `refresh`, which redraws the
+ * ticks in place when the selection changes (a closed popup's detached DOM just ignores it).
+ */
+function buildGroupCard(
+  group: PinGroup,
+  heading: string,
+  isDarkMode: boolean,
+  selectMode: boolean,
+  isPicked: (id: number) => boolean,
+  onRow: (item: ServiceSearchItem) => void
+): { element: HTMLElement; refresh: (isPicked: (id: number) => boolean) => void } {
+  const bg = isDarkMode ? '#1a2332' : '#ffffff';
+  const text = isDarkMode ? '#ffffff' : '#111827';
+  const subtext = isDarkMode ? '#9ca3af' : '#6b7280';
+  const hover = isDarkMode ? '#243447' : '#f3f4f6';
+
+  const card = document.createElement('div');
+  Object.assign(card.style, {
+    width: '260px',
+    background: bg,
+    borderRadius: '14px',
+    overflow: 'hidden',
+    fontFamily: 'system-ui, -apple-system, Arial, sans-serif',
+    padding: '6px 0',
+  });
+
+  const title = document.createElement('div');
+  title.textContent = heading;
+  Object.assign(title.style, {
+    color: subtext,
+    fontSize: '12px',
+    fontWeight: '600',
+    padding: '6px 12px 4px',
+  });
+  card.appendChild(title);
+
+  const list = document.createElement('div');
+  Object.assign(list.style, { maxHeight: '240px', overflowY: 'auto' });
+  card.appendChild(list);
+
+  const boxes: { id: number; row: HTMLElement; box: HTMLElement }[] = [];
+  const paint = (row: HTMLElement, box: HTMLElement, on: boolean) => {
+    row.setAttribute('aria-checked', String(on));
+    box.textContent = on ? '✓' : '';
+    Object.assign(box.style, {
+      background: on ? BRAND_GREEN : 'transparent',
+      borderColor: on ? BRAND_GREEN : subtext,
+    });
+  };
+
+  for (const item of group.items) {
+    const row = document.createElement('div');
+    row.setAttribute('role', selectMode ? 'checkbox' : 'button');
+    row.setAttribute('title', item.name);
+    row.onclick = () => onRow(item);
+    row.onmouseenter = () => (row.style.background = hover);
+    row.onmouseleave = () => (row.style.background = 'transparent');
+    Object.assign(row.style, {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      padding: '8px 12px',
+      cursor: 'pointer',
+    });
+
+    if (selectMode) {
+      const box = document.createElement('span');
+      Object.assign(box.style, {
+        width: '18px',
+        height: '18px',
+        flexShrink: '0',
+        borderRadius: '5px',
+        border: '2px solid',
+        color: 'white',
+        fontSize: '12px',
+        fontWeight: '700',
+        lineHeight: '14px',
+        textAlign: 'center',
+      });
+      row.appendChild(box);
+      boxes.push({ id: item.id, row, box });
+      paint(row, box, isPicked(item.id));
+    }
+
+    const body = document.createElement('div');
+    Object.assign(body.style, { flex: '1', minWidth: '0' });
+    const name = document.createElement('div');
+    name.textContent = item.name;
+    // Two lines, not one: services at one spot are often one provider's, named alike, and what
+    // tells them apart tends to come at the end.
+    Object.assign(name.style, {
+      color: text,
+      fontSize: '13px',
+      fontWeight: '700',
+      display: '-webkit-box',
+      webkitLineClamp: '2',
+      webkitBoxOrient: 'vertical',
+      overflow: 'hidden',
+      wordBreak: 'break-word',
+    });
+    body.appendChild(name);
+    if (item.service) {
+      const type = document.createElement('div');
+      type.textContent = item.service;
+      Object.assign(type.style, { color: subtext, fontSize: '12px' });
+      body.appendChild(type);
+    }
+    row.appendChild(body);
+
+    const price = document.createElement('div');
+    price.textContent = formatMoney(item.price, serviceCurrency(item.dto));
+    Object.assign(price.style, {
+      color: BRAND_GREEN,
+      fontSize: '13px',
+      fontWeight: '700',
+      flexShrink: '0',
+    });
+    row.appendChild(price);
+
+    list.appendChild(row);
+  }
+
+  return {
+    element: card,
+    refresh: (picked) => boxes.forEach(({ id, row, box }) => paint(row, box, picked(id))),
+  };
+}
+
+/**
  * Search results map (web) — a Google Map (OpenStreetMap via Leaflet when Google is
  * unavailable, see services/web-map.ts) with the user's location dot and a green
  * price-pill marker per service. Clicking a pin opens a styled popup card
- * (photo / name / type / rating / price) that navigates to ServiceDetail.
+ * (photo / name / type / rating / price) that navigates to ServiceDetail. Services at the same
+ * spot share one pin ("3 · 900 RSD+", see pinGroups.ts) that opens a list of them.
  * Only services with a geocoded address (non-null coords) get a pin.
  * (Native build: MapView.tsx.)
  */
@@ -175,9 +308,9 @@ export default function MapViewComponent({
   // (effect below) without tearing the whole map down and losing the reader's pan and zoom.
   const toggleRef = useRef(onToggleSelect);
   toggleRef.current = onToggleSelect;
-  const markersRef = useRef<Map<number, { marker: WebMapMarker; item: ServiceSearchItem }>>(
-    new Map()
-  );
+  const markersRef = useRef<Map<string, { marker: WebMapMarker; group: PinGroup }>>(new Map());
+  // The group list currently open, so a selection change can redraw its ticks in place.
+  const openGroupRefresh = useRef<((isPicked: (id: number) => boolean) => void) | null>(null);
   const selectedKey = (selectedIds ?? []).join(',');
   // The current selection, readable from inside the (async) marker build: when the markers are
   // rebuilt — more results paging in, the location resolving late — a pin that is already picked
@@ -185,12 +318,12 @@ export default function MapViewComponent({
   const pickedRef = useRef<Set<number>>(new Set());
   pickedRef.current = new Set(selectedIds ?? []);
 
-  const pinFor = (s: ServiceSearchItem, picked: boolean) => {
-    const pin = pricePinSvg(
-      `${picked ? '✓ ' : ''}${formatMoney(s.price, serviceCurrency(s.dto))}`,
-      selectMode && !picked ? 'outline' : 'filled'
-    );
-    return { kind: 'svg' as const, ...pin };
+  const pinFor = (group: PinGroup, isPicked: (id: number) => boolean) => {
+    const label = pinLabel(group, selectMode, isPicked);
+    return {
+      kind: 'svg' as const,
+      ...pricePinSvg(label.text, label.filled ? 'filled' : 'outline'),
+    };
   };
 
   useEffect(() => {
@@ -219,28 +352,43 @@ export default function MapViewComponent({
           visual: { kind: 'svg', svg: USER_DOT_SVG, width: 22, height: 22 },
         });
 
-        // Service markers — price pill + a styled card on click.
+        // Service markers — one per spot: a price pill and a styled card, or for several services
+        // at the same spot a count pill and a list of them.
         markersRef.current = new Map();
-        services
-          .filter((s) => s.latitude != null && s.longitude != null)
-          .forEach((s) => {
-            const marker: WebMapMarker = m.addMarker({
-              position: { lat: s.latitude!, lng: s.longitude! },
-              visual: pinFor(s, selectMode && pickedRef.current.has(s.id)),
-              title: s.name,
-              onClick: () => {
-                if (toggleRef.current) {
-                  toggleRef.current(s);
-                  return;
-                }
-                const card = buildInfoCard(s, isDarkMode, () =>
-                  (navigation as any).navigate('ServiceDetail', serviceDetailParams(s.dto))
-                );
-                m.openPopup(marker, card);
-              },
-            });
-            markersRef.current.set(s.id, { marker, item: s });
+        const open = (s: ServiceSearchItem) =>
+          (navigation as any).navigate('ServiceDetail', serviceDetailParams(s.dto));
+        const isPicked = (id: number) => pickedRef.current.has(id);
+        groupByLocation(services).forEach((group) => {
+          const only = group.items.length === 1 ? group.items[0] : null;
+          const marker: WebMapMarker = m.addMarker({
+            position: { lat: group.latitude, lng: group.longitude },
+            visual: pinFor(group, isPicked),
+            title: group.items.map((i) => i.name).join(', '),
+            onClick: () => {
+              if (only) {
+                openGroupRefresh.current = null;
+                if (toggleRef.current) toggleRef.current(only);
+                else
+                  m.openPopup(
+                    marker,
+                    buildInfoCard(only, isDarkMode, () => open(only))
+                  );
+                return;
+              }
+              const card = buildGroupCard(
+                group,
+                t('search.servicesHere', { count: group.items.length }),
+                isDarkMode,
+                selectMode,
+                isPicked,
+                (item) => (toggleRef.current ? toggleRef.current(item) : open(item))
+              );
+              openGroupRefresh.current = card.refresh;
+              m.openPopup(marker, card.element);
+            },
           });
+          markersRef.current.set(group.key, { marker, group });
+        });
       })
       .catch(() => {
         if (!cancelled) setMapError(true);
@@ -248,18 +396,19 @@ export default function MapViewComponent({
     return () => {
       cancelled = true;
       markersRef.current = new Map();
+      openGroupRefresh.current = null;
       map?.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [services, location.loading, location.latitude, location.longitude, isDarkMode, selectMode]);
 
-  // Selection mode: restyle the pins in place as the selection changes.
+  // Selection mode: restyle the pins (and an open group list) in place as the selection changes.
   useEffect(() => {
     if (!selectMode) return;
     const picked = new Set(selectedKey ? selectedKey.split(',').map(Number) : []);
-    markersRef.current.forEach(({ marker, item }, id) => {
-      marker.setVisual(pinFor(item, picked.has(id)));
-    });
+    const isPicked = (id: number) => picked.has(id);
+    markersRef.current.forEach(({ marker, group }) => marker.setVisual(pinFor(group, isPicked)));
+    openGroupRefresh.current?.(isPicked);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectMode, selectedKey, services]);
 

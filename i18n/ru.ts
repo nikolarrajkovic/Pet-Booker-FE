@@ -333,6 +333,7 @@ const ru: TranslationDict = {
     clearFilters: 'Очистить все',
     activeFilters: 'активно: {count}',
     endOfResults: 'Вы просмотрели все результаты ({count})',
+    servicesHere: 'Услуг в этом месте: {count}',
     queryPlaceholder: 'Поиск по названию, исполнителю или типу',
     resultsFor: 'Результаты по запросу «{query}»',
     clearQuery: 'Очистить поиск',
