@@ -333,6 +333,9 @@ const ru: TranslationDict = {
     clearFilters: 'Очистить все',
     activeFilters: 'активно: {count}',
     endOfResults: 'Вы просмотрели все результаты ({count})',
+    queryPlaceholder: 'Поиск по названию, исполнителю или типу',
+    resultsFor: 'Результаты по запросу «{query}»',
+    clearQuery: 'Очистить поиск',
   },
   bookingConfirmed: {
     title: 'Запрос отправлен!',
@@ -550,6 +553,10 @@ const ru: TranslationDict = {
   },
   messages: {
     title: 'Сообщения',
+    timeNow: 'сейчас',
+    timeMinutes: '{m} мин',
+    timeHours: '{h} ч',
+    timeDays: '{d} дн',
     subtitle: 'Чат с исполнителями',
     conversation: 'Диалог',
     composerPlaceholder: 'Сообщение…',
@@ -1525,6 +1532,7 @@ const ru: TranslationDict = {
     mapLoadFailed: 'Не удалось загрузить карту.',
     searchAddress: 'Поиск адреса или места',
     confirmLocation: 'Подтвердить место',
+    mapPickerHint: 'Найдите адрес или сдвиньте карту, чтобы поставить метку точно на место.',
     newBadge: 'Новое',
     serviceNameFallback: 'Название услуги',
     serviceTypeFallback: 'Вид услуги',

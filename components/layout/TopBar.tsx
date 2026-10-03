@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, TextInput, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLocale } from '../../context/LocaleContext';
 import { useNotifications } from '../../context/NotificationsContext';
 import { useMessages } from '../../context/MessagesContext';
-import { navigateFromOutside } from '../../navigation/navigationRef';
+import { navigateFromOutside, navigationRef } from '../../navigation/navigationRef';
 import { TOPBAR_HEIGHT } from './topBarMetrics';
 
 export { TOPBAR_HEIGHT } from './topBarMetrics';
@@ -80,6 +80,19 @@ export default function TopBar() {
   const { unreadCount: unreadMessages } = useMessages();
 
   const [query, setQuery] = useState('');
+
+  // The Search page owns the query (its `query` route param) and can drop it from its own chip.
+  // Follow it there, so the field never shows a search the page is no longer running.
+  useEffect(
+    () =>
+      navigationRef.addListener('state', () => {
+        const route = navigationRef.getCurrentRoute();
+        if (route?.name === 'Search') {
+          setQuery(((route.params as { query?: string } | undefined)?.query ?? '').trim());
+        }
+      }),
+    []
+  );
   const [menuOpen, setMenuOpen] = useState(false);
 
   const initials =

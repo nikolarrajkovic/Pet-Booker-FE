@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Text, View, TouchableOpacity, ScrollView } from 'react-native';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { Text, TextInput, View, TouchableOpacity, ScrollView } from 'react-native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Button from '../../../components/shared/Button';
 import PetLoader from '../../../components/shared/PetLoader';
@@ -40,6 +40,8 @@ type SearchRouteParams = {
   serviceType?: string;
   // Set when arriving from a Home "See More" — scopes the list to that Home row.
   category?: string;
+  // Free text from a search box: the web top bar, or the field above the list on a phone.
+  query?: string;
 };
 
 // No stock-photo fallback.
@@ -133,11 +135,11 @@ function toSearchItem(svc: ServiceDto): ServiceSearchItem | null {
     // has no purchasable base price — see serviceFromPrice.
     price: serviceFromPrice(svc),
     image: resolveImageUrl(photoSrc),
-    // Map pin position from the service address's geo coords. null = no pin yet:
-    // addresses without coords are forward-geocoded lazily when the map view
-    // opens (see the geocode effect below); services with no address get no pin.
-    latitude: svc.address?.location?.latitude ?? null,
-    longitude: svc.address?.location?.longitude ?? null,
+    // Map pin position: the server's resolved point (the service's own address, else its
+    // provider's). null = no pin yet: a service address without coords is forward-geocoded
+    // lazily when the map view opens (see the geocode effect below).
+    latitude: svc.mapLocation?.latitude ?? svc.address?.location?.latitude ?? null,
+    longitude: svc.mapLocation?.longitude ?? svc.address?.location?.longitude ?? null,
     dto: svc,
   };
 }
@@ -161,7 +163,12 @@ function ratingThreshold(minimumRating: string): number | undefined {
 
 export default function SearchScreen() {
   const route = useRoute<RouteProp<{ params: SearchRouteParams }, 'params'>>();
+  const navigation = useNavigation();
   const serviceType = route.params?.serviceType;
+  // The search text lives in the route, not in state: the web top bar sets it from outside this
+  // screen, and it has to survive the tab staying mounted. It used to be sent and never read, so
+  // searching from the top bar left the catalogue unfiltered.
+  const query = (route.params?.query ?? '').trim();
   const category = route.params?.category;
   const categoryConfig = category ? CATEGORY_CONFIG[category] : undefined;
   const location = useLocation();
@@ -359,9 +366,10 @@ export default function SearchScreen() {
             : undefined,
         minRating: ratingThreshold(f.minimumRating),
         onSaleOnly: f.onSaleOnly || undefined,
+        query: query || undefined,
       })
     );
-  }, [appliedFilters, clientFiltered, maxPrice, displayCurrency, priceTouched]);
+  }, [appliedFilters, clientFiltered, maxPrice, displayCurrency, priceTouched, query]);
 
   const filterParams: GetServicesParams = useMemo(
     () => JSON.parse(filterParamsKey) as GetServicesParams,
@@ -469,8 +477,18 @@ export default function SearchScreen() {
    */
   const services = useMemo(() => {
     if (!clientFiltered) return allServices;
+    const needle = query.toLocaleLowerCase();
     return allServices.filter((item) => {
       const svc = item.dto;
+
+      // A Home list carries no provider names, so the text matches what the row shows.
+      if (
+        needle &&
+        !item.name.toLocaleLowerCase().includes(needle) &&
+        !item.service.toLocaleLowerCase().includes(needle)
+      ) {
+        return false;
+      }
 
       if (filters.serviceTypes.length > 0) {
         if (svc.type == null || !filters.serviceTypes.includes(svc.type)) return false;
@@ -494,7 +512,7 @@ export default function SearchScreen() {
 
       return true;
     });
-  }, [allServices, clientFiltered, filters]);
+  }, [allServices, clientFiltered, filters, query]);
 
   // Map items with the lazily-geocoded coordinates merged in (list view never
   // needs coords, so the merge is map-only).
@@ -513,32 +531,100 @@ export default function SearchScreen() {
   // The view toggle and the filter button are the page's controls, so on the web design they sit
   // on the title row where a web user looks for them, rather than as a full-width pair of buttons
   // and a circular icon in a coloured bar.
+  //
+  // Which button reads as "the active one" depends on what it sits on. On a light page (the web
+  // design, and the dark-mode phone header) it is the filled one, as on the group-request picker —
+  // this toggle used to show the active view white and outlined there, so the map was labelled by
+  // the button that looked selected for the list. On the light-mode phone header, which is itself
+  // brand green, a filled button disappears into it and the white pill is what stands out, so
+  // there the active view stays white.
+  const onGreenHeader = !isWebLayout && !isDarkMode;
+  const viewToggleButton = (mode: 'list' | 'map') => {
+    const active = viewMode === mode;
+    const highlighted = onGreenHeader ? !active : active;
+    return (
+      <View className={isWebLayout ? '' : 'flex-1'}>
+        <Button
+          text={mode === 'list' ? t('search.listView') : t('search.mapView')}
+          onPress={() => setViewMode(mode)}
+          selected={active}
+          icon={<Ionicons name={mode} size={18} color={highlighted ? 'white' : BRAND_GREEN} />}
+          variant={highlighted ? 'primary' : 'outline'}
+          // Both carry the outline's 2px border, so the pair stays the same height.
+          className={
+            highlighted ? 'border-2 border-brand-600' : onGreenHeader ? 'bg-white' : cardBg
+          }
+        />
+      </View>
+    );
+  };
   const viewToggle = (
-    <View className={isWebLayout ? 'flex-row gap-2' : 'mb-8 mt-3 flex-row gap-3'}>
-      <View className={isWebLayout ? '' : 'flex-1'}>
-        <Button
-          text={t('search.listView')}
-          onPress={() => setViewMode('list')}
-          icon={
-            <Ionicons name="list" size={18} color={viewMode === 'list' ? BRAND_GREEN : 'white'} />
-          }
-          variant={viewMode === 'list' ? 'outline' : 'primary'}
-          className={viewMode === 'list' ? 'border-2 border-brand-600 bg-white' : ''}
-        />
-      </View>
-      <View className={isWebLayout ? '' : 'flex-1'}>
-        <Button
-          text={t('search.mapView')}
-          onPress={() => setViewMode('map')}
-          icon={
-            <Ionicons name="map" size={18} color={viewMode === 'map' ? BRAND_GREEN : 'white'} />
-          }
-          variant={viewMode === 'map' ? 'outline' : 'primary'}
-          className={viewMode === 'map' ? 'border-2 border-brand-600 bg-white' : ''}
-        />
-      </View>
+    <View className={isWebLayout ? 'flex-row gap-2' : 'mt-3 flex-row gap-3'}>
+      {viewToggleButton('list')}
+      {viewToggleButton('map')}
     </View>
   );
+
+  // ── search text ───────────────────────────────────────────────────────────
+  // A phone has no top bar, so the field lives above the results there; on the web design the
+  // top bar is the field and the page shows what it is searching for, with a way to drop it.
+  const setQuery = useCallback(
+    (next: string) => (navigation as any).setParams({ query: next.trim() || undefined }),
+    [navigation]
+  );
+  const [queryDraft, setQueryDraft] = useState(query);
+  useEffect(() => setQueryDraft(query), [query]);
+
+  const queryField = (
+    <View
+      className={`mt-3 flex-row items-center rounded-full px-4 ${isDarkMode ? 'bg-[#243447]' : 'bg-white'}`}
+      style={{ height: 44 }}>
+      <Ionicons name="search" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+      <TextInput
+        value={queryDraft}
+        onChangeText={setQueryDraft}
+        onSubmitEditing={() => setQuery(queryDraft)}
+        returnKeyType="search"
+        placeholder={t('search.queryPlaceholder')}
+        placeholderTextColor={isDarkMode ? '#9CA3AF' : '#6B7280'}
+        accessibilityLabel={t('common.search')}
+        className={`ml-2 flex-1 ${textColor}`}
+        style={{ outlineStyle: 'none' } as any}
+      />
+      {queryDraft ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('search.clearQuery')}
+          onPress={() => {
+            setQueryDraft('');
+            setQuery('');
+          }}>
+          <Ionicons name="close-circle" size={18} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+
+  const queryChip =
+    isWebLayout && query ? (
+      <View className="mb-4 flex-row">
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('search.clearQuery')}
+          onPress={() => setQuery('')}
+          className={`flex-row items-center rounded-full border border-brand-500 px-3 py-1.5 ${
+            isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'
+          }`}>
+          <Ionicons name="search" size={13} color={BRAND_GREEN} />
+          <Text
+            className={`mx-1.5 text-xs font-medium ${isDarkMode ? 'text-brand-300' : 'text-brand-700'}`}
+            numberOfLines={1}>
+            {query}
+          </Text>
+          <Ionicons name="close" size={14} color={BRAND_GREEN} />
+        </TouchableOpacity>
+      </View>
+    ) : null;
 
   /**
    * Whether there is room for the rail beside the results.
@@ -636,6 +722,7 @@ export default function SearchScreen() {
       sort={clientFiltered ? undefined : { value: sortBy, onChange: setSortBy }}
       header={
         <>
+          {queryChip}
           {groupRequestCta}
           {inlineFilterBar}
         </>
@@ -666,6 +753,7 @@ export default function SearchScreen() {
     <View
       className={`flex-1 ${isWebLayout ? 'px-8 pb-4' : 'pb-20'}`}
       style={showFilterRail ? { height: 680 } : undefined}>
+      {queryChip}
       <MapViewComponent services={mapServices} location={location} isDarkMode={isDarkMode} />
     </View>
   );
@@ -674,11 +762,13 @@ export default function SearchScreen() {
     <ScreenLayout
       headerVariant="standard"
       headerTitle={
-        categoryConfig
-          ? t(categoryConfig.titleKey as any)
-          : filters.serviceTypes.length === 1
-            ? tEnum('serviceProviderType', filters.serviceTypes[0])
-            : t('search.allServices')
+        query
+          ? t('search.resultsFor', { query })
+          : categoryConfig
+            ? t(categoryConfig.titleKey as any)
+            : filters.serviceTypes.length === 1
+              ? tEnum('serviceProviderType', filters.serviceTypes[0])
+              : t('search.allServices')
       }
       contentBg={contentBg}
       // Uncapped, unlike every other screen. `ContentContainer` centres a capped column, and that
@@ -717,37 +807,9 @@ export default function SearchScreen() {
       }
       headerChildren={
         isWebLayout ? undefined : (
-          <View className="mb-8 mt-3 flex-row gap-3">
-            <View className="flex-1">
-              <Button
-                text={t('search.listView')}
-                onPress={() => setViewMode('list')}
-                icon={
-                  <Ionicons
-                    name="list"
-                    size={18}
-                    color={viewMode === 'list' ? BRAND_GREEN : 'white'}
-                  />
-                }
-                variant={viewMode === 'list' ? 'outline' : 'primary'}
-                className={viewMode === 'list' ? 'border-2 border-brand-600 bg-white' : ''}
-              />
-            </View>
-            <View className="flex-1">
-              <Button
-                text={t('search.mapView')}
-                onPress={() => setViewMode('map')}
-                icon={
-                  <Ionicons
-                    name="map"
-                    size={18}
-                    color={viewMode === 'map' ? BRAND_GREEN : 'white'}
-                  />
-                }
-                variant={viewMode === 'map' ? 'outline' : 'primary'}
-                className={viewMode === 'map' ? 'border-2 border-brand-600 bg-white' : ''}
-              />
-            </View>
+          <View className="mb-8">
+            {queryField}
+            {viewToggle}
           </View>
         )
       }>

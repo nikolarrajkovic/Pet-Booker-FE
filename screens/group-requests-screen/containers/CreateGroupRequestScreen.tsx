@@ -62,6 +62,7 @@ import { MapViewComponent } from '../../search-screen/components';
 import type { ServiceSearchItem } from '../../search-screen/components/ListView';
 import ProviderPickRow from '../components/ProviderPickRow';
 import { formatDateWindow } from '../groupRequestFormat';
+import { formatWeekdayDayMonth } from '../../../i18n/dates';
 
 /**
  * What a caller (Search, Home) hands over: the browse filters it had applied, so "send to every
@@ -99,8 +100,8 @@ function toPickItem(svc: ServiceDto, typeLabel: string): ServiceSearchItem | nul
     distance: '',
     price: serviceFromPrice(svc),
     image: resolveImageUrl(photoSrc),
-    latitude: svc.address?.location?.latitude ?? null,
-    longitude: svc.address?.location?.longitude ?? null,
+    latitude: svc.mapLocation?.latitude ?? svc.address?.location?.latitude ?? null,
+    longitude: svc.mapLocation?.longitude ?? svc.address?.location?.longitude ?? null,
     dto: svc,
   };
 }
@@ -145,7 +146,7 @@ export default function CreateGroupRequestScreen() {
   } = useThemeColors();
   const { currentUser } = useAuth();
   const { enums } = useEnums();
-  const { t, tEnum } = useLocale();
+  const { t, tEnum, language } = useLocale();
   const { showError, showSuccess } = useToast();
   const { code: displayCurrency } = useCurrency();
   const location = useLocation();
@@ -297,7 +298,9 @@ export default function CreateGroupRequestScreen() {
         isActive: true,
         types: serviceType != null ? [serviceType] : undefined,
         ...(JSON.parse(filterKey) as GetServicesParams),
-        name: !anyMatching && debouncedName ? debouncedName : undefined,
+        // `query`, not `name`: the field promises a provider's name, and `name` matched only the
+        // service's own title — typing "Marko" found nothing unless his listing said so.
+        query: !anyMatching && debouncedName ? debouncedName : undefined,
         page,
         perPage: PAGE_SIZE,
       }),
@@ -479,8 +482,7 @@ export default function CreateGroupRequestScreen() {
     </TouchableOpacity>
   );
 
-  const dateText = (d: Date) =>
-    d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const dateText = (d: Date) => formatWeekdayDayMonth(d, language);
   const timeText = (d: Date) =>
     d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
 

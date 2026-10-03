@@ -343,6 +343,9 @@ const en = {
     clearFilters: 'Clear all',
     activeFilters: '{count} active',
     endOfResults: "You've seen all {count} results",
+    queryPlaceholder: 'Search by name, provider or type',
+    resultsFor: 'Results for “{query}”',
+    clearQuery: 'Clear search',
   },
   bookingConfirmed: {
     title: 'Request sent!',
@@ -573,6 +576,10 @@ const en = {
   },
   messages: {
     title: 'Messages',
+    timeNow: 'now',
+    timeMinutes: '{m}m',
+    timeHours: '{h}h',
+    timeDays: '{d}d',
     subtitle: 'Chat with providers',
     conversation: 'Conversation',
     composerPlaceholder: 'Message…',
@@ -1546,6 +1553,7 @@ const en = {
     mapLoadFailed: 'Map failed to load.',
     searchAddress: 'Search address or place',
     confirmLocation: 'Confirm location',
+    mapPickerHint: 'Search, or move the map to place the pin on the exact spot.',
     newBadge: 'New',
     serviceNameFallback: 'Service Name',
     serviceTypeFallback: 'Service Type',

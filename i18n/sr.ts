@@ -333,6 +333,9 @@ const sr: TranslationDict = {
     clearFilters: 'Obriši sve',
     activeFilters: 'aktivno: {count}',
     endOfResults: 'Videli ste sve rezultate ({count})',
+    queryPlaceholder: 'Pretražite po nazivu, pružaocu ili vrsti',
+    resultsFor: 'Rezultati za „{query}”',
+    clearQuery: 'Obriši pretragu',
   },
   bookingConfirmed: {
     title: 'Zahtev je poslat!',
@@ -549,6 +552,10 @@ const sr: TranslationDict = {
   },
   messages: {
     title: 'Poruke',
+    timeNow: 'sada',
+    timeMinutes: '{m} min',
+    timeHours: '{h} h',
+    timeDays: '{d} d',
     subtitle: 'Ćaskajte sa pružaocima usluga',
     conversation: 'Razgovor',
     composerPlaceholder: 'Poruka…',
@@ -1523,6 +1530,7 @@ const sr: TranslationDict = {
     mapLoadFailed: 'Mapa nije uspela da se učita.',
     searchAddress: 'Pretražite adresu ili mesto',
     confirmLocation: 'Potvrdi lokaciju',
+    mapPickerHint: 'Pretražite ili pomerite mapu da postavite oznaku na tačno mesto.',
     newBadge: 'Novo',
     serviceNameFallback: 'Naziv usluge',
     serviceTypeFallback: 'Vrsta usluge',
