@@ -245,7 +245,7 @@ export default function MapAddressPicker({
         {/* Footer */}
         <View style={{ padding: 16, backgroundColor: hex.card }}>
           <Text style={{ color: hex.subtext, fontSize: 13, marginBottom: 10, textAlign: 'center' }}>
-            Search, or move the map to place the pin on the exact spot.
+            {t('shared.mapPickerHint')}
           </Text>
           <TouchableOpacity
             accessibilityRole="button"

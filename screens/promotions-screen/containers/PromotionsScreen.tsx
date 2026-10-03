@@ -21,15 +21,9 @@ import {
   DiscountType,
 } from '../../../services/service-discounts';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { formatShortDate } from '../../../i18n/dates';
 
-const fmtDate = (iso?: string | null) =>
-  iso
-    ? new Date(iso).toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
-    : '';
+const fmtDate = (iso?: string | null) => (iso ? formatShortDate(new Date(iso)) : '');
 
 // ServiceDiscountDto → Promotion ('offer'). usageCount has no backing (BACKEND-GAP).
 // Takes the translate fn so the built title/note follow the active language.

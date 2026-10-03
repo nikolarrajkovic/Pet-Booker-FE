@@ -50,6 +50,7 @@ import {
 } from '../components';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { googleDirectionsUrl } from '../../../services/route-path';
+import { formatWeekdayDayMonth } from '../../../i18n/dates';
 
 type RouteParams = { mode?: 'partner' | 'user' };
 type Completion = { pickup: boolean; dropoff: boolean };
@@ -161,9 +162,7 @@ function pickUserSessions(bookings: BookingDto[]): BookingDto[] {
 // ── Formatting ──────────────────────────────────────────────────────────────
 function formatDate(iso: string): string {
   const d = parseBookingDate(iso);
-  return isNaN(d.getTime())
-    ? ''
-    : d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  return isNaN(d.getTime()) ? '' : formatWeekdayDayMonth(d);
 }
 function formatTime(iso: string): string {
   const d = parseBookingDate(iso);
@@ -270,7 +269,7 @@ export default function LiveSessionScreen() {
       }
       setSessions(group);
       setIndex(0);
-      // Side-load full pet + service (+ booker address for partner directions) for
+      // Side-load full pet + service (+ the booker's saved address, for their own map) for
       // each session. Best-effort — a failure falls back to the shallow data.
       if (group.length) {
         const petMap: Record<number, PetResponse | null> = {};
@@ -282,9 +281,14 @@ export default function LiveSessionScreen() {
             const [p, s, addr] = await Promise.all([
               getPet(b.petId).catch(() => null),
               getService(b.serviceId).catch(() => null),
-              getUser(b.userId)
-                .then((u) => u.address ?? null)
-                .catch(() => null),
+              // Only the booker can read their own profile: a provider asking for it is refused
+              // (401), and never needs it — a booking that bills a pickup or drop-off leg carries
+              // that address itself. It used to be requested from every partner session anyway.
+              isPartner
+                ? Promise.resolve(null)
+                : getUser(b.userId)
+                    .then((u) => u.address ?? null)
+                    .catch(() => null),
             ]);
             petMap[id] = p;
             svcMap[id] = s;

@@ -27,9 +27,9 @@ import {
   endOfDayIso,
 } from '../../../services/service-discounts';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { formatShortDate } from '../../../i18n/dates';
 
-const fmtDate = (d: Date | null) =>
-  d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+const fmtDate = (d: Date | null) => (d ? formatShortDate(d) : '');
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 

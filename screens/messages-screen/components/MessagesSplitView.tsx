@@ -179,7 +179,7 @@ export default function MessagesSplitView({ initial, onSelect }: MessagesSplitVi
                   subtitle={c.serviceName ?? undefined}
                   avatarUrl={resolveImageUrl(c.counterpartAvatarUrl) || null}
                   lastMessage={c.lastMessagePreview}
-                  timeLabel={relativeTime(c.lastMessageAt)}
+                  timeLabel={relativeTime(t, c.lastMessageAt)}
                   unreadCount={c.unreadCount ?? 0}
                   isDarkMode={isDarkMode}
                   isSelected={c.id === selectedId}

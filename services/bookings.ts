@@ -1,6 +1,7 @@
 import { apiJson, apiList, apiVoid } from './http';
 import { resolveImageUrl, AddressDto } from './service-providers';
 import type { ServicePricingOptionDto } from './services';
+import { formatShortDate } from '../i18n/dates';
 
 // BookingState enum (verified /enums 2026-06-19). The API advances `state` as the
 // provider acts on a booking: confirming moves it to Accepted(3), starting the
@@ -258,7 +259,7 @@ function firstPhoto(entity?: NestedEntity | null): string {
 function formatDate(iso: string): string {
   const d = parseBookingDate(iso);
   if (isNaN(d.getTime())) return '';
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return formatShortDate(d);
 }
 
 function formatTime(iso: string): string {

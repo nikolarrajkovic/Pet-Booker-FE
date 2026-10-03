@@ -5,6 +5,7 @@ import {
   type ServiceProviderDto,
 } from '../../services/service-providers';
 import type { PartnerApplication } from './components';
+import { formatShortDate } from '../../i18n/dates';
 
 // Maps a raw ServiceProviderDto (a partner application) to the card's view shape.
 // Note: the provider DTO does not carry phone/bio/experience/availability —
@@ -22,9 +23,7 @@ export function providerToApplication(dto: ServiceProviderDto): PartnerApplicati
     id: String(dto.id ?? 0),
     providerId: dto.id ?? 0,
     applicantName: dto.name ?? 'Applicant',
-    submittedDate: created
-      ? created.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-      : '',
+    submittedDate: created ? formatShortDate(created) : '',
     submittedTime: created
       ? created.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })
       : '',

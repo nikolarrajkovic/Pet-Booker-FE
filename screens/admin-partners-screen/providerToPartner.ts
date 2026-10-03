@@ -4,6 +4,7 @@ import {
   type ServiceProviderDto,
 } from '../../services/service-providers';
 import type { Partner } from './components';
+import { formatMonthYear } from '../../i18n/dates';
 
 // Maps a raw ServiceProviderDto into the Partner card/detail view shape.
 // The backend has no timeout/ban moderation concept, so every provider maps to
@@ -36,9 +37,7 @@ export function providerToPartner(dto: ServiceProviderDto, tallies?: ProviderTal
     totalServices: tallies?.services ?? 0,
     services: [providerTypeLabel(dto.type)],
     distance: addr?.city ?? '',
-    joinedDate: created
-      ? created.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
-      : '',
+    joinedDate: created ? formatMonthYear(created) : '',
     email: dto.contactEmail ?? '',
     phone: '',
     address,

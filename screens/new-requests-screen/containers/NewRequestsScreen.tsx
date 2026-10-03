@@ -25,6 +25,7 @@ import { formatMoney } from '../../../services/currency';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import ResponsiveModal from '../../../components/shared/ResponsiveModal';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { formatLongDate } from '../../../i18n/dates';
 
 // Translate function shape shared by the helpers below (labels follow the
 // active language; the container passes its useLocale().t down).
@@ -87,9 +88,7 @@ function bookingToRequest(t: TFn, b: BookingDto): ServiceRequest {
     petSpecialNeeds: null,
     petType: petTypeOf(pet),
     serviceName: b.service?.name ?? t('requests.service'),
-    serviceDate: isNaN(from.getTime())
-      ? ''
-      : from.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }),
+    serviceDate: isNaN(from.getTime()) ? '' : formatLongDate(from),
     serviceTime: isNaN(from.getTime())
       ? ''
       : from.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }),
