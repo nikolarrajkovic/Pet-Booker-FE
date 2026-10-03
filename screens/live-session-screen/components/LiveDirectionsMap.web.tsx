@@ -4,7 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { GeoPoint } from '../../../services/geocoding';
 import { haversineKm } from '../../../services/distance';
 import { fetchRoutePath } from '../../../services/route-path';
-import { loadGoogleMaps, DEV_MAP_ID } from '../../../services/google-maps';
+import {
+  createWebMap,
+  type MarkerVisual,
+  type WebMap,
+  type WebMapLine,
+  type WebMapMarker,
+} from '../../../services/web-map';
 import { BRAND_GREEN, themeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { DEFAULT_LOCATION } from '../../../hooks/useLocation';
@@ -47,7 +53,7 @@ const chipStyle = (bg: string) =>
     borderRadius: 16,
   }) as const;
 
-/** A small blue dot for the moving position (Advanced Marker content). */
+/** A small blue dot for the moving position. */
 function makeYouDot(): HTMLDivElement {
   const dot = document.createElement('div');
   dot.style.width = '16px';
@@ -59,9 +65,18 @@ function makeYouDot(): HTMLDivElement {
   return dot;
 }
 
+const youDot = (): MarkerVisual => ({
+  kind: 'element',
+  element: makeYouDot(),
+  width: 22,
+  height: 22,
+});
+const DEST_PIN: MarkerVisual = { kind: 'pin', color: BRAND_GREEN };
+
 /**
  * Inline live-session directions map (web), shared by both sides of a booking: a
- * Google Map built ONCE and mutated in place — the moving marker follows the
+ * Google Map (OpenStreetMap via Leaflet when Google is unavailable, see
+ * services/web-map.ts) built ONCE and mutated in place — the moving marker follows the
  * origin (the partner's own GPS, or the tracked provider's position for the
  * booker), the destination pin marks the route end, and the driving route (OSRM,
  * with a straight-line fallback) is re-pathed as things change. Mutating in place
@@ -83,12 +98,11 @@ export default function LiveDirectionsMap({
   const { t, language } = useLocale();
   const { hex } = themeColors(isDarkMode);
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapsRef = useRef<any>(null);
-  const mapRef = useRef<any>(null);
-  const youMarkerRef = useRef<any>(null);
-  const destMarkerRef = useRef<any>(null);
-  const polylineRef = useRef<any>(null);
-  const trailPolylineRef = useRef<any>(null);
+  const mapRef = useRef<WebMap | null>(null);
+  const youMarkerRef = useRef<WebMapMarker | null>(null);
+  const destMarkerRef = useRef<WebMapMarker | null>(null);
+  const polylineRef = useRef<WebMapLine | null>(null);
+  const trailPolylineRef = useRef<WebMapLine | null>(null);
   const fittedRef = useRef(false);
   // Zoom is applied only on the first destination-less centring so the viewer can
   // still zoom out while the camera follows the moving marker.
@@ -101,34 +115,29 @@ export default function LiveDirectionsMap({
   // Build the map once.
   useEffect(() => {
     let cancelled = false;
-    loadGoogleMaps(language)
-      .then((maps) => {
-        if (cancelled || !containerRef.current) return;
-        const map = new maps.Map(containerRef.current, {
-          center: { lat: DEFAULT_LOCATION.latitude, lng: DEFAULT_LOCATION.longitude },
-          zoom: 13,
-          mapId: DEV_MAP_ID,
-          disableDefaultUI: true,
-          zoomControl: true,
-          zoomControlOptions: { position: maps.ControlPosition.LEFT_TOP },
-          colorScheme: isDarkMode ? maps.ColorScheme?.DARK : maps.ColorScheme?.LIGHT,
-        });
-        mapsRef.current = maps;
+    let created: WebMap | null = null;
+    if (!containerRef.current) return;
+    createWebMap(containerRef.current, {
+      center: { lat: DEFAULT_LOCATION.latitude, lng: DEFAULT_LOCATION.longitude },
+      zoom: 13,
+      language,
+      isDarkMode,
+    })
+      .then((map) => {
+        if (cancelled) {
+          map.destroy();
+          return;
+        }
+        created = map;
         mapRef.current = map;
         // Travelled path sits under the route so the road ahead stays dominant.
-        trailPolylineRef.current = new maps.Polyline({
-          map,
+        trailPolylineRef.current = map.addLine({
           path: [],
-          strokeColor: '#2563EB',
-          strokeOpacity: 0.35,
-          strokeWeight: 3,
+          color: '#2563EB',
+          opacity: 0.35,
+          weight: 3,
         });
-        polylineRef.current = new maps.Polyline({
-          map,
-          path: [],
-          strokeColor: BRAND_GREEN,
-          strokeWeight: 4,
-        });
+        polylineRef.current = map.addLine({ path: [], color: BRAND_GREEN, weight: 4 });
         setMapReady(true);
       })
       .catch(() => {
@@ -136,17 +145,18 @@ export default function LiveDirectionsMap({
       });
     return () => {
       cancelled = true;
+      mapRef.current = null;
+      created?.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Place / move the destination pin and reset the fit when it changes.
   useEffect(() => {
-    if (!mapReady) return;
-    const maps = mapsRef.current;
     const map = mapRef.current;
+    if (!mapReady || !map) return;
     if (!destination) {
-      if (destMarkerRef.current) destMarkerRef.current.map = null;
+      destMarkerRef.current?.remove();
       destMarkerRef.current = null;
       polylineRef.current?.setPath([]);
       routedFrom.current = null;
@@ -156,20 +166,14 @@ export default function LiveDirectionsMap({
     }
     const pos = { lat: destination.latitude, lng: destination.longitude };
     if (!destMarkerRef.current) {
-      const pin = new maps.marker.PinElement({
-        background: BRAND_GREEN,
-        borderColor: '#00A85A',
-        glyphColor: '#ffffff',
-      });
-      destMarkerRef.current = new maps.marker.AdvancedMarkerElement({
-        map,
+      destMarkerRef.current = map.addMarker({
         position: pos,
         title: destinationLabel || t('shared.destination'),
-        content: pin.element,
+        visual: DEST_PIN,
       });
     } else {
-      destMarkerRef.current.position = pos;
-      destMarkerRef.current.title = destinationLabel || t('shared.destination');
+      destMarkerRef.current.setPosition(pos);
+      destMarkerRef.current.setTitle(destinationLabel || t('shared.destination'));
     }
     // A new destination re-frames the map next time the route resolves.
     fittedRef.current = false;
@@ -191,19 +195,17 @@ export default function LiveDirectionsMap({
 
   // Move the marker and (throttled) re-fetch + draw the driving route.
   useEffect(() => {
-    if (!mapReady || !origin) return;
-    const maps = mapsRef.current;
     const map = mapRef.current;
+    if (!mapReady || !map || !origin) return;
     const pos = { lat: origin.latitude, lng: origin.longitude };
     if (!youMarkerRef.current) {
-      youMarkerRef.current = new maps.marker.AdvancedMarkerElement({
-        map,
+      youMarkerRef.current = map.addMarker({
         position: pos,
         title: originLabel || t('shared.youAreHere'),
-        content: makeYouDot(),
+        visual: youDot(),
       });
     } else {
-      youMarkerRef.current.position = pos;
+      youMarkerRef.current.setPosition(pos);
     }
 
     if (!destination) {
@@ -234,9 +236,10 @@ export default function LiveDirectionsMap({
       onRouteSummary?.({ km: path.km, mins: path.mins });
       if (!fittedRef.current) {
         fittedRef.current = true;
-        const bounds = new maps.LatLngBounds();
-        path.coords.forEach((p) => bounds.extend({ lat: p.latitude, lng: p.longitude }));
-        map.fitBounds(bounds, 50);
+        map.fitBounds(
+          path.coords.map((p) => ({ lat: p.latitude, lng: p.longitude })),
+          50
+        );
       }
     })();
     return () => {

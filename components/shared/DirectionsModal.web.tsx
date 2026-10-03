@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, themeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import { getCurrentPosition, GeoPoint } from '../../services/geocoding';
-import { loadGoogleMaps, DEV_MAP_ID } from '../../services/google-maps';
+import { createWebMap, USER_DOT_VISUAL, type LatLng, type WebMap } from '../../services/web-map';
 import { osrmRouteUrl, googleDirectionsUrl } from '../../services/route-path';
 
 export type DirectionsModalProps = {
@@ -27,7 +27,8 @@ function haversineKm(a: GeoPoint, b: GeoPoint): number {
 }
 
 /**
- * Web directions preview — a Google Map showing the destination, the partner's
+ * Web directions preview — a Google Map (OpenStreetMap via Leaflet when Google is
+ * unavailable, see services/web-map.ts) showing the destination, the partner's
  * current location, and the driving route between them (OSRM, with a
  * straight-line fallback). A hand-off button opens Google Maps directions in a
  * new tab for turn-by-turn. (Native build: DirectionsModal.tsx.)
@@ -42,7 +43,8 @@ export default function DirectionsModal({
 }: DirectionsModalProps) {
   const { t, language } = useLocale();
   const { hex } = themeColors(isDarkMode);
-  const containerRef = useRef<HTMLDivElement>(null);
+  // State, not a ref: the div mounts inside the modal's portal, possibly a commit after `visible`.
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const [origin, setOrigin] = useState<GeoPoint | null>(null);
   const [located, setLocated] = useState(false);
   const [mapError, setMapError] = useState(false);
@@ -69,61 +71,26 @@ export default function DirectionsModal({
   // Build the map once the destination is known; rebuilt when the origin
   // resolves so the OSRM route and both markers appear.
   useEffect(() => {
-    if (!visible || !destination) return;
+    if (!visible || !destination || !container) return;
     let cancelled = false;
-    loadGoogleMaps(language)
-      .then((maps) => {
-        if (cancelled || !containerRef.current) return;
-        const dest = { lat: destination.latitude, lng: destination.longitude };
-        const map = new maps.Map(containerRef.current, {
-          center: dest,
-          zoom: 14,
-          mapId: DEV_MAP_ID,
-          disableDefaultUI: true,
-          zoomControl: true,
-          // Google's default zoom position is bottom-right; keep the old
-          // MapLibre/Leaflet top-left placement.
-          zoomControlOptions: { position: maps.ControlPosition.LEFT_TOP },
-          colorScheme: isDarkMode ? maps.ColorScheme?.DARK : maps.ColorScheme?.LIGHT,
-        });
-        new maps.marker.AdvancedMarkerElement({
-          map,
-          position: dest,
-          title: t('shared.destination'),
-        });
+    let created: WebMap | null = null;
+    const dest = { lat: destination.latitude, lng: destination.longitude };
+    createWebMap(container, { center: dest, zoom: 14, language, isDarkMode })
+      .then((map) => {
+        if (cancelled) {
+          map.destroy();
+          return;
+        }
+        created = map;
+        map.addMarker({ position: dest, title: t('shared.destination') });
         if (!origin) return;
         const from = { lat: origin.latitude, lng: origin.longitude };
-        new maps.marker.AdvancedMarkerElement({
-          map,
-          position: from,
-          title: t('shared.youAreHere'),
-        });
-        const fit = (path: { lat: number; lng: number }[]) => {
-          const bounds = new maps.LatLngBounds();
-          path.forEach((p) => bounds.extend(p));
-          map.fitBounds(bounds, 50);
-        };
+        map.addMarker({ position: from, title: t('shared.youAreHere'), visual: USER_DOT_VISUAL });
+        const fit = (path: LatLng[]) => map.fitBounds(path, 50);
         fit([from, dest]);
         // Straight dashed line when no driving route is available.
         const straight = () => {
-          new maps.Polyline({
-            map,
-            path: [from, dest],
-            strokeOpacity: 0,
-            icons: [
-              {
-                icon: {
-                  path: 'M 0,-1 0,1',
-                  strokeOpacity: 1,
-                  strokeColor: BRAND_GREEN,
-                  strokeWeight: 4,
-                  scale: 2,
-                },
-                offset: '0',
-                repeat: '12px',
-              },
-            ],
-          });
+          map.addLine({ path: [from, dest], color: BRAND_GREEN, weight: 4, dashed: true });
           fit([from, dest]);
         };
         fetch(osrmRouteUrl(origin, destination))
@@ -133,7 +100,7 @@ export default function DirectionsModal({
             const coords = d?.routes?.[0]?.geometry?.coordinates;
             if (coords?.length) {
               const path = coords.map((p: [number, number]) => ({ lat: p[1], lng: p[0] }));
-              new maps.Polyline({ map, path, strokeColor: BRAND_GREEN, strokeWeight: 4 });
+              map.addLine({ path, color: BRAND_GREEN, weight: 4 });
               fit(path);
             } else {
               straight();
@@ -148,9 +115,10 @@ export default function DirectionsModal({
       });
     return () => {
       cancelled = true;
+      created?.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, destination, origin]);
+  }, [visible, destination, origin, container]);
 
   const openExternal = () => {
     if (!destination) return;
@@ -190,7 +158,7 @@ export default function DirectionsModal({
               <Text style={{ color: hex.subtext, marginTop: 12 }}>{t('shared.mapLoadFailed')}</Text>
             </View>
           ) : destination ? (
-            <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+            <div ref={setContainer} style={{ width: '100%', height: '100%' }} />
           ) : (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="navigate-outline" size={48} color={hex.subtext} />

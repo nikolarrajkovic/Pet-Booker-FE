@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useLocale } from '../../../context/LocaleContext';
-import { loadGoogleMaps } from '../../../services/google-maps';
+import { createWebMap, type WebMap, type WebMapMarker } from '../../../services/web-map';
 import { formatMoney } from '../../../services/currency';
 import { serviceCurrency } from '../../../services/services';
 import type { ServiceSearchItem } from './ListView';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
+import { serviceDetailParams } from '../../../navigation/linking';
 interface LocationData {
   latitude: number;
   longitude: number;
@@ -24,10 +25,10 @@ interface MapViewComponentProps {
   bottomOffset?: number;
 }
 
-// Hide POI icons/labels and transit clutter so the service pins stand out.
+// Google only: hide POI icons/labels and transit clutter so the service pins stand out.
 // Labels-only for POIs keeps park/landscape fills (relevant for walkers).
 // Inline `styles` are only honored on a map WITHOUT a mapId — which is why this
-// map uses classic `maps.Marker` (SVG icons) instead of AdvancedMarkerElement
+// map asks for classic markers (SVG icons) instead of AdvancedMarkerElement
 // (that requires a mapId, and the dev DEMO_MAP_ID can't be styled from code).
 const MAP_DECLUTTER_STYLE = [
   { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
@@ -151,9 +152,10 @@ function buildInfoCard(s: ServiceSearchItem, isDarkMode: boolean, onView: () => 
 }
 
 /**
- * Search results map (web) — a Google Map with the user's location dot and a
- * green price-pill marker per service. Clicking a pin opens a styled info-window
- * card (photo / name / type / rating / price) that navigates to ServiceDetail.
+ * Search results map (web) — a Google Map (OpenStreetMap via Leaflet when Google is
+ * unavailable, see services/web-map.ts) with the user's location dot and a green
+ * price-pill marker per service. Clicking a pin opens a styled popup card
+ * (photo / name / type / rating / price) that navigates to ServiceDetail.
  * Only services with a geocoded address (non-null coords) get a pin.
  * (Native build: MapView.tsx.)
  */
@@ -173,7 +175,7 @@ export default function MapViewComponent({
   // (effect below) without tearing the whole map down and losing the reader's pan and zoom.
   const toggleRef = useRef(onToggleSelect);
   toggleRef.current = onToggleSelect;
-  const markersRef = useRef<Map<number, { marker: any; item: ServiceSearchItem; maps: any }>>(
+  const markersRef = useRef<Map<number, { marker: WebMapMarker; item: ServiceSearchItem }>>(
     new Map()
   );
   const selectedKey = (selectedIds ?? []).join(',');
@@ -183,69 +185,61 @@ export default function MapViewComponent({
   const pickedRef = useRef<Set<number>>(new Set());
   pickedRef.current = new Set(selectedIds ?? []);
 
-  useEffect(() => {
-    if (location.loading) return;
-    let cancelled = false;
-    loadGoogleMaps(language)
-      .then((maps) => {
-        if (cancelled || !containerRef.current) return;
-        const userPos = { lat: location.latitude, lng: location.longitude };
-        const map = new maps.Map(containerRef.current, {
-          center: userPos,
-          zoom: 13,
-          disableDefaultUI: true,
-          zoomControl: true,
-          // Google's default zoom position is bottom-right; keep the old
-          // MapLibre/Leaflet top-left placement.
-          zoomControlOptions: { position: maps.ControlPosition.LEFT_TOP },
-          clickableIcons: false,
-          styles: MAP_DECLUTTER_STYLE,
-        });
+  const pinFor = (s: ServiceSearchItem, picked: boolean) => {
+    const pin = pricePinSvg(
+      `${picked ? '✓ ' : ''}${formatMoney(s.price, serviceCurrency(s.dto))}`,
+      selectMode && !picked ? 'outline' : 'filled'
+    );
+    return { kind: 'svg' as const, ...pin };
+  };
 
-        const svgIcon = (svg: string, width: number, height: number = width) => ({
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
-          scaledSize: new maps.Size(width, height),
-          anchor: new maps.Point(width / 2, height / 2),
-        });
+  useEffect(() => {
+    if (location.loading || !containerRef.current) return;
+    let cancelled = false;
+    let map: WebMap | null = null;
+    const userPos = { lat: location.latitude, lng: location.longitude };
+    createWebMap(containerRef.current, {
+      center: userPos,
+      zoom: 13,
+      language,
+      isDarkMode,
+      classicStyles: MAP_DECLUTTER_STYLE,
+    })
+      .then((m) => {
+        if (cancelled) {
+          m.destroy();
+          return;
+        }
+        map = m;
 
         // User location dot
-        new maps.Marker({
-          map,
+        m.addMarker({
           position: userPos,
           title: t('shared.youAreHere'),
-          icon: svgIcon(USER_DOT_SVG, 22),
+          visual: { kind: 'svg', svg: USER_DOT_SVG, width: 22, height: 22 },
         });
 
-        // Service markers — price pill + a styled info-window card on click.
-        // Trim the InfoWindow's default white chrome so the card fills it.
-        const info = new maps.InfoWindow();
+        // Service markers — price pill + a styled card on click.
         markersRef.current = new Map();
         services
           .filter((s) => s.latitude != null && s.longitude != null)
           .forEach((s) => {
-            const picked = selectMode && pickedRef.current.has(s.id);
-            const pin = pricePinSvg(
-              `${picked ? '✓ ' : ''}${formatMoney(s.price, serviceCurrency(s.dto))}`,
-              selectMode && !picked ? 'outline' : 'filled'
-            );
-            const marker = new maps.Marker({
-              map,
+            const marker: WebMapMarker = m.addMarker({
               position: { lat: s.latitude!, lng: s.longitude! },
-              icon: svgIcon(pin.svg, pin.width, pin.height),
+              visual: pinFor(s, selectMode && pickedRef.current.has(s.id)),
               title: s.name,
+              onClick: () => {
+                if (toggleRef.current) {
+                  toggleRef.current(s);
+                  return;
+                }
+                const card = buildInfoCard(s, isDarkMode, () =>
+                  (navigation as any).navigate('ServiceDetail', serviceDetailParams(s.dto))
+                );
+                m.openPopup(marker, card);
+              },
             });
-            markersRef.current.set(s.id, { marker, item: s, maps });
-            marker.addListener('click', () => {
-              if (toggleRef.current) {
-                toggleRef.current(s);
-                return;
-              }
-              const card = buildInfoCard(s, isDarkMode, () =>
-                (navigation as any).navigate('ServiceDetail', { service: s.dto })
-              );
-              info.setContent(card);
-              info.open({ map, anchor: marker });
-            });
+            markersRef.current.set(s.id, { marker, item: s });
           });
       })
       .catch(() => {
@@ -253,6 +247,8 @@ export default function MapViewComponent({
       });
     return () => {
       cancelled = true;
+      markersRef.current = new Map();
+      map?.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [services, location.loading, location.latitude, location.longitude, isDarkMode, selectMode]);
@@ -261,16 +257,10 @@ export default function MapViewComponent({
   useEffect(() => {
     if (!selectMode) return;
     const picked = new Set(selectedKey ? selectedKey.split(',').map(Number) : []);
-    markersRef.current.forEach(({ marker, item, maps }, id) => {
-      const isPicked = picked.has(id);
-      const label = `${isPicked ? '✓ ' : ''}${formatMoney(item.price, serviceCurrency(item.dto))}`;
-      const pin = pricePinSvg(label, isPicked ? 'filled' : 'outline');
-      marker.setIcon({
-        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(pin.svg),
-        scaledSize: new maps.Size(pin.width, pin.height),
-        anchor: new maps.Point(pin.width / 2, pin.height / 2),
-      });
+    markersRef.current.forEach(({ marker, item }, id) => {
+      marker.setVisual(pinFor(item, picked.has(id)));
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectMode, selectedKey, services]);
 
   if (location.loading) {
