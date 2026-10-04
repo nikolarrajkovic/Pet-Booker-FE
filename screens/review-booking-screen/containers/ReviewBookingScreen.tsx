@@ -20,11 +20,7 @@ import { ServiceDto, serviceCurrency } from '../../../services/services';
 import { DiscountType } from '../../../services/service-discounts';
 import { createBooking, parseBookingDate, PaymentType } from '../../../services/bookings';
 import { showAlert } from '../../../services/alert';
-import {
-  getPaymentMethods,
-  createPaymentMethod,
-  PaymentMethodStatus,
-} from '../../../services/payment-methods';
+import { ensurePaymentMethodId } from '../../../services/payment-methods';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 
 type Appointment = {
@@ -75,30 +71,6 @@ function discountLabel(
   }
   if (type === DiscountType.Fixed) return t('reviewBooking.discountFixed');
   return t('reviewBooking.discount');
-}
-
-/**
- * Resolves a usable paymentMethodId for the user. The API requires bookings to
- * reference a real PaymentMethod, so if the user has none we create a default
- * placeholder (real payment UX is future work — see CLAUDE.md).
- */
-async function resolvePaymentMethodId(userId: number, isCash: boolean): Promise<number> {
-  const existing = await getPaymentMethods(userId);
-  if (existing.length) {
-    const def = existing.find((m) => m.isDefault) ?? existing[0];
-    if (def.id != null) return def.id;
-  }
-  const created = await createPaymentMethod({
-    userId,
-    type: isCash ? PaymentType.Cash : PaymentType.Card,
-    provider: 'manual',
-    providerPaymentMethodId: `manual-${userId}-${Date.now()}`,
-    isDefault: true,
-    status: PaymentMethodStatus.Active,
-    cardHolderName: 'Account Holder',
-  });
-  if (created.id == null) throw new Error('Could not create a payment method.');
-  return created.id;
 }
 
 export default function ReviewBookingScreen() {
@@ -186,7 +158,10 @@ export default function ReviewBookingScreen() {
     setIsSubmitting(true);
     try {
       const isCash = selectedPaymentMethod === 'cash';
-      const paymentMethodId = await resolvePaymentMethodId(currentUser.id, isCash);
+      const paymentMethodId = await ensurePaymentMethodId(
+        currentUser.id,
+        isCash ? PaymentType.Cash : PaymentType.Card
+      );
 
       // One booking per appointment (the API creates a single booking per call).
       for (const apt of appointments) {

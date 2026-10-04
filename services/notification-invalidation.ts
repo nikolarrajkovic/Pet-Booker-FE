@@ -72,6 +72,11 @@ export function resourcesForNotification(notification: { type?: unknown }): stri
       resources.add('chat');
       break;
 
+    // A group request landed in the provider's inbox.
+    case NotificationType.GroupBookingRequested:
+      resources.add('group-booking-requests');
+      break;
+
     // A type this build has not heard of — the inbox alone. Guessing wider would refresh screens
     // for an event we cannot describe.
     default:

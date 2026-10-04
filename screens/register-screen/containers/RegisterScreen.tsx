@@ -11,6 +11,7 @@ import DatePicker from '../../../components/shared/DatePicker';
 import PhoneInput from '../../../components/shared/PhoneInput';
 import { registerUser } from '../../../services/auth';
 import AuthLayout from '../../../components/layout/AuthLayout';
+import { formatBirthDate } from '../../../i18n/dates';
 
 type RootStackParamList = {
   Login: undefined;
@@ -355,13 +356,7 @@ export default function RegisterScreen() {
               color: dateOfBirth ? inputTextColor : placeholderColor,
               flex: 1,
             }}>
-            {dateOfBirth
-              ? dateOfBirth.toLocaleDateString('en-GB', {
-                  day: '2-digit',
-                  month: 'long',
-                  year: 'numeric',
-                })
-              : t('register.dobPlaceholder')}
+            {dateOfBirth ? formatBirthDate(dateOfBirth) : t('register.dobPlaceholder')}
           </Text>
           <Ionicons
             name={showDobPicker ? 'chevron-up' : 'chevron-down'}

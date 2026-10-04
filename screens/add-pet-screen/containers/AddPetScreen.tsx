@@ -25,6 +25,7 @@ import { getErrorMessage } from '../../../services/http';
 import { useAuth } from '../../../context/AuthContext';
 import { showAlert } from '../../../services/alert';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { formatBirthDate } from '../../../i18n/dates';
 
 type AddPetRouteParams = {
   // Set by flows that push AddPet mid-task (e.g. BookService with no pets):
@@ -383,13 +384,7 @@ export default function AddPetScreen() {
                         : '#9CA3AF',
                     flex: 1,
                   }}>
-                  {birthDate
-                    ? birthDate.toLocaleDateString('en-GB', {
-                        day: '2-digit',
-                        month: 'long',
-                        year: 'numeric',
-                      })
-                    : t('addPet.selectBirthDate')}
+                  {birthDate ? formatBirthDate(birthDate) : t('addPet.selectBirthDate')}
                 </Text>
                 <Ionicons
                   name={showBirthDatePicker ? 'chevron-up' : 'chevron-down'}

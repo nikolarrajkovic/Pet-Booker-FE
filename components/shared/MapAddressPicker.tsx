@@ -18,6 +18,12 @@ export type MapAddressPickerProps = {
   visible: boolean;
   title: string;
   initialRegion: GeoPoint;
+  /**
+   * Jump to the device's position once the picker opens (default). Pass false when
+   * `initialRegion` is a place the user already chose — a saved address, a pin already dropped —
+   * so the map opens there instead of wherever the device happens to be.
+   */
+  locateOnOpen?: boolean;
   isDarkMode: boolean;
   onClose: () => void;
   onSelect: (address: AddressDto, label: string) => void;
@@ -35,6 +41,7 @@ export default function MapAddressPicker({
   visible,
   title,
   initialRegion,
+  locateOnOpen = true,
   isDarkMode,
   onClose,
   onSelect,
@@ -55,8 +62,9 @@ export default function MapAddressPicker({
     mapRef.current?.animateToRegion({ ...p, ...DELTA }, 500);
   };
 
-  // Centre on the user's current location when the picker opens.
+  // Centre on the user's current location when the picker opens (unless told where to open).
   useEffect(() => {
+    if (!locateOnOpen) return;
     let active = true;
     (async () => {
       const p = await getCurrentPosition();
@@ -67,7 +75,7 @@ export default function MapAddressPicker({
     return () => {
       active = false;
     };
-  }, []);
+  }, [locateOnOpen]);
 
   const runSearch = async () => {
     if (!query.trim()) return;
@@ -105,8 +113,7 @@ export default function MapAddressPicker({
         <View
           style={{
             // A full-screen Modal covers the status bar, so its own header has to clear it. This
-            // was a fixed 48 here and a Platform ternary in DirectionsModal — one device's status
-            // bar written down as a constant.
+            // was a fixed 48 — one device's status bar written down as a constant.
             paddingTop: topInset + 12,
             paddingHorizontal: 16,
             paddingBottom: 12,
@@ -198,7 +205,7 @@ export default function MapAddressPicker({
         {/* Footer */}
         <View style={{ padding: 16, backgroundColor: hex.card }}>
           <Text style={{ color: hex.subtext, fontSize: 13, marginBottom: 10, textAlign: 'center' }}>
-            Search, or move the map to place the pin on the exact spot.
+            {t('shared.mapPickerHint')}
           </Text>
           <TouchableOpacity
             accessibilityRole="button"

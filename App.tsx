@@ -37,6 +37,9 @@ import ConversationsScreen from './screens/messages-screen/containers/Conversati
 import ChatScreen from './screens/messages-screen/containers/ChatScreen';
 import NotificationSettingsScreen from './screens/notifications-screen/containers/NotificationSettingsScreen';
 import NewRequestsScreen from './screens/new-requests-screen/containers/NewRequestsScreen';
+import CreateGroupRequestScreen from './screens/group-requests-screen/containers/CreateGroupRequestScreen';
+import MyGroupRequestsScreen from './screens/group-requests-screen/containers/MyGroupRequestsScreen';
+import GroupRequestsScreen from './screens/group-requests-screen/containers/GroupRequestsScreen';
 import LiveSessionScreen from './screens/live-session-screen/containers/LiveSessionScreen';
 import PartnerHubScreen from './screens/partner-hub-screen/containers/PartnerHubScreen';
 import PartnerWelcomeScreen from './screens/partner-welcome-screen/containers/PartnerWelcomeScreen';
@@ -291,6 +294,9 @@ function AppContent() {
                     component={NotificationSettingsScreen}
                   />
                   <Stack.Screen name="NewRequests" component={NewRequestsScreen} />
+                  <Stack.Screen name="CreateGroupRequest" component={CreateGroupRequestScreen} />
+                  <Stack.Screen name="MyGroupRequests" component={MyGroupRequestsScreen} />
+                  <Stack.Screen name="GroupRequests" component={GroupRequestsScreen} />
                   <Stack.Screen name="LiveSession" component={LiveSessionScreen} />
                   <Stack.Screen name="Promotions" component={PromotionsScreen} />
                   <Stack.Screen

@@ -72,6 +72,10 @@ export const NotificationType = {
   PaymentOverdue: 24,
   /** A booking request the provider has not answered. Sent to BOTH sides; { bookingId }. */
   BookingRequestStale: 25,
+  /** A pet owner sent a group request ("ask several providers") that this provider is named on
+   *  or matches. Provider-facing; { groupBookingRequestId, serviceType }. In-app + push, no email
+   *  for now. First to accept gets the booking, so it routes to the Group requests inbox. */
+  GroupBookingRequested: 26,
 } as const;
 
 /**
