@@ -155,6 +155,13 @@ export const NAV_ITEMS: NavItem[] = [
     group: 'partner',
     requires: 'partner',
   },
+  {
+    route: 'BusinessProfile',
+    labelKey: 'businessProfile.title',
+    icon: 'storefront-outline',
+    group: 'partner',
+    requires: 'partner',
+  },
 
   // ── Admin — the Admin Dashboard quick actions ───────────────────────────────────────────────
   {

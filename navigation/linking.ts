@@ -104,6 +104,7 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       PartnerApplication: 'become-partner/apply',
       MySchedule: 'partner/schedule',
       MyServices: 'partner/services',
+      BusinessProfile: 'partner/profile',
       NewRequests: 'partner/requests',
       GroupRequests: 'partner/group-requests',
       Promotions: 'partner/promotions',

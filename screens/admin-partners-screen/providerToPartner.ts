@@ -9,7 +9,7 @@ import type { Partner, PartnerStatus } from './components';
 import { formatMonthYear } from '../../i18n/dates';
 
 // Maps a raw ServiceProviderDto into the Partner card/detail view shape.
-// Fields not exposed at the list level (starting price, service history) default to 0/[].
+// The starting price and recent bookings are not on the list row; Partner Details loads them.
 
 /** The server's moderation status (derived from dates, so an expired timeout is Active). */
 export function partnerStatusOf(status?: ModerationStatusValue | null): PartnerStatus {
@@ -50,7 +50,6 @@ export function providerToPartner(dto: ServiceProviderDto, tallies?: ProviderTal
     phone: dto.contactPhone ?? '',
     address,
     bio: dto.about ?? '',
-    startingPrice: 0,
     currency: dto.currency,
     avgRating: rating,
     moderationReason: dto.moderationReason ?? null,
@@ -64,6 +63,5 @@ export function providerToPartner(dto: ServiceProviderDto, tallies?: ProviderTal
         0,
       insuranceCertificate: (dto.certificates ?? []).some((c) => (c.files ?? []).length > 0),
     },
-    serviceHistory: [],
   };
 }

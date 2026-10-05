@@ -38,6 +38,7 @@ import MyBookingsScreen from './screens/my-bookings-screen/containers/MyBookings
 import BookingDetailsScreen from './screens/booking-details-screen/containers/BookingDetailsScreen';
 import MyScheduleScreen from './screens/my-schedule-screen/containers/MyScheduleScreen';
 import MyServicesScreen from './screens/my-services-screen/containers/MyServicesScreen';
+import BusinessProfileScreen from './screens/business-profile-screen/containers/BusinessProfileScreen';
 import AddEditServiceScreen from './screens/my-services-screen/containers/AddEditServiceScreen';
 import ServicePreviewScreen from './screens/service-preview-screen/containers/ServicePreviewScreen';
 import NotificationsScreen from './screens/notifications-screen/containers/NotificationsScreen';
@@ -318,6 +319,7 @@ function AppContent() {
                   <Stack.Screen name="BookingDetails" component={BookingDetailsScreen} />
                   <Stack.Screen name="MySchedule" component={MyScheduleScreen} />
                   <Stack.Screen name="MyServices" component={MyServicesScreen} />
+                  <Stack.Screen name="BusinessProfile" component={BusinessProfileScreen} />
                   <Stack.Screen
                     name="AddEditService"
                     component={AddEditServiceScreen}
@@ -421,6 +423,7 @@ const SCREEN_TITLE_KEYS: Record<string, TranslationKey> = {
   PartnerApplication: 'partnerApplication.title',
   MySchedule: 'profile.schedule',
   MyServices: 'myServices.title',
+  BusinessProfile: 'businessProfile.title',
   NewRequests: 'partnerHub.requests',
   Promotions: 'promotions.title',
   LiveSession: 'liveSession.title',

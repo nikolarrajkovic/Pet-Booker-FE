@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -7,11 +7,11 @@ import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import FormCard from '../../../components/shared/FormCard';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
-import { AddressDto } from '../../../services/service-providers';
+import { AddressDto, PROVIDER_NAME_TAKEN } from '../../../services/service-providers';
 import { PersonalInfoStep, ServiceInfoStep } from '../../partner-application-screen/components';
 import { showAlert } from '../../../services/alert';
 import { invitePartner } from '../../../services/admin';
-import { getErrorMessage } from '../../../services/http';
+import { ApiError, getErrorMessage } from '../../../services/http';
 import { LANGUAGES } from '../../../i18n';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useResponsive } from '../../../hooks/useResponsive';
@@ -42,8 +42,10 @@ export default function AdminAddPartnerScreen() {
   const [step, setStep] = useState(1);
   const [addressPickerVisible, setAddressPickerVisible] = useState(false);
 
+  const [businessNameError, setBusinessNameError] = useState('');
   const [formData, setFormData] = useState({
     fullName: '',
+    businessName: '',
     email: '',
     phone: '',
     country: '',
@@ -56,6 +58,11 @@ export default function AdminAddPartnerScreen() {
     aboutYou: '',
     motivation: '',
   });
+
+  // A taken-name error describes the name as it was; editing either name clears it.
+  useEffect(() => {
+    setBusinessNameError('');
+  }, [formData.businessName, formData.fullName]);
 
   const totalSteps = 2;
 
@@ -83,7 +90,7 @@ export default function AdminAddPartnerScreen() {
   // Creates the partner (approved) and emails them an invite to set their password. This used to
   // show "Partner added" and send nothing at all.
   const handleSubmit = async () => {
-    const name = formData.fullName.trim();
+    const name = formData.businessName.trim() || formData.fullName.trim();
     const email = formData.email.trim();
     if (!name || !email.includes('@') || formData.serviceType == null) {
       setSubmitError(t('admin.invitePartnerMissing'));
@@ -118,6 +125,11 @@ export default function AdminAddPartnerScreen() {
         { text: t('admin.ok'), onPress: () => navigation.goBack() },
       ]);
     } catch (e) {
+      if (e instanceof ApiError && e.hasCode(PROVIDER_NAME_TAKEN)) {
+        setBusinessNameError(e.message);
+        setStep(1);
+        return;
+      }
       setSubmitError(getErrorMessage(e, t('admin.invitePartnerFailed')));
     } finally {
       setIsSubmitting(false);
@@ -181,6 +193,7 @@ export default function AdminAddPartnerScreen() {
               formData={formData}
               setFormData={setFormData}
               onOpenAddressMap={() => setAddressPickerVisible(true)}
+              businessNameError={businessNameError}
               {...themeProps}
             />
           )}

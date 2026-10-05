@@ -117,12 +117,23 @@ export class ApiError extends Error {
    * translated text.
    */
   readonly code?: string;
+  /**
+   * The per-rule codes of a 422 (`details[].errorCode`). Most are FluentValidation's generic ones;
+   * a rule a screen must react to carries its own (e.g. `ServiceProvider_NameTaken`).
+   */
+  readonly codes: string[];
 
-  constructor(message: string, status: number, code?: string) {
+  constructor(message: string, status: number, code?: string, codes: string[] = []) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code ?? undefined;
+    this.codes = codes;
+  }
+
+  /** True when the server named `code`, either as the error's code or as one rule's. */
+  hasCode(code: string): boolean {
+    return this.code === code || this.codes.includes(code);
   }
 
   /** The request never got an answer, so nothing is known about what was sent. */
@@ -498,13 +509,21 @@ export async function apiRequest(path: string, options: ApiRequestOptions): Prom
     const codeSource = response.clone();
     const message = await parseApiError(response, fallback, context);
     let code: string | undefined;
+    let codes: string[] = [];
     try {
-      const parsed = (await codeSource.json()) as { code?: unknown };
+      const parsed = (await codeSource.json()) as { code?: unknown; details?: unknown };
       if (typeof parsed?.code === 'string') code = parsed.code;
+      if (Array.isArray(parsed?.details)) {
+        codes = parsed.details
+          .map((d) =>
+            d && typeof d === 'object' ? (d as { errorCode?: unknown }).errorCode : null
+          )
+          .filter((c): c is string => typeof c === 'string');
+      }
     } catch {
       // Not JSON — no code.
     }
-    throw new ApiError(message, response.status, code);
+    throw new ApiError(message, response.status, code, codes);
   }
 
   // A write landed, so whatever the cache holds for that resource is now behind the server.

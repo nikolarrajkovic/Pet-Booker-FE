@@ -23,6 +23,7 @@ const FALLBACK_TYPE_ENTRIES: EnumEntry[] = Object.keys(PROVIDER_TYPE_LABELS).map
 
 interface FormData {
   fullName: string;
+  businessName: string;
   email: string;
   phone: string;
   country: string;

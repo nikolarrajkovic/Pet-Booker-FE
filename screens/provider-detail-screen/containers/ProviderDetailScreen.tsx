@@ -50,13 +50,13 @@ export default function ProviderDetailScreen() {
   const { data: services = EMPTY_SERVICES, isLoading: servicesLoading } = useResource(
     ['services', { serviceProviderId: provider.id }],
     () => getServices({ serviceProviderId: provider.id }),
-    { errorFallback: 'Could not load provider details. Please try again.' }
+    { errorFallback: t('providerDetail.loadFailed') }
   );
   // Reviews are admin-moderated — only show approved ones publicly
   const { data: reviews = EMPTY_REVIEWS, isLoading: reviewsLoading } = useResource(
     ['reviews', { serviceProviderId: provider.id, approvalStatus: ApprovalStatus.Approved }],
     () => getReviews({ serviceProviderId: provider.id, approvalStatus: ApprovalStatus.Approved }),
-    { errorFallback: 'Could not load provider details. Please try again.' }
+    { errorFallback: t('providerDetail.loadFailed') }
   );
   // The provider record itself, for the About section — the view model this screen was opened
   // with can come from a list that did not carry it.
@@ -130,14 +130,17 @@ export default function ProviderDetailScreen() {
                   </Text>
                 </View>
                 <Text className={subtextColor}>
-                  {reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}
+                  {reviewCount}{' '}
+                  {reviewCount === 1
+                    ? t('serviceDetail.reviewSingular')
+                    : t('serviceDetail.reviewPlural')}
                 </Text>
               </>
             )}
             {provider.verified && (
               <View className="flex-row items-center">
                 <Ionicons name="checkmark-circle" size={16} color={BRAND_GREEN} />
-                <Text className="ml-1 text-sm text-brand-600">Verified</Text>
+                <Text className="ml-1 text-sm text-brand-600">{t('providerDetail.verified')}</Text>
               </View>
             )}
           </View>
@@ -153,16 +156,16 @@ export default function ProviderDetailScreen() {
         {/* Pricing summary */}
         <View
           className={`${gutter.mx} mb-4 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'} rounded-2xl p-4`}>
-          <Text className={`text-lg font-semibold ${textColor} mb-1`}>Pricing</Text>
+          <Text className={`text-lg font-semibold ${textColor} mb-1`}>{t('shared.pricing')}</Text>
           {startingPrice > 0 ? (
             <View className="flex-row items-baseline">
               <Text className="text-3xl font-bold text-brand-600">
                 {formatMoney(startingPrice, providerCurrency)}
               </Text>
-              <Text className={`${subtextColor} ml-2`}>starting from</Text>
+              <Text className={`${subtextColor} ml-2`}>{t('shared.startingFrom')}</Text>
             </View>
           ) : (
-            <Text className={subtextColor}>Contact for pricing</Text>
+            <Text className={subtextColor}>{t('providerDetail.contactForPricing')}</Text>
           )}
         </View>
 
@@ -195,7 +198,7 @@ export default function ProviderDetailScreen() {
         ) : null}
         {/* Location — uses the real provider address when available */}
         <View className={`mb-4 ${gutter.px}`}>
-          <Text className={`text-lg font-semibold ${textColor} mb-3`}>Location</Text>
+          <Text className={`text-lg font-semibold ${textColor} mb-3`}>{t('shared.location')}</Text>
           <View
             className={`${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'} items-center rounded-2xl p-4`}>
             <View className="mb-2 h-12 w-12 items-center justify-center rounded-full bg-brand-100">
@@ -203,7 +206,7 @@ export default function ProviderDetailScreen() {
             </View>
             <Text
               className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'} text-center font-medium`}>
-              {address || 'Location available after booking'}
+              {address || t('providerDetail.locationAfterBooking')}
             </Text>
           </View>
         </View>
@@ -212,15 +215,21 @@ export default function ProviderDetailScreen() {
         {isLoading ? (
           <View className="items-center py-8">
             <ActivityIndicator color={BRAND_GREEN} />
-            <Text className={`text-sm ${subtextColor} mt-2`}>Loading services...</Text>
+            <Text className={`text-sm ${subtextColor} mt-2`}>
+              {t('providerDetail.loadingServices')}
+            </Text>
           </View>
         ) : (
           <>
             {/* Services list — tap a service to book that specific service */}
             {services.length > 0 && (
               <View className={`mb-6 ${gutter.px}`}>
-                <Text className={`text-lg font-semibold ${textColor} mb-1`}>Services</Text>
-                <Text className={`text-sm ${subtextColor} mb-3`}>Tap a service to book it</Text>
+                <Text className={`text-lg font-semibold ${textColor} mb-1`}>
+                  {t('providerDetail.services')}
+                </Text>
+                <Text className={`text-sm ${subtextColor} mb-3`}>
+                  {t('providerDetail.tapToBook')}
+                </Text>
                 {services.map((svc, idx) => (
                   <TouchableOpacity
                     accessibilityRole="button"
@@ -253,7 +262,9 @@ export default function ProviderDetailScreen() {
                         </Text>
                         <View className="mt-2 flex-row items-center rounded-full bg-brand-500 px-4 py-1.5">
                           <Ionicons name="calendar-outline" size={13} color="white" />
-                          <Text className="ml-1 text-xs font-bold text-white">Book</Text>
+                          <Text className="ml-1 text-xs font-bold text-white">
+                            {t('providerDetail.book')}
+                          </Text>
                         </View>
                       </View>
                     </View>
@@ -266,7 +277,7 @@ export default function ProviderDetailScreen() {
             {reviews.length > 0 && (
               <View className={`mb-6 ${gutter.px}`}>
                 <Text className={`text-lg font-semibold ${textColor} mb-3`}>
-                  Reviews ({reviewCount})
+                  {t('serviceDetail.reviewsCount', { count: reviewCount })}
                 </Text>
                 {reviews.slice(0, 5).map((review, idx) => (
                   <View

@@ -19,9 +19,13 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { PersonalInfoStep, ServiceInfoStep, DocumentsStep } from '../components';
 import type { CertificateEntry } from '../components/DocumentsStep';
-import { createServiceProvider, AddressDto } from '../../../services/service-providers';
+import {
+  createServiceProvider,
+  AddressDto,
+  PROVIDER_NAME_TAKEN,
+} from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
-import { getErrorMessage } from '../../../services/http';
+import { ApiError, getErrorMessage } from '../../../services/http';
 import { showAlert } from '../../../services/alert';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import StepProgress from '../../../components/shared/StepProgress';
@@ -81,8 +85,10 @@ export default function PartnerApplicationScreen() {
     undefined,
   ]);
 
+  const [businessNameError, setBusinessNameError] = useState('');
   const [formData, setFormData] = useState({
     fullName: '',
+    businessName: '',
     email: '',
     phone: '',
     country: '',
@@ -96,6 +102,11 @@ export default function PartnerApplicationScreen() {
     aboutYou: '',
     motivation: '',
   });
+
+  // A taken-name error describes the name as it was; editing either name clears it.
+  useEffect(() => {
+    setBusinessNameError('');
+  }, [formData.businessName, formData.fullName]);
 
   // Fetch the full account record once (currentUser only carries name/email —
   // phone and address come from getUser) to back the prefill button.
@@ -333,6 +344,12 @@ export default function PartnerApplicationScreen() {
       });
       (navigation as any).navigate('ApplicationSubmitted');
     } catch (error) {
+      // The name customers would see is another partner's: back to step 1, where Business name is.
+      if (error instanceof ApiError && error.hasCode(PROVIDER_NAME_TAKEN)) {
+        setBusinessNameError(error.message);
+        setStep(1);
+        return;
+      }
       showError(getErrorMessage(error, t('partnerApplication.submitFailed')));
     } finally {
       setIsSubmitting(false);
@@ -378,6 +395,7 @@ export default function PartnerApplicationScreen() {
             formData={formData}
             setFormData={setFormData}
             onPrefill={currentUser ? prefillFromAccount : undefined}
+            businessNameError={businessNameError}
             onOpenAddressMap={() => setAddressPickerVisible(true)}
             // Enter from the step's last field does what Continue does, guards included.
             onContinue={handleContinue}

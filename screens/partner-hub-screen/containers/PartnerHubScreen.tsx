@@ -302,6 +302,16 @@ const QUICK_ACTIONS = [
     iconColor: '#F59E0B',
     route: 'Promotions',
   },
+  {
+    // Name, About, contact and address — asked once by the application, editable here.
+    id: 'business-profile',
+    titleKey: 'businessProfile.title',
+    subtitleKey: 'businessProfile.hubSub',
+    icon: 'storefront-outline' as const,
+    iconBg: '#E0F2FE',
+    iconColor: '#0369A1',
+    route: 'BusinessProfile',
+  },
 ];
 
 /**

@@ -60,6 +60,9 @@ export type CertificateFileDto = {
 // ApprovalStatus enum (providers, certificates, reviews): 0=Pending, 1=Approved, 2=Declined
 export const ApprovalStatus = { Pending: 0, Approved: 1, Declined: 2 } as const;
 
+/** The 422 rule code for a name another partner already has (names customers see are unique). */
+export const PROVIDER_NAME_TAKEN = 'ServiceProvider_NameTaken';
+
 /**
  * An admin's moderation of a partner — backend `ProviderModerationStatus`, derived from dates on
  * every read, so a timeout that has run out simply reads Active.
@@ -410,6 +413,51 @@ export function getServiceProvider(id: number): Promise<ServiceProviderDto> {
   });
 }
 
+/** The fields a partner edits on their business profile. */
+export type BusinessProfileUpdate = {
+  name: string;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  yearsOfExperience: number | null;
+  about: string | null;
+  /** A newly picked address (sent as id 0), or null to keep the saved one. */
+  address: AddressDto | null;
+};
+
+/**
+ * Saves a partner's business profile (`PUT /api/service-providers/{id}`) from the record they
+ * loaded. Only the profile fields change: photos, government-ID photos and certificates go as
+ * empty arrays, which the server reads as "leave as they are", and approval and moderation are
+ * never client-written.
+ */
+export function updateBusinessProfile(
+  current: ServiceProviderDto,
+  changes: BusinessProfileUpdate
+): Promise<ServiceProviderDto> {
+  return apiJson<ServiceProviderDto>(`/api/service-providers/${current.id}`, {
+    method: 'PUT',
+    body: {
+      id: current.id,
+      type: current.type,
+      currency: current.currency || 'RSD',
+      userId: current.userId ?? null,
+      providerProfileId: current.providerProfileId ?? null,
+      motivation: current.motivation ?? null,
+      name: changes.name.trim(),
+      contactEmail: changes.contactEmail?.trim() || null,
+      contactPhone: changes.contactPhone?.trim() || null,
+      yearsOfExperience: changes.yearsOfExperience,
+      about: changes.about?.trim() || null,
+      address: changes.address ? { ...changes.address, id: 0 } : (current.address ?? null),
+      photos: [],
+      governmentIdPhotos: [],
+      certificates: [],
+    },
+    fallback: 'Failed to save your profile.',
+    context: 'updateBusinessProfile',
+  });
+}
+
 // NOTE: a partner's own provider id is now exposed on /auth/me as
 // `currentUser.serviceProviderId` (P1 resolved) — read it directly instead of
 // fetching the provider list. (The old getMyProvider helper has been removed.)
@@ -429,6 +477,8 @@ export function providerTypeLabel(type: number): string {
 
 export type CreateServiceProviderPayload = {
   fullName: string;
+  /** The name customers see; falls back to the applicant's own name when blank. */
+  businessName?: string;
   email: string;
   phone: string;
   streetAddress: string;
@@ -538,7 +588,7 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
 
   const body = {
     id: 0,
-    name: payload.fullName,
+    name: payload.businessName?.trim() || payload.fullName.trim(),
     // The type the applicant picked in step 2 (ServiceProviderType, from /enums).
     type: payload.serviceType,
     // Approval is server-controlled: new applications start Pending — an admin

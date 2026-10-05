@@ -16,7 +16,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
-import type { Partner, PartnerStatus, ServiceHistoryItem } from '../components';
+import type { Partner, PartnerStatus } from '../components';
+import { getServices, serviceFromPrice } from '../../../services/services';
+import {
+  BookingSortBy,
+  getBookingsPage,
+  parseBookingDate,
+  type BookingDto,
+} from '../../../services/bookings';
+import { formatShortDate } from '../../../i18n/dates';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 import BackLink from '../../../components/shared/BackLink';
@@ -71,11 +79,17 @@ const STATUS_CFG: Record<
   },
 };
 
-const HISTORY_STATUS_CFG = {
-  completed: { label: 'Completed', color: BRAND_GREEN },
-  cancelled: { label: 'Cancelled', color: '#6B7280' },
-  refunded: { label: 'Refunded', color: '#EF4444' },
+/** BookingState (backend) → the colour a recent booking's state reads in. */
+const BOOKING_STATE_COLORS: Record<number, string> = {
+  0: '#D97706', // Upcoming (awaiting the partner)
+  1: BRAND_GREEN, // Completed
+  2: '#6B7280', // Cancelled
+  3: '#2563EB', // Accepted
+  4: '#7C3AED', // In progress
+  5: '#9CA3AF', // Expired
 };
+
+const RECENT_BOOKINGS = 5;
 
 function formatBytes(n: number): string {
   if (!n) return '';
@@ -116,6 +130,40 @@ export default function PartnerDetailsScreen() {
   const [history, setHistory] = useState<ModerationHistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [moderation, setModeration] = useState<ModerationMode | null>(null);
+
+  // What the partner charges and their latest bookings — neither is on the list row. The price
+  // and the history were placeholders (a "Starting Price" of 0 for every partner, and a history
+  // section that never had anything to show).
+  const [startingPrice, setStartingPrice] = useState<{
+    amount: number;
+    currency?: string | null;
+  } | null>(null);
+  const [recentBookings, setRecentBookings] = useState<BookingDto[] | null>(null);
+  useEffect(() => {
+    if (!partner?.id) return;
+    let cancelled = false;
+    const id = Number(partner.id);
+    getServices({ serviceProviderId: id, perPage: 100 })
+      .then((services) => {
+        if (cancelled) return;
+        const active = services.filter((s) => s.isActive !== false);
+        setStartingPrice(
+          active.length
+            ? { amount: Math.min(...active.map(serviceFromPrice)), currency: active[0].currency }
+            : null
+        );
+      })
+      .catch(() => !cancelled && setStartingPrice(null));
+    getBookingsPage(
+      { serviceProviderId: id, sortBy: BookingSortBy.NewestFirst, perPage: RECENT_BOOKINGS },
+      1
+    )
+      .then((page) => !cancelled && setRecentBookings(page.items))
+      .catch(() => !cancelled && setRecentBookings([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [partner?.id]);
 
   const loadHistory = useCallback(async () => {
     if (!partner?.id) return;
@@ -447,7 +495,7 @@ export default function PartnerDetailsScreen() {
                     {partner.rating.toFixed(1)}
                   </Text>
                   <Text style={{ color: subTextColor, fontSize: 12, marginLeft: 3 }}>
-                    ({partner.reviews} reviews)
+                    ({t('shared.reviewsCount', { count: partner.reviews })})
                   </Text>
                 </View>
                 <View
@@ -559,10 +607,10 @@ export default function PartnerDetailsScreen() {
             <View style={{ width: 1, backgroundColor: dividerColor }} />
             <View style={{ flex: 1, alignItems: 'center', paddingVertical: 16 }}>
               <Text style={{ color: textColor, fontSize: 20, fontWeight: '800' }}>
-                {formatMoney(partner.startingPrice, partner.currency)}
+                {startingPrice ? formatMoney(startingPrice.amount, startingPrice.currency) : '—'}
               </Text>
               <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2 }}>
-                Starting Price
+                {t('admin.startingPrice')}
               </Text>
             </View>
           </View>
@@ -778,45 +826,50 @@ export default function PartnerDetailsScreen() {
               <View style={{ paddingVertical: 24, alignItems: 'center' }}>
                 <Ionicons name="alert-circle-outline" size={28} color={subTextColor} />
                 <Text style={{ color: subTextColor, fontSize: 13, marginTop: 8 }}>
-                  Could not load documents.
+                  {t('admin.documentsLoadFailed')}
                 </Text>
               </View>
             )}
           </View>
 
-          {/* ── Recent Service History ── */}
-          {partner.serviceHistory.length > 0 && (
-            <View style={{ marginHorizontal: gutter.value, marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                <View
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 8,
-                    backgroundColor: '#EEF2FF',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: 10,
-                  }}>
-                  <Ionicons name="calendar-outline" size={16} color="#6366F1" />
-                </View>
-                <Text style={{ color: textColor, fontSize: 15, fontWeight: '700' }}>
-                  Recent Service History
-                </Text>
+          {/* ── Recent bookings ── */}
+          <View style={{ marginHorizontal: gutter.value, marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <View
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 8,
+                  backgroundColor: '#EEF2FF',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 10,
+                }}>
+                <Ionicons name="calendar-outline" size={16} color="#6366F1" />
               </View>
-              {partner.serviceHistory.map((item) => (
-                <ServiceHistoryCard
-                  key={item.id}
-                  item={item}
-                  currency={partner.currency}
+              <Text style={{ color: textColor, fontSize: 15, fontWeight: '700' }}>
+                {t('admin.recentBookings')}
+              </Text>
+            </View>
+            {recentBookings === null ? (
+              <ActivityIndicator color={BRAND_GREEN} style={{ alignSelf: 'flex-start' }} />
+            ) : recentBookings.length === 0 ? (
+              <Text style={{ color: subTextColor, fontSize: 13 }}>{t('admin.noBookingsYet')}</Text>
+            ) : (
+              recentBookings.map((booking) => (
+                <RecentBookingRow
+                  key={booking.id}
+                  booking={booking}
+                  stateLabel={tEnum('bookingState', booking.state, '')}
+                  onPress={() => navigation.navigate('BookingDetails', { bookingId: booking.id })}
                   cardBg={cardBg}
                   textColor={textColor}
                   subTextColor={subTextColor}
                   borderColor={borderColor}
                 />
-              ))}
-            </View>
-          )}
+              ))
+            )}
+          </View>
         </ScrollView>
 
         {/* ── Phone: the actions pinned at the bottom. On the web design they sit in the
@@ -896,7 +949,7 @@ export default function PartnerDetailsScreen() {
               color: 'rgba(255,255,255,0.7)',
               fontSize: 12,
             }}>
-            Tap anywhere to close
+            {t('admin.tapToClose')}
           </Text>
         </Pressable>
       </Modal>
@@ -1103,25 +1156,31 @@ function EmptyDoc({ text, subTextColor }: { text: string; subTextColor: string }
   );
 }
 
-function ServiceHistoryCard({
-  item,
-  currency,
+/** One of the partner's latest bookings: when, who, what, how much, and where it stands. */
+function RecentBookingRow({
+  booking,
+  stateLabel,
+  onPress,
   cardBg,
   textColor,
   subTextColor,
   borderColor,
 }: {
-  item: ServiceHistoryItem;
-  /** The partner's currency — every amount in their history is in it. */
-  currency?: string | null;
+  booking: BookingDto;
+  stateLabel: string;
+  onPress: () => void;
   cardBg: string;
   textColor: string;
   subTextColor: string;
   borderColor: string;
 }) {
-  const cfg = HISTORY_STATUS_CFG[item.status];
+  const when = parseBookingDate(booking.bookingFrom);
+  const color = BOOKING_STATE_COLORS[booking.state] ?? subTextColor;
   return (
-    <View
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.85}
+      onPress={onPress}
       style={{
         backgroundColor: cardBg,
         borderRadius: 12,
@@ -1138,21 +1197,23 @@ function ServiceHistoryCard({
           marginBottom: 6,
         }}>
         <Text style={{ color: subTextColor, fontSize: 11 }}>
-          {item.id} • {item.date}
+          #{booking.id} • {Number.isNaN(when.getTime()) ? '' : formatShortDate(when)}
         </Text>
         <Text style={{ color: textColor, fontSize: 14, fontWeight: '700' }}>
-          {formatMoney(item.price, currency)}
+          {formatMoney(booking.totalPrice, booking.priceCurrency)}
         </Text>
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View>
-          <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>
-            {item.clientName}
+        <View style={{ flex: 1, marginRight: 8 }}>
+          <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
+            {booking.user?.userName ?? '—'}
           </Text>
-          <Text style={{ color: subTextColor, fontSize: 12, marginTop: 1 }}>{item.service}</Text>
+          <Text style={{ color: subTextColor, fontSize: 12, marginTop: 1 }} numberOfLines={1}>
+            {booking.service?.name ?? ''}
+          </Text>
         </View>
-        <Text style={{ color: cfg.color, fontSize: 13, fontWeight: '600' }}>{cfg.label}</Text>
+        <Text style={{ color, fontSize: 13, fontWeight: '600' }}>{stateLabel}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }

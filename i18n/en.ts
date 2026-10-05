@@ -1101,6 +1101,10 @@ const en = {
       'When it’s time, start a Live Session to track the service from start to finish — right down to pickup and drop-off.',
   },
   partnerApplication: {
+    businessName: 'Business name',
+    businessNamePlaceholder: 'e.g. Happy Paws Walking',
+    businessNameHint:
+      'The name customers see, unique to you. Leave it empty to appear under your own name.',
     title: 'Partner Application',
     submitApplication: 'Submit Application',
     continue: 'Continue',
@@ -1327,6 +1331,11 @@ const en = {
     selectDuration: 'Select Duration',
   },
   admin: {
+    startingPrice: 'Starting price',
+    recentBookings: 'Recent bookings',
+    noBookingsYet: 'No bookings yet.',
+    documentsLoadFailed: 'Could not load documents.',
+    tapToClose: 'Tap anywhere to close',
     sendInvite: 'Add partner & send invite',
     inviteLanguage: 'Invitation language',
     inviteLanguageHint:
@@ -1539,6 +1548,42 @@ const en = {
     providerPaused: "This provider isn't taking new bookings right now.",
     loginBanned: 'This account has been banned. We emailed you the reason.',
   },
+  businessProfile: {
+    title: 'Business profile',
+    hubSub: 'Name, About and contact',
+    intro: 'What customers see on your page, and how PetBooker reaches you.',
+    name: 'Name customers see',
+    nameHint: 'Your business name, or your own name.',
+    nameRequired: 'Enter the name customers should see.',
+    type: 'Service type',
+    typeHint: 'Every service you list is of this type.',
+    contactEmail: 'Business email',
+    contactEmailHint:
+      'Booking and PetBooker emails go here. Leave empty to use your account email.',
+    phone: 'Phone',
+    phoneHint: 'Only you and PetBooker see this.',
+    years: 'Years of experience',
+    about: 'About',
+    aboutPlaceholder: 'What you offer, and what makes you a good fit for pets.',
+    aboutHint: 'Shown on your public page.',
+    address: 'Business address',
+    save: 'Save changes',
+    saved: 'Your profile is saved.',
+    saveFailed: "Couldn't save your profile.",
+    loadFailed: "Couldn't load your profile.",
+    notAvailable:
+      "Your partner profile isn't available yet. It opens once your application is approved.",
+  },
+  providerDetail: {
+    verified: 'Verified',
+    contactForPricing: 'Contact for pricing',
+    locationAfterBooking: 'Location available after booking',
+    loadingServices: 'Loading services…',
+    services: 'Services',
+    tapToBook: 'Tap a service to book it',
+    book: 'Book',
+    loadFailed: 'Could not load provider details. Please try again.',
+  },
   groupRequest: {
     searchByName: 'Search providers by name',
     navMine: 'My group requests',
@@ -1735,6 +1780,7 @@ const en = {
       2: 'Cancelled',
       3: 'Booked',
       4: 'In Progress',
+      5: 'Expired',
     },
     bookingStatusType: {
       0: 'Requested',

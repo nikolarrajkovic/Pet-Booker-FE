@@ -8,6 +8,8 @@ import { useLocale } from '../../../context/LocaleContext';
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 interface FormData {
   fullName: string;
+  /** Optional: the name customers see. Empty means the partner is listed under their own name. */
+  businessName: string;
   email: string;
   phone: string;
   country: string; // ISO code from the phone-number country picker
@@ -29,6 +31,11 @@ interface PersonalInfoStepProps {
   /** When provided, the street address field can open a map picker (fills street/city/ZIP). */
   onOpenAddressMap?: () => void;
   /**
+   * Shown under Business name: the server refused the name customers would see because another
+   * partner has it (names are unique), so the applicant picks a business name of their own.
+   */
+  businessNameError?: string;
+  /**
    * Advance to the next step. Wired to Enter on the step's last field, so the keyboard can carry
    * someone through the whole application without reaching for the Continue button.
    */
@@ -48,6 +55,7 @@ export default function PersonalInfoStep({
   setFormData,
   onPrefill,
   onOpenAddressMap,
+  businessNameError,
   onContinue,
   isDarkMode,
   textColor,
@@ -61,8 +69,9 @@ export default function PersonalInfoStep({
   const { t } = useLocale();
   // Phone is a composite control (dial-code dropdown + number), so it stays out of the chain;
   // Enter runs full name -> email -> street -> city -> ZIP and then continues to step 2.
-  const form = useFormChain(['fullName', 'email', 'streetAddress', 'city', 'zipCode'], () =>
-    onContinue?.()
+  const form = useFormChain(
+    ['fullName', 'businessName', 'email', 'streetAddress', 'city', 'zipCode'],
+    () => onContinue?.()
   );
 
   return (
@@ -110,6 +119,37 @@ export default function PersonalInfoStep({
             onChangeText={(text) => setFormData({ ...formData, fullName: text })}
           />
         </View>
+      </View>
+
+      {/* Business name — optional; what customers see. Without it the partner is listed under
+          their own name, which no longer has to be unique (two people can share a name). */}
+      <View className="mb-4">
+        <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+          {t('partnerApplication.businessName')}{' '}
+          <Text className={`text-xs font-normal ${subtextColor}`}>{t('common.optional')}</Text>
+        </Text>
+        <View
+          className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
+          <Ionicons
+            name="storefront-outline"
+            size={20}
+            color={placeholderColor}
+            style={{ marginRight: 12 }}
+          />
+          <TextInput
+            className={`flex-1 ${inputText}`}
+            placeholder={t('partnerApplication.businessNamePlaceholder')}
+            placeholderTextColor={placeholderColor}
+            accessibilityLabel={t('partnerApplication.businessName')}
+            maxLength={200}
+            {...form.field('businessName')}
+            value={formData.businessName}
+            onChangeText={(text) => setFormData({ ...formData, businessName: text })}
+          />
+        </View>
+        <Text className={`mt-1 text-xs ${businessNameError ? 'text-red-500' : subtextColor}`}>
+          {businessNameError || t('partnerApplication.businessNameHint')}
+        </Text>
       </View>
 
       {/* Email Address */}

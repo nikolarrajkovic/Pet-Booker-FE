@@ -8,15 +8,6 @@ import { providerTypeValue } from '../../../services/service-providers';
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 export type PartnerStatus = 'active' | 'timeout' | 'banned';
 
-export type ServiceHistoryItem = {
-  id: string;
-  date: string;
-  clientName: string;
-  service: string;
-  price: number;
-  status: 'completed' | 'cancelled' | 'refunded';
-};
-
 export type Partner = {
   id: string;
   name: string;
@@ -32,7 +23,6 @@ export type Partner = {
   phone: string;
   address: string;
   bio: string;
-  startingPrice: number;
   /** The provider's own currency (ServiceProviderDto.currency) — all their amounts are in it. */
   currency?: string | null;
   avgRating: number;
@@ -47,7 +37,6 @@ export type Partner = {
     governmentId: boolean;
     insuranceCertificate: boolean;
   };
-  serviceHistory: ServiceHistoryItem[];
 };
 
 // Labels are translation keys, resolved with t() at render.
