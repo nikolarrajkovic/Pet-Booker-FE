@@ -414,7 +414,10 @@ export default function ServiceDetailScreen() {
               className={`mb-4 flex-row items-center rounded-xl bg-gray-100 px-4 py-3 ${gutter.mx}`}>
               <Ionicons name="time-outline" size={18} color="#6B7280" />
               <Text className="ml-2 flex-1 text-sm text-gray-700">
-                {t('serviceDetail.unavailableNote')}
+                {/* Why it can't be booked: a provider paused by an admin, or no working hours. */}
+                {svc.isProviderPaused
+                  ? t('moderation.providerPaused')
+                  : t('serviceDetail.unavailableNote')}
               </Text>
             </View>
           ) : null}

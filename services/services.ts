@@ -144,6 +144,8 @@ export type ServiceDto = {
    * nothing can be booked. Search lists those last; show them as unavailable, never "Book Now".
    */
   isBookable?: boolean;
+  /** Not bookable because an admin paused the provider (rather than missing working hours). */
+  isProviderPaused?: boolean;
   // Pricing/escrow live ONLY under `pricing` on the wire (the old top-level
   // basePrice/escrow* fields were removed from the API). Add-on money is NOT here —
   // each optional extra is its own `additionalServices` entry with its own price.

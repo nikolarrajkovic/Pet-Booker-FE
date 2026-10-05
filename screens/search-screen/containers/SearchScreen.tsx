@@ -377,11 +377,15 @@ export default function SearchScreen() {
     [filterParamsKey]
   );
 
+  // Only a list that reads the position (near-me) cares whether there is a real one. Keyed on
+  // that alone: in a browser that denies or lacks geolocation the error arrives after mount, and
+  // depending on it everywhere reloaded page one of every plain browse list a second time.
+  const positionUnavailable = !!categoryConfig?.usesLocation && !!location.error;
   const fetchPage = useCallback(
     async (page: number): Promise<PagedResult<ServiceDto>> => {
       if (categoryConfig?.load) {
         // Without a real position, let the server rank from the saved address (see getNearMe).
-        const dtos = location.error
+        const dtos = positionUnavailable
           ? await categoryConfig.load()
           : await categoryConfig.load(latitude, longitude);
         return {
@@ -402,7 +406,7 @@ export default function SearchScreen() {
         perPage: PAGE_SIZE,
       });
     },
-    [categoryConfig, latitude, longitude, location.error, filterParams, sortBy]
+    [categoryConfig, latitude, longitude, positionUnavailable, filterParams, sortBy]
   );
 
   const {
