@@ -1,4 +1,39 @@
-import { apiVoid } from './http';
+import { apiJson, apiVoid } from './http';
+import type { AddressDto } from './service-providers';
+
+/** Admin → Add Partner: the partner and the language their invite email is written in. */
+export type InvitePartnerPayload = {
+  name: string;
+  email: string;
+  phone?: string | null;
+  /** ServiceProviderType (from /enums). */
+  type: number;
+  yearsOfExperience?: number | null;
+  about?: string | null;
+  address?: AddressDto | null;
+  language: string;
+};
+
+export type InvitePartnerResult = {
+  providerProfileId: number;
+  serviceProviderId: number;
+  email: string;
+  inviteSent: boolean;
+};
+
+/**
+ * Adds a partner on their behalf and emails them an invite to set their password
+ * (`POST /admin/partners/invite`). The partner is created approved, and is all or nothing: a taken
+ * email (or any other refusal) leaves nothing behind.
+ */
+export function invitePartner(payload: InvitePartnerPayload): Promise<InvitePartnerResult> {
+  return apiJson<InvitePartnerResult>('/admin/partners/invite', {
+    method: 'POST',
+    body: payload,
+    fallback: 'Failed to add the partner.',
+    context: 'invitePartner',
+  });
+}
 
 /**
  * Admin-only endpoints. All require the caller to have the Admin role

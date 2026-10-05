@@ -179,6 +179,25 @@ const en = {
     errAgeMin: 'You must be at least 13 years old',
     errDobInvalid: 'Enter a valid date of birth',
   },
+  acceptInvite: {
+    title: 'Set your password',
+    subtitle: 'Welcome to PetBooker',
+    signInWith: 'You will sign in with',
+    password: 'New password',
+    passwordPlaceholder: 'Choose a password',
+    passwordRules:
+      'At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol.',
+    togglePassword: 'Show or hide the password',
+    confirm: 'Confirm password',
+    mismatch: 'The passwords do not match.',
+    submit: 'Set password',
+    saving: 'Saving…',
+    done: 'Your password is set. Sign in to continue.',
+    failed: 'Could not set the password.',
+    missingToken:
+      'This invite link is incomplete. Open it again from the email, or use Forgot password.',
+    toSignIn: 'Go to sign in',
+  },
   verifyEmail: {
     newCodeSent: "We've sent you a new code.",
     enterEmailTitle: 'Which email did you register with?',
@@ -1308,6 +1327,14 @@ const en = {
     selectDuration: 'Select Duration',
   },
   admin: {
+    sendInvite: 'Add partner & send invite',
+    inviteLanguage: 'Invitation language',
+    inviteLanguageHint:
+      'The partner receives an email in this language with a link to set their password.',
+    partnerInvitedTitle: 'Invitation sent',
+    partnerInvitedMsg: '{name} has been added. We emailed {email} a link to set a password.',
+    invitePartnerMissing: "Enter the partner's name, email and service type.",
+    invitePartnerFailed: 'Could not add the partner.',
     applicationLoadFailed: 'Could not load the full application.',
     loadingDocuments: 'Loading documents…',
     yearsValue: '{n} years',

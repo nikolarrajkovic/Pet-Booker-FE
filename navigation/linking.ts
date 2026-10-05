@@ -123,6 +123,8 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Register: 'register',
       VerifyEmail: 'verify-email',
       ForgotPassword: 'forgot-password',
+      // A managed partner's invite email links here with the set-password token.
+      AcceptInvite: 'accept-invite',
     },
   },
 };

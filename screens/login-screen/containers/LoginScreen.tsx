@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Text, View, TouchableOpacity, TextInput } from 'react-native';
 
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -17,7 +17,7 @@ import AuthLayout from '../../../components/layout/AuthLayout';
 const EMAIL_NOT_CONFIRMED = 'Auth_EmailNotConfirmed';
 
 type RootStackParamList = {
-  Login: undefined;
+  Login: { email?: string; notice?: string } | undefined;
   Register: undefined;
   VerifyEmail: { email: string; resend?: boolean };
 };
@@ -69,7 +69,11 @@ export default function LoginScreen() {
   const { t } = useLocale();
   const navigation = useNavigation<NavigationProp>();
 
-  const [identifier, setIdentifier] = useState('');
+  // Arriving from Accept Invite (or another flow that just set a password): the address to sign in
+  // with, and a line saying what happened.
+  const route = useRoute<RouteProp<RootStackParamList, 'Login'>>();
+  const [identifier, setIdentifier] = useState(route.params?.email ?? '');
+  const notice = route.params?.notice;
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -215,6 +219,8 @@ export default function LoginScreen() {
       {/* Global login error */}
       {loginError ? (
         <Text className="mb-4 text-center text-sm text-red-500">{loginError}</Text>
+      ) : notice ? (
+        <Text className="mb-4 text-center text-sm text-brand-600">{notice}</Text>
       ) : null}
 
       {/* Sign In Button */}

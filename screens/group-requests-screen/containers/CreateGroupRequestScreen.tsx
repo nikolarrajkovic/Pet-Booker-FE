@@ -27,6 +27,7 @@ import {
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import StepProgress from '../../../components/shared/StepProgress';
 import { useLocation } from '../../../hooks/useLocation';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { usePagedList } from '../../../hooks/usePagedList';
@@ -963,20 +964,7 @@ export default function CreateGroupRequestScreen() {
       onBackPress={step > 1 ? () => setStep(step - 1) : undefined}
       headerTitle={t('groupRequest.title')}
       contentBg={bgColor}
-      headerChildren={
-        <>
-          <View className="mb-2 mt-4 h-2 overflow-hidden rounded-full bg-white/30">
-            <View
-              className="h-full rounded-full bg-white"
-              style={{ width: `${(step / totalSteps) * 100}%` }}
-            />
-          </View>
-          {/* mb-6 clears the rounded content sheet pulled 32px up over the header. */}
-          <Text className="mb-6 text-sm text-white">
-            {t('partnerWelcome.stepOf', { current: step, total: totalSteps })}
-          </Text>
-        </>
-      }>
+      headerChildren={isWebLayout ? undefined : <StepProgress step={step} total={totalSteps} />}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{

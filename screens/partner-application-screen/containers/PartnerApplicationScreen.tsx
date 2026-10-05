@@ -24,6 +24,8 @@ import { getUser, UserDto } from '../../../services/users';
 import { getErrorMessage } from '../../../services/http';
 import { showAlert } from '../../../services/alert';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import StepProgress from '../../../components/shared/StepProgress';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 // Reads a native File object as a base64 data URI using FileReader — pure memory, no network.
 function fileToDataUri(file: File): Promise<string> {
@@ -37,6 +39,7 @@ function fileToDataUri(file: File): Promise<string> {
 
 export default function PartnerApplicationScreen() {
   const gutter = usePageGutter();
+  const { isWebLayout } = useResponsive();
   const navigation = useNavigation();
   const {
     isDarkMode,
@@ -260,7 +263,6 @@ export default function PartnerApplicationScreen() {
   };
 
   const totalSteps = 3;
-  const progressPercentage = (step / totalSteps) * 100;
 
   const themeProps = {
     isDarkMode,
@@ -337,35 +339,38 @@ export default function PartnerApplicationScreen() {
     }
   };
 
+  const actions = (
+    <TouchableOpacity
+      accessibilityRole="button"
+      disabled={isSubmitting}
+      onPress={handleContinue}
+      className="items-center rounded-2xl bg-brand-500 py-4"
+      style={{ opacity: isSubmitting ? 0.7 : 1 }}>
+      {isSubmitting ? (
+        <ActivityIndicator color="white" />
+      ) : (
+        <Text className="text-lg font-bold text-white">
+          {step === totalSteps
+            ? t('partnerApplication.submitApplication')
+            : t('partnerApplication.continue')}
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
+
   return (
     <ScreenLayout
       headerVariant="standard"
       showBackButton
       headerTitle={t('partnerApplication.title')}
       contentBg={bgColor}
-      headerChildren={
-        <>
-          {/* Progress Bar */}
-          <View className="mb-2 mt-4">
-            <View className="h-2 overflow-hidden rounded-full bg-white/30">
-              <View
-                className="h-full rounded-full bg-white transition-all duration-300"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </View>
-          </View>
-          {/* mb-6: clears the rounded content sheet, which is pulled 32px up over the header
-              (AppHeader's own pb-6 covers 24 of it). */}
-          <Text className="mb-6 text-sm text-white">
-            {t('partnerWelcome.stepOf', { current: step, total: totalSteps })}
-          </Text>
-        </>
-      }>
+      headerChildren={<StepProgress step={step} total={totalSteps} />}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
           paddingTop: 24,
-          paddingBottom: 100,
+          // The phone's action bar sits below the scroll; the web one is inside it, after the form.
+          paddingBottom: isWebLayout ? 40 : 100,
           paddingHorizontal: gutter.value,
         }}>
         {step === 1 && (
@@ -404,27 +409,14 @@ export default function PartnerApplicationScreen() {
             {...themeProps}
           />
         )}
+        {isWebLayout && <View className="mt-6">{actions}</View>}
       </ScrollView>
 
-      {/* Fixed Bottom Button */}
-      <View className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          disabled={isSubmitting}
-          onPress={handleContinue}
-          className="items-center rounded-2xl bg-brand-500 py-4"
-          style={{ opacity: isSubmitting ? 0.7 : 1 }}>
-          {isSubmitting ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text className="text-lg font-bold text-white">
-              {step === totalSteps
-                ? t('partnerApplication.submitApplication')
-                : t('partnerApplication.continue')}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      {/* Phone: pinned under the form. On the web design it follows the form inside the scroll —
+          see AdminAddPartnerScreen. */}
+      {!isWebLayout && (
+        <View className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>{actions}</View>
+      )}
 
       {/* Map picker for the street address — opens on the user's current location */}
       {addressPickerVisible && (

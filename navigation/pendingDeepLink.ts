@@ -10,7 +10,14 @@ import { Linking, Platform } from 'react-native';
  */
 
 /** Paths that are the auth flow itself, or the root — nothing worth returning to. */
-const AUTH_PATHS = new Set(['', 'login', 'register', 'verify-email', 'forgot-password']);
+const AUTH_PATHS = new Set([
+  '',
+  'login',
+  'register',
+  'verify-email',
+  'forgot-password',
+  'accept-invite',
+]);
 const SCHEME = 'petbooker://';
 
 let pending: string | null = null;

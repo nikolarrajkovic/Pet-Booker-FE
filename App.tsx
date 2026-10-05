@@ -32,6 +32,8 @@ import ApplicationSubmittedScreen from './screens/application-submitted-screen/c
 import AccountScreen from './screens/account-screen/containers/AccountScreen';
 import ChangePasswordScreen from './screens/change-password-screen/containers/ChangePasswordScreen';
 import ForgotPasswordScreen from './screens/forgot-password-screen/containers/ForgotPasswordScreen';
+import AlertHost from './components/shared/AlertHost';
+import AcceptInviteScreen from './screens/accept-invite-screen/containers/AcceptInviteScreen';
 import MyBookingsScreen from './screens/my-bookings-screen/containers/MyBookingsScreen';
 import BookingDetailsScreen from './screens/booking-details-screen/containers/BookingDetailsScreen';
 import MyScheduleScreen from './screens/my-schedule-screen/containers/MyScheduleScreen';
@@ -363,12 +365,16 @@ function AppContent() {
                   <Stack.Screen name="Register" component={RegisterScreen} />
                   <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
                   <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+                  <Stack.Screen name="AcceptInvite" component={AcceptInviteScreen} />
                 </>
               )}
             </Stack.Navigator>
           </AppShell>
         </NavigationContainer>
       </KeyboardProvider>
+      {/* The web build's dialog for showAlert (see services/alert.web.ts). Harmless on native,
+          where showAlert is the platform dialog and nothing ever reaches this host. */}
+      <AlertHost />
       {/* First-run language chooser — asks the user before they interact. */}
       <LanguagePicker visible={!hasChosen} current={language} onSelect={setLanguage} />
       <StatusBar style={isDarkMode ? 'light' : 'auto'} />
@@ -426,6 +432,7 @@ const SCREEN_TITLE_KEYS: Record<string, TranslationKey> = {
   Login: 'login.signIn',
   Register: 'register.subtitle',
   VerifyEmail: 'verifyEmail.title',
+  AcceptInvite: 'acceptInvite.title',
   ForgotPassword: 'forgotPassword.title',
 };
 

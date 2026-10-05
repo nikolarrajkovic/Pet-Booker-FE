@@ -61,8 +61,15 @@ export default function StickyFooter({
   if (hideOnKeyboard && isKeyboardVisible) return null;
 
   if (isWebLayout && !pinnedOnWeb) {
+    // In the flow on the web design, so the bar's own look goes too: callers style it as a phone
+    // bar (a white background and a top border), which on a desktop drew a white strip across
+    // the content, detached from the cards above it. Layout classes (flex, padding, gap) stay.
+    const webClassName = className
+      .split(/\s+/)
+      .filter((c) => c && !/^(bg-|border|shadow)/.test(c))
+      .join(' ');
     return (
-      <View className={className} style={style}>
+      <View className={`${webClassName} mt-2`} style={style}>
         {children}
       </View>
     );

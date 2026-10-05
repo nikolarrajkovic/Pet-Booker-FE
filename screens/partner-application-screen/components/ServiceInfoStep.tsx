@@ -48,6 +48,8 @@ interface ServiceInfoStepProps {
   inputText: string;
   borderColor: string;
   placeholderColor: string;
+  /** The application asks why they want to partner; a partner the admin adds is not asked. */
+  showMotivation?: boolean;
 }
 
 export default function ServiceInfoStep({
@@ -61,6 +63,7 @@ export default function ServiceInfoStep({
   inputText,
   borderColor,
   placeholderColor,
+  showMotivation = true,
 }: ServiceInfoStepProps) {
   const { t, tEnum } = useLocale();
   const { enums } = useEnums();
@@ -165,27 +168,29 @@ export default function ServiceInfoStep({
       </View>
 
       {/* Motivation for Work */}
-      <View className="mb-4">
-        <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-          {t('partnerApplication.motivation')} <Text className="text-red-500">*</Text>
-        </Text>
-        <Text className={`text-xs ${subtextColor} mb-3`}>
-          {t('partnerApplication.motivationHint')}
-        </Text>
-        <View className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
-          <TextInput
-            className={inputText}
-            placeholder={t('partnerApplication.motivationPlaceholder')}
-            placeholderTextColor={placeholderColor}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-            {...form.field('motivation')}
-            value={formData.motivation}
-            onChangeText={(text) => setFormData({ ...formData, motivation: text })}
-          />
+      {showMotivation && (
+        <View className="mb-4">
+          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+            {t('partnerApplication.motivation')} <Text className="text-red-500">*</Text>
+          </Text>
+          <Text className={`text-xs ${subtextColor} mb-3`}>
+            {t('partnerApplication.motivationHint')}
+          </Text>
+          <View className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
+            <TextInput
+              className={inputText}
+              placeholder={t('partnerApplication.motivationPlaceholder')}
+              placeholderTextColor={placeholderColor}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              {...form.field('motivation')}
+              value={formData.motivation}
+              onChangeText={(text) => setFormData({ ...formData, motivation: text })}
+            />
+          </View>
         </View>
-      </View>
+      )}
     </View>
   );
 }
