@@ -5,7 +5,8 @@ import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
-export type RequestStatus = 'new' | 'accepted' | 'declined';
+// 'expired': a request nobody answered before its start time; it can no longer be accepted.
+export type RequestStatus = 'new' | 'accepted' | 'declined' | 'expired';
 
 export interface ServiceRequest {
   id: number;
@@ -34,6 +35,8 @@ export interface ServiceRequest {
   additionalServices: string[];
   notesFromOwner: string;
   status: RequestStatus;
+  /** For an expired one: true when it had been accepted but was never started, false when it was never answered. */
+  expiredAfterAccepting?: boolean;
 }
 
 interface RequestCardProps {
@@ -229,19 +232,31 @@ export default function RequestCard({
         </View>
       )}
 
-      {/* Status badge for accepted/declined */}
+      {/* Status badge for accepted / declined / expired */}
       {request.status !== 'new' && (
         <View
           className={`mx-4 mb-4 items-center rounded-xl py-2 ${
-            request.status === 'accepted' ? 'bg-green-50' : 'bg-red-50'
+            request.status === 'accepted'
+              ? 'bg-green-50'
+              : request.status === 'expired'
+                ? 'bg-gray-100'
+                : 'bg-red-50'
           }`}>
           <Text
             className={`text-sm font-semibold ${
-              request.status === 'accepted' ? 'text-green-600' : 'text-red-500'
+              request.status === 'accepted'
+                ? 'text-green-600'
+                : request.status === 'expired'
+                  ? 'text-gray-600'
+                  : 'text-red-500'
             }`}>
             {request.status === 'accepted'
               ? t('requests.acceptedBadge')
-              : t('requests.declinedBadge')}
+              : request.status === 'expired'
+                ? request.expiredAfterAccepting
+                  ? t('requests.expiredNotStartedBadge')
+                  : t('requests.expiredBadge')
+                : t('requests.declinedBadge')}
           </Text>
         </View>
       )}

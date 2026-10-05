@@ -6,6 +6,7 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ReviewModal from '../../../components/shared/ReviewModal';
+import ReasonPromptModal from '../../../components/shared/ReasonPromptModal';
 import ServicePhoto from '../../../components/shared/ServicePhoto';
 import { useReviewModal } from '../../../hooks/useReviewModal';
 import { useResource } from '../../../hooks/useResource';
@@ -16,7 +17,6 @@ import {
   BookingStatusType,
   type BookingAdditionalServiceReadDto,
 } from '../../../services/bookings';
-import { showAlert } from '../../../services/alert';
 import { useToast } from '../../../context/ToastContext';
 import { getErrorMessage } from '../../../services/http';
 import { formatMoney } from '../../../services/currency';
@@ -34,6 +34,7 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; state: number }> 
   cancelled: { bg: 'bg-red-100', text: 'text-red-700', state: 2 },
   booked: { bg: 'bg-indigo-100', text: 'text-indigo-700', state: 3 },
   'in-progress': { bg: 'bg-amber-100', text: 'text-amber-700', state: 4 },
+  expired: { bg: 'bg-gray-100', text: 'text-gray-600', state: 5 },
 };
 
 export default function BookingDetailsScreen() {
@@ -85,29 +86,29 @@ export default function BookingDetailsScreen() {
     BookingStatusType.ServiceConfirmedByProvider,
     BookingStatusType.PrePayment,
   ];
-  const canCancel = dto != null && CANCELLABLE_STATUSES.includes(dto.currentStatus ?? -1);
+  // An expired booking is over without having happened — nothing left to call off.
+  const canCancel =
+    dto != null && !dto.isExpired && CANCELLABLE_STATUSES.includes(dto.currentStatus ?? -1);
+  const [isCancelPromptOpen, setIsCancelPromptOpen] = useState(false);
 
+  // Asks why first: the reason is stored on the booking and shown to the provider. The app used to
+  // send a fixed English sentence, so a provider never learned why a booking was called off.
   const handleCancel = () => {
+    if (dto) setIsCancelPromptOpen(true);
+  };
+  const confirmCancel = async (reason: string) => {
     if (!dto) return;
-    showAlert(t('bookingDetails.cancelTitle'), t('bookingDetails.cancelMsg'), [
-      { text: t('common.no'), style: 'cancel' },
-      {
-        text: t('bookingDetails.cancelConfirm'),
-        style: 'destructive',
-        onPress: async () => {
-          setIsCancelling(true);
-          try {
-            const updated = await cancelBooking(dto);
-            setDto(updated);
-            showSuccess(t('bookingDetails.cancelSuccess'));
-          } catch (e) {
-            showError(getErrorMessage(e, t('bookingDetails.cancelFailed')));
-          } finally {
-            setIsCancelling(false);
-          }
-        },
-      },
-    ]);
+    setIsCancelling(true);
+    try {
+      const updated = await cancelBooking(dto, reason);
+      setDto(updated);
+      setIsCancelPromptOpen(false);
+      showSuccess(t('bookingDetails.cancelSuccess'));
+    } catch (e) {
+      showError(getErrorMessage(e, t('bookingDetails.cancelFailed')));
+    } finally {
+      setIsCancelling(false);
+    }
   };
   const petImage = resolveImageUrl(
     dto?.pet?.photos?.find((p) => p.isSelected)?.src ?? dto?.pet?.photos?.[0]?.src
@@ -177,6 +178,17 @@ export default function BookingDetailsScreen() {
               </View>
             </View>
 
+            {dto.isExpired ? (
+              <View className={`mt-4 ${gutter.px}`}>
+                <View className="flex-row items-center rounded-xl bg-gray-100 px-4 py-3">
+                  <Ionicons name="time-outline" size={18} color="#6B7280" />
+                  <Text className="ml-2 flex-1 text-sm text-gray-700">
+                    {t('bookingDetails.expiredNotice')}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
             {/* Appointment */}
             <View className={`mt-6 ${gutter.px}`}>
               <Text className={`text-base font-bold ${textColor} mb-1`}>
@@ -194,6 +206,14 @@ export default function BookingDetailsScreen() {
                 label={t('bookingDetails.provider')}
                 value={vm.providerName}
               />
+              {/* Why it was called off, as the person who did it wrote it. */}
+              {vm.statusLabel === 'cancelled' && dto.cancelReason ? (
+                <Row
+                  icon="chatbox-ellipses-outline"
+                  label={t('bookingDetails.cancelReasonLabel')}
+                  value={dto.cancelReason}
+                />
+              ) : null}
             </View>
 
             {/* Pet image (optional flourish). ServicePhoto layers its placeholder behind the
@@ -388,6 +408,18 @@ export default function BookingDetailsScreen() {
           </ScrollView>
         )}
       </ScreenLayout>
+
+      <ReasonPromptModal
+        visible={isCancelPromptOpen}
+        title={t('bookingDetails.cancelReasonTitle')}
+        subtitle={t('bookingDetails.cancelReasonSubtitle')}
+        placeholder={t('bookingDetails.cancelReasonPlaceholder')}
+        tooShortMessage={t('bookingDetails.cancelReasonTooShort')}
+        confirmLabel={t('bookingDetails.cancelConfirm')}
+        submitting={isCancelling}
+        onClose={() => setIsCancelPromptOpen(false)}
+        onConfirm={confirmCancel}
+      />
 
       <ReviewModal
         visible={review.target !== null}

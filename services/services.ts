@@ -139,6 +139,11 @@ export type ServiceDto = {
   // ServiceProviderType enum (0=Sitter,1=Walker,2=Boarder,3=PetHotel,4=Groomer)
   type?: number | null;
   isActive?: boolean | null;
+  /**
+   * Server-computed (read only): false when the service is paused or has no working hours, so
+   * nothing can be booked. Search lists those last; show them as unavailable, never "Book Now".
+   */
+  isBookable?: boolean;
   // Pricing/escrow live ONLY under `pricing` on the wire (the old top-level
   // basePrice/escrow* fields were removed from the API). Add-on money is NOT here —
   // each optional extra is its own `additionalServices` entry with its own price.

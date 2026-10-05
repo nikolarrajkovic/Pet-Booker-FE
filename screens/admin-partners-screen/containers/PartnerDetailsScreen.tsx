@@ -424,6 +424,19 @@ export default function PartnerDetailsScreen() {
                   </Text>
                 </View>
               ) : null}
+              {partner.phone ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                  <Ionicons name="call-outline" size={13} color={subTextColor} />
+                  <Text style={{ color: subTextColor, fontSize: 12, marginLeft: 6 }}>
+                    {partner.phone}
+                  </Text>
+                </View>
+              ) : null}
+              {partner.bio ? (
+                <Text style={{ color: textColor, fontSize: 12, lineHeight: 18, marginTop: 8 }}>
+                  {partner.bio}
+                </Text>
+              ) : null}
               {partner.address ? (
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 }}>
                   <Ionicons

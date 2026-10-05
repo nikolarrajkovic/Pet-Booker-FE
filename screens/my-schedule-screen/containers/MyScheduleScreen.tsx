@@ -16,7 +16,12 @@ import {
   setLiveScheduleData,
   clearLiveScheduleData,
 } from '../utils/scheduleData';
-import { getBookings } from '../../../services/bookings';
+import {
+  getAllBookings,
+  formatBookingDate,
+  BookingState,
+  BookingSortBy,
+} from '../../../services/bookings';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 
@@ -38,6 +43,11 @@ export default function MyScheduleScreen() {
   // Determine mode from navigation params; default to 'partner' for backward compat
   const mode: ScheduleMode = (route.params as any)?.mode ?? 'partner';
 
+  // The month on screen. Bookings are fetched for it (plus a week either side, which a week view
+  // crossing a month boundary shows) rather than "the first 50 of all time" — which, past an
+  // account's 50th booking, left every newer appointment off the calendar.
+  const monthKey = `${selectedDate.getFullYear()}-${selectedDate.getMonth()}`;
+
   // Load real bookings into the schedule source on focus; clear on blur.
   useFocusEffect(
     useCallback(() => {
@@ -46,12 +56,39 @@ export default function MyScheduleScreen() {
       setError(null);
       (async () => {
         try {
+          const [year, month] = monthKey.split('-').map(Number);
+          const rangeStart = new Date(year, month, 1 - 7);
+          const rangeEnd = new Date(year, month + 1, 1 + 7);
+          const window = {
+            bookingFrom: formatBookingDate(rangeStart),
+            bookingTo: formatBookingDate(rangeEnd),
+            sortBy: BookingSortBy.SoonestFirst,
+          };
           let bookings;
           if (mode === 'user') {
-            bookings = currentUser?.id ? await getBookings({ userId: currentUser.id }) : [];
+            bookings = currentUser?.id
+              ? await getAllBookings({
+                  userId: currentUser.id,
+                  // Own requests show too, until they are answered or expire.
+                  states: [
+                    BookingState.Upcoming,
+                    BookingState.Accepted,
+                    BookingState.InProgress,
+                    BookingState.Completed,
+                  ],
+                  ...window,
+                })
+              : [];
           } else {
             const providerId = currentUser?.serviceProviderId || null;
-            bookings = providerId ? await getBookings({ serviceProviderId: providerId }) : [];
+            bookings = providerId
+              ? await getAllBookings({
+                  serviceProviderId: providerId,
+                  // Requests live in New Requests until accepted.
+                  states: [BookingState.Accepted, BookingState.InProgress, BookingState.Completed],
+                  ...window,
+                })
+              : [];
           }
           if (cancelled) return;
           setLiveScheduleData(buildScheduleFromBookings(bookings, mode));
@@ -68,7 +105,7 @@ export default function MyScheduleScreen() {
         cancelled = true;
         clearLiveScheduleData();
       };
-    }, [mode, currentUser?.id, currentUser?.serviceProviderId, t])
+    }, [mode, currentUser?.id, currentUser?.serviceProviderId, t, monthKey])
   );
 
   const bgColor = isDarkMode ? 'bg-[#1a2332]' : 'bg-brand-500';

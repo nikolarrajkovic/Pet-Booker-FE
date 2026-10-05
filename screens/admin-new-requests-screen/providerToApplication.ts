@@ -7,9 +7,9 @@ import {
 import type { PartnerApplication } from './components';
 import { formatShortDate } from '../../i18n/dates';
 
-// Maps a raw ServiceProviderDto (a partner application) to the card's view shape.
-// Note: the provider DTO does not carry phone/bio/experience/availability —
-// those are blank until the backend exposes them.
+// Maps a raw ServiceProviderDto (a partner application) to the card's view shape. Phone and
+// motivation come back only for an admin (or the applicant); ID images only from find-by-id, so
+// list rows rely on the server's governmentIdPhotoCount.
 export function providerToApplication(dto: ServiceProviderDto): PartnerApplication {
   const created = dto.createdAt ? new Date(dto.createdAt) : null;
   const addr = dto.address;
@@ -35,16 +35,19 @@ export function providerToApplication(dto: ServiceProviderDto): PartnerApplicati
           ? 'approved'
           : 'pending',
     email: dto.contactEmail ?? '',
-    phone: '',
+    phone: dto.contactPhone ?? '',
     address,
-    experience: '',
-    bio: '',
+    yearsOfExperience: dto.yearsOfExperience ?? null,
+    bio: dto.about ?? '',
+    motivation: dto.motivation ?? '',
     certifications: (dto.certificates ?? [])
       .map((c) => c.name)
       .filter(Boolean)
       .join(', '),
-    availability: '',
     documents,
+    governmentIdCount:
+      dto.governmentIdPhotoCount ??
+      (documents.governmentIdFront ? 1 : 0) + (documents.governmentIdBack ? 1 : 0),
     certificateIds: (dto.certificates ?? []).map((c) => c.id).filter((x): x is number => x != null),
   };
 }

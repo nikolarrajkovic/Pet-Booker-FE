@@ -17,7 +17,8 @@ import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import {
-  getBookings,
+  getAllBookings,
+  BookingSortBy,
   getBooking,
   startBookingService,
   endBookingService,
@@ -257,14 +258,23 @@ export default function LiveSessionScreen() {
     setIsLoading(true);
     try {
       let group: BookingDto[] = [];
+      // Only the bookings that can be a session: underway, or confirmed and not yet expired. This
+      // used to read the first 50 bookings of all time, so past an account's 50th the session
+      // that was actually due never loaded.
+      const ACTIVE = {
+        states: [BookingState.InProgress, BookingState.Accepted],
+        sortBy: BookingSortBy.SoonestFirst,
+      };
       if (isPartner) {
         const providerId = currentUser.serviceProviderId || null;
-        const list = providerId ? await getBookings({ serviceProviderId: providerId }) : [];
+        const list = providerId
+          ? await getAllBookings({ serviceProviderId: providerId, ...ACTIVE })
+          : [];
         group = pickPartnerSessions(list);
       } else {
-        // No currentStatus filter: an upcoming confirmed booking also counts —
-        // the booker can open the screen early and wait for the provider to start.
-        const list = await getBookings({ userId: currentUser.id });
+        // An upcoming confirmed booking also counts: the booker can open the screen early and
+        // wait for the provider to start.
+        const list = await getAllBookings({ userId: currentUser.id, ...ACTIVE });
         group = pickUserSessions(list);
       }
       setSessions(group);

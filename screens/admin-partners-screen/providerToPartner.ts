@@ -39,15 +39,19 @@ export function providerToPartner(dto: ServiceProviderDto, tallies?: ProviderTal
     distance: addr?.city ?? '',
     joinedDate: created ? formatMonthYear(created) : '',
     email: dto.contactEmail ?? '',
-    phone: '',
+    // An admin reads these (the API withholds the phone from everyone else).
+    phone: dto.contactPhone ?? '',
     address,
-    bio: '',
+    bio: dto.about ?? '',
     startingPrice: 0,
     currency: dto.currency,
     avgRating: rating,
     documents: {
       profilePhoto: !!profilePhoto?.src,
-      governmentId: (dto.governmentIdPhotos ?? []).some((p) => p.src),
+      // List rows never carry the ID images; the server counts them for an admin instead.
+      governmentId:
+        (dto.governmentIdPhotoCount ?? (dto.governmentIdPhotos ?? []).filter((p) => p.src).length) >
+        0,
       insuranceCertificate: (dto.certificates ?? []).some((c) => (c.files ?? []).length > 0),
     },
     serviceHistory: [],

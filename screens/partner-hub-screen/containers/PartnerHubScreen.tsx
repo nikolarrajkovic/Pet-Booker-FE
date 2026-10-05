@@ -10,7 +10,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { useMessages } from '../../../context/MessagesContext';
 import { getErrorMessage } from '../../../services/http';
 import {
-  getBookings,
+  countBookings,
   BookingState,
   BookingStatusType,
   formatBookingDate,
@@ -194,12 +194,8 @@ async function countActivePromos(providerId: number): Promise<number> {
  */
 async function countPendingRequests(providerId: number): Promise<number> {
   try {
-    const bookings = await getBookings({
-      serviceProviderId: providerId,
-      currentStatus: BookingStatusType.ServiceRequestedByUser,
-      perPage: 100,
-    });
-    return bookings.filter((b) => b.state !== BookingState.Cancelled).length;
+    // Exactly the New tab's query: awaiting a decision and not expired.
+    return await countBookings({ serviceProviderId: providerId, state: BookingState.Upcoming });
   } catch {
     return 0;
   }
@@ -217,14 +213,19 @@ async function countToday(providerId: number): Promise<number> {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   try {
-    const bookings = await getBookings({
+    return await countBookings({
       serviceProviderId: providerId,
       // Booking times are naive wall-clock — serialize the bounds the same way.
       bookingFrom: formatBookingDate(startOfToday),
       bookingTo: formatBookingDate(startOfTomorrow),
-      perPage: 100,
+      // Neither cancelled nor expired: appointments that are actually on today.
+      states: [
+        BookingState.Upcoming,
+        BookingState.Accepted,
+        BookingState.InProgress,
+        BookingState.Completed,
+      ],
     });
-    return bookings.filter((b) => b.state !== BookingState.Cancelled).length;
   } catch {
     return 0;
   }

@@ -111,11 +111,18 @@ function safeJsonParse(text: string): unknown {
  */
 export class ApiError extends Error {
   readonly status: number;
+  /**
+   * The server's stable error code (`code` in the error body), when it sends one — the same in
+   * every language, so a screen can act on it (e.g. `Auth_EmailNotConfirmed`) instead of matching
+   * translated text.
+   */
+  readonly code?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.code = code ?? undefined;
   }
 
   /** The request never got an answer, so nothing is known about what was sent. */
@@ -487,7 +494,17 @@ export async function apiRequest(path: string, options: ApiRequestOptions): Prom
 
   if (!response.ok) {
     // Carries the status so a caller can branch on it (401 vs 500) instead of guessing from text.
-    throw new ApiError(await parseApiError(response, fallback, context), response.status);
+    // Read the code from a copy: parseApiError consumes the body.
+    const codeSource = response.clone();
+    const message = await parseApiError(response, fallback, context);
+    let code: string | undefined;
+    try {
+      const parsed = (await codeSource.json()) as { code?: unknown };
+      if (typeof parsed?.code === 'string') code = parsed.code;
+    } catch {
+      // Not JSON — no code.
+    }
+    throw new ApiError(message, response.status, code);
   }
 
   // A write landed, so whatever the cache holds for that resource is now behind the server.

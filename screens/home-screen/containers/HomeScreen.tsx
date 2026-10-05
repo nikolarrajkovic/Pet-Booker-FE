@@ -174,6 +174,9 @@ export default function HomeScreen() {
   const subtitleColor = isDarkMode ? 'text-gray-400' : 'text-brand-100';
 
   const { latitude, longitude, loading: locating } = location;
+  // No real position (refused, unsupported, failed): the coordinates are the placeholder, so the
+  // rail asks the server to rank from the user's saved address instead.
+  const hasPosition = !location.error;
 
   // The three rails that are the same wherever the phone is. Deliberately NOT keyed on the
   // device position: they used to share an effect with Near You, so the moment the GPS fix
@@ -240,7 +243,7 @@ export default function HomeScreen() {
       let cancelled = false;
       setNearYouFailed(false);
       setNearYouLoading(true);
-      getNearMe({ lat: latitude, lng: longitude })
+      getNearMe(hasPosition ? { lat: latitude, lng: longitude } : {})
         .then((rows) => {
           if (cancelled) return;
           setNearYou(toItems(rows));
@@ -261,7 +264,7 @@ export default function HomeScreen() {
       // that* this effect runs again. Dropping it, which is what the rule asks for, would leave
       // retry doing nothing at all.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [locating, latitude, longitude, reloads])
+    }, [locating, latitude, longitude, hasPosition, reloads])
   );
 
   // Unread badges on the bell and the chat icon — pushed live over SignalR; the focus
@@ -331,6 +334,7 @@ export default function HomeScreen() {
             currency={serviceCurrency(item.dto)}
             badge={badge}
             dealAmount={item.dealAmount}
+            unavailable={item.dto.isBookable === false}
             // Fills its grid cell on the web design; keeps the 200px rail width on a phone.
             fill={isWebLayout}
             onPress={() => handleServicePress(item)}

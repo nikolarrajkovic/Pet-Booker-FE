@@ -176,6 +176,8 @@ export default function AddEditServiceScreen() {
   const [workingHours, setWorkingHours] = useState<WorkingHours>(
     existingService?.workingHours || DEFAULT_WORKING_HOURS
   );
+  // Set when a save was refused for having no working hours; cleared once a day is switched on.
+  const [showHoursError, setShowHoursError] = useState(false);
 
   // Service location — newly picked address only (null = untouched, keep the
   // original). Same pattern as AccountScreen's address.
@@ -393,6 +395,14 @@ export default function AddEditServiceScreen() {
       showAlert(t('addEditService.noProviderTitle'), t('addEditService.noProviderMsg'));
       return;
     }
+    // A shared service needs hours customers can book. Without any it used to save, show up in
+    // search with "Book Now", and dead-end at "hasn't set any working hours". The API refuses it
+    // too; saying so here points at the section to fix.
+    if (!Object.values(workingHours).some((day) => day.enabled)) {
+      setShowHoursError(true);
+      showAlert(t('addEditService.hoursRequiredTitle'), t('addEditService.hoursRequiredMsg'));
+      return;
+    }
     setIsSaving(true);
     try {
       // New local photos are bulk-uploaded first; already-uploaded ones keep
@@ -479,6 +489,7 @@ export default function AddEditServiceScreen() {
   };
 
   const anyDayEnabled = Object.values(workingHours).some((day) => day.enabled);
+  const hoursMissing = showHoursError && !anyDayEnabled;
 
   const previewButton = (
     <TouchableOpacity accessibilityRole="button" onPress={handlePreview}>
@@ -1018,11 +1029,16 @@ export default function AddEditServiceScreen() {
             </Text>
 
             {!anyDayEnabled && (
-              <View className={`${inputBg} mb-3 flex-row items-center rounded-xl p-4`}>
-                <View className="mr-3 h-2 w-2 rounded-full bg-gray-400" />
+              <View
+                className={`${hoursMissing ? 'border border-red-400 bg-red-50' : inputBg} mb-3 flex-row items-center rounded-xl p-4`}>
+                <View
+                  className={`mr-3 h-2 w-2 rounded-full ${hoursMissing ? 'bg-red-500' : 'bg-gray-400'}`}
+                />
                 <View className="flex-1">
-                  <Text className={`${subtextColor} font-medium`}>
-                    {t('addEditService.currentlyUnavailable')}
+                  <Text className={`${hoursMissing ? 'text-red-600' : subtextColor} font-medium`}>
+                    {hoursMissing
+                      ? t('addEditService.hoursRequiredMsg')
+                      : t('addEditService.currentlyUnavailable')}
                   </Text>
                   <Text className={`${subtextColor} mt-1 text-xs`}>
                     {t('addEditService.basedOnSchedule')}

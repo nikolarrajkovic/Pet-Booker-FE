@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,8 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
-import { providerTypeValue } from '../../../services/service-providers';
+import { providerTypeValue, getServiceProvider } from '../../../services/service-providers';
+import { providerToApplication } from '../providerToApplication';
 import type { PartnerApplication, ApplicationStatus, ApplicationImage } from '../components';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
@@ -84,7 +85,33 @@ export default function ApplicationReviewScreen() {
   const { isWebLayout } = useResponsive();
   const insets = useSafeAreaInsets();
 
-  const application: PartnerApplication = route.params?.application;
+  // The list row opens the screen at once; the full record replaces it as soon as it loads. The
+  // row alone is not enough to review: list rows never carry the government-ID images (or the
+  // applicant's phone and motivation), so this screen used to tell the admin "No government ID
+  // uploaded" while two were on file.
+  const routeApplication: PartnerApplication | undefined = route.params?.application;
+  const [application, setApplication] = useState<PartnerApplication | undefined>(routeApplication);
+  const [isLoadingFull, setIsLoadingFull] = useState(!!routeApplication?.providerId);
+  useEffect(() => {
+    const id = routeApplication?.providerId;
+    if (!id) return;
+    let cancelled = false;
+    getServiceProvider(id)
+      .then((dto) => {
+        if (!cancelled) setApplication(providerToApplication(dto));
+      })
+      .catch((e) => {
+        if (!cancelled) showError(getErrorMessage(e, t('admin.applicationLoadFailed')));
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingFull(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Once per opened application.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeApplication?.providerId]);
   const [idFrontRevealed, setIdFrontRevealed] = useState(false);
   const [idBackRevealed, setIdBackRevealed] = useState(false);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
@@ -374,7 +401,11 @@ export default function ApplicationReviewScreen() {
                 style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 2 }}>
                 {t('admin.experience')}
               </Text>
-              <Text style={{ color: textColor, fontSize: 13 }}>{application.experience}</Text>
+              <Text style={{ color: textColor, fontSize: 13 }}>
+                {application.yearsOfExperience != null
+                  ? t('admin.yearsValue', { n: application.yearsOfExperience })
+                  : '—'}
+              </Text>
             </View>
             <View style={{ height: 1, backgroundColor: dividerColor, marginBottom: 10 }} />
             <View style={{ marginBottom: 10 }}>
@@ -409,9 +440,11 @@ export default function ApplicationReviewScreen() {
             <View>
               <Text
                 style={{ color: subTextColor, fontSize: 11, fontWeight: '600', marginBottom: 2 }}>
-                {t('admin.availability')}
+                {t('admin.motivation')}
               </Text>
-              <Text style={{ color: textColor, fontSize: 13 }}>{application.availability}</Text>
+              <Text style={{ color: textColor, fontSize: 13, lineHeight: 19 }}>
+                {application.motivation || '—'}
+              </Text>
             </View>
           </SectionCard>
 
@@ -515,7 +548,10 @@ export default function ApplicationReviewScreen() {
                   />
                 </View>
               ) : (
-                <EmptyDoc text={t('admin.noGovernmentId')} subTextColor={subTextColor} />
+                <EmptyDoc
+                  text={isLoadingFull ? t('admin.loadingDocuments') : t('admin.noGovernmentId')}
+                  subTextColor={subTextColor}
+                />
               )}
             </DocBlock>
 

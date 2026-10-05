@@ -73,6 +73,20 @@ const ru: TranslationDict = {
     usd: 'Доллар США (USD)',
   },
   settings: {
+    accountSection: 'Аккаунт',
+    deleteAccount: 'Удалить аккаунт',
+    deleteAccountHint: 'Закрыть аккаунт и удалить свои данные',
+    deleteAccountTitle: 'Удалить аккаунт?',
+    deleteAccountPointBookings:
+      'Ваши предстоящие бронирования будут отменены, другая сторона получит уведомление.',
+    deleteAccountPointData: 'Ваш профиль и питомцы будут удалены. Это нельзя отменить.',
+    deleteAccountPointPartner:
+      'Если вы партнёр, ваш партнёрский профиль и услуги тоже будут удалены.',
+    deleteAccountPasswordLabel: 'Введите пароль для подтверждения',
+    deleteAccountPasswordPlaceholder: 'Пароль',
+    deleteAccountConfirm: 'Удалить аккаунт',
+    deleteAccountDone: 'Ваш аккаунт удалён.',
+    deleteAccountFailed: 'Не удалось удалить аккаунт.',
     title: 'Настройки',
     appearance: 'Внешний вид',
     darkMode: 'Тёмная тема',
@@ -108,6 +122,7 @@ const ru: TranslationDict = {
     tooManyAttempts: 'Слишком много попыток из этой сети. Подождите минуту и попробуйте снова.',
   },
   register: {
+    verifyInstead: 'Уже регистрировались? Подтвердите этот email',
     subtitle: 'Создайте аккаунт',
     username: 'Имя пользователя',
     usernameHint: '3–20 символов, начинается с буквы, затем буквы, цифры, . или _',
@@ -160,6 +175,11 @@ const ru: TranslationDict = {
     errDobInvalid: 'Введите корректную дату рождения',
   },
   verifyEmail: {
+    newCodeSent: 'Мы отправили вам новый код.',
+    enterEmailTitle: 'С каким email вы регистрировались?',
+    emailPlaceholder: 'you@example.com',
+    sendCode: 'Отправить код',
+    backToSignIn: 'Вернуться ко входу',
     title: 'Подтвердите email',
     subtitle: 'Мы отправили 6-значный код на',
     codeSentTo: 'Код отправлен на',
@@ -295,6 +315,7 @@ const ru: TranslationDict = {
     noDealsSub: 'Партнёры регулярно добавляют скидки — загляните позже.',
   },
   card: {
+    unavailable: 'Недоступно',
     popular: 'Популярное',
     deal: 'Скидка',
     a11yPriceFrom: 'от {price}',
@@ -449,6 +470,9 @@ const ru: TranslationDict = {
     perKm: '{amount}/км',
   },
   serviceDetail: {
+    unavailableCta: 'Сейчас недоступно',
+    unavailableNote:
+      'У этой услуги пока нет рабочего времени, поэтому её нельзя забронировать. Вы можете написать исполнителю.',
     notFound: 'Эта услуга больше недоступна.',
     title: 'Детали услуги',
     subtitle: 'Ознакомьтесь перед бронированием',
@@ -607,6 +631,12 @@ const ru: TranslationDict = {
     submitFailed: 'Не удалось отправить отзыв. Попробуйте снова.',
   },
   bookingDetails: {
+    cancelReasonTitle: 'Почему вы отменяете?',
+    cancelReasonSubtitle: 'Исполнитель получит уведомление и увидит вашу причину.',
+    cancelReasonPlaceholder: 'например: собака заболела, нужно перенести',
+    cancelReasonTooShort: 'Напишите короткую причину (не менее 5 символов).',
+    expiredNotice: 'Срок этого бронирования истёк — его не подтвердили или не начали вовремя.',
+    cancelReasonLabel: 'Причина',
     cancelBooking: 'Отменить бронирование',
     cancelTitle: 'Отменить это бронирование?',
     cancelMsg: 'Исполнитель получит уведомление. Вы всегда можете забронировать снова.',
@@ -750,6 +780,8 @@ const ru: TranslationDict = {
     egPlaceholder: 'напр. {value}',
   },
   requests: {
+    expiredNotStartedBadge: 'Истёк — принят, но так и не начат',
+    expiredBadge: 'Истёк — не получил ответа до времени начала',
     title: 'Заявки',
     pendingOne: '{count} заявка в ожидании',
     pendingMany: '{count} заявок в ожидании',
@@ -836,6 +868,9 @@ const ru: TranslationDict = {
     yesterday: 'Вчера',
   },
   myServices: {
+    notBookableWarning: 'Клиенты пока не могут это забронировать — добавьте рабочее время.',
+    editA11y: 'Изменить {name}',
+    deleteA11y: 'Удалить {name}',
     price: 'Цена',
     title: 'Мои услуги',
     addNew: 'Добавить',
@@ -1174,6 +1209,8 @@ const ru: TranslationDict = {
     specialNeedsWarning: 'Есть особые потребности — уделите больше внимания',
   },
   addEditService: {
+    hoursRequiredTitle: 'Добавьте рабочее время',
+    hoursRequiredMsg: 'Включите хотя бы один день, чтобы клиенты могли забронировать эту услугу.',
     titleAdd: 'Добавить услугу',
     titleEdit: 'Изменить услугу',
     subtitleAdd: 'Создайте новую услугу',
@@ -1249,6 +1286,11 @@ const ru: TranslationDict = {
     selectDuration: 'Выберите длительность',
   },
   admin: {
+    applicationLoadFailed: 'Не удалось загрузить заявку полностью.',
+    loadingDocuments: 'Загрузка документов…',
+    yearsValue: '{n} лет',
+    motivation: 'Мотивация',
+    motivationColon: 'Мотивация:',
     beforeYouApprove: 'Перед одобрением',
     beforeYouApproveMsg:
       'Сначала проверьте загруженные документы и сертификаты. Одобрение публикует этого исполнителя и одновременно одобряет все сертификаты из заявки.',
@@ -1530,6 +1572,7 @@ const ru: TranslationDict = {
     declineFailed: 'Не удалось отклонить запрос.',
   },
   shared: {
+    yearsOfExperience: 'Опыт: {n} лет',
     amountOff: 'СКИДКА {amount}',
     selectCountry: 'Выберите страну',
     loadingMap: 'Загрузка карты…',

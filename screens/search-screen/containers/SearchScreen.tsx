@@ -85,7 +85,8 @@ const CATEGORY_CONFIG: Record<
     /** Expressed as catalogue-search parameters — pages and filters normally. */
     preset?: Partial<GetServicesParams>;
     /** A Home endpoint returning one complete list, for what a preset can't express. */
-    load?: (lat: number, lng: number) => Promise<ServiceDto[]>;
+    /** `lat`/`lng` are omitted when there is no real device position (see getNearMe). */
+    load?: (lat?: number, lng?: number) => Promise<ServiceDto[]>;
     /** True only where `load` actually reads the coordinates. */
     usesLocation?: boolean;
   }
@@ -379,7 +380,10 @@ export default function SearchScreen() {
   const fetchPage = useCallback(
     async (page: number): Promise<PagedResult<ServiceDto>> => {
       if (categoryConfig?.load) {
-        const dtos = await categoryConfig.load(latitude, longitude);
+        // Without a real position, let the server rank from the saved address (see getNearMe).
+        const dtos = location.error
+          ? await categoryConfig.load()
+          : await categoryConfig.load(latitude, longitude);
         return {
           items: dtos,
           totalItems: dtos.length,
@@ -398,7 +402,7 @@ export default function SearchScreen() {
         perPage: PAGE_SIZE,
       });
     },
-    [categoryConfig, latitude, longitude, filterParams, sortBy]
+    [categoryConfig, latitude, longitude, location.error, filterParams, sortBy]
   );
 
   const {

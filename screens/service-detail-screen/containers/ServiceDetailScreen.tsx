@@ -170,6 +170,9 @@ export default function ServiceDetailScreen() {
   }
 
   const svc = selectedService;
+  // No working hours (or paused): nothing can be booked, so "Book Now" would only dead-end on the
+  // next screen. The message button stays — asking when they will be available is reasonable.
+  const unavailable = svc.isBookable === false;
   // Embedded reviews are service-level and carry every moderation status —
   // this is a public screen, so show only the approved ones.
   const reviews: ReviewDto[] = (svc.reviews ?? []).filter(
@@ -406,6 +409,16 @@ export default function ServiceDetailScreen() {
             </View>
           </View>
 
+          {unavailable ? (
+            <View
+              className={`mb-4 flex-row items-center rounded-xl bg-gray-100 px-4 py-3 ${gutter.mx}`}>
+              <Ionicons name="time-outline" size={18} color="#6B7280" />
+              <Text className="ml-2 flex-1 text-sm text-gray-700">
+                {t('serviceDetail.unavailableNote')}
+              </Text>
+            </View>
+          ) : null}
+
           {/* About */}
           {(svc.description || svc.about) &&
             section(
@@ -437,9 +450,20 @@ export default function ServiceDetailScreen() {
                       <Text className={`${subtextColor} ml-1 flex-1 text-sm`}>{address}</Text>
                     </View>
                   ) : null}
+                  {provider.yearsOfExperience != null ? (
+                    <Text className={`${subtextColor} mt-0.5 text-sm`}>
+                      {t('shared.yearsOfExperience', { n: provider.yearsOfExperience })}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
             )}
+          {/* The partner in their own words, from their application. */}
+          {provider?.about ? (
+            <Text className={`${subtextColor} -mt-2 mb-4 leading-6 ${gutter.px}`}>
+              {provider.about}
+            </Text>
+          ) : null}
 
           {/* Pricing options (duration/price variants) — the booker picks one
               on the Book Service screen */}
@@ -617,11 +641,12 @@ export default function ServiceDetailScreen() {
 
         <TouchableOpacity
           accessibilityRole="button"
+          accessibilityState={{ disabled: isLoading || unavailable }}
           onPress={onBook}
-          disabled={isLoading}
-          className={`flex-1 items-center rounded-2xl py-4 ${isLoading ? 'bg-gray-300' : 'bg-brand-500'}`}
+          disabled={isLoading || unavailable}
+          className={`flex-1 items-center rounded-2xl py-4 ${isLoading || unavailable ? 'bg-gray-300' : 'bg-brand-500'}`}
           style={
-            isLoading
+            isLoading || unavailable
               ? {}
               : {
                   shadowColor: BRAND_GREEN,
@@ -631,7 +656,9 @@ export default function ServiceDetailScreen() {
                   elevation: 8,
                 }
           }>
-          <Text className="text-lg font-bold text-white">{t('serviceDetail.bookNow')}</Text>
+          <Text className="text-lg font-bold text-white">
+            {unavailable ? t('serviceDetail.unavailableCta') : t('serviceDetail.bookNow')}
+          </Text>
         </TouchableOpacity>
       </StickyFooter>
     </ScreenLayout>

@@ -13,7 +13,8 @@ import {
 } from '../../../services/services';
 import { formatMoney } from '../../../services/currency';
 import { getReviews, ReviewDto } from '../../../services/reviews';
-import { ApprovalStatus } from '../../../services/service-providers';
+import { ApprovalStatus, getServiceProvider } from '../../../services/service-providers';
+import { useLocale } from '../../../context/LocaleContext';
 import { useTopInset } from '../../../hooks/useSafeAreaSpacing';
 import type { ProviderViewModel } from '../../../services/service-providers';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -37,6 +38,7 @@ export default function ProviderDetailScreen() {
   const { provider } = route.params;
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const topInset = useTopInset();
+  const { t } = useLocale();
 
   // Both lists come from the shared cache, so this profile reflects a service the provider just
   // edited or a review that was just approved — it used to hold whatever it fetched the first
@@ -52,6 +54,13 @@ export default function ProviderDetailScreen() {
     () => getReviews({ serviceProviderId: provider.id, approvalStatus: ApprovalStatus.Approved }),
     { errorFallback: 'Could not load provider details. Please try again.' }
   );
+  // The provider record itself, for the About section — the view model this screen was opened
+  // with can come from a list that did not carry it.
+  const { data: providerRecord } = useResource(['service-providers', provider.id], () =>
+    getServiceProvider(provider.id)
+  );
+  const about = providerRecord?.about ?? provider.about ?? null;
+  const yearsOfExperience = providerRecord?.yearsOfExperience ?? provider.yearsOfExperience ?? null;
   const isLoading = servicesLoading || reviewsLoading;
 
   // Derive real rating + starting price from fetched data when available
@@ -151,8 +160,21 @@ export default function ProviderDetailScreen() {
           )}
         </View>
 
-        {/* No About section: the provider DTO has no bio (BACKEND-GAP P3), and the invented one
-            that stood here named the product "PawCare". */}
+        {/* About — in the partner's own words, from their application. */}
+        {about || yearsOfExperience != null ? (
+          <View className={`mb-4 ${gutter.px}`}>
+            <Text className={`text-lg font-semibold ${textColor} mb-2`}>{t('shared.about')}</Text>
+            {yearsOfExperience != null ? (
+              <View className="mb-2 flex-row items-center">
+                <Ionicons name="briefcase-outline" size={16} color={BRAND_GREEN} />
+                <Text className={`${subtextColor} ml-2`}>
+                  {t('shared.yearsOfExperience', { n: yearsOfExperience })}
+                </Text>
+              </View>
+            ) : null}
+            {about ? <Text className={`${subtextColor} leading-6`}>{about}</Text> : null}
+          </View>
+        ) : null}
         {/* Location — uses the real provider address when available */}
         <View className={`mb-4 ${gutter.px}`}>
           <Text className={`text-lg font-semibold ${textColor} mb-3`}>Location</Text>

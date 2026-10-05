@@ -1,4 +1,5 @@
-import { apiJson, apiList, apiVoid } from './http';
+import { apiJson, apiList, apiPage, apiVoid } from './http';
+import type { PagedResult } from './http';
 import { resolveImageUrl, AddressDto } from './service-providers';
 import type { ServicePricingOptionDto } from './services';
 import { formatShortDate } from '../i18n/dates';
@@ -14,6 +15,22 @@ export const BookingState = {
   Cancelled: 2,
   Accepted: 3,
   InProgress: 4,
+  /**
+   * Derived by the server, never stored: a request the provider never answered before it was due
+   * to start, or a confirmed booking never started before it was due to end. It can no longer be
+   * accepted or started.
+   */
+  Expired: 5,
+} as const;
+
+/** Row order for booking searches. Every order ends on the id, so paging never repeats a row. */
+export const BookingSortBy = {
+  OldestFirst: 0,
+  NewestFirst: 1,
+  /** Earliest appointment first — what is coming up next. */
+  SoonestFirst: 2,
+  /** Latest appointment first — history. */
+  LatestFirst: 3,
 } as const;
 
 // BookingStatusType enum (verified /enums): the detailed lifecycle status
@@ -42,6 +59,8 @@ export type BookingDto = {
   petId: number;
   priceCurrency?: string | null;
   state: number;
+  /** True when the server derived the Expired state (see BookingState.Expired). */
+  isExpired?: boolean;
   cancelReason?: string | null;
   bookingFrom: string; // ISO date-time
   bookingTo: string; // ISO date-time
@@ -187,7 +206,13 @@ function withResolvedAddresses(dto: BookingDto): BookingDto {
  * These are internal keys — user-facing text comes from tEnum('bookingState').
  * Active (non-terminal) labels group under the MyBookings "Upcoming" tab.
  */
-export type BookingStatusLabel = 'upcoming' | 'booked' | 'in-progress' | 'completed' | 'cancelled';
+export type BookingStatusLabel =
+  | 'upcoming'
+  | 'booked'
+  | 'in-progress'
+  | 'completed'
+  | 'cancelled'
+  | 'expired';
 
 /** The statusLabels that count as active/not-yet-finished (MyBookings "Upcoming" tab). */
 export const ACTIVE_STATUS_LABELS: readonly BookingStatusLabel[] = [
@@ -269,6 +294,7 @@ function formatTime(iso: string): string {
 }
 
 function stateToLabel(state: number): BookingViewModel['statusLabel'] {
+  if (state === BookingState.Expired) return 'expired';
   if (state === BookingState.Completed) return 'completed';
   if (state === BookingState.Cancelled) return 'cancelled';
   if (state === BookingState.Accepted) return 'booked';
@@ -306,32 +332,84 @@ export type GetBookingsParams = {
   serviceProviderId?: number;
   serviceId?: number;
   petId?: number;
+  /** One effective state (the server derives Expired; Upcoming excludes expired requests). */
   state?: number;
+  /** Any of several effective states. */
+  states?: number[];
   currentStatus?: number;
   bookingFrom?: string;
   bookingTo?: string;
+  /** BookingSortBy. Defaults server-side to OldestFirst — pass one explicitly for a list. */
+  sortBy?: number;
   page?: number;
   perPage?: number;
 };
 
+function bookingQuery(params?: GetBookingsParams) {
+  return {
+    UserId: params?.userId,
+    ServiceProviderId: params?.serviceProviderId,
+    ServiceId: params?.serviceId,
+    PetId: params?.petId,
+    State: params?.state,
+    States: params?.states?.length ? params.states : undefined,
+    CurrentStatus: params?.currentStatus,
+    BookingFrom: params?.bookingFrom,
+    BookingTo: params?.bookingTo,
+    SortBy: params?.sortBy,
+  };
+}
+
+/**
+ * ONE page of bookings. Lists must page (usePagedList) or call `getAllBookings`: an account's
+ * bookings outgrow any single page, and reading only the first one used to hide every booking
+ * after the 50th — the newest ones — from My Bookings, Requests and the schedule.
+ */
 export async function getBookings(params?: GetBookingsParams): Promise<BookingDto[]> {
   const items = await apiList<BookingDto>('/api/bookings', {
-    query: {
-      UserId: params?.userId,
-      ServiceProviderId: params?.serviceProviderId,
-      ServiceId: params?.serviceId,
-      PetId: params?.petId,
-      State: params?.state,
-      CurrentStatus: params?.currentStatus,
-      BookingFrom: params?.bookingFrom,
-      BookingTo: params?.bookingTo,
-      Page: params?.page ?? 1,
-      PerPage: params?.perPage ?? 50,
-    },
+    query: { ...bookingQuery(params), Page: params?.page ?? 1, PerPage: params?.perPage ?? 50 },
     fallback: 'Failed to load bookings.',
     context: 'getBookings',
   });
   return items.map(withResolvedAddresses);
+}
+
+/** One page with its counts, for usePagedList. */
+export async function getBookingsPage(
+  params: GetBookingsParams,
+  page: number
+): Promise<PagedResult<BookingDto>> {
+  const result = await apiPage<BookingDto>('/api/bookings', {
+    query: { ...bookingQuery(params), Page: page, PerPage: params.perPage ?? 20 },
+    fallback: 'Failed to load bookings.',
+    context: 'getBookingsPage',
+  });
+  return { ...result, items: result.items.map(withResolvedAddresses) };
+}
+
+/** Rows matching a query, without the rows — for tab badges. */
+export async function countBookings(params: GetBookingsParams): Promise<number> {
+  const result = await apiPage<BookingDto>('/api/bookings', {
+    query: { ...bookingQuery(params), Page: 1, PerPage: 1 },
+    fallback: 'Failed to load bookings.',
+    context: 'countBookings',
+  });
+  return result.totalItems;
+}
+
+/**
+ * Every booking matching a query, paging through the server's 200-row cap. For views that need the
+ * whole set at once — a calendar month, a provider's request inbox — always with a filter that keeps
+ * the set bounded (a date range, a state).
+ */
+export async function getAllBookings(params: GetBookingsParams): Promise<BookingDto[]> {
+  const all: BookingDto[] = [];
+  for (let page = 1; page <= 50; page++) {
+    const result = await getBookingsPage({ ...params, perPage: 200 }, page);
+    all.push(...result.items);
+    if (!result.hasMore) break;
+  }
+  return all;
 }
 
 export async function getBooking(id: number): Promise<BookingDto> {
@@ -419,7 +497,7 @@ function round2Payload<T>(value: T): T {
  * Posting without one (null / 0 / missing) returns 422. New bookings start
  * with state = Upcoming and currentStatus = ServiceRequestedByUser.
  */
-export async function createBooking(input: CreateBookingInput): Promise<BookingDto> {
+function toCreateBody(input: CreateBookingInput): WritableBookingCreate {
   // `state` / `currentStatus` are NOT part of the write DTO — the server sets the
   // initial values (Upcoming / ServiceRequestedByUser) and advances them only via
   // the dedicated lifecycle endpoints (confirm/decline/start/complete/cancel).
@@ -457,14 +535,33 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
     };
   }
 
+  return body;
+}
+
+export async function createBooking(input: CreateBookingInput): Promise<BookingDto> {
   return withResolvedAddresses(
     await apiJson<BookingDto>('/api/bookings', {
       method: 'POST',
-      body: round2Payload(body),
+      body: round2Payload(toCreateBody(input)),
       fallback: 'Failed to create booking.',
       context: 'createBooking',
     })
   );
+}
+
+/**
+ * Several appointments in one checkout, created all or nothing (`POST /api/bookings/batch`). If any
+ * one is refused — a slot just taken, a lead time missed — none is kept, so a retry cannot
+ * double-book the ones that had succeeded. A 422 names the failing appointment as `Bookings[i]`.
+ */
+export async function createBookings(inputs: CreateBookingInput[]): Promise<BookingDto[]> {
+  const created = await apiJson<BookingDto[]>('/api/bookings/batch', {
+    method: 'POST',
+    body: inputs.map((input) => round2Payload(toCreateBody(input))),
+    fallback: 'Failed to create booking.',
+    context: 'createBookings',
+  });
+  return created.map(withResolvedAddresses);
 }
 
 /**
@@ -526,13 +623,13 @@ export function setBookingStatus(booking: BookingDto, currentStatus: number): Pr
 }
 
 /**
- * Normalises a cancel/decline reason to something the API will accept: the field
- * is required and must be ≥10 characters (null → 400, 1–9 chars → 422), so a
- * blank or too-short reason falls back to a valid generic one.
+ * The reason exactly as the person wrote it (trimmed), or the fallback only when they wrote none.
+ * It is stored on the booking and shown to the other side, so a short reason is never replaced:
+ * this used to swap anything under 10 characters for a generic sentence.
  */
 function ensureCancelReason(reason: string | null | undefined, fallback: string): string {
   const trimmed = (reason ?? '').trim();
-  return trimmed.length >= 10 ? trimmed : fallback;
+  return trimmed || fallback;
 }
 
 /**
@@ -614,8 +711,7 @@ export function declineBooking(id: number, reason?: string): Promise<BookingDto>
     'decline',
     'Failed to decline booking.',
     'declineBooking',
-    // The decline body's `reason` is required and must be ≥10 chars server-side
-    // (null → 400, 1–9 chars → 422). Fall back to a valid generic reason.
+    // The decline body's `reason` is required server-side; a blank one gets a generic reason.
     ensureCancelReason(reason, 'Declined by the provider.')
   );
 }
@@ -627,13 +723,14 @@ export function declineBooking(id: number, reason?: string): Promise<BookingDto>
  * now that `state` was removed from the booking write DTO. The `reason` field is
  * required (≥10 chars, like decline) — a blank/short one falls back to a generic.
  */
-export function cancelBooking(booking: BookingDto, reason?: string): Promise<BookingDto> {
+/** The customer calls off a booking, saying why — the provider sees the reason. */
+export function cancelBooking(booking: BookingDto, reason: string): Promise<BookingDto> {
   return bookingTransition(
     booking.id,
     'cancel',
     'Failed to cancel booking.',
     'cancelBooking',
-    ensureCancelReason(reason ?? booking.cancelReason, 'Cancelled by the user.')
+    ensureCancelReason(reason, 'Cancelled by the user.')
   );
 }
 

@@ -42,6 +42,8 @@ const getStatusPill = (status: string, isDarkMode: boolean) => {
     'in-progress': 'bg-amber-50 text-amber-700',
     completed: 'bg-green-50 text-green-700',
     cancelled: 'bg-red-50 text-red-700',
+    // Ran out of time without happening — neutral, not an error the user made.
+    expired: 'bg-gray-100 text-gray-600',
   };
   const dark: Record<string, string> = {
     upcoming: 'bg-blue-500/15 text-blue-300',
@@ -49,6 +51,7 @@ const getStatusPill = (status: string, isDarkMode: boolean) => {
     'in-progress': 'bg-amber-500/15 text-amber-300',
     completed: 'bg-green-500/15 text-green-300',
     cancelled: 'bg-red-500/15 text-red-300',
+    expired: 'bg-white/10 text-gray-400',
   };
   return (
     (isDarkMode ? dark : light)[status] ??
@@ -63,6 +66,7 @@ const STATUS_TO_STATE: Record<string, number> = {
   cancelled: 2,
   booked: 3,
   'in-progress': 4,
+  expired: 5,
 };
 
 export default function BookingCard({

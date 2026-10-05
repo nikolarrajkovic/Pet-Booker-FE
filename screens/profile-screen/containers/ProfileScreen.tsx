@@ -12,7 +12,7 @@ import { useResponsive } from '../../../hooks/useResponsive';
 import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
-import { getBookings, parseBookingDate, BookingStatusType } from '../../../services/bookings';
+import { countBookings, BookingState } from '../../../services/bookings';
 import { MenuItem } from '../components';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import Constants from 'expo-constants';
@@ -152,17 +152,15 @@ export default function ProfileScreen() {
             if (!cancelled) setUser(u);
           })
           .catch(() => {});
-        getBookings({ userId: currentUser.id })
-          .then((list) => {
+        // Two counts rather than a page of bookings: a page of the oldest 50 never contained the
+        // session that was due once an account had more. Accepted excludes expired ones.
+        Promise.all([
+          countBookings({ userId: currentUser.id, state: BookingState.InProgress }),
+          countBookings({ userId: currentUser.id, state: BookingState.Accepted }),
+        ])
+          .then(([started, upcoming]) => {
             if (cancelled) return;
-            const started = list.some((b) => b.currentStatus === BookingStatusType.ServiceStarted);
-            const upcoming = list.some(
-              (b) =>
-                (b.currentStatus === BookingStatusType.ServiceConfirmedByProvider ||
-                  b.currentStatus === BookingStatusType.PrePayment) &&
-                parseBookingDate(b.bookingTo).getTime() >= Date.now()
-            );
-            setLiveSession(started ? 'started' : upcoming ? 'upcoming' : 'none');
+            setLiveSession(started > 0 ? 'started' : upcoming > 0 ? 'upcoming' : 'none');
           })
           .catch(() => {
             if (!cancelled) setLiveSession('none');

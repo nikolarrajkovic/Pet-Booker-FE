@@ -24,6 +24,8 @@ import {
   type UserNotificationSettingsDto,
 } from '../../../services/notifications';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import DeleteAccountModal from '../components/DeleteAccountModal';
+import { deleteAccount } from '../../../services/auth';
 import {
   SUPPORT_EMAIL,
   SUPPORT_PHONE,
@@ -37,8 +39,29 @@ export default function SettingsScreen() {
   const navigation = useNavigation();
   const { toggleDarkMode } = useTheme();
   const { t, language, setLanguage } = useLocale();
-  const { currentUser, refreshUser } = useAuth();
-  const { showError } = useToast();
+  const { currentUser, refreshUser, isAdmin, isProviderProfile, signOut } = useAuth();
+  const { showError, showSuccess } = useToast();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  // Admins are closed by another admin, and a managed partner profile by PetBooker — the server
+  // refuses both, so the option is not offered to them.
+  const canDeleteAccount = !!currentUser && !isAdmin && !isProviderProfile;
+
+  const handleDeleteAccount = async (password: string) => {
+    setIsDeleting(true);
+    setDeleteError('');
+    try {
+      await deleteAccount(password);
+      setDeleteOpen(false);
+      showSuccess(t('settings.deleteAccountDone'));
+      await signOut();
+    } catch (e) {
+      setDeleteError(getErrorMessage(e, t('settings.deleteAccountFailed')));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
   const { isDarkMode, cardBg, bgColor: contentBg, textColor, subtextColor } = useThemeColors();
   const sectionTextColor = textColor;
 
@@ -235,7 +258,46 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
           </TouchableOpacity>
         </View>
+
+        {/* The stores require an account to be closable from inside the app. */}
+        {canDeleteAccount && (
+          <>
+            <Text className={`text-base font-semibold ${sectionTextColor} mb-3 mt-6`}>
+              {t('settings.accountSection')}
+            </Text>
+            <View className={`${cardBg} mb-6 rounded-2xl`}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => {
+                  setDeleteError('');
+                  setDeleteOpen(true);
+                }}
+                className="flex-row items-center p-4">
+                <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-red-50">
+                  <Ionicons name="trash-outline" size={24} color="#EF4444" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-base font-semibold text-red-500">
+                    {t('settings.deleteAccount')}
+                  </Text>
+                  <Text className={`text-sm ${subtextColor} mt-0.5`}>
+                    {t('settings.deleteAccountHint')}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </ScrollView>
+
+      <DeleteAccountModal
+        visible={deleteOpen}
+        submitting={isDeleting}
+        error={deleteError}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={handleDeleteAccount}
+      />
 
       <LanguagePicker
         visible={languagePickerOpen}

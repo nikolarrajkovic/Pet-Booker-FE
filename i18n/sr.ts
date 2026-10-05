@@ -73,6 +73,19 @@ const sr: TranslationDict = {
     usd: 'Američki dolar (USD)',
   },
   settings: {
+    accountSection: 'Nalog',
+    deleteAccount: 'Obriši nalog',
+    deleteAccountHint: 'Zatvorite nalog i uklonite svoje podatke',
+    deleteAccountTitle: 'Obrisati nalog?',
+    deleteAccountPointBookings:
+      'Vaše predstojeće rezervacije se otkazuju i druga strana dobija obaveštenje.',
+    deleteAccountPointData: 'Vaš profil i ljubimci se uklanjaju. Ovo ne može da se poništi.',
+    deleteAccountPointPartner: 'Ako ste partner, uklanjaju se i vaš partnerski profil i usluge.',
+    deleteAccountPasswordLabel: 'Unesite lozinku za potvrdu',
+    deleteAccountPasswordPlaceholder: 'Lozinka',
+    deleteAccountConfirm: 'Obriši nalog',
+    deleteAccountDone: 'Vaš nalog je obrisan.',
+    deleteAccountFailed: 'Nalog nije moguće obrisati.',
     title: 'Podešavanja',
     appearance: 'Izgled',
     darkMode: 'Tamni režim',
@@ -108,6 +121,7 @@ const sr: TranslationDict = {
     tooManyAttempts: 'Previše pokušaja sa ove mreže. Sačekajte minut i pokušajte ponovo.',
   },
   register: {
+    verifyInstead: 'Već ste se registrovali? Potvrdite ovaj email',
     subtitle: 'Kreirajte nalog',
     username: 'Korisničko ime',
     usernameHint: '3–20 karaktera, počinje slovom, zatim slova, brojevi, . ili _',
@@ -160,6 +174,11 @@ const sr: TranslationDict = {
     errDobInvalid: 'Unesite ispravan datum rođenja',
   },
   verifyEmail: {
+    newCodeSent: 'Poslali smo vam novi kod.',
+    enterEmailTitle: 'Sa kojim emailom ste se registrovali?',
+    emailPlaceholder: 'vi@primer.com',
+    sendCode: 'Pošalji kod',
+    backToSignIn: 'Nazad na prijavu',
     title: 'Potvrdite email',
     subtitle: 'Poslali smo šestocifreni kod na',
     codeSentTo: 'Kod poslat na',
@@ -295,6 +314,7 @@ const sr: TranslationDict = {
     noDealsSub: 'Partneri redovno dodaju ponude — navratite uskoro.',
   },
   card: {
+    unavailable: 'Nedostupno',
     popular: 'Popularno',
     deal: 'Popust',
     a11yPriceFrom: 'od {price}',
@@ -449,6 +469,9 @@ const sr: TranslationDict = {
     perKm: '{amount}/km',
   },
   serviceDetail: {
+    unavailableCta: 'Trenutno nedostupno',
+    unavailableNote:
+      'Ova usluga još nema radno vreme, pa ne može da se rezerviše. I dalje možete da pišete pružaocu.',
     notFound: 'Ova usluga više nije dostupna.',
     title: 'Detalji usluge',
     subtitle: 'Pregledajte pre rezervacije',
@@ -606,6 +629,12 @@ const sr: TranslationDict = {
     submitFailed: 'Slanje recenzije nije uspelo. Pokušajte ponovo.',
   },
   bookingDetails: {
+    cancelReasonTitle: 'Zašto otkazujete?',
+    cancelReasonSubtitle: 'Pružalac dobija obaveštenje i vidi vaš razlog.',
+    cancelReasonPlaceholder: 'npr. Pas mi je bolestan, moram da pomerim termin',
+    cancelReasonTooShort: 'Napišite kratak razlog (najmanje 5 znakova).',
+    expiredNotice: 'Ova rezervacija je istekla — nije potvrđena ili započeta na vreme.',
+    cancelReasonLabel: 'Razlog',
     cancelBooking: 'Otkaži rezervaciju',
     cancelTitle: 'Otkazati ovu rezervaciju?',
     cancelMsg: 'Pružalac usluge će biti obavešten. Uvek možete ponovo rezervisati.',
@@ -749,6 +778,8 @@ const sr: TranslationDict = {
     egPlaceholder: 'npr. {value}',
   },
   requests: {
+    expiredNotStartedBadge: 'Isteklo — prihvaćeno, ali nikad započeto',
+    expiredBadge: 'Istekao — nije odgovoren pre vremena početka',
     title: 'Zahtevi',
     pendingOne: '{count} zahtev na čekanju',
     pendingMany: '{count} zahteva na čekanju',
@@ -834,6 +865,9 @@ const sr: TranslationDict = {
     yesterday: 'Juče',
   },
   myServices: {
+    notBookableWarning: 'Klijenti ovo još ne mogu da rezervišu — dodajte radno vreme.',
+    editA11y: 'Izmeni {name}',
+    deleteA11y: 'Obriši {name}',
     price: 'Cena',
     title: 'Moje usluge',
     addNew: 'Dodaj novu',
@@ -1173,6 +1207,8 @@ const sr: TranslationDict = {
     specialNeedsWarning: 'Ima posebne potrebe — molimo za dodatnu pažnju',
   },
   addEditService: {
+    hoursRequiredTitle: 'Dodajte radno vreme',
+    hoursRequiredMsg: 'Uključite bar jedan dan kako bi klijenti mogli da rezervišu ovu uslugu.',
     titleAdd: 'Dodaj novu uslugu',
     titleEdit: 'Izmeni uslugu',
     subtitleAdd: 'Napravite novu uslugu',
@@ -1248,6 +1284,11 @@ const sr: TranslationDict = {
     selectDuration: 'Izaberite trajanje',
   },
   admin: {
+    applicationLoadFailed: 'Nije moguće učitati celu prijavu.',
+    loadingDocuments: 'Učitavanje dokumenata…',
+    yearsValue: '{n} god.',
+    motivation: 'Motivacija',
+    motivationColon: 'Motivacija:',
     beforeYouApprove: 'Pre nego što odobrite',
     beforeYouApproveMsg:
       'Prvo proverite priloženi dokument i sertifikate. Odobravanje objavljuje ovog pružaoca usluge i istovremeno odobrava sve sertifikate iz prijave.',
@@ -1527,6 +1568,7 @@ const sr: TranslationDict = {
     declineFailed: 'Odbijanje zahteva nije uspelo.',
   },
   shared: {
+    yearsOfExperience: '{n} god. iskustva',
     amountOff: '{amount} POPUSTA',
     selectCountry: 'Izaberite zemlju',
     loadingMap: 'Učitavanje mape…',

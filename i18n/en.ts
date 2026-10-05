@@ -79,6 +79,19 @@ const en = {
     usd: 'US dollar (USD)',
   },
   settings: {
+    accountSection: 'Account',
+    deleteAccount: 'Delete account',
+    deleteAccountHint: 'Close your account and remove your data',
+    deleteAccountTitle: 'Delete your account?',
+    deleteAccountPointBookings: 'Your upcoming bookings are cancelled and the other side is told.',
+    deleteAccountPointData: 'Your profile and pets are removed. This cannot be undone.',
+    deleteAccountPointPartner:
+      'If you are a partner, your partner profile and services are removed too.',
+    deleteAccountPasswordLabel: 'Enter your password to confirm',
+    deleteAccountPasswordPlaceholder: 'Password',
+    deleteAccountConfirm: 'Delete account',
+    deleteAccountDone: 'Your account has been deleted.',
+    deleteAccountFailed: 'Could not delete the account.',
     title: 'Settings',
     appearance: 'Appearance',
     darkMode: 'Dark Mode',
@@ -114,6 +127,7 @@ const en = {
     tooManyAttempts: 'Too many attempts from this network. Please wait a minute and try again.',
   },
   register: {
+    verifyInstead: 'Already registered? Confirm this email instead',
     subtitle: 'Create your account',
     username: 'Username',
     usernameHint: '3–20 characters, starts with a letter, then letters, numbers, . or _',
@@ -166,6 +180,11 @@ const en = {
     errDobInvalid: 'Enter a valid date of birth',
   },
   verifyEmail: {
+    newCodeSent: "We've sent you a new code.",
+    enterEmailTitle: 'Which email did you register with?',
+    emailPlaceholder: 'you@example.com',
+    sendCode: 'Send code',
+    backToSignIn: 'Back to sign in',
     title: 'Verify Your Email',
     subtitle: "We've sent a 6-digit code to",
     codeSentTo: 'Code sent to',
@@ -303,6 +322,7 @@ const en = {
     noDealsSub: 'Partners add offers regularly — check back soon.',
   },
   card: {
+    unavailable: 'Unavailable',
     popular: 'Popular',
     deal: 'Deal',
     // Screen-reader only: a service card composes these into one sentence rather than letting
@@ -466,6 +486,9 @@ const en = {
     perKm: '{amount}/km',
   },
   serviceDetail: {
+    unavailableCta: 'Currently unavailable',
+    unavailableNote:
+      "This service has no working hours yet, so it can't be booked. You can still message the provider.",
     // Shown when a /services/:id link points at a service that no longer exists, was
     // deactivated, or belongs to a provider that isn't approved.
     notFound: "This service isn't available any more.",
@@ -631,6 +654,12 @@ const en = {
     submitFailed: 'Could not submit your review. Please try again.',
   },
   bookingDetails: {
+    cancelReasonTitle: 'Why are you cancelling?',
+    cancelReasonSubtitle: 'The provider is notified and sees your reason.',
+    cancelReasonPlaceholder: 'e.g. My dog is unwell, I need to reschedule',
+    cancelReasonTooShort: 'Please write a short reason (at least 5 characters).',
+    expiredNotice: 'This booking expired — it was not confirmed or started in time.',
+    cancelReasonLabel: 'Reason',
     cancelBooking: 'Cancel booking',
     cancelTitle: 'Cancel this booking?',
     cancelMsg: 'The provider will be notified. You can always book again later.',
@@ -773,6 +802,8 @@ const en = {
     egPlaceholder: 'e.g. {value}',
   },
   requests: {
+    expiredNotStartedBadge: 'Expired — accepted but never started',
+    expiredBadge: 'Expired — not answered before its start time',
     title: 'Requests',
     pendingOne: '{count} pending request',
     pendingMany: '{count} pending requests',
@@ -858,6 +889,9 @@ const en = {
     yesterday: 'Yesterday',
   },
   myServices: {
+    notBookableWarning: "Customers can't book this yet — add working hours.",
+    editA11y: 'Edit {name}',
+    deleteA11y: 'Delete {name}',
     price: 'Price',
     title: 'My Services',
     addNew: 'Add New',
@@ -1194,6 +1228,8 @@ const en = {
     specialNeedsWarning: 'Has special needs — please take extra care',
   },
   addEditService: {
+    hoursRequiredTitle: 'Add your working hours',
+    hoursRequiredMsg: 'Switch on at least one day so customers can book this service.',
     titleAdd: 'Add New Service',
     titleEdit: 'Edit Service',
     subtitleAdd: 'Create a new service listing',
@@ -1272,6 +1308,11 @@ const en = {
     selectDuration: 'Select Duration',
   },
   admin: {
+    applicationLoadFailed: 'Could not load the full application.',
+    loadingDocuments: 'Loading documents…',
+    yearsValue: '{n} years',
+    motivation: 'Motivation',
+    motivationColon: 'Motivation:',
     beforeYouApprove: 'Before you approve',
     beforeYouApproveMsg:
       'Check the submitted ID and certificates first. Approving publishes this provider and approves every certificate on the application at the same time.',
@@ -1551,6 +1592,7 @@ const en = {
     declineFailed: "Couldn't decline this request.",
   },
   shared: {
+    yearsOfExperience: '{n} years of experience',
     amountOff: '{amount} OFF',
     selectCountry: 'Select country',
     loadingMap: 'Loading map…',

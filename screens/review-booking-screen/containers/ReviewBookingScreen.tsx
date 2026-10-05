@@ -18,7 +18,7 @@ import { resolveImageUrl, AddressDto } from '../../../services/service-providers
 import { addressLabel } from '../../../services/geocoding';
 import { ServiceDto, serviceCurrency } from '../../../services/services';
 import { DiscountType } from '../../../services/service-discounts';
-import { createBooking, parseBookingDate, PaymentType } from '../../../services/bookings';
+import { createBookings, parseBookingDate, PaymentType } from '../../../services/bookings';
 import { showAlert } from '../../../services/alert';
 import { ensurePaymentMethodId } from '../../../services/payment-methods';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -163,9 +163,12 @@ export default function ReviewBookingScreen() {
         isCash ? PaymentType.Cash : PaymentType.Card
       );
 
-      // One booking per appointment (the API creates a single booking per call).
-      for (const apt of appointments) {
-        await createBooking({
+      // Every appointment in one all-or-nothing call: if any is refused (a slot taken meanwhile, a
+      // lead time missed) none is kept. They used to be created one by one, so a failure on the
+      // second left the first booked while this screen said "booking failed", and retrying
+      // booked the first one again.
+      await createBookings(
+        appointments.map((apt) => ({
           userId: currentUser.id,
           serviceProviderId: service.serviceProviderId,
           serviceId: apt.service.id,
@@ -186,8 +189,8 @@ export default function ReviewBookingScreen() {
           // re-measures each trip leg from the addresses above. No distance is sent: a
           // client-supplied one would override the measurement that sets the price.
           additionalServiceIds: apt.addonIds,
-        });
-      }
+        }))
+      );
 
       (navigation as any).navigate('BookingConfirmed', {
         serviceName: service.name ?? t('reviewBooking.yourService'),

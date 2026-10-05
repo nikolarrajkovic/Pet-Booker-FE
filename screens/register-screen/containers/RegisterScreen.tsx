@@ -10,13 +10,14 @@ import Button from '../../../components/shared/Button';
 import DatePicker from '../../../components/shared/DatePicker';
 import PhoneInput from '../../../components/shared/PhoneInput';
 import { registerUser } from '../../../services/auth';
+import { ApiError } from '../../../services/http';
 import AuthLayout from '../../../components/layout/AuthLayout';
 import { formatBirthDate } from '../../../i18n/dates';
 
 type RootStackParamList = {
   Login: undefined;
   Register: undefined;
-  VerifyEmail: { email: string };
+  VerifyEmail: { email: string; resend?: boolean };
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -114,6 +115,7 @@ export default function RegisterScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [emailInUse, setEmailInUse] = useState(false);
 
   // ─── Theme ────────────────────────────────────────────────────────────────
   const inputBg = isDarkMode ? '#243447' : '#ffffff';
@@ -172,6 +174,8 @@ export default function RegisterScreen() {
     } catch (error) {
       const message = error instanceof Error ? error.message : t('register.registrationFailed');
       setSubmitError(message);
+      // Registered before but never confirmed? Offer to finish that instead of a dead end.
+      setEmailInUse(error instanceof ApiError && error.code === 'Auth_EmailInUse');
     } finally {
       setIsSubmitting(false);
     }
@@ -510,6 +514,25 @@ export default function RegisterScreen() {
         ) : null}
       </View>
 
+      {/* Above the button, where the eye already is: below it the message landed under the fold
+          on a phone, and tapping Create Account appeared to do nothing. */}
+      {submitError ? (
+        <View className="mb-3">
+          <Text className="text-center text-sm text-red-500">{submitError}</Text>
+          {emailInUse ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() =>
+                navigation.navigate('VerifyEmail', { email: email.trim(), resend: true })
+              }>
+              <Text className="mt-1 text-center text-sm font-semibold text-brand-600">
+                {t('register.verifyInstead')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
+
       {/* Create Account Button */}
       <Button
         text={isSubmitting ? t('register.creatingAccount') : t('register.createAccount')}
@@ -518,10 +541,6 @@ export default function RegisterScreen() {
         className="mb-4 rounded-2xl py-4"
         disabled={isSubmitting}
       />
-
-      {submitError ? (
-        <Text className="mb-4 text-center text-sm text-red-500">{submitError}</Text>
-      ) : null}
 
       {/* Terms */}
       <Text className={`text-center text-xs ${subtextColor} mb-6 leading-5`}>

@@ -164,6 +164,14 @@ export default function ListView({ services, badge, paging, sort, header }: List
           {item.service ? (
             <Text className={`text-sm ${subtextColor} mt-0.5`}>{item.service}</Text>
           ) : null}
+          {/* No working hours: still findable, never bookable. Search lists these last. */}
+          {item.dto.isBookable === false ? (
+            <View className="mt-1 self-start rounded-full bg-gray-200 px-2 py-0.5">
+              <Text className="text-[11px] font-semibold text-gray-600">
+                {t('card.unavailable')}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         <View className="flex-row items-center gap-3">

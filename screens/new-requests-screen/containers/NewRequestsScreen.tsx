@@ -1,6 +1,5 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, TextInput } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
@@ -12,15 +11,19 @@ import { RequestCard } from '../components';
 import type { ServiceRequest, RequestStatus } from '../components';
 import { resolveImageUrl } from '../../../services/service-providers';
 import {
-  getBookings,
+  getBookingsPage,
+  countBookings,
   confirmBooking,
   declineBooking,
-  applyBookingTransition,
   parseBookingDate,
   BookingDto,
   BookingState,
+  BookingSortBy,
   BookingStatusType,
+  GetBookingsParams,
 } from '../../../services/bookings';
+import { usePagedList } from '../../../hooks/usePagedList';
+import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import { formatMoney } from '../../../services/currency';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import ResponsiveModal from '../../../components/shared/ResponsiveModal';
@@ -67,11 +70,13 @@ function bookingToRequest(t: TFn, b: BookingDto): ServiceRequest {
   const to = parseBookingDate(b.bookingTo);
   const hours = Math.max(0, Math.round(((to.getTime() - from.getTime()) / 3600000) * 10) / 10);
   const status: RequestStatus =
-    b.state === BookingState.Cancelled
-      ? 'declined'
-      : b.currentStatus === BookingStatusType.ServiceRequestedByUser
-        ? 'new'
-        : 'accepted';
+    b.state === BookingState.Expired
+      ? 'expired'
+      : b.state === BookingState.Cancelled
+        ? 'declined'
+        : b.currentStatus === BookingStatusType.ServiceRequestedByUser
+          ? 'new'
+          : 'accepted';
   const pet: any = b.pet;
   return {
     id: b.id ?? 0,
@@ -99,10 +104,31 @@ function bookingToRequest(t: TFn, b: BookingDto): ServiceRequest {
     additionalServices: selectedAddOns(t, b), // pickup / drop-off / special-needs the booker picked
     notesFromOwner: '', // BACKEND-GAP: no owner-notes field
     status,
+    expiredAfterAccepting:
+      status === 'expired' && b.currentStatus !== BookingStatusType.ServiceRequestedByUser,
   };
 }
 
 type FilterTab = 'new' | 'accepted' | 'declined' | 'all';
+
+/**
+ * Each tab is a server query, paged as it scrolls. They used to be one 50-row page filtered on the
+ * device: past a provider's 50th booking, new requests were never fetched, and requests whose date
+ * had passed sat at the top still offering Accept. The server now decides which requests are still
+ * open (an unanswered request expires at its start time) and the order.
+ */
+const TAB_QUERY: Record<FilterTab, Pick<GetBookingsParams, 'state' | 'states' | 'sortBy'>> = {
+  // Still awaiting a decision, the soonest first: that is the one to answer first.
+  new: { state: BookingState.Upcoming, sortBy: BookingSortBy.SoonestFirst },
+  // Work agreed to and not yet done.
+  accepted: {
+    states: [BookingState.Accepted, BookingState.InProgress],
+    sortBy: BookingSortBy.SoonestFirst,
+  },
+  declined: { state: BookingState.Cancelled, sortBy: BookingSortBy.LatestFirst },
+  // Everything, most recently made first; expired and completed ones are marked on the card.
+  all: { sortBy: BookingSortBy.NewestFirst },
+};
 
 // Tab labels are translation keys, resolved with t() at render.
 const TABS: { key: FilterTab; labelKey: string }[] = [
@@ -128,53 +154,66 @@ export default function NewRequestsScreen() {
   const { showError } = useToast();
   const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<FilterTab>('new');
-  const [bookings, setBookings] = useState<BookingDto[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   // Decline-reason modal: the request being declined + the partner's reason text.
   const [declineTargetId, setDeclineTargetId] = useState<number | null>(null);
   const [declineReason, setDeclineReason] = useState('');
+  const [counts, setCounts] = useState<Record<FilterTab, number>>({
+    new: 0,
+    accepted: 0,
+    declined: 0,
+    all: 0,
+  });
 
-  const load = useCallback(async () => {
-    if (!currentUser?.id) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    setLoadError(null);
-    try {
-      const providerId = currentUser.serviceProviderId || null;
-      setBookings(providerId ? await getBookings({ serviceProviderId: providerId }) : []);
-    } catch (e) {
-      setLoadError(getErrorMessage(e, t('requests.loadFailed')));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentUser?.id, currentUser?.serviceProviderId, t]);
-
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        if (!cancelled) await load();
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [load])
+  const providerId = currentUser?.serviceProviderId || undefined;
+  const fetchPage = useCallback(
+    (page: number) =>
+      getBookingsPage({ serviceProviderId: providerId, ...TAB_QUERY[activeTab] }, page),
+    [providerId, activeTab]
   );
+  const list = usePagedList(fetchPage, {
+    enabled: !!providerId,
+    resource: 'bookings',
+    errorFallback: t('requests.loadFailed'),
+  });
+
+  // Tab badges: one count per tab, from the server, so they describe every booking rather than
+  // the rows loaded so far.
+  const refreshCounts = useCallback(async () => {
+    if (!providerId) return;
+    try {
+      const keys = Object.keys(TAB_QUERY) as FilterTab[];
+      const values = await Promise.all(
+        keys.map((key) => countBookings({ serviceProviderId: providerId, ...TAB_QUERY[key] }))
+      );
+      setCounts(
+        Object.fromEntries(keys.map((k, i) => [k, values[i]])) as Record<FilterTab, number>
+      );
+    } catch {
+      // Badges are a convenience; the list itself reports its own errors.
+    }
+  }, [providerId]);
+  useEffect(() => {
+    refreshCounts();
+  }, [refreshCounts, list.items]);
+
+  const isLoading = list.isLoading;
+  const loadError = list.error;
 
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]';
   const tabBg = cardBg;
 
-  const requests = useMemo(() => bookings.map((b) => bookingToRequest(t, b)), [bookings, t]);
-  const newCount = requests.filter((r) => r.status === 'new').length;
+  const filtered = useMemo(() => list.items.map((b) => bookingToRequest(t, b)), [list.items, t]);
+  const newCount = counts.new;
 
-  const filtered = requests.filter((r) => {
-    if (activeTab === 'all') return true;
-    return r.status === activeTab;
-  });
+  // A decided request leaves the tab it was in (New to Accepted or Declined); on All it stays, updated.
+  const applyDecision = (updated: BookingDto) => {
+    list.setItems((prev) =>
+      activeTab === 'all'
+        ? prev.map((b) => (b.id === updated.id ? { ...b, ...updated } : b))
+        : prev.filter((b) => b.id !== updated.id)
+    );
+  };
 
   // Accept/decline use the dedicated /bookings/{id}/confirm|decline endpoints.
   // Both are server-guarded to bookings still in ServiceRequestedByUser.
@@ -185,7 +224,7 @@ export default function NewRequestsScreen() {
       // The transition returns the updated booking, so fold it into the row we already hold
       // rather than refetching every one of the partner's bookings to learn one status.
       const updated = await confirmBooking(id);
-      setBookings((prev) => applyBookingTransition(prev, updated));
+      applyDecision(updated);
     } catch (e) {
       showError(getErrorMessage(e, t('requests.acceptFailed')));
     } finally {
@@ -206,25 +245,19 @@ export default function NewRequestsScreen() {
   const confirmDecline = async () => {
     if (declineTargetId === null) return;
     const id = declineTargetId;
-    const trimmed = declineReason.trim();
-    // Server requires a reason of ≥10 chars when one is given; blank is allowed
-    // and uses a generic fallback. Guard the 1–9 char range.
-    if (trimmed.length > 0 && trimmed.length < 10) return;
-    const reason = trimmed || t('requests.declinedByProvider');
+    // A blank reason gets a generic one; anything typed is sent as written.
+    const reason = declineReason.trim() || t('requests.declinedByProvider');
     setDeclineTargetId(null);
     setBusyId(id);
     try {
       const updated = await declineBooking(id, reason);
-      setBookings((prev) => applyBookingTransition(prev, updated));
+      applyDecision(updated);
     } catch (e) {
       showError(getErrorMessage(e, t('requests.declineFailed')));
     } finally {
       setBusyId(null);
     }
   };
-
-  // A typed reason must be ≥10 chars (server rule); blank is fine (uses fallback).
-  const declineReasonTooShort = declineReason.trim().length > 0 && declineReason.trim().length < 10;
 
   return (
     <ScreenLayout
@@ -243,14 +276,7 @@ export default function NewRequestsScreen() {
       <View
         className={`${gutter.mx} mb-3 mt-4 ${tabBg} flex-row rounded-2xl border p-1 ${borderColor}`}>
         {TABS.map((tab) => {
-          const count =
-            tab.key === 'new'
-              ? requests.filter((r) => r.status === 'new').length
-              : tab.key === 'accepted'
-                ? requests.filter((r) => r.status === 'accepted').length
-                : tab.key === 'declined'
-                  ? requests.filter((r) => r.status === 'declined').length
-                  : requests.length;
+          const count = counts[tab.key];
 
           const isActive = activeTab === tab.key;
 
@@ -289,6 +315,8 @@ export default function NewRequestsScreen() {
           paddingBottom: 32,
           paddingTop: 4,
         }}
+        scrollEventThrottle={200}
+        onScroll={(e) => (isNearBottom(e) ? list.loadMore() : undefined)}
         showsVerticalScrollIndicator={false}>
         <ListState
           isLoading={isLoading}
@@ -323,6 +351,15 @@ export default function NewRequestsScreen() {
               />
             ))}
           </ResponsiveGrid>
+          {filtered.length > 0 && (
+            <LoadMoreFooter
+              loaded={filtered.length}
+              total={list.totalItems}
+              hasMore={list.hasMore}
+              isLoadingMore={list.isLoadingMore}
+              onLoadMore={list.loadMore}
+            />
+          )}
         </ListState>
       </ScrollView>
 
@@ -347,13 +384,10 @@ export default function NewRequestsScreen() {
             multiline
             numberOfLines={3}
             textAlignVertical="top"
-            className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${declineReasonTooShort ? 'mb-1' : 'mb-4'}`}
+            className={`${inputBg} rounded-xl px-4 py-3 ${inputText} ${'mb-4'}`}
             style={{ minHeight: 80 }}
             selectionColor={BRAND_GREEN}
           />
-          {declineReasonTooShort && (
-            <Text className="mb-4 text-xs text-red-500">{t('requests.declineTooShort')}</Text>
-          )}
           <View className="flex-row" style={{ gap: 12 }}>
             <TouchableOpacity
               accessibilityRole="button"
@@ -365,9 +399,8 @@ export default function NewRequestsScreen() {
             <TouchableOpacity
               accessibilityRole="button"
               onPress={confirmDecline}
-              disabled={declineReasonTooShort}
               activeOpacity={0.7}
-              className={`flex-1 items-center rounded-xl bg-red-500 py-3 ${declineReasonTooShort ? 'opacity-50' : ''}`}>
+              className="flex-1 items-center rounded-xl bg-red-500 py-3">
               <Text className="font-semibold text-white">{t('requests.decline')}</Text>
             </TouchableOpacity>
           </View>

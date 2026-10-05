@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text, View, TouchableOpacity, TextInput, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -13,7 +13,7 @@ import AuthLayout from '../../../components/layout/AuthLayout';
 type RootStackParamList = {
   Login: undefined;
   Register: undefined;
-  VerifyEmail: { email: string };
+  VerifyEmail: { email?: string; resend?: boolean };
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -27,7 +27,11 @@ export default function VerifyEmailScreen() {
   const { signIn } = useAuth();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<VerifyEmailRouteProp>();
-  const email = route.params?.email ?? '';
+  // Known when arriving from Register or from a sign-in with an email; empty after a username
+  // sign-in or a cold visit to /verify-email, in which case the screen asks for it.
+  const [email, setEmail] = useState(route.params?.email ?? '');
+  const [emailDraft, setEmailDraft] = useState('');
+  const needsEmail = !email;
 
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -136,6 +140,34 @@ export default function VerifyEmailScreen() {
     }
   };
 
+  // Sent here from sign-in or Register for an account whose code has long expired: send a fresh
+  // one straight away rather than make them find the Resend link.
+  const autoResent = useRef(false);
+  useEffect(() => {
+    if (!route.params?.resend || !email || autoResent.current) return;
+    autoResent.current = true;
+    resendConfirmation(email)
+      .then(() => setResendMessage(t('verifyEmail.newCodeSent')))
+      .catch((error) =>
+        setVerifyError(error instanceof Error ? error.message : t('verifyEmail.resendFailed'))
+      );
+    // Once per arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSendToTypedEmail = async () => {
+    const typed = emailDraft.trim();
+    if (!typed.includes('@')) return;
+    setVerifyError('');
+    try {
+      await resendConfirmation(typed);
+      setEmail(typed);
+      setResendMessage(t('verifyEmail.newCodeSent'));
+    } catch (error) {
+      setVerifyError(error instanceof Error ? error.message : t('verifyEmail.resendFailed'));
+    }
+  };
+
   const handleResend = async () => {
     setCode(Array(CODE_LENGTH).fill(''));
     setVerifyError('');
@@ -158,10 +190,36 @@ export default function VerifyEmailScreen() {
         <View className="mr-3 h-9 w-9 items-center justify-center rounded-full bg-emerald-100">
           <MaterialCommunityIcons name="email-outline" size={20} color="#00A85A" />
         </View>
-        <View>
-          <Text className={`text-xs ${subtextColor}`}>{t('verifyEmail.codeSentTo')}</Text>
-          <Text className={`text-sm font-semibold ${textColor}`}>{email}</Text>
-        </View>
+        {needsEmail ? (
+          <View className="flex-1">
+            <Text className={`text-xs ${subtextColor} mb-1`}>
+              {t('verifyEmail.enterEmailTitle')}
+            </Text>
+            <View className="flex-row items-center">
+              <TextInput
+                value={emailDraft}
+                onChangeText={setEmailDraft}
+                placeholder={t('verifyEmail.emailPlaceholder')}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                accessibilityLabel={t('verifyEmail.enterEmailTitle')}
+                onSubmitEditing={handleSendToTypedEmail}
+                className={`flex-1 text-sm ${textColor}`}
+              />
+              <TouchableOpacity accessibilityRole="button" onPress={handleSendToTypedEmail}>
+                <Text className="ml-2 text-sm font-semibold text-brand-600">
+                  {t('verifyEmail.sendCode')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View>
+            <Text className={`text-xs ${subtextColor}`}>{t('verifyEmail.codeSentTo')}</Text>
+            <Text className={`text-sm font-semibold ${textColor}`}>{email}</Text>
+          </View>
+        )}
       </View>
 
       {/* Code label */}
@@ -242,6 +300,14 @@ export default function VerifyEmailScreen() {
           <Text className="text-sm font-semibold text-brand-600">{t('verifyEmail.resend')}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* A way out when the account turns out to be confirmed already, or this was a mistake. */}
+      <TouchableOpacity
+        accessibilityRole="button"
+        onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Login' }] })}
+        className="mb-6 items-center">
+        <Text className={`text-sm ${subtextColor}`}>{t('verifyEmail.backToSignIn')}</Text>
+      </TouchableOpacity>
 
       {/* Tip banner */}
       <View className={`flex-row items-start ${tipBg} border ${tipBorder} rounded-2xl px-4 py-3`}>
