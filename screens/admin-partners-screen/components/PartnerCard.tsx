@@ -36,6 +36,12 @@ export type Partner = {
   /** The provider's own currency (ServiceProviderDto.currency) — all their amounts are in it. */
   currency?: string | null;
   avgRating: number;
+  /** The admin's reason for the timeout or ban in force. */
+  moderationReason?: string | null;
+  /** When the running timeout ends (an instant). */
+  timedOutUntil?: string | null;
+  /** When the ban began. */
+  bannedAt?: string | null;
   documents: {
     profilePhoto: boolean;
     governmentId: boolean;

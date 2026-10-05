@@ -13,7 +13,11 @@ import {
 } from '../../../services/services';
 import { formatMoney } from '../../../services/currency';
 import { getReviews, ReviewDto } from '../../../services/reviews';
-import { ApprovalStatus, getServiceProvider } from '../../../services/service-providers';
+import {
+  ApprovalStatus,
+  ModerationStatus,
+  getServiceProvider,
+} from '../../../services/service-providers';
 import { useLocale } from '../../../context/LocaleContext';
 import { useTopInset } from '../../../hooks/useSafeAreaSpacing';
 import type { ProviderViewModel } from '../../../services/service-providers';
@@ -62,6 +66,8 @@ export default function ProviderDetailScreen() {
   const about = providerRecord?.about ?? provider.about ?? null;
   const yearsOfExperience = providerRecord?.yearsOfExperience ?? provider.yearsOfExperience ?? null;
   const isLoading = servicesLoading || reviewsLoading;
+  // An admin paused this partner: the page stays readable, but nothing on it can be booked.
+  const isPaused = providerRecord?.moderationStatus === ModerationStatus.TimedOut;
 
   // Derive real rating + starting price from fetched data when available
   const avgRating = reviews.length
@@ -159,6 +165,18 @@ export default function ProviderDetailScreen() {
             <Text className={subtextColor}>Contact for pricing</Text>
           )}
         </View>
+
+        {isPaused ? (
+          <View
+            accessibilityRole="alert"
+            className={`mb-4 ${gutter.mx} flex-row items-center rounded-xl px-4 py-3`}
+            style={{ backgroundColor: isDarkMode ? 'rgba(217,119,6,0.14)' : '#FFFBEB' }}>
+            <Ionicons name="time-outline" size={18} color="#D97706" />
+            <Text className={`ml-2 flex-1 text-sm ${textColor}`}>
+              {t('moderation.providerPaused')}
+            </Text>
+          </View>
+        ) : null}
 
         {/* About — in the partner's own words, from their application. */}
         {about || yearsOfExperience != null ? (

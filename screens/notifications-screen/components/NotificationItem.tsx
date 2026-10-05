@@ -68,6 +68,11 @@ const VISUAL_BY_NAME: Record<
   CertificateExpiring: { icon: 'ribbon-outline', accent: 'warning' },
   BookingRequestStale: { icon: 'hourglass-outline', accent: 'warning' },
   GroupBookingRequested: { icon: 'people-outline', accent: 'brand' },
+  // An admin's moderation of the partner: the pause and the ban need their attention.
+  ProviderTimedOut: { icon: 'time-outline', accent: 'warning' },
+  ProviderTimeoutLifted: { icon: 'play-circle-outline', accent: 'brand' },
+  ProviderBanned: { icon: 'ban-outline', accent: 'danger' },
+  ProviderUnbanned: { icon: 'checkmark-circle-outline', accent: 'brand' },
   // Admin queue digest. The pending one is work to do; "all caught up" is the opposite, and
   // the accent is the whole difference between them at a glance.
   AdminPendingQueue: { icon: 'file-tray-full-outline', accent: 'warning' },

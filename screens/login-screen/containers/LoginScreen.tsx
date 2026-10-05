@@ -15,6 +15,7 @@ import AuthLayout from '../../../components/layout/AuthLayout';
 
 /** The gateway's code for a sign-in refused only because the email was never confirmed. */
 const EMAIL_NOT_CONFIRMED = 'Auth_EmailNotConfirmed';
+const ACCOUNT_BANNED = 'Auth_AccountBanned';
 
 type RootStackParamList = {
   Login: { email?: string; notice?: string } | undefined;
@@ -116,6 +117,11 @@ export default function LoginScreen() {
         const typed = identifier.trim();
         const email = typed.includes('@') ? typed : '';
         navigation.navigate('VerifyEmail', { email, resend: !!email });
+        return;
+      }
+      // A banned partner: say so plainly, and where the reason is (the ban email).
+      if (error instanceof ApiError && error.code === ACCOUNT_BANNED) {
+        setLoginError(t('moderation.loginBanned'));
         return;
       }
       setLoginError(resolveLoginError(error, t as (key: string) => string));

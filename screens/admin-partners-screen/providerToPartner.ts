@@ -1,16 +1,23 @@
 import {
+  ModerationStatus,
   providerTypeLabel,
   resolveImageUrl,
+  type ModerationStatusValue,
   type ServiceProviderDto,
 } from '../../services/service-providers';
-import type { Partner } from './components';
+import type { Partner, PartnerStatus } from './components';
 import { formatMonthYear } from '../../i18n/dates';
 
 // Maps a raw ServiceProviderDto into the Partner card/detail view shape.
-// The backend has no timeout/ban moderation concept, so every provider maps to
-// 'active'; the admin can still timeout/ban in-session (kept as local overrides).
-// Fields not exposed at the list level (reviews count, total services, phone,
-// bio, starting price) default to 0/'' until the API provides them.
+// Fields not exposed at the list level (starting price, service history) default to 0/[].
+
+/** The server's moderation status (derived from dates, so an expired timeout is Active). */
+export function partnerStatusOf(status?: ModerationStatusValue | null): PartnerStatus {
+  if (status === ModerationStatus.Banned) return 'banned';
+  if (status === ModerationStatus.TimedOut) return 'timeout';
+  return 'active';
+}
+
 /** Per-provider tallies the provider list itself doesn't carry. */
 export type ProviderTallies = { services: number; reviews: number };
 
@@ -28,7 +35,7 @@ export function providerToPartner(dto: ServiceProviderDto, tallies?: ProviderTal
     id: String(dto.id ?? 0),
     name: dto.name ?? 'Unknown Provider',
     image: resolveImageUrl(profilePhoto?.src),
-    status: 'active',
+    status: partnerStatusOf(dto.moderationStatus),
     rating,
     // Counted from the catalogue/review lists fetched alongside the providers. Both used to be
     // hardcoded 0, so every partner in this list read "0 services · (0)" no matter how many they
@@ -46,6 +53,9 @@ export function providerToPartner(dto: ServiceProviderDto, tallies?: ProviderTal
     startingPrice: 0,
     currency: dto.currency,
     avgRating: rating,
+    moderationReason: dto.moderationReason ?? null,
+    timedOutUntil: dto.timedOutUntil ?? null,
+    bannedAt: dto.bannedAt ?? null,
     documents: {
       profilePhoto: !!profilePhoto?.src,
       // List rows never carry the ID images; the server counts them for an admin instead.

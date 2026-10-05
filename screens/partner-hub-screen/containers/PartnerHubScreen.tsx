@@ -24,6 +24,8 @@ import {
   ActivityEntry,
 } from '../../../services/stats';
 import { getServices } from '../../../services/services';
+import { ModerationStatus, getServiceProvider } from '../../../services/service-providers';
+import { formatModerationTime } from '../../admin-partners-screen/components/moderationFormat';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -365,6 +367,33 @@ export default function PartnerHubScreen() {
     }, [refreshUnreadMessages])
   );
 
+  // A timeout an admin set: the partner keeps working, but should know customers can't find them,
+  // until when, and why. Read on focus, so a lift shows as soon as they come back to the hub.
+  const [paused, setPaused] = useState<{ until: string; reason: string | null } | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const providerId = currentUser?.serviceProviderId || null;
+      if (!providerId) {
+        setPaused(null);
+        return;
+      }
+      let cancelled = false;
+      getServiceProvider(providerId)
+        .then((dto) => {
+          if (cancelled) return;
+          setPaused(
+            dto.moderationStatus === ModerationStatus.TimedOut && dto.timedOutUntil
+              ? { until: dto.timedOutUntil, reason: dto.moderationReason ?? null }
+              : null
+          );
+        })
+        .catch(() => undefined);
+      return () => {
+        cancelled = true;
+      };
+    }, [currentUser?.serviceProviderId])
+  );
+
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -659,6 +688,39 @@ export default function PartnerHubScreen() {
           contentContainerStyle={
             isWebLayout ? { paddingBottom: 40 } : { paddingBottom: tabBarSpacing }
           }>
+          {/* ── Paused by an admin ── */}
+          {paused && (
+            <View
+              accessibilityRole="alert"
+              style={{
+                marginHorizontal: gutter.value,
+                marginTop: 24,
+                backgroundColor: isDarkMode ? 'rgba(217,119,6,0.14)' : '#FFFBEB',
+                borderColor: isDarkMode ? 'rgba(217,119,6,0.4)' : '#FDE68A',
+                borderWidth: 1,
+                borderRadius: 16,
+                padding: 16,
+                flexDirection: 'row',
+                gap: 12,
+              }}>
+              <Ionicons name="time-outline" size={22} color="#D97706" style={{ marginTop: 1 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: hex.text, fontSize: 15, fontWeight: '700' }}>
+                  {t('moderation.hubPausedTitle', { date: formatModerationTime(paused.until) })}
+                </Text>
+                <Text style={{ color: hex.subtext, fontSize: 13, marginTop: 4, lineHeight: 19 }}>
+                  {t('moderation.hubPausedBody')}
+                </Text>
+                {paused.reason ? (
+                  <Text style={{ color: hex.text, fontSize: 13, marginTop: 6, lineHeight: 19 }}>
+                    <Text style={{ fontWeight: '600' }}>{t('moderation.reasonLabel')} </Text>
+                    {paused.reason}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          )}
+
           {/* ── Active Live Session banner ── */}
           {hasLiveSession && (
             <TouchableOpacity

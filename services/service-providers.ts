@@ -61,6 +61,13 @@ export type CertificateFileDto = {
 export const ApprovalStatus = { Pending: 0, Approved: 1, Declined: 2 } as const;
 
 /**
+ * An admin's moderation of a partner — backend `ProviderModerationStatus`, derived from dates on
+ * every read, so a timeout that has run out simply reads Active.
+ */
+export const ModerationStatus = { Active: 0, TimedOut: 1, Banned: 2 } as const;
+export type ModerationStatusValue = (typeof ModerationStatus)[keyof typeof ModerationStatus];
+
+/**
  * Row order for the admin lists (applications, partners, reviews) — backend `SubmissionOrder`.
  * Ranked by id, which is arrival order; omitted means oldest first, the historical order.
  */
@@ -117,6 +124,14 @@ export type ServiceProviderDto = {
   governmentIdPhotoCount?: number | null;
   addressId?: number | null;
   isApplicationPartner?: boolean; // true when created via the partner-application flow
+  /** Timeout or ban (ModerationStatus). Public: a page can say they aren't taking bookings. */
+  moderationStatus?: ModerationStatusValue;
+  /** When the running timeout ends (an instant). Owner/admin only. */
+  timedOutUntil?: string | null;
+  /** When the ban began. Owner/admin only. */
+  bannedAt?: string | null;
+  /** The admin's reason for the timeout or ban in force. Owner/admin only. */
+  moderationReason?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -323,6 +338,8 @@ export type GetServiceProvidersParams = {
   type?: number;
   isApproved?: boolean;
   approvalStatus?: number; // ApprovalStatus
+  /** Admin-only: Active, TimedOut or Banned (ModerationStatus). */
+  moderation?: ModerationStatusValue;
   order?: SubmissionOrderValue;
   page?: number;
   perPage?: number;
@@ -337,6 +354,7 @@ function providersRequest(params?: GetServiceProvidersParams): ApiRequestOptions
       Type: params?.type,
       IsApproved: params?.isApproved,
       ApprovalStatus: params?.approvalStatus,
+      Moderation: params?.moderation,
       Order: params?.order,
       Page: params?.page ?? 1,
       PerPage: params?.perPage ?? 50,

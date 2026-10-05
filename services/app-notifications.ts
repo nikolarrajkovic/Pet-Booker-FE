@@ -76,6 +76,14 @@ export const NotificationType = {
    *  or matches. Provider-facing; { groupBookingRequestId, serviceType }. In-app + push, no email
    *  for now. First to accept gets the booking, so it routes to the Group requests inbox. */
   GroupBookingRequested: 26,
+  /** An admin paused the partner until a date, with a reason. Partner-facing; { serviceProviderId }. */
+  ProviderTimedOut: 27,
+  /** The admin lifted that pause early. Partner-facing; { serviceProviderId }. */
+  ProviderTimeoutLifted: 28,
+  /** An admin banned the partner. Mostly read by email: a banned partner can't sign in. */
+  ProviderBanned: 29,
+  /** The ban was lifted. Partner-facing; { serviceProviderId }. */
+  ProviderUnbanned: 30,
 } as const;
 
 /**
