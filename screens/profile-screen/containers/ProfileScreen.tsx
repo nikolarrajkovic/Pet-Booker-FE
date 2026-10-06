@@ -146,7 +146,9 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      if (currentUser?.id) {
+      // A managed partner's login has no user record (and books nothing as a customer), so
+      // both reads below were a 401 on every visit to Profile.
+      if (currentUser?.id && !isProviderProfile) {
         getUser(currentUser.id)
           .then((u) => {
             if (!cancelled) setUser(u);
@@ -169,7 +171,7 @@ export default function ProfileScreen() {
       return () => {
         cancelled = true;
       };
-    }, [currentUser?.id])
+    }, [currentUser?.id, isProviderProfile])
   );
 
   const fullName =
@@ -205,7 +207,9 @@ export default function ProfileScreen() {
 
   const handleMenuPress = (id: string) => {
     if (id === 'live-session') (navigation as any).navigate('LiveSession', { mode: 'user' });
-    else if (id === 'account') (navigation as any).navigate('Account');
+    // A managed partner's login has no personal account to edit — their profile is the business.
+    else if (id === 'account')
+      (navigation as any).navigate(isProviderProfile ? 'BusinessProfile' : 'Account');
     else if (id === 'pets') (navigation as any).navigate('MyPets');
     else if (id === 'bookings') (navigation as any).navigate('MyBookings');
     else if (id === 'group-requests') (navigation as any).navigate('MyGroupRequests');

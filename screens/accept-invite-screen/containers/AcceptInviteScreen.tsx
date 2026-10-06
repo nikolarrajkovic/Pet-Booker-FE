@@ -9,6 +9,7 @@ import Button from '../../../components/shared/Button';
 import AuthLayout from '../../../components/layout/AuthLayout';
 import { resetPassword } from '../../../services/auth';
 import { getErrorMessage } from '../../../services/http';
+import LegalAgreement from '../../../components/shared/LegalAgreement';
 
 type RootStackParamList = {
   Login: { email?: string; notice?: string } | undefined;
@@ -152,6 +153,8 @@ export default function AcceptInviteScreen() {
       ) : null}
 
       {error ? <Text className="mt-4 text-center text-sm text-red-500">{error}</Text> : null}
+
+      <LegalAgreement prefixKey="legal.inviteNotice" className="mt-5" />
 
       <Button
         text={isSubmitting ? t('acceptInvite.saving') : t('acceptInvite.submit')}

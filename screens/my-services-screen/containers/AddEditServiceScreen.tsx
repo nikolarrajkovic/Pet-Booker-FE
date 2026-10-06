@@ -112,7 +112,7 @@ export default function AddEditServiceScreen() {
   const route = useRoute<RouteProp<{ params: AddEditServiceParams }, 'params'>>();
   const params = route.params;
   const isEdit = params?.mode === 'edit';
-  const { currentUser } = useAuth();
+  const { currentUser, isProviderProfile } = useAuth();
   // Prefill the form from the real service record (edit mode)
   const existingService: ExistingService | undefined = params?.serviceDto
     ? serviceDtoToUi(params.serviceDto)
@@ -192,7 +192,8 @@ export default function AddEditServiceScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!currentUser?.id) return;
+    // No user record behind a managed partner's login: nothing to offer, and the read is a 401.
+    if (!currentUser?.id || isProviderProfile) return;
     getUser(currentUser.id)
       .then((u) => {
         if (!cancelled && u.address) setProfileAddress(u.address);
@@ -201,7 +202,7 @@ export default function AddEditServiceScreen() {
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.id]);
+  }, [currentUser?.id, isProviderProfile]);
 
   const useProfileAddress = () => {
     if (!profileAddress) return;

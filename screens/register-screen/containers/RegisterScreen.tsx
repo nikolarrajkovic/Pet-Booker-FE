@@ -10,6 +10,8 @@ import Button from '../../../components/shared/Button';
 import DatePicker from '../../../components/shared/DatePicker';
 import PhoneInput from '../../../components/shared/PhoneInput';
 import { registerUser } from '../../../services/auth';
+import LegalAgreement from '../../../components/shared/LegalAgreement';
+import { LEGAL_VERSION } from '../../../services/legal';
 import { ApiError } from '../../../services/http';
 import AuthLayout from '../../../components/layout/AuthLayout';
 import { formatBirthDate } from '../../../i18n/dates';
@@ -142,6 +144,8 @@ export default function RegisterScreen() {
     return errors[field] ? '#EF4444' : '#00A85A';
   };
 
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsError, setTermsError] = useState('');
   const touch = (field: string) => setTouched((prev) => ({ ...prev, [field]: true }));
 
   // ─── Submit ───────────────────────────────────────────────────────────────
@@ -157,11 +161,16 @@ export default function RegisterScreen() {
       confirmPassword: true,
     });
     if (!isFormValid) return;
+    if (!acceptedTerms) {
+      setTermsError(t('legal.agreeRequired'));
+      return;
+    }
 
     try {
       setIsSubmitting(true);
       setSubmitError('');
       await registerUser({
+        acceptedTermsVersion: LEGAL_VERSION,
         email: email.trim(),
         password,
         firstName: firstName.trim(),
@@ -533,6 +542,18 @@ export default function RegisterScreen() {
         </View>
       ) : null}
 
+      {/* Agreement — required; the names open the documents (they were styled as links and
+          did nothing). The version agreed to is recorded with the account. */}
+      <LegalAgreement
+        checked={acceptedTerms}
+        onToggle={(next) => {
+          setAcceptedTerms(next);
+          if (next) setTermsError('');
+        }}
+        error={termsError}
+        className="mb-4"
+      />
+
       {/* Create Account Button */}
       <Button
         text={isSubmitting ? t('register.creatingAccount') : t('register.createAccount')}
@@ -541,14 +562,6 @@ export default function RegisterScreen() {
         className="mb-4 rounded-2xl py-4"
         disabled={isSubmitting}
       />
-
-      {/* Terms */}
-      <Text className={`text-center text-xs ${subtextColor} mb-6 leading-5`}>
-        {t('register.termsPrefix')}
-        <Text className="font-semibold text-brand-600">{t('register.termsOfService')}</Text>
-        {t('register.and')}
-        <Text className="font-semibold text-brand-600">{t('register.privacyPolicy')}</Text>
-      </Text>
 
       {/* Sign In Link */}
       <View className="flex-row justify-center">

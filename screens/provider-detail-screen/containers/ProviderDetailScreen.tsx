@@ -4,6 +4,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useResource } from '../../../hooks/useResource';
+import { serviceDetailParams } from '../../../navigation/linking';
 import ServicePhoto from '../../../components/shared/ServicePhoto';
 import {
   getServices,
@@ -17,6 +18,7 @@ import {
   ApprovalStatus,
   ModerationStatus,
   getServiceProvider,
+  providerToViewModel,
 } from '../../../services/service-providers';
 import { useLocale } from '../../../context/LocaleContext';
 import { useTopInset } from '../../../hooks/useSafeAreaSpacing';
@@ -24,7 +26,10 @@ import type { ProviderViewModel } from '../../../services/service-providers';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 
 type ProviderDetailRouteParams = {
-  provider: ProviderViewModel;
+  /** The provider to show. Enough on its own: a link or a reload carries only this. */
+  providerId?: number;
+  /** A head start from the list it was opened from, so the page draws before its fetch lands. */
+  provider?: ProviderViewModel;
 };
 
 // No stock-photo fallback — see the note in HomeScreen. A provider with no photo gets the paw
@@ -39,7 +44,10 @@ export default function ProviderDetailScreen() {
   const gutter = usePageGutter();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: ProviderDetailRouteParams }, 'params'>>();
-  const { provider } = route.params;
+  // The id is what the URL (`/providers/:providerId`) carries; the view model is optional. Nothing
+  // linked here before — the screen existed but no button opened it — and it needed the whole
+  // view model passed in, so it could not be opened by id at all.
+  const providerId = Number(route.params?.providerId ?? route.params?.provider?.id ?? 0);
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const topInset = useTopInset();
   const { t } = useLocale();
@@ -48,21 +56,42 @@ export default function ProviderDetailScreen() {
   // edited or a review that was just approved — it used to hold whatever it fetched the first
   // time it was opened, for as long as the screen stayed on the stack.
   const { data: services = EMPTY_SERVICES, isLoading: servicesLoading } = useResource(
-    ['services', { serviceProviderId: provider.id }],
-    () => getServices({ serviceProviderId: provider.id }),
+    // Active ones only: a switched-off service isn't on offer, and this is a public page.
+    ['services', { serviceProviderId: providerId, isActive: true }],
+    () => getServices({ serviceProviderId: providerId, isActive: true }),
     { errorFallback: t('providerDetail.loadFailed') }
   );
   // Reviews are admin-moderated — only show approved ones publicly
   const { data: reviews = EMPTY_REVIEWS, isLoading: reviewsLoading } = useResource(
-    ['reviews', { serviceProviderId: provider.id, approvalStatus: ApprovalStatus.Approved }],
-    () => getReviews({ serviceProviderId: provider.id, approvalStatus: ApprovalStatus.Approved }),
+    ['reviews', { serviceProviderId: providerId, approvalStatus: ApprovalStatus.Approved }],
+    () => getReviews({ serviceProviderId: providerId, approvalStatus: ApprovalStatus.Approved }),
     { errorFallback: t('providerDetail.loadFailed') }
   );
   // The provider record itself, for the About section — the view model this screen was opened
   // with can come from a list that did not carry it.
-  const { data: providerRecord } = useResource(['service-providers', provider.id], () =>
-    getServiceProvider(provider.id)
-  );
+  const {
+    data: providerRecord,
+    isLoading: recordLoading,
+    error: recordError,
+  } = useResource(['service-providers', providerId], () => getServiceProvider(providerId), {
+    enabled: providerId > 0,
+  });
+  const provider: ProviderViewModel | null =
+    route.params?.provider ?? (providerRecord ? providerToViewModel(providerRecord) : null);
+  if (!provider) {
+    return (
+      <View
+        className={`flex-1 items-center justify-center ${bgColor} px-8`}
+        style={{ paddingTop: topInset }}>
+        {recordLoading || (providerId > 0 && !recordError) ? (
+          <ActivityIndicator size="large" color={BRAND_GREEN} />
+        ) : (
+          <Text className={`text-center ${subtextColor}`}>{t('providerDetail.notFound')}</Text>
+        )}
+      </View>
+    );
+  }
+
   const about = providerRecord?.about ?? provider.about ?? null;
   const yearsOfExperience = providerRecord?.yearsOfExperience ?? provider.yearsOfExperience ?? null;
   const isLoading = servicesLoading || reviewsLoading;
@@ -230,46 +259,63 @@ export default function ProviderDetailScreen() {
                 <Text className={`text-sm ${subtextColor} mb-3`}>
                   {t('providerDetail.tapToBook')}
                 </Text>
-                {services.map((svc, idx) => (
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    key={svc.id ?? idx}
-                    onPress={() => (navigation as any).navigate('BookService', { service: svc })}
-                    className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>
-                    <View className="flex-row items-start justify-between">
-                      <View className="mr-3 flex-1">
-                        <Text className={`font-semibold ${textColor}`}>
-                          {svc.name ?? 'Service'}
-                        </Text>
-                        {svc.description || svc.about ? (
-                          <Text className={`text-sm ${subtextColor} mt-1`}>
-                            {svc.description ?? svc.about}
+                {services.map((svc, idx) => {
+                  // No working hours yet: not bookable. Say so, and open the service page (which
+                  // explains it) rather than a booking form with no slots — as Search and Home do.
+                  const unavailable = svc.isBookable === false;
+                  return (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      key={svc.id ?? idx}
+                      onPress={() =>
+                        unavailable
+                          ? (navigation as any).navigate('ServiceDetail', serviceDetailParams(svc))
+                          : (navigation as any).navigate('BookService', { service: svc })
+                      }
+                      className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>
+                      <View className="flex-row items-start justify-between">
+                        <View className="mr-3 flex-1">
+                          <Text className={`font-semibold ${textColor}`}>
+                            {svc.name ?? 'Service'}
                           </Text>
-                        ) : null}
-                        {/* The extras this service offers, by the provider's own names — there
-                            are no longer fixed pickup/return flags to check. */}
-                        {(svc.additionalServices ?? [])
-                          .filter((a) => a.isActive !== false && a.name)
-                          .map((a) => (
-                            <Text key={a.id ?? a.name} className="mt-1 text-xs text-brand-600">
-                              {a.name}
+                          {svc.description || svc.about ? (
+                            <Text className={`text-sm ${subtextColor} mt-1`}>
+                              {svc.description ?? svc.about}
                             </Text>
-                          ))}
-                      </View>
-                      <View className="items-end">
-                        <Text className="text-base font-bold text-brand-600">
-                          {formatMoney(serviceFromPrice(svc), serviceCurrency(svc))}
-                        </Text>
-                        <View className="mt-2 flex-row items-center rounded-full bg-brand-500 px-4 py-1.5">
-                          <Ionicons name="calendar-outline" size={13} color="white" />
-                          <Text className="ml-1 text-xs font-bold text-white">
-                            {t('providerDetail.book')}
+                          ) : null}
+                          {/* The extras this service offers, by the provider's own names — there
+                            are no longer fixed pickup/return flags to check. */}
+                          {(svc.additionalServices ?? [])
+                            .filter((a) => a.isActive !== false && a.name)
+                            .map((a) => (
+                              <Text key={a.id ?? a.name} className="mt-1 text-xs text-brand-600">
+                                {a.name}
+                              </Text>
+                            ))}
+                        </View>
+                        <View className="items-end">
+                          <Text className="text-base font-bold text-brand-600">
+                            {formatMoney(serviceFromPrice(svc), serviceCurrency(svc))}
                           </Text>
+                          {unavailable ? (
+                            <View className="mt-2 rounded-full bg-gray-100 px-4 py-1.5">
+                              <Text className="text-xs font-bold text-gray-600">
+                                {t('card.unavailable')}
+                              </Text>
+                            </View>
+                          ) : (
+                            <View className="mt-2 flex-row items-center rounded-full bg-brand-500 px-4 py-1.5">
+                              <Ionicons name="calendar-outline" size={13} color="white" />
+                              <Text className="ml-1 text-xs font-bold text-white">
+                                {t('providerDetail.book')}
+                              </Text>
+                            </View>
+                          )}
                         </View>
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
 

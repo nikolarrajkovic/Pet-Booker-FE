@@ -17,6 +17,9 @@ const AUTH_PATHS = new Set([
   'verify-email',
   'forgot-password',
   'accept-invite',
+  // Public pages: open them as they are, not after a sign-in.
+  'legal',
+  'help',
 ]);
 const SCHEME = 'petbooker://';
 

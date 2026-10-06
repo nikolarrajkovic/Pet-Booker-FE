@@ -389,6 +389,12 @@ export default function ReviewBookingScreen() {
             <Text className={`text-sm ${subtextColor} leading-6`}>
               {t('reviewBooking.cancellationPolicyText')}
             </Text>
+            <TouchableOpacity
+              accessibilityRole="link"
+              onPress={() => (navigation as any).navigate('Legal', { doc: 'terms' })}
+              className="mt-2 self-start">
+              <Text className="text-sm font-semibold text-brand-600">{t('legal.fullTerms')}</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
 

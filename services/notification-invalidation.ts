@@ -38,6 +38,7 @@ export function resourcesForNotification(notification: { type?: unknown }): stri
     case NotificationType.PaymentReceived:
     case NotificationType.PaymentDue:
     case NotificationType.PaymentOverdue:
+    case NotificationType.PaymentRefunded:
       resources.add('payments');
       resources.add('bookings');
       break;

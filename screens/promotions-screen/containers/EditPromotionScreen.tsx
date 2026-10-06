@@ -193,6 +193,35 @@ function EditPromotionForm({ promotion }: { promotion: Promotion }) {
     }
   };
 
+  // Pause stops the offer without losing it (the discount is disabled, so prices go back to
+  // normal at once and "On sale" drops it); resume turns it back on. The button had no handler.
+  const isPaused = promotion.status === 'paused';
+  const handleTogglePause = async () => {
+    if (!isBackedOffer) {
+      navigation.goBack();
+      return;
+    }
+    const val = parseFloat(discount) || 0;
+    setIsSubmitting(true);
+    try {
+      await updateServiceDiscount(promotion.discountId!, {
+        id: promotion.discountId!,
+        serviceId: promotion.serviceId!,
+        type: discountType,
+        amount: val,
+        percentAmount: isPercent ? val : null,
+        applyFrom: (startDate ?? new Date()).toISOString(),
+        applyTo: endDate ? endOfDayIso(endDate) : null,
+        isEnabled: isPaused,
+      });
+      navigation.goBack();
+    } catch (e) {
+      showError(getErrorMessage(e, t('promotions.saveFailed')));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleDelete = () => {
     if (!isBackedOffer) {
       navigation.goBack();
@@ -498,14 +527,22 @@ function EditPromotionForm({ promotion }: { promotion: Promotion }) {
           )}
         </TouchableOpacity>
 
-        {/* Pause — only for active/paused (not scheduled) */}
-        {!isScheduled && (
+        {/* Pause / resume — only for active or paused offers (not scheduled or ended) */}
+        {!isScheduled && promotion.status !== 'ended' && (
           <TouchableOpacity
+            accessibilityRole="button"
+            onPress={handleTogglePause}
+            disabled={isSubmitting}
             activeOpacity={0.8}
             className={`mb-3 flex-row items-center justify-center rounded-2xl py-4 ${isDarkMode ? 'bg-yellow-900/30' : 'bg-yellow-50'}`}>
-            <Ionicons name="pause" size={16} color="#D97706" style={{ marginRight: 8 }} />
+            <Ionicons
+              name={isPaused ? 'play' : 'pause'}
+              size={16}
+              color="#D97706"
+              style={{ marginRight: 8 }}
+            />
             <Text className="text-base font-semibold text-yellow-600">
-              {t('promotions.pausePromotion')}
+              {isPaused ? t('promotions.resumePromotion') : t('promotions.pausePromotion')}
             </Text>
           </TouchableOpacity>
         )}

@@ -39,6 +39,9 @@ import BookingDetailsScreen from './screens/booking-details-screen/containers/Bo
 import MyScheduleScreen from './screens/my-schedule-screen/containers/MyScheduleScreen';
 import MyServicesScreen from './screens/my-services-screen/containers/MyServicesScreen';
 import BusinessProfileScreen from './screens/business-profile-screen/containers/BusinessProfileScreen';
+import LegalScreen from './screens/legal-screen/containers/LegalScreen';
+import HelpScreen from './screens/help-screen/containers/HelpScreen';
+import PaymentMethodsScreen from './screens/payment-methods-screen/containers/PaymentMethodsScreen';
 import AddEditServiceScreen from './screens/my-services-screen/containers/AddEditServiceScreen';
 import ServicePreviewScreen from './screens/service-preview-screen/containers/ServicePreviewScreen';
 import NotificationsScreen from './screens/notifications-screen/containers/NotificationsScreen';
@@ -301,6 +304,9 @@ function AppContent() {
                     options={{ animation: 'slide_from_bottom' }}
                   />
                   <Stack.Screen name="Settings" component={SettingsScreen} />
+                  <Stack.Screen name="Legal" component={LegalScreen} />
+                  <Stack.Screen name="Help" component={HelpScreen} />
+                  <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
                   <Stack.Screen name="BecomePartner" component={BecomePartnerScreen} />
                   <Stack.Screen name="PartnerApplication" component={PartnerApplicationScreen} />
                   <Stack.Screen
@@ -368,6 +374,9 @@ function AppContent() {
                   <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
                   <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
                   <Stack.Screen name="AcceptInvite" component={AcceptInviteScreen} />
+                  {/* Readable before an account exists: sign-up links to both. */}
+                  <Stack.Screen name="Legal" component={LegalScreen} />
+                  <Stack.Screen name="Help" component={HelpScreen} />
                 </>
               )}
             </Stack.Navigator>
@@ -424,6 +433,9 @@ const SCREEN_TITLE_KEYS: Record<string, TranslationKey> = {
   MySchedule: 'profile.schedule',
   MyServices: 'myServices.title',
   BusinessProfile: 'businessProfile.title',
+  Legal: 'legal.termsTitle',
+  Help: 'help.title',
+  PaymentMethods: 'payments.methodsTitle',
   NewRequests: 'partnerHub.requests',
   Promotions: 'promotions.title',
   LiveSession: 'liveSession.title',

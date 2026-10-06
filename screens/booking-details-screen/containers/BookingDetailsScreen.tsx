@@ -23,6 +23,8 @@ import { formatMoney } from '../../../services/currency';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { useAuth } from '../../../context/AuthContext';
+import BookingPaymentPanel from '../components/BookingPaymentPanel';
 
 type RouteParams = { bookingId: number };
 
@@ -45,6 +47,7 @@ export default function BookingDetailsScreen() {
   const { t, tEnum } = useLocale();
 
   const { showError, showSuccess } = useToast();
+  const { currentUser } = useAuth();
 
   // Read through the shared cache rather than a private `useState` seeded once on mount. This
   // screen is pushed over the list and stays mounted while you go deeper (a live session, the
@@ -338,6 +341,16 @@ export default function BookingDetailsScreen() {
                   {formatMoney(dto.totalPrice, dto.priceCurrency)}
                 </Text>
               </View>
+
+              {/* Paid / refunded / owed, and the customer's Pay buttons. */}
+              <BookingPaymentPanel
+                bookingId={dto.id ?? bookingId}
+                currentStatus={dto.currentStatus ?? -1}
+                isExpired={!!dto.isExpired}
+                isCustomer={currentUser?.id != null && currentUser.id === dto.userId}
+                userId={dto.userId}
+                onPaid={refresh}
+              />
             </View>
 
             {/* Review — show the existing rating, or a CTA for completed bookings */}

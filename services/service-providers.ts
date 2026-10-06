@@ -422,6 +422,11 @@ export type BusinessProfileUpdate = {
   about: string | null;
   /** A newly picked address (sent as id 0), or null to keep the saved one. */
   address: AddressDto | null;
+  /**
+   * The whole gallery, when the profile photo changes: the server replaces the gallery with what
+   * it is sent (an empty array leaves it alone), so the existing photos go back too. Omit to keep it.
+   */
+  photos?: PhotoDto[];
 };
 
 /**
@@ -449,7 +454,7 @@ export function updateBusinessProfile(
       yearsOfExperience: changes.yearsOfExperience,
       about: changes.about?.trim() || null,
       address: changes.address ? { ...changes.address, id: 0 } : (current.address ?? null),
-      photos: [],
+      photos: changes.photos ?? [],
       governmentIdPhotos: [],
       certificates: [],
     },

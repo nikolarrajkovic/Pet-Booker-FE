@@ -8,6 +8,10 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import Avatar from '../../../components/shared/Avatar';
+import { uploadFile } from '../../../services/files';
+import { showAlert } from '../../../services/alert';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useFormChain } from '../../../hooks/useFormChain';
 import { useAuth } from '../../../context/AuthContext';
@@ -20,6 +24,8 @@ import PhoneInput from '../../../components/shared/PhoneInput';
 import {
   getServiceProvider,
   providerTypeLabel,
+  resolveImageUrl,
+  type PhotoDto,
   PROVIDER_NAME_TAKEN,
   updateBusinessProfile,
   type AddressDto,
@@ -69,6 +75,12 @@ export default function BusinessProfileScreen() {
   const [years, setYears] = useState('');
   const [about, setAbout] = useState('');
   const [address, setAddress] = useState<AddressDto | null>(null); // newly picked
+  // A newly picked profile photo, uploaded on save (like Account's avatar).
+  const [newPhoto, setNewPhoto] = useState<{
+    uri: string;
+    fileName?: string;
+    mimeType?: string;
+  } | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
 
   useEffect(() => {
@@ -110,7 +122,25 @@ export default function BusinessProfileScreen() {
     setIsSaving(true);
     try {
       const digits = /\d+/.exec(years)?.[0];
+      // A new profile photo: upload it, then send the gallery back with it selected — the server
+      // replaces the gallery with what it gets, so the existing photos have to come along.
+      let photos: PhotoDto[] | undefined;
+      if (newPhoto) {
+        const uploaded = await uploadFile(newPhoto.uri, newPhoto.fileName, newPhoto.mimeType);
+        photos = [
+          {
+            id: 0,
+            src: uploaded.src,
+            name: uploaded.originalName,
+            alt: uploaded.originalName,
+            fileUploadId: Number(uploaded.id),
+            isSelected: true,
+          },
+          ...(original.photos ?? []).map((p) => ({ ...p, id: 0, isSelected: false })),
+        ];
+      }
       const updated = await updateBusinessProfile(original, {
+        photos,
         name,
         contactEmail,
         contactPhone: phone,
@@ -120,6 +150,7 @@ export default function BusinessProfileScreen() {
       });
       setOriginal(updated);
       setAddress(null);
+      setNewPhoto(null);
       showSuccess(t('businessProfile.saved'));
     } catch (e) {
       // Names customers see are unique: say so where the name is, not in a toast.
@@ -133,6 +164,35 @@ export default function BusinessProfileScreen() {
       setIsSaving(false);
     }
   };
+
+  const pickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      showAlert(t('account.permissionNeededTitle'), t('account.permissionPhotoMsg'));
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+      base64: true,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setNewPhoto({
+        uri: asset.base64
+          ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
+          : asset.uri,
+        fileName: asset.fileName ?? undefined,
+        mimeType: asset.mimeType ?? undefined,
+      });
+    }
+  };
+
+  const savedPhoto =
+    (original?.photos ?? []).find((p) => p.isSelected) ?? (original?.photos ?? [])[0] ?? null;
+  const photoUri = newPhoto?.uri || resolveImageUrl(savedPhoto?.src) || null;
 
   // Name -> email -> years -> save. About is multi-line (Enter adds a line), phone is composite.
   const form = useFormChain(['name', 'contactEmail', 'years'], handleSave);
@@ -176,6 +236,31 @@ export default function BusinessProfileScreen() {
       <FormCard>
         <View className={`${gutter.px} py-6`}>
           <Text className={`text-sm ${subtextColor} mb-5`}>{t('businessProfile.intro')}</Text>
+
+          {/* Profile photo — what customers see on the partner's page and cards */}
+          <View className="mb-6 items-center">
+            <View className="relative">
+              <Avatar
+                uri={photoUri ?? undefined}
+                name={name || original.name || ''}
+                size={112}
+                placeholderClassName={isDarkMode ? 'bg-[#243447]' : 'bg-brand-100'}
+                textClassName="text-4xl font-bold text-brand-600"
+              />
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={t('businessProfile.changePhoto')}
+                onPress={pickPhoto}
+                className="absolute bottom-0 right-0 h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-brand-500">
+                <Ionicons name="camera" size={18} color="white" />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity accessibilityRole="button" onPress={pickPhoto} className="mt-3">
+              <Text className="font-semibold text-brand-600">
+                {t('businessProfile.changePhoto')}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Name customers see */}
           <View className="mb-4">

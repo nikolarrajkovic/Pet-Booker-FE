@@ -47,6 +47,7 @@ const VISUAL_BY_NAME: Record<
   BookingPriceAdjusted: { icon: 'pricetag-outline', accent: 'info' },
   PaymentReceived: { icon: 'card-outline', accent: 'info' },
   PaymentDue: { icon: 'wallet-outline', accent: 'warning' },
+  PaymentRefunded: { icon: 'return-down-back-outline', accent: 'info' },
   // Partner verification.
   ServiceProviderApproved: { icon: 'shield-checkmark-outline', accent: 'brand' },
   ServiceProviderDeclined: { icon: 'close-circle-outline', accent: 'danger' },

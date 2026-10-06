@@ -757,9 +757,10 @@ export default function SearchScreen() {
     //
     // Beside the rail the map also needs a definite height: TwoColumn lays its columns out
     // top-aligned with auto height, so a `flex-1` map collapses to its 400px minimum and reads as
-    // a letterbox strip under the header.
+    // a letterbox strip under the header. And not `flex-1` there: its 0 flex-basis outranks the
+    // height inside that content-sized column, which is how the map stayed 400px tall anyway.
     <View
-      className={`flex-1 ${isWebLayout ? 'px-8 pb-4' : 'pb-20'}`}
+      className={`${showFilterRail ? '' : 'flex-1'} ${isWebLayout ? 'px-8 pb-4' : 'pb-20'}`}
       style={showFilterRail ? { height: 680 } : undefined}>
       {queryChip}
       <MapViewComponent services={mapServices} location={location} isDarkMode={isDarkMode} />

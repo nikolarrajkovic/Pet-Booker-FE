@@ -26,6 +26,7 @@ import {
 } from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
 import { ApiError, getErrorMessage } from '../../../services/http';
+import LegalAgreement from '../../../components/shared/LegalAgreement';
 import { showAlert } from '../../../services/alert';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import StepProgress from '../../../components/shared/StepProgress';
@@ -86,6 +87,8 @@ export default function PartnerApplicationScreen() {
   ]);
 
   const [businessNameError, setBusinessNameError] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsError, setTermsError] = useState('');
   const [formData, setFormData] = useState({
     fullName: '',
     businessName: '',
@@ -307,6 +310,11 @@ export default function PartnerApplicationScreen() {
       return;
     }
 
+    if (!acceptedTerms) {
+      setTermsError(t('legal.partnerAgreeRequired'));
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const governmentIdFiles: { uri: string; fileName?: string; isFront: boolean }[] = [
@@ -425,6 +433,20 @@ export default function PartnerApplicationScreen() {
             onRemoveCertificate={removeCertificate}
             onUpdateCertificate={onUpdateCertificate}
             {...themeProps}
+          />
+        )}
+        {/* The partner obligations live in the Terms; agreeing is part of applying. */}
+        {step === 3 && (
+          <LegalAgreement
+            docs="terms"
+            prefixKey="legal.partnerAgree"
+            checked={acceptedTerms}
+            onToggle={(next) => {
+              setAcceptedTerms(next);
+              if (next) setTermsError('');
+            }}
+            error={termsError}
+            className="mt-6"
           />
         )}
         {isWebLayout && <View className="mt-6">{actions}</View>}

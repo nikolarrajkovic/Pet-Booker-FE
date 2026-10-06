@@ -108,6 +108,8 @@ export async function loginWithEmailPassword(payload: LoginPayload) {
 }
 
 export type RegisterPayload = {
+  /** The Terms/Privacy version the person agreed to (services/legal.ts). */
+  acceptedTermsVersion?: string;
   email: string;
   password: string;
   firstName: string;

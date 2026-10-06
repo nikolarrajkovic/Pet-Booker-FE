@@ -6,6 +6,7 @@ import { formatMoney } from '../../../services/currency';
 import { serviceCurrency } from '../../../services/services';
 import type { ServiceSearchItem } from './ListView';
 import { groupByLocation, pinLabel, type PinGroup } from './pinGroups';
+import { haversineKm } from '../../../services/distance';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 import { serviceDetailParams } from '../../../navigation/linking';
@@ -38,6 +39,10 @@ const MAP_DECLUTTER_STYLE = [
 
 const escapeXml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// How far around the reader the opening view reaches for pins before settling for the nearest few.
+const NEARBY_KM = 25;
+const NEAREST_FALLBACK = 5;
 
 // Green price-pill marker icon as an SVG data URI — the classic-Marker equivalent of the
 // old AdvancedMarkerElement div. It's a WIDTH-FITTED pill rather than a fixed circle: a
@@ -355,10 +360,11 @@ export default function MapViewComponent({
         // Service markers — one per spot: a price pill and a styled card, or for several services
         // at the same spot a count pill and a list of them.
         markersRef.current = new Map();
+        const groups = groupByLocation(services);
         const open = (s: ServiceSearchItem) =>
           (navigation as any).navigate('ServiceDetail', serviceDetailParams(s.dto));
         const isPicked = (id: number) => pickedRef.current.has(id);
-        groupByLocation(services).forEach((group) => {
+        groups.forEach((group) => {
           const only = group.items.length === 1 ? group.items[0] : null;
           const marker: WebMapMarker = m.addMarker({
             position: { lat: group.latitude, lng: group.longitude },
@@ -389,6 +395,24 @@ export default function MapViewComponent({
           });
           markersRef.current.set(group.key, { marker, group });
         });
+
+        // Bring the pins into view. Centred on the reader alone at a fixed zoom, results a few
+        // kilometres away sat just past the edge and the map read as empty. Fit the reader and
+        // the pins around them — or, with nothing that close, the nearest few.
+        if (groups.length > 0) {
+          const here = { latitude: userPos.lat, longitude: userPos.lng };
+          const byDistance = groups
+            .map((g) => ({
+              g,
+              km: haversineKm(here, { latitude: g.latitude, longitude: g.longitude }),
+            }))
+            .sort((a, b) => a.km - b.km);
+          const nearby = byDistance.filter((d) => d.km <= NEARBY_KM);
+          const shown = (nearby.length > 0 ? nearby : byDistance.slice(0, NEAREST_FALLBACK)).map(
+            (d) => ({ lat: d.g.latitude, lng: d.g.longitude })
+          );
+          m.fitBounds([userPos, ...shown], 60);
+        }
       })
       .catch(() => {
         if (!cancelled) setMapError(true);

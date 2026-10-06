@@ -74,7 +74,7 @@ export default function TopBar() {
     placeholderColor,
     hex,
   } = useThemeColors();
-  const { currentUser, signOut } = useAuth();
+  const { currentUser, signOut, isProviderProfile } = useAuth();
   const { t } = useLocale();
   const { unreadCount } = useNotifications();
   const { unreadCount: unreadMessages } = useMessages();
@@ -256,7 +256,10 @@ export default function TopBar() {
               </Text>
             </View>
             <View className={`my-1 border-t ${borderColor}`} />
-            {menuItem('person-outline', t('profile.account'), () => go('Account'))}
+            {/* A managed partner's login has no personal account — their profile is the business. */}
+            {menuItem('person-outline', t('profile.account'), () =>
+              go(isProviderProfile ? 'BusinessProfile' : 'Account')
+            )}
             {menuItem('settings-outline', t('profile.settings'), () => go('Settings'))}
             <View className={`my-1 border-t ${borderColor}`} />
             {menuItem(

@@ -215,14 +215,19 @@ function createLeafletMap(container: HTMLElement, opts: CreateWebMapOptions): We
         .setContent(content)
         .openOn(map);
     },
+    // Not animated: a map torn down mid-animation (the search map is rebuilt as results page in)
+    // leaves Leaflet's zoom transition reading panes that are gone — "_leaflet_pos of undefined".
     fitBounds(points, padding = 50) {
       if (points.length === 0) return;
       if (points.length === 1) {
-        map.setView([points[0].lat, points[0].lng], Math.max(map.getZoom(), 14));
+        map.setView([points[0].lat, points[0].lng], Math.max(map.getZoom(), 14), {
+          animate: false,
+        });
         return;
       }
       map.fitBounds(L.latLngBounds(points.map((p) => [p.lat, p.lng] as [number, number])), {
         padding: [padding, padding],
+        animate: false,
       });
     },
     setCenter: (p, zoom) => map.setView([p.lat, p.lng], zoom ?? map.getZoom()),

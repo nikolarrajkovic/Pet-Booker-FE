@@ -433,7 +433,19 @@ export default function ServiceDetailScreen() {
           {provider?.name &&
             section(
               t('serviceDetail.provider'),
-              <View className="flex-row items-center">
+              // Opens the provider's page (all their services and reviews). The card used to be
+              // the only place a customer saw who they were booking, and it went nowhere.
+              <TouchableOpacity
+                accessibilityRole="link"
+                accessibilityLabel={provider.name}
+                activeOpacity={0.8}
+                disabled={!(provider.id ?? svc.serviceProviderId)}
+                onPress={() =>
+                  (navigation as any).navigate('ProviderDetail', {
+                    providerId: provider.id ?? svc.serviceProviderId,
+                  })
+                }
+                className="flex-row items-center">
                 {providerAvatar ? (
                   <Image
                     source={{ uri: providerAvatar }}
@@ -459,7 +471,8 @@ export default function ServiceDetailScreen() {
                     </Text>
                   ) : null}
                 </View>
-              </View>
+                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+              </TouchableOpacity>
             )}
           {/* The partner in their own words, from their application. */}
           {provider?.about ? (

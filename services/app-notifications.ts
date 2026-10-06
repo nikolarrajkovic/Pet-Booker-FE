@@ -84,6 +84,8 @@ export const NotificationType = {
   ProviderBanned: 29,
   /** The ban was lifted. Partner-facing; { serviceProviderId }. */
   ProviderUnbanned: 30,
+  /** A paid booking was called off and its payments went back. Customer-facing; { bookingId }. */
+  PaymentRefunded: 31,
 } as const;
 
 /**
