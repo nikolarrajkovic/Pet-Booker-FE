@@ -133,7 +133,8 @@ export default function ServiceResultRow({
     : (service.pricing?.escrowAmount ?? 0);
 
   const description = (service.about ?? service.description ?? '').trim();
-  const city = service.address?.city?.trim();
+  // Where the service is: its own address, else its provider's (business, else account).
+  const city = (service.effectiveAddress ?? service.address)?.city?.trim();
 
   const acceptedSpecies = service.details?.acceptedSpecies ?? 0;
   const speciesLabels =

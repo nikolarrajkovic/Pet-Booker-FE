@@ -25,7 +25,7 @@ import {
   effectiveOptionPrice,
   serviceCurrency,
 } from '../../../services/services';
-import { getPets, PetResponse } from '../../../services/pets';
+import { getPets, PetResponse, speciesAccepted } from '../../../services/pets';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import {
   parseBookingDate,
@@ -162,8 +162,15 @@ export default function BookServiceScreen() {
     selectedService.basicServiceName ??
     (selectedService.type != null ? tEnum('serviceProviderType', selectedService.type) : '');
 
-  const [pets, setPets] = useState<{ id: number; name: string; breed: string; image: string }[]>(
-    []
+  const [pets, setPets] = useState<
+    { id: number; name: string; breed: string; image: string; type: number | null }[]
+  >([]);
+  // Which pets the service takes (FLAGS). A pet it doesn't take is listed but not selectable —
+  // the API would refuse the booking ("This service doesn't take this kind of pet.").
+  const acceptedSpecies = selectedService.details?.acceptedSpecies;
+  const petItems = useMemo(
+    () => pets.map((p) => ({ ...p, accepted: speciesAccepted(acceptedSpecies, p.type) })),
+    [pets, acceptedSpecies]
   );
   const [isLoading, setIsLoading] = useState(true);
 
@@ -206,6 +213,7 @@ export default function BookServiceScreen() {
       name: p.name,
       breed: p.breed || tEnum('petSpeciesType', p.type),
       image: p.photoUrl ? resolveImageUrl(p.photoUrl) : resolveImageUrl(p.photos?.[0]?.src),
+      type: p.type ?? null,
     }),
     [tEnum]
   );
@@ -268,7 +276,11 @@ export default function BookServiceScreen() {
           if (cancelled) return;
           const mapped = petList.map(petToListItem);
           setPets(mapped);
-          setSelectedPet((prev) => prev ?? (mapped.length ? mapped[mapped.length - 1].id : null));
+          // The newest pet the service takes - typically the one just added for this booking.
+          const bookable = mapped.filter((p) => speciesAccepted(acceptedSpecies, p.type));
+          setSelectedPet(
+            (prev) => prev ?? (bookable.length ? bookable[bookable.length - 1].id : null)
+          );
         } catch (e) {
           if (!cancelled) showError(getErrorMessage(e, t('bookService.petsLoadError')));
         }
@@ -276,8 +288,15 @@ export default function BookServiceScreen() {
       return () => {
         cancelled = true;
       };
-    }, [currentUser?.id, petToListItem, showError, t])
+    }, [currentUser?.id, petToListItem, showError, t, acceptedSpecies])
   );
+
+  // A selection the service doesn't take (the service detail arrived after the pick) is dropped.
+  useEffect(() => {
+    if (selectedPet != null && petItems.some((p) => p.id === selectedPet && !p.accepted)) {
+      setSelectedPet(null);
+    }
+  }, [selectedPet, petItems]);
 
   // Fetch the availability for the whole month a date belongs to, once. This is the ONLY source
   // of slot availability — the server already factors in the provider's bookings (per-window
@@ -1028,7 +1047,7 @@ export default function BookServiceScreen() {
             <PetSelector
               selectedPet={selectedPet}
               onSelectPet={setSelectedPet}
-              pets={pets}
+              pets={petItems}
               isDarkMode={isDarkMode}
               textColor={textColor}
               subtextColor={subtextColor}

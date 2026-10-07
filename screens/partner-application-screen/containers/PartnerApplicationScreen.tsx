@@ -26,6 +26,7 @@ import {
 } from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
 import { ApiError, getErrorMessage } from '../../../services/http';
+import { addressLabel } from '../../../services/geocoding';
 import LegalAgreement from '../../../components/shared/LegalAgreement';
 import { showAlert } from '../../../services/alert';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -131,23 +132,23 @@ export default function PartnerApplicationScreen() {
 
   // Prefill the personal-info fields from whatever the account already has.
   // Only fills blanks/over-writes with real values, so it won't wipe edits with empties.
+  // The address is deliberately NOT copied: left empty, the partner's page uses the account
+  // address itself (and follows it when it changes), where a copy would be a separate business
+  // address frozen at today's value.
   const prefillFromAccount = () => {
     const u = accountUser;
     const fullName = [u?.firstName ?? currentUser?.firstName, u?.lastName ?? currentUser?.lastName]
       .filter(Boolean)
       .join(' ')
       .trim();
-    const addr = u?.address;
     setFormData((prev) => ({
       ...prev,
       fullName: fullName || prev.fullName,
       email: u?.email ?? currentUser?.email ?? prev.email,
       phone: u?.phone || prev.phone,
-      streetAddress: addr?.line1 || prev.streetAddress,
-      city: addr?.city || prev.city,
-      zipCode: addr?.postalCode || prev.zipCode,
     }));
   };
+  const accountAddressLabel = accountUser?.address ? addressLabel(accountUser.address) : null;
 
   // Fill the address fields from a pin dropped on the map. The map returns a full
   // AddressDto, so street/city/ZIP are all populated (city/ZIP stay editable below).
@@ -405,6 +406,7 @@ export default function PartnerApplicationScreen() {
             onPrefill={currentUser ? prefillFromAccount : undefined}
             businessNameError={businessNameError}
             onOpenAddressMap={() => setAddressPickerVisible(true)}
+            accountAddressLabel={accountAddressLabel}
             // Enter from the step's last field does what Continue does, guards included.
             onContinue={handleContinue}
             {...themeProps}

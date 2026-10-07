@@ -30,6 +30,7 @@ import {
   resolveImageUrl,
   ApprovalStatus,
   getServiceProvider,
+  providerAddress,
   ServiceProviderDto,
 } from '../../../services/service-providers';
 import {
@@ -235,11 +236,10 @@ export default function ServiceDetailScreen() {
   const openDays = Object.entries(workingHours).filter(([, h]) => h.enabled);
   const species = speciesKeys(svc.details?.acceptedSpecies);
 
-  const address = provider?.address
-    ? [provider.address.line1, provider.address.city, provider.address.state]
-        .filter(Boolean)
-        .join(', ')
-    : null;
+  // Where this service happens: its own address, else its provider's business address, else the
+  // provider's account address (resolved by the server as effectiveAddress).
+  const where = svc.effectiveAddress ?? svc.address ?? providerAddress(provider);
+  const address = where ? [where.line1, where.city, where.state].filter(Boolean).join(', ') : null;
 
   // Extra facts worth surfacing before booking (only the ones the service sets).
   const facts: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [];

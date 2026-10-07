@@ -540,6 +540,8 @@ const sr: TranslationDict = {
     selectDate: 'Izaberite datum',
     selectPet: 'Izaberite ljubimca',
     noPetsYet: 'Još nemate nijednog ljubimca.',
+    petNotAccepted: 'Ova usluga ne prima ovu vrstu ljubimca.',
+    noPetsAccepted: 'Ova usluga ne prima nijednog od vaših ljubimaca.',
     addAPet: 'Dodaj ljubimca',
     addThisAppointment: 'Dodaj ovaj termin',
     addAnotherAppointment: 'Dodaj još jedan termin',
@@ -1102,6 +1104,8 @@ const sr: TranslationDict = {
     pickAddressOnMap: 'Izaberite adresu na mapi',
     mapHint:
       'Upišite adresu ili dodirnite ikonicu mape da je izaberete — to popunjava ulicu, grad i poštanski broj.',
+    addressOptionalHint:
+      'Ostavite adresu praznu da biste koristili adresu naloga ({address}). Unesite je samo ako radite sa drugog mesta — adresa naloga ostaje ista.',
     city: 'Grad',
     cityPlaceholder: 'Beograd',
     zipCode: 'Poštanski broj',
@@ -1254,8 +1258,15 @@ const sr: TranslationDict = {
     descriptionPlaceholder: 'Opišite svoju uslugu, iskustvo i šta vas čini posebnim...',
     serviceLocation: 'Lokacija usluge',
     serviceLocationHint:
-      'Gde se usluga odvija — izaberite na mapi ili iskoristite adresu sa profila.',
-    useProfileAddress: 'Koristi adresu sa profila',
+      'Gde se usluga odvija. Koristi lokaciju vašeg posla, osim ako ne izaberete drugo mesto.',
+    usesBusinessLocation:
+      'Lokacija vašeg posla — dodirnite da izaberete drugo mesto za ovu uslugu.',
+    useBusinessLocation: 'Koristi lokaciju mog posla',
+    acceptedPets: 'Ljubimci za ovu uslugu *',
+    acceptedPetsHint:
+      'Izaberite sve vrste ljubimaca koje primate. Da biste pse i mačke naplaćivali različito, dodajte ih kao dve usluge.',
+    speciesRequiredTitle: 'Koje ljubimce primate?',
+    speciesRequiredMsg: 'Izaberite bar jednu vrstu ljubimca za ovu uslugu.',
     serviceImages: 'Fotografije usluge',
     serviceImagesHint:
       'Dodajte fotografije radnog prostora, ljubimaca prethodnih klijenata ili sebe. Dodirnite fotografiju da je postavite kao profilnu.',
@@ -1544,6 +1555,12 @@ const sr: TranslationDict = {
     aboutPlaceholder: 'Šta nudite i zašto ste dobar izbor za ljubimce.',
     aboutHint: 'Prikazuje se na vašoj javnoj stranici.',
     address: 'Poslovna adresa',
+    addressInheritedHint:
+      'Klijenti vide adresu vašeg naloga. Izaberite poslovnu adresu da biste prikazali drugu — adresa naloga ostaje ista.',
+    addressOwnHint: 'Prikazuje se na vašoj stranici i uslugama. Adresa naloga ostaje ista.',
+    addressEmptyHint:
+      'Odakle radite. Klijenti je vide na vašoj stranici i po njoj vas nalaze u blizini.',
+    useAccountAddress: 'Koristi adresu mog naloga',
     save: 'Sačuvaj izmene',
     saved: 'Vaš profil je sačuvan.',
     saveFailed: 'Profil nije sačuvan.',

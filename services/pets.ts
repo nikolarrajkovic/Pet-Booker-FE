@@ -31,6 +31,19 @@ export const PetSpecies = {
   All: 63,
 } as const;
 
+/**
+ * Whether a service that takes `accepted` (FLAGS) can be booked for a pet of `petType`. Mirrors the
+ * API's rule (Domain.PetSpeciesAcceptance): unknown on either side is not a refusal — a service
+ * saved without species is unrestricted, and a pet whose species was never given can't be checked.
+ */
+export function speciesAccepted(
+  accepted: number | null | undefined,
+  petType: number | null | undefined
+): boolean {
+  if (!accepted || !petType) return true;
+  return (accepted & petType) !== 0;
+}
+
 // Friendly label for a PetSpeciesType flag value
 export function petTypeLabel(type: number): string {
   switch (type) {

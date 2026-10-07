@@ -562,6 +562,8 @@ const en = {
     selectDate: 'Select date',
     selectPet: 'Select Pet',
     noPetsYet: "You don't have any pets yet.",
+    petNotAccepted: "This service doesn't take this kind of pet.",
+    noPetsAccepted: "This service doesn't take any of your pets.",
     addAPet: 'Add a Pet',
     addThisAppointment: 'Add This Appointment',
     addAnotherAppointment: 'Add Another Appointment',
@@ -1125,6 +1127,8 @@ const en = {
     streetPlaceholder: 'Knez Mihailova 12',
     pickAddressOnMap: 'Pick address on map',
     mapHint: 'Type your address, or tap the map icon to pick it — that fills street, city and ZIP.',
+    addressOptionalHint:
+      'Leave the address empty to use your account address ({address}). Set one here only if you work from somewhere else — your account address stays as it is.',
     city: 'City',
     cityPlaceholder: 'Belgrade',
     zipCode: 'ZIP Code',
@@ -1276,8 +1280,15 @@ const en = {
     descriptionPlaceholder: 'Describe your service, experience, and what makes you special...',
     serviceLocation: 'Service Location',
     serviceLocationHint:
-      'Where your service takes place — pick it on the map or use your profile address.',
-    useProfileAddress: 'Use my profile address',
+      'Where this service takes place. It uses your business location unless you pick a different place.',
+    usesBusinessLocation:
+      'Your business location — tap to pick a different place for this service.',
+    useBusinessLocation: 'Use my business location',
+    acceptedPets: 'Pets this service is for *',
+    acceptedPetsHint:
+      'Pick every kind of pet you take. To price dogs and cats differently, add them as two services.',
+    speciesRequiredTitle: 'Which pets do you take?',
+    speciesRequiredMsg: 'Pick at least one kind of pet this service is for.',
     serviceImages: 'Service Images',
     serviceImagesHint:
       'Add photos of your workspace, previous clients’ pets, or yourself. Tap a photo to set it as the profile photo.',
@@ -1570,6 +1581,12 @@ const en = {
     aboutPlaceholder: 'What you offer, and what makes you a good fit for pets.',
     aboutHint: 'Shown on your public page.',
     address: 'Business address',
+    addressInheritedHint:
+      'Customers see your account address. Pick a business address to show a different one — your account address stays as it is.',
+    addressOwnHint: 'Shown on your page and your services. Your account address stays as it is.',
+    addressEmptyHint:
+      'Where you work from. Customers see it on your page and find you nearby by it.',
+    useAccountAddress: 'Use my account address instead',
     save: 'Save changes',
     saved: 'Your profile is saved.',
     saveFailed: "Couldn't save your profile.",

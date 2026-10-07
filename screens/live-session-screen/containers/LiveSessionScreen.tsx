@@ -614,7 +614,9 @@ export default function LiveSessionScreen() {
   // alongside the GPS lookup rather than after it, so a denied permission
   // doesn't add a round-trip of delay before the route appears.
   useEffect(() => {
-    if (!isPartner || !started || !service?.address) {
+    // Where the service is: its own address, else its provider's (business, else account).
+    const serviceAddress = service?.effectiveAddress ?? service?.address;
+    if (!isPartner || !started || !serviceAddress) {
       setServiceOrigin(null);
       setServiceOriginPending(false);
       return;
@@ -622,7 +624,7 @@ export default function LiveSessionScreen() {
     let active = true;
     setServiceOriginPending(true);
     (async () => {
-      const p = await addressToPoint(service.address);
+      const p = await addressToPoint(serviceAddress);
       if (!active) return;
       setServiceOrigin(p);
       setServiceOriginPending(false);

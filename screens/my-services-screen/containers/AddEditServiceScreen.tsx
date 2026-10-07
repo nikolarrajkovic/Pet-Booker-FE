@@ -25,8 +25,13 @@ import CurrencyInput from '../../../components/shared/CurrencyInput';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { useLocation } from '../../../hooks/useLocation';
 import { addressLabel } from '../../../services/geocoding';
-import { getUser } from '../../../services/users';
-import type { AddressDto } from '../../../services/service-providers';
+import {
+  getServiceProvider,
+  providerAddress,
+  type AddressDto,
+} from '../../../services/service-providers';
+import { useEnums } from '../../../context/EnumsContext';
+import { PetSpecies } from '../../../services/pets';
 import {
   createService,
   updateService,
@@ -112,7 +117,7 @@ export default function AddEditServiceScreen() {
   const route = useRoute<RouteProp<{ params: AddEditServiceParams }, 'params'>>();
   const params = route.params;
   const isEdit = params?.mode === 'edit';
-  const { currentUser, isProviderProfile } = useAuth();
+  const { currentUser } = useAuth();
   // Prefill the form from the real service record (edit mode)
   const existingService: ExistingService | undefined = params?.serviceDto
     ? serviceDtoToUi(params.serviceDto)
@@ -135,6 +140,7 @@ export default function AddEditServiceScreen() {
 
   const { showError } = useToast();
   const { t, tEnum } = useLocale();
+  const { enums } = useEnums();
 
   // English data-key labels → localized display strings (the state keeps the
   // English key so it round-trips to the numeric enum / catalog on save).
@@ -179,37 +185,48 @@ export default function AddEditServiceScreen() {
   // Set when a save was refused for having no working hours; cleared once a day is switched on.
   const [showHoursError, setShowHoursError] = useState(false);
 
-  // Service location — newly picked address only (null = untouched, keep the
-  // original). Same pattern as AccountScreen's address.
+  // Which pets this service takes (PetSpeciesType FLAGS). Declared per service rather than once
+  // for the business, so dog and cat boarding can be two services at two prices. A new service
+  // starts with none picked: the partner has to say, and the API refuses "none".
+  const [acceptedSpecies, setAcceptedSpecies] = useState<number>(
+    params?.serviceDto?.details?.acceptedSpecies ?? 0
+  );
+  const [showSpeciesError, setShowSpeciesError] = useState(false);
+  const speciesOptions = (enums?.petSpeciesType ?? []).filter(
+    (e) => e.value > 0 && e.value !== PetSpecies.All
+  );
+  const toggleSpecies = (flag: number) => setAcceptedSpecies((cur) => cur ^ flag);
+  const speciesMissing = showSpeciesError && acceptedSpecies === 0;
+
+  // Service location. A service without its own address is where its provider is (their business
+  // address, else their account address - the server's effectiveAddress), so the form only holds
+  // an override: a newly picked address, or "use my business location" to drop the saved one.
   const location = useLocation();
   const [pickedAddress, setPickedAddress] = useState<AddressDto | null>(null);
+  const [useProviderLocation, setUseProviderLocation] = useState(false);
   const [showAddressPicker, setShowAddressPicker] = useState(false);
-  // The partner's profile address — offered as a one-tap shortcut so they don't
-  // have to re-pick their own address on the map. Fail-soft: if the fetch
-  // fails, the shortcut simply doesn't show.
-  const [profileAddress, setProfileAddress] = useState<AddressDto | null>(null);
-  const currentAddress = pickedAddress ?? params?.serviceDto?.address ?? null;
+  // Where the provider is, shown when the service has no address of its own. Fail-soft: without
+  // it the field just reads "pick on the map".
+  const [providerLocation, setProviderLocation] = useState<AddressDto | null>(
+    params?.serviceDto?.isAddressInherited ? (params.serviceDto.effectiveAddress ?? null) : null
+  );
+  const ownAddress =
+    pickedAddress ?? (useProviderLocation ? null : (params?.serviceDto?.address ?? null));
+  const currentAddress = ownAddress ?? providerLocation;
+  const locationInherited = !ownAddress && !!providerLocation;
 
   useEffect(() => {
     let cancelled = false;
-    // No user record behind a managed partner's login: nothing to offer, and the read is a 401.
-    if (!currentUser?.id || isProviderProfile) return;
-    getUser(currentUser.id)
-      .then((u) => {
-        if (!cancelled && u.address) setProfileAddress(u.address);
+    if (serviceProviderId == null) return;
+    getServiceProvider(serviceProviderId)
+      .then((sp) => {
+        if (!cancelled) setProviderLocation(providerAddress(sp));
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.id, isProviderProfile]);
-
-  const useProfileAddress = () => {
-    if (!profileAddress) return;
-    // Copy the fields, never the id — linking the user's own address row to the
-    // service would make later profile edits silently move the service.
-    setPickedAddress({ ...profileAddress, id: undefined });
-  };
+  }, [serviceProviderId]);
 
   const addAdditionalService = () =>
     setAdditionalServices((prev) => [...prev, newAdditionalServiceEntry()]);
@@ -372,8 +389,7 @@ export default function AddEditServiceScreen() {
         })),
       workingHours,
       isNew: !isEdit,
-      // The address picked for this service (or the one it already has). With none, the service
-      // is located by its provider's address, which the preview does not know — so it shows none.
+      // Where the service will be: its own address, else its provider's.
       location: currentAddress ? addressLabel(currentAddress) : null,
     };
 
@@ -396,6 +412,11 @@ export default function AddEditServiceScreen() {
       showAlert(t('addEditService.noProviderTitle'), t('addEditService.noProviderMsg'));
       return;
     }
+    if (acceptedSpecies === 0) {
+      setShowSpeciesError(true);
+      showAlert(t('addEditService.speciesRequiredTitle'), t('addEditService.speciesRequiredMsg'));
+      return;
+    }
     // A shared service needs hours customers can book. Without any it used to save, show up in
     // search with "Book Now", and dead-end at "hasn't set any working hours". The API refuses it
     // too; saying so here points at the section to fix.
@@ -412,13 +433,12 @@ export default function AddEditServiceScreen() {
         serviceImages.map((img, i) => ({ ...img, isSelected: i === mainImageIndex })),
         params?.serviceDto?.photos
       );
-      // Resolve the picked location into the shape the service write accepts —
-      // may create the address row standalone first in edit mode (the PUT only
-      // takes an existing address id; see serviceModel).
-      const address = await resolveServiceAddressForSave(
+      // The service's own address as it should be saved: a new pick, null to go back to the
+      // provider's location, or the saved one untouched.
+      const address = resolveServiceAddressForSave(
         pickedAddress,
         params?.serviceDto?.address,
-        isEdit
+        useProviderLocation
       );
       // Only API-backed fields persist. The whole aggregate travels in ONE request: working
       // hours, duration tiers and the add-on catalog are all nested on the DTO (the flat
@@ -434,6 +454,7 @@ export default function AddEditServiceScreen() {
           description,
           pricingTiers,
           maxPetCapacity: parseInt(maxPetCapacity, 10) || 1,
+          acceptedSpecies,
           additionalServices,
           workingHours,
           photos,
@@ -564,7 +585,7 @@ export default function AddEditServiceScreen() {
             />
           </View>
 
-          {/* Service Location — picked on a map, or copied from the profile */}
+          {/* Service Location — the provider's, unless this service happens somewhere else */}
           <View className="mb-4">
             <Text className={`text-sm font-semibold ${textColor} mb-2`}>
               {t('addEditService.serviceLocation')}
@@ -574,6 +595,7 @@ export default function AddEditServiceScreen() {
             </Text>
             <TouchableOpacity
               accessibilityRole="button"
+              accessibilityLabel={t('addEditService.serviceLocation')}
               onPress={() => setShowAddressPicker(true)}
               className={`${inputBg} flex-row items-center rounded-xl px-4 py-3`}>
               <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
@@ -588,17 +610,25 @@ export default function AddEditServiceScreen() {
                 color={isDarkMode ? '#9CA3AF' : '#6B7280'}
               />
             </TouchableOpacity>
-            {profileAddress && (
+            {locationInherited ? (
+              <Text className={`mt-1 text-xs ${subtextColor}`}>
+                {t('addEditService.usesBusinessLocation')}
+              </Text>
+            ) : null}
+            {ownAddress && providerLocation ? (
               <TouchableOpacity
                 accessibilityRole="button"
-                onPress={useProfileAddress}
+                onPress={() => {
+                  setPickedAddress(null);
+                  setUseProviderLocation(true);
+                }}
                 className="mt-2 flex-row items-center">
-                <Ionicons name="home-outline" size={16} color={BRAND_GREEN} />
+                <Ionicons name="business-outline" size={16} color={BRAND_GREEN} />
                 <Text className="ml-2 text-sm font-semibold text-brand-500">
-                  {t('addEditService.useProfileAddress')}
+                  {t('addEditService.useBusinessLocation')}
                 </Text>
               </TouchableOpacity>
-            )}
+            ) : null}
           </View>
 
           {/* Service Images */}
@@ -661,6 +691,42 @@ export default function AddEditServiceScreen() {
                   {t('addEditService.addPhoto')}
                 </Text>
               </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Pets this service takes — per service, so prices can differ by species */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+              {t('addEditService.acceptedPets')}
+            </Text>
+            <Text className={`${speciesMissing ? 'text-red-600' : subtextColor} mb-3 text-sm`}>
+              {speciesMissing
+                ? t('addEditService.speciesRequiredMsg')
+                : t('addEditService.acceptedPetsHint')}
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {speciesOptions.map((opt) => {
+                const active = (acceptedSpecies & opt.value) !== 0;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: active }}
+                    // react-native-web reads aria-*, not accessibilityState.
+                    aria-checked={active}
+                    onPress={() => toggleSpecies(opt.value)}
+                    className={`rounded-full border px-4 py-2 ${
+                      active
+                        ? `${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'} border-brand-500`
+                        : `${speciesMissing ? 'border-red-400' : borderColor} ${cardBg}`
+                    }`}>
+                    <Text
+                      className={`text-sm ${active ? 'font-medium text-brand-600' : subtextColor}`}>
+                      {tEnum('petSpeciesType', opt.value, opt.name)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 
@@ -1252,7 +1318,10 @@ export default function AddEditServiceScreen() {
           }
           isDarkMode={isDarkMode}
           onClose={() => setShowAddressPicker(false)}
-          onSelect={(picked) => setPickedAddress(picked)}
+          onSelect={(picked) => {
+            setPickedAddress(picked);
+            setUseProviderLocation(false);
+          }}
         />
       )}
 
