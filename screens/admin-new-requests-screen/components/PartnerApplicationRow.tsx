@@ -120,7 +120,9 @@ export function PartnerApplicationRow({ application, onOpen, onApprove, onReject
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4 }}>
       <DocMark ok={!!docs.profilePhoto} label={t('admin.profilePhoto')} />
       <DocMark
-        ok={!!docs.governmentIdFront && !!docs.governmentIdBack}
+        // Counted by the server: list rows never carry the images, so checking for them here
+        // read "missing" for every applicant, including those who had uploaded both sides.
+        ok={application.governmentIdCount >= 2}
         label={t('admin.governmentId')}
       />
       <DocMark

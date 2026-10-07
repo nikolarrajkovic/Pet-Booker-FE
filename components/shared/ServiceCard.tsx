@@ -32,6 +32,8 @@ type ServiceCardProps = {
    * card is wide.
    */
   fill?: boolean;
+  /** The service has no working hours (or is paused): shown, but marked as not bookable. */
+  unavailable?: boolean;
   onPress: () => void;
 };
 
@@ -47,6 +49,7 @@ export default function ServiceCard({
   badge,
   dealAmount,
   fill = false,
+  unavailable = false,
   onPress,
 }: ServiceCardProps) {
   const { cardBg, textColor, subtextColor, borderColor } = useThemeColors();
@@ -123,6 +126,11 @@ export default function ServiceCard({
         <Text className={`font-semibold ${textColor} mb-1`} numberOfLines={1}>
           {name}
         </Text>
+        {unavailable ? (
+          <View className="mb-1 self-start rounded-full bg-gray-200 px-2 py-0.5">
+            <Text className="text-[11px] font-semibold text-gray-600">{t('card.unavailable')}</Text>
+          </View>
+        ) : null}
         <Text className={`text-xs ${subtextColor} mb-2`}>{service}</Text>
 
         <View className="flex-row items-center justify-between">

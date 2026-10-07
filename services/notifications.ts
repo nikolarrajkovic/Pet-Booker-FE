@@ -65,6 +65,22 @@ export async function getNotificationSettings(
   return items[0] ?? null;
 }
 
+/**
+ * Stores the language the person uses the app in, so what the server sends them while the app is
+ * closed — emails, push notifications, reminders — arrives in it too. Round-trips the existing
+ * record so the other settings survive; creates one (an upsert) when there is none yet.
+ */
+export async function savePreferredLanguage(
+  userId: number,
+  language: string
+): Promise<UserNotificationSettingsDto> {
+  const existing = await getNotificationSettings(userId);
+  return saveNotificationSettings({
+    ...(existing ?? defaultNotificationSettings(userId)),
+    preferredLanguage: language,
+  });
+}
+
 /** Creates (no id) or updates (with id) the user's notification settings. */
 export function saveNotificationSettings(
   settings: UserNotificationSettingsDto

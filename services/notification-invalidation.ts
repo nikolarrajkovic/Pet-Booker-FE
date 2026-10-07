@@ -38,6 +38,7 @@ export function resourcesForNotification(notification: { type?: unknown }): stri
     case NotificationType.PaymentReceived:
     case NotificationType.PaymentDue:
     case NotificationType.PaymentOverdue:
+    case NotificationType.PaymentRefunded:
       resources.add('payments');
       resources.add('bookings');
       break;
@@ -58,6 +59,11 @@ export function resourcesForNotification(notification: { type?: unknown }): stri
     case NotificationType.CertificateApproved:
     case NotificationType.CertificateDeclined:
     case NotificationType.CertificateExpiring:
+    // A timeout or ban changes whether the partner is listed and bookable, and the hub's banner.
+    case NotificationType.ProviderTimedOut:
+    case NotificationType.ProviderTimeoutLifted:
+    case NotificationType.ProviderBanned:
+    case NotificationType.ProviderUnbanned:
       resources.add('service-providers');
       break;
 

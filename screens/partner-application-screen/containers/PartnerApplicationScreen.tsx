@@ -19,11 +19,18 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { PersonalInfoStep, ServiceInfoStep, DocumentsStep } from '../components';
 import type { CertificateEntry } from '../components/DocumentsStep';
-import { createServiceProvider, AddressDto } from '../../../services/service-providers';
+import {
+  createServiceProvider,
+  AddressDto,
+  PROVIDER_NAME_TAKEN,
+} from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
-import { getErrorMessage } from '../../../services/http';
+import { ApiError, getErrorMessage } from '../../../services/http';
+import LegalAgreement from '../../../components/shared/LegalAgreement';
 import { showAlert } from '../../../services/alert';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import StepProgress from '../../../components/shared/StepProgress';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 // Reads a native File object as a base64 data URI using FileReader — pure memory, no network.
 function fileToDataUri(file: File): Promise<string> {
@@ -37,6 +44,7 @@ function fileToDataUri(file: File): Promise<string> {
 
 export default function PartnerApplicationScreen() {
   const gutter = usePageGutter();
+  const { isWebLayout } = useResponsive();
   const navigation = useNavigation();
   const {
     isDarkMode,
@@ -78,8 +86,12 @@ export default function PartnerApplicationScreen() {
     undefined,
   ]);
 
+  const [businessNameError, setBusinessNameError] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsError, setTermsError] = useState('');
   const [formData, setFormData] = useState({
     fullName: '',
+    businessName: '',
     email: '',
     phone: '',
     country: '',
@@ -93,6 +105,11 @@ export default function PartnerApplicationScreen() {
     aboutYou: '',
     motivation: '',
   });
+
+  // A taken-name error describes the name as it was; editing either name clears it.
+  useEffect(() => {
+    setBusinessNameError('');
+  }, [formData.businessName, formData.fullName]);
 
   // Fetch the full account record once (currentUser only carries name/email —
   // phone and address come from getUser) to back the prefill button.
@@ -260,7 +277,6 @@ export default function PartnerApplicationScreen() {
   };
 
   const totalSteps = 3;
-  const progressPercentage = (step / totalSteps) * 100;
 
   const themeProps = {
     isDarkMode,
@@ -291,6 +307,11 @@ export default function PartnerApplicationScreen() {
     if (formData.serviceType === null) {
       showError(t('partnerApplication.serviceTypeRequired'));
       setStep(2);
+      return;
+    }
+
+    if (!acceptedTerms) {
+      setTermsError(t('legal.partnerAgreeRequired'));
       return;
     }
 
@@ -331,11 +352,36 @@ export default function PartnerApplicationScreen() {
       });
       (navigation as any).navigate('ApplicationSubmitted');
     } catch (error) {
+      // The name customers would see is another partner's: back to step 1, where Business name is.
+      if (error instanceof ApiError && error.hasCode(PROVIDER_NAME_TAKEN)) {
+        setBusinessNameError(error.message);
+        setStep(1);
+        return;
+      }
       showError(getErrorMessage(error, t('partnerApplication.submitFailed')));
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const actions = (
+    <TouchableOpacity
+      accessibilityRole="button"
+      disabled={isSubmitting}
+      onPress={handleContinue}
+      className="items-center rounded-2xl bg-brand-500 py-4"
+      style={{ opacity: isSubmitting ? 0.7 : 1 }}>
+      {isSubmitting ? (
+        <ActivityIndicator color="white" />
+      ) : (
+        <Text className="text-lg font-bold text-white">
+          {step === totalSteps
+            ? t('partnerApplication.submitApplication')
+            : t('partnerApplication.continue')}
+        </Text>
+      )}
+    </TouchableOpacity>
+  );
 
   return (
     <ScreenLayout
@@ -343,29 +389,13 @@ export default function PartnerApplicationScreen() {
       showBackButton
       headerTitle={t('partnerApplication.title')}
       contentBg={bgColor}
-      headerChildren={
-        <>
-          {/* Progress Bar */}
-          <View className="mb-2 mt-4">
-            <View className="h-2 overflow-hidden rounded-full bg-white/30">
-              <View
-                className="h-full rounded-full bg-white transition-all duration-300"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </View>
-          </View>
-          {/* mb-6: clears the rounded content sheet, which is pulled 32px up over the header
-              (AppHeader's own pb-6 covers 24 of it). */}
-          <Text className="mb-6 text-sm text-white">
-            {t('partnerWelcome.stepOf', { current: step, total: totalSteps })}
-          </Text>
-        </>
-      }>
+      headerChildren={<StepProgress step={step} total={totalSteps} />}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
           paddingTop: 24,
-          paddingBottom: 100,
+          // The phone's action bar sits below the scroll; the web one is inside it, after the form.
+          paddingBottom: isWebLayout ? 40 : 100,
           paddingHorizontal: gutter.value,
         }}>
         {step === 1 && (
@@ -373,6 +403,7 @@ export default function PartnerApplicationScreen() {
             formData={formData}
             setFormData={setFormData}
             onPrefill={currentUser ? prefillFromAccount : undefined}
+            businessNameError={businessNameError}
             onOpenAddressMap={() => setAddressPickerVisible(true)}
             // Enter from the step's last field does what Continue does, guards included.
             onContinue={handleContinue}
@@ -404,27 +435,28 @@ export default function PartnerApplicationScreen() {
             {...themeProps}
           />
         )}
+        {/* The partner obligations live in the Terms; agreeing is part of applying. */}
+        {step === 3 && (
+          <LegalAgreement
+            docs="terms"
+            prefixKey="legal.partnerAgree"
+            checked={acceptedTerms}
+            onToggle={(next) => {
+              setAcceptedTerms(next);
+              if (next) setTermsError('');
+            }}
+            error={termsError}
+            className="mt-6"
+          />
+        )}
+        {isWebLayout && <View className="mt-6">{actions}</View>}
       </ScrollView>
 
-      {/* Fixed Bottom Button */}
-      <View className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          disabled={isSubmitting}
-          onPress={handleContinue}
-          className="items-center rounded-2xl bg-brand-500 py-4"
-          style={{ opacity: isSubmitting ? 0.7 : 1 }}>
-          {isSubmitting ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text className="text-lg font-bold text-white">
-              {step === totalSteps
-                ? t('partnerApplication.submitApplication')
-                : t('partnerApplication.continue')}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      {/* Phone: pinned under the form. On the web design it follows the form inside the scroll —
+          see AdminAddPartnerScreen. */}
+      {!isWebLayout && (
+        <View className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>{actions}</View>
+      )}
 
       {/* Map picker for the street address — opens on the user's current location */}
       {addressPickerVisible && (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
-import type { Partner, PartnerStatus, ServiceHistoryItem } from '../components';
+import type { Partner, PartnerStatus } from '../components';
+import { getServices, serviceFromPrice } from '../../../services/services';
+import {
+  BookingSortBy,
+  getBookingsPage,
+  parseBookingDate,
+  type BookingDto,
+} from '../../../services/bookings';
+import { formatShortDate } from '../../../i18n/dates';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 import BackLink from '../../../components/shared/BackLink';
@@ -28,7 +36,19 @@ import {
   providerTypeValue,
   type ProviderDocuments,
   type ProviderDocumentImage,
+  type ServiceProviderDto,
 } from '../../../services/service-providers';
+import {
+  banPartner,
+  getModerationHistory,
+  liftPartnerTimeout,
+  timeoutPartner,
+  unbanPartner,
+  type ModerationHistoryEntry,
+} from '../../../services/admin';
+import ModerationModal, { type ModerationMode } from '../components/ModerationModal';
+import ModerationPanel from '../components/ModerationPanel';
+import { partnerStatusOf } from '../providerToPartner';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // Labels are translation keys, resolved with t() at render.
@@ -59,11 +79,17 @@ const STATUS_CFG: Record<
   },
 };
 
-const HISTORY_STATUS_CFG = {
-  completed: { label: 'Completed', color: BRAND_GREEN },
-  cancelled: { label: 'Cancelled', color: '#6B7280' },
-  refunded: { label: 'Refunded', color: '#EF4444' },
+/** BookingState (backend) → the colour a recent booking's state reads in. */
+const BOOKING_STATE_COLORS: Record<number, string> = {
+  0: '#D97706', // Upcoming (awaiting the partner)
+  1: BRAND_GREEN, // Completed
+  2: '#6B7280', // Cancelled
+  3: '#2563EB', // Accepted
+  4: '#7C3AED', // In progress
+  5: '#9CA3AF', // Expired
 };
+
+const RECENT_BOOKINGS = 5;
 
 function formatBytes(n: number): string {
   if (!n) return '';
@@ -98,14 +124,62 @@ export default function PartnerDetailsScreen() {
   const [viewerUri, setViewerUri] = useState<string | null>(null);
   const [idFrontRevealed, setIdFrontRevealed] = useState(false);
   const [idBackRevealed, setIdBackRevealed] = useState(false);
-  const [partnerStatus, setPartnerStatus] = useState<PartnerStatus>(partner?.status ?? 'active');
-  const [confirm, setConfirm] = useState<{
-    title: string;
-    message: string;
-    confirmLabel: string;
-    confirmColor: string;
-    onConfirm: () => void;
+  // The provider as the server last answered — the moderation fields come from here, so a timeout
+  // or ban set a moment ago (by anyone) shows, rather than the list row this screen was opened with.
+  const [provider, setProvider] = useState<ServiceProviderDto | null>(null);
+  const [history, setHistory] = useState<ModerationHistoryEntry[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [moderation, setModeration] = useState<ModerationMode | null>(null);
+
+  // What the partner charges and their latest bookings — neither is on the list row. The price
+  // and the history were placeholders (a "Starting Price" of 0 for every partner, and a history
+  // section that never had anything to show).
+  const [startingPrice, setStartingPrice] = useState<{
+    amount: number;
+    currency?: string | null;
   } | null>(null);
+  const [recentBookings, setRecentBookings] = useState<BookingDto[] | null>(null);
+  useEffect(() => {
+    if (!partner?.id) return;
+    let cancelled = false;
+    const id = Number(partner.id);
+    getServices({ serviceProviderId: id, perPage: 100 })
+      .then((services) => {
+        if (cancelled) return;
+        const active = services.filter((s) => s.isActive !== false);
+        setStartingPrice(
+          active.length
+            ? { amount: Math.min(...active.map(serviceFromPrice)), currency: active[0].currency }
+            : null
+        );
+      })
+      .catch(() => !cancelled && setStartingPrice(null));
+    getBookingsPage(
+      { serviceProviderId: id, sortBy: BookingSortBy.NewestFirst, perPage: RECENT_BOOKINGS },
+      1
+    )
+      .then((page) => !cancelled && setRecentBookings(page.items))
+      .catch(() => !cancelled && setRecentBookings([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [partner?.id]);
+
+  const loadHistory = useCallback(async () => {
+    if (!partner?.id) return;
+    setLoadingHistory(true);
+    try {
+      setHistory(await getModerationHistory(Number(partner.id)));
+    } catch (e) {
+      console.warn('[PartnerDetails] load moderation history failed', e);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [partner?.id]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   // Fetch the full provider DTO so we can render its real documents/photos
   useEffect(() => {
@@ -118,7 +192,10 @@ export default function PartnerDetailsScreen() {
       setLoadingDocs(true);
       try {
         const dto = await getServiceProvider(Number(partner.id));
-        if (!cancelled) setDocs(extractProviderDocuments(dto));
+        if (!cancelled) {
+          setProvider(dto);
+          setDocs(extractProviderDocuments(dto));
+        }
       } catch (e) {
         console.warn('[PartnerDetails] load documents failed', e);
         if (!cancelled) setDocs(null);
@@ -131,9 +208,8 @@ export default function PartnerDetailsScreen() {
     };
   }, [partner?.id]);
 
-  // Esc dismisses both dialogs. Declared above the `!partner` guard: a hook after a conditional
-  // return runs in a different order between renders.
-  useEscapeToClose(!!confirm, () => setConfirm(null));
+  // Esc dismisses the image viewer (the moderation dialog handles its own). Declared above the
+  // `!partner` guard: a hook after a conditional return runs in a different order between renders.
   useEscapeToClose(!!viewerUri, () => setViewerUri(null));
 
   if (!partner) {
@@ -144,6 +220,9 @@ export default function PartnerDetailsScreen() {
     );
   }
 
+  const partnerStatus: PartnerStatus = provider
+    ? partnerStatusOf(provider.moderationStatus)
+    : partner.status;
   const cfg = STATUS_CFG[partnerStatus];
   const bgColor = hex.bg;
   const cardBg = hex.card;
@@ -155,57 +234,87 @@ export default function PartnerDetailsScreen() {
   const coverUri = docs?.profilePhoto?.src || partner.image;
   const avatarUri = partner.image || docs?.profilePhoto?.src || '';
 
-  const handleTimeout = () => {
-    if (partnerStatus === 'timeout') {
-      setConfirm({
-        title: t('admin.liftTimeout'),
-        message: t('admin.liftTimeoutMsg', { name: partner.name }),
-        confirmLabel: t('admin.restore'),
-        confirmColor: BRAND_GREEN,
-        onConfirm: () => {
-          setPartnerStatus('active');
-          navigation.navigate('AdminPartners', { updatedId: partner.id, updatedStatus: 'active' });
-        },
-      });
-    } else {
-      setConfirm({
-        title: t('admin.timeoutPartner'),
-        message: t('admin.timeoutPartnerMsg', { name: partner.name }),
-        confirmLabel: t('admin.timeout'),
-        confirmColor: '#D97706',
-        onConfirm: () => {
-          setPartnerStatus('timeout');
-          navigation.navigate('AdminPartners', { updatedId: partner.id, updatedStatus: 'timeout' });
-        },
-      });
-    }
+  const handleTimeout = () =>
+    setModeration(partnerStatus === 'timeout' ? 'liftTimeout' : 'timeout');
+  const handleBan = () => setModeration(partnerStatus === 'banned' ? 'unban' : 'ban');
+
+  const runModeration = async ({ reason, until }: { reason: string; until?: Date }) => {
+    const id = Number(partner.id);
+    const updated =
+      moderation === 'timeout'
+        ? await timeoutPartner(id, until!, reason)
+        : moderation === 'liftTimeout'
+          ? await liftPartnerTimeout(id, reason)
+          : moderation === 'ban'
+            ? await banPartner(id, reason)
+            : await unbanPartner(id, reason);
+    setProvider((prev) => ({ ...(prev ?? {}), ...updated }));
+    setModeration(null);
+    loadHistory();
   };
 
-  const handleBan = () => {
-    if (partnerStatus === 'banned') {
-      setConfirm({
-        title: t('admin.unbanPartner'),
-        message: t('admin.unbanPartnerMsg', { name: partner.name }),
-        confirmLabel: t('admin.unban'),
-        confirmColor: BRAND_GREEN,
-        onConfirm: () => {
-          setPartnerStatus('active');
-          navigation.navigate('AdminPartners', { updatedId: partner.id, updatedStatus: 'active' });
-        },
-      });
-    } else {
-      setConfirm({
-        title: t('admin.banPartner'),
-        message: t('admin.banPartnerMsg', { name: partner.name }),
-        confirmLabel: t('admin.banPartner'),
-        confirmColor: '#EF4444',
-        onConfirm: () => {
-          setPartnerStatus('banned');
-          navigation.navigate('AdminPartners', { updatedId: partner.id, updatedStatus: 'banned' });
-        },
-      });
-    }
-  };
+  // A banned partner can't be put on timeout (unban first); the server refuses it too.
+  const timeoutDisabled = partnerStatus === 'banned';
+  const moderationButtons = (
+    <>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityState={{ disabled: timeoutDisabled }}
+        activeOpacity={0.8}
+        onPress={handleTimeout}
+        disabled={timeoutDisabled}
+        style={{
+          flex: 1,
+          paddingVertical: 13,
+          borderRadius: 12,
+          borderWidth: 1.5,
+          borderColor: '#D97706',
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'center',
+          opacity: timeoutDisabled ? 0.4 : 1,
+        }}>
+        <Ionicons
+          name={partnerStatus === 'timeout' ? 'play-circle-outline' : 'time-outline'}
+          size={17}
+          color="#D97706"
+          style={{ marginRight: 6 }}
+        />
+        <Text style={{ color: '#D97706', fontSize: 14, fontWeight: '700' }}>
+          {partnerStatus === 'timeout' ? t('admin.liftTimeout') : t('admin.timeout')}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        accessibilityRole="button"
+        activeOpacity={0.8}
+        onPress={handleBan}
+        style={{
+          flex: 1,
+          paddingVertical: 13,
+          borderRadius: 12,
+          borderWidth: 1.5,
+          borderColor: partnerStatus === 'banned' ? BRAND_GREEN : '#EF4444',
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'center',
+        }}>
+        <Ionicons
+          name={partnerStatus === 'banned' ? 'checkmark-circle-outline' : 'ban-outline'}
+          size={17}
+          color={partnerStatus === 'banned' ? BRAND_GREEN : '#EF4444'}
+          style={{ marginRight: 6 }}
+        />
+        <Text
+          style={{
+            color: partnerStatus === 'banned' ? BRAND_GREEN : '#EF4444',
+            fontSize: 14,
+            fontWeight: '700',
+          }}>
+          {partnerStatus === 'banned' ? t('admin.unbanPartner') : t('admin.banPartner')}
+        </Text>
+      </TouchableOpacity>
+    </>
+  );
 
   return (
     <View
@@ -265,7 +374,7 @@ export default function PartnerDetailsScreen() {
           contentContainerStyle={
             isWebLayout
               ? {
-                  paddingBottom: 60,
+                  paddingBottom: 40,
                   width: '100%',
                   maxWidth: CONTENT_WIDTHS.default,
                   alignSelf: 'center',
@@ -386,7 +495,7 @@ export default function PartnerDetailsScreen() {
                     {partner.rating.toFixed(1)}
                   </Text>
                   <Text style={{ color: subTextColor, fontSize: 12, marginLeft: 3 }}>
-                    ({partner.reviews} reviews)
+                    ({t('shared.reviewsCount', { count: partner.reviews })})
                   </Text>
                 </View>
                 <View
@@ -424,6 +533,19 @@ export default function PartnerDetailsScreen() {
                   </Text>
                 </View>
               ) : null}
+              {partner.phone ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                  <Ionicons name="call-outline" size={13} color={subTextColor} />
+                  <Text style={{ color: subTextColor, fontSize: 12, marginLeft: 6 }}>
+                    {partner.phone}
+                  </Text>
+                </View>
+              ) : null}
+              {partner.bio ? (
+                <Text style={{ color: textColor, fontSize: 12, lineHeight: 18, marginTop: 8 }}>
+                  {partner.bio}
+                </Text>
+              ) : null}
               {partner.address ? (
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 }}>
                   <Ionicons
@@ -438,6 +560,19 @@ export default function PartnerDetailsScreen() {
                 </View>
               ) : null}
             </View>
+          </View>
+
+          {/* ── Moderation: status, reason, history (and the actions, on the web design) ── */}
+          <View style={{ marginHorizontal: gutter.value, marginBottom: 16 }}>
+            <ModerationPanel
+              status={partnerStatus}
+              reason={provider?.moderationReason ?? partner.moderationReason}
+              timedOutUntil={provider?.timedOutUntil ?? partner.timedOutUntil}
+              bannedAt={provider?.bannedAt ?? partner.bannedAt}
+              history={history}
+              loadingHistory={loadingHistory}
+              actions={isWebLayout ? moderationButtons : undefined}
+            />
           </View>
 
           {/* ── Stats row ── */}
@@ -472,10 +607,10 @@ export default function PartnerDetailsScreen() {
             <View style={{ width: 1, backgroundColor: dividerColor }} />
             <View style={{ flex: 1, alignItems: 'center', paddingVertical: 16 }}>
               <Text style={{ color: textColor, fontSize: 20, fontWeight: '800' }}>
-                {formatMoney(partner.startingPrice, partner.currency)}
+                {startingPrice ? formatMoney(startingPrice.amount, startingPrice.currency) : '—'}
               </Text>
               <Text style={{ color: subTextColor, fontSize: 11, marginTop: 2 }}>
-                Starting Price
+                {t('admin.startingPrice')}
               </Text>
             </View>
           </View>
@@ -691,169 +826,82 @@ export default function PartnerDetailsScreen() {
               <View style={{ paddingVertical: 24, alignItems: 'center' }}>
                 <Ionicons name="alert-circle-outline" size={28} color={subTextColor} />
                 <Text style={{ color: subTextColor, fontSize: 13, marginTop: 8 }}>
-                  Could not load documents.
+                  {t('admin.documentsLoadFailed')}
                 </Text>
               </View>
             )}
           </View>
 
-          {/* ── Recent Service History ── */}
-          {partner.serviceHistory.length > 0 && (
-            <View style={{ marginHorizontal: gutter.value, marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                <View
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 8,
-                    backgroundColor: '#EEF2FF',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: 10,
-                  }}>
-                  <Ionicons name="calendar-outline" size={16} color="#6366F1" />
-                </View>
-                <Text style={{ color: textColor, fontSize: 15, fontWeight: '700' }}>
-                  Recent Service History
-                </Text>
+          {/* ── Recent bookings ── */}
+          <View style={{ marginHorizontal: gutter.value, marginBottom: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <View
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 8,
+                  backgroundColor: '#EEF2FF',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 10,
+                }}>
+                <Ionicons name="calendar-outline" size={16} color="#6366F1" />
               </View>
-              {partner.serviceHistory.map((item) => (
-                <ServiceHistoryCard
-                  key={item.id}
-                  item={item}
-                  currency={partner.currency}
+              <Text style={{ color: textColor, fontSize: 15, fontWeight: '700' }}>
+                {t('admin.recentBookings')}
+              </Text>
+            </View>
+            {recentBookings === null ? (
+              <ActivityIndicator color={BRAND_GREEN} style={{ alignSelf: 'flex-start' }} />
+            ) : recentBookings.length === 0 ? (
+              <Text style={{ color: subTextColor, fontSize: 13 }}>{t('admin.noBookingsYet')}</Text>
+            ) : (
+              recentBookings.map((booking) => (
+                <RecentBookingRow
+                  key={booking.id}
+                  booking={booking}
+                  stateLabel={tEnum('bookingState', booking.state, '')}
+                  onPress={() => navigation.navigate('BookingDetails', { bookingId: booking.id })}
                   cardBg={cardBg}
                   textColor={textColor}
                   subTextColor={subTextColor}
                   borderColor={borderColor}
                 />
-              ))}
-            </View>
-          )}
+              ))
+            )}
+          </View>
         </ScrollView>
 
-        {/* ── Sticky footer ── */}
-        <View
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: cardBg,
-            paddingHorizontal: gutter.value,
-            paddingTop: 12,
-            paddingBottom: insets.bottom > 0 ? insets.bottom : 16,
-            borderTopWidth: 1,
-            borderTopColor: borderColor,
-            flexDirection: 'row',
-            gap: 12,
-          }}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            activeOpacity={0.8}
-            onPress={handleTimeout}
+        {/* ── Phone: the actions pinned at the bottom. On the web design they sit in the
+            moderation panel instead — a fixed white strip across a desktop window, detached from
+            the content, read as a separate panel. ── */}
+        {!isWebLayout && (
+          <View
             style={{
-              flex: 1,
-              paddingVertical: 13,
-              borderRadius: 12,
-              borderWidth: 1.5,
-              borderColor: '#D97706',
-              alignItems: 'center',
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: cardBg,
+              paddingHorizontal: gutter.value,
+              paddingTop: 12,
+              paddingBottom: insets.bottom > 0 ? insets.bottom : 16,
+              borderTopWidth: 1,
+              borderTopColor: borderColor,
               flexDirection: 'row',
-              justifyContent: 'center',
+              gap: 12,
             }}>
-            <Ionicons name="time-outline" size={17} color="#D97706" style={{ marginRight: 6 }} />
-            <Text style={{ color: '#D97706', fontSize: 14, fontWeight: '700' }}>
-              {partnerStatus === 'timeout' ? t('admin.liftTimeout') : t('admin.timeout')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityRole="button"
-            activeOpacity={0.8}
-            onPress={handleBan}
-            style={{
-              flex: 1,
-              paddingVertical: 13,
-              borderRadius: 12,
-              borderWidth: 1.5,
-              borderColor: '#EF4444',
-              alignItems: 'center',
-              flexDirection: 'row',
-              justifyContent: 'center',
-            }}>
-            <Ionicons name="ban-outline" size={17} color="#EF4444" style={{ marginRight: 6 }} />
-            <Text style={{ color: '#EF4444', fontSize: 14, fontWeight: '700' }}>
-              {partnerStatus === 'banned' ? t('admin.unbanPartner') : t('admin.banPartner')}
-            </Text>
-          </TouchableOpacity>
-        </View>
+            {moderationButtons}
+          </View>
+        )}
       </View>
 
-      {/* ── Confirmation modal ── */}
-      <Modal
-        visible={!!confirm}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setConfirm(null)}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          activeOpacity={1}
-          onPress={() => setConfirm(null)}
-          style={{
-            flex: 1,
-            backgroundColor: 'rgba(0,0,0,0.45)',
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingHorizontal: 32,
-          }}>
-          <TouchableOpacity
-            activeOpacity={1}
-            style={{ backgroundColor: cardBg, borderRadius: 20, padding: 24, width: '100%' }}>
-            <Text style={{ color: textColor, fontSize: 17, fontWeight: '700', marginBottom: 8 }}>
-              {confirm?.title}
-            </Text>
-            <Text style={{ color: subTextColor, fontSize: 14, lineHeight: 20, marginBottom: 24 }}>
-              {confirm?.message}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <TouchableOpacity
-                accessibilityRole="button"
-                activeOpacity={0.8}
-                onPress={() => setConfirm(null)}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                  borderWidth: 1.5,
-                  borderColor,
-                  alignItems: 'center',
-                }}>
-                <Text style={{ color: subTextColor, fontSize: 14, fontWeight: '600' }}>
-                  {t('admin.cancel')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                accessibilityRole="button"
-                activeOpacity={0.8}
-                onPress={() => {
-                  confirm?.onConfirm();
-                  setConfirm(null);
-                }}
-                style={{
-                  flex: 1,
-                  paddingVertical: 12,
-                  borderRadius: 12,
-                  backgroundColor: confirm?.confirmColor,
-                  alignItems: 'center',
-                }}>
-                <Text style={{ color: 'white', fontSize: 14, fontWeight: '700' }}>
-                  {confirm?.confirmLabel}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+      <ModerationModal
+        mode={moderation}
+        partnerName={partner.name}
+        onClose={() => setModeration(null)}
+        onSubmit={runModeration}
+      />
 
       {/* ── Full-screen image viewer ── */}
       <Modal
@@ -901,7 +949,7 @@ export default function PartnerDetailsScreen() {
               color: 'rgba(255,255,255,0.7)',
               fontSize: 12,
             }}>
-            Tap anywhere to close
+            {t('admin.tapToClose')}
           </Text>
         </Pressable>
       </Modal>
@@ -1108,25 +1156,31 @@ function EmptyDoc({ text, subTextColor }: { text: string; subTextColor: string }
   );
 }
 
-function ServiceHistoryCard({
-  item,
-  currency,
+/** One of the partner's latest bookings: when, who, what, how much, and where it stands. */
+function RecentBookingRow({
+  booking,
+  stateLabel,
+  onPress,
   cardBg,
   textColor,
   subTextColor,
   borderColor,
 }: {
-  item: ServiceHistoryItem;
-  /** The partner's currency — every amount in their history is in it. */
-  currency?: string | null;
+  booking: BookingDto;
+  stateLabel: string;
+  onPress: () => void;
   cardBg: string;
   textColor: string;
   subTextColor: string;
   borderColor: string;
 }) {
-  const cfg = HISTORY_STATUS_CFG[item.status];
+  const when = parseBookingDate(booking.bookingFrom);
+  const color = BOOKING_STATE_COLORS[booking.state] ?? subTextColor;
   return (
-    <View
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.85}
+      onPress={onPress}
       style={{
         backgroundColor: cardBg,
         borderRadius: 12,
@@ -1143,21 +1197,23 @@ function ServiceHistoryCard({
           marginBottom: 6,
         }}>
         <Text style={{ color: subTextColor, fontSize: 11 }}>
-          {item.id} • {item.date}
+          #{booking.id} • {Number.isNaN(when.getTime()) ? '' : formatShortDate(when)}
         </Text>
         <Text style={{ color: textColor, fontSize: 14, fontWeight: '700' }}>
-          {formatMoney(item.price, currency)}
+          {formatMoney(booking.totalPrice, booking.priceCurrency)}
         </Text>
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View>
-          <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }}>
-            {item.clientName}
+        <View style={{ flex: 1, marginRight: 8 }}>
+          <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
+            {booking.user?.userName ?? '—'}
           </Text>
-          <Text style={{ color: subTextColor, fontSize: 12, marginTop: 1 }}>{item.service}</Text>
+          <Text style={{ color: subTextColor, fontSize: 12, marginTop: 1 }} numberOfLines={1}>
+            {booking.service?.name ?? ''}
+          </Text>
         </View>
-        <Text style={{ color: cfg.color, fontSize: 13, fontWeight: '600' }}>{cfg.label}</Text>
+        <Text style={{ color, fontSize: 13, fontWeight: '600' }}>{stateLabel}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }

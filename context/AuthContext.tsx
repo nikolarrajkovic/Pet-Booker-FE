@@ -5,6 +5,8 @@ import { clearCache } from '../services/cache';
 import { registerSessionExpiredHandler, statusOf } from '../services/http';
 import { resetShownOnce } from '../hooks/useShowOnce';
 import { registerDisplayCurrency, DEFAULT_CURRENCY } from '../services/currency';
+import { savePreferredLanguage } from '../services/notifications';
+import { useLocale } from './LocaleContext';
 
 type AuthContextType = {
   isLoggedIn: boolean;
@@ -25,6 +27,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const { language } = useLocale();
 
   // Both collections are optional-chained. `groups` always was; `roles` was not, and an
   // `/auth/me` body without it threw here — inside the provider that wraps the whole tree, with no
@@ -43,6 +46,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // settings, pets, push devices — can exist for this session. /auth/me returns 0 here for every
   // account that does have a user row.
   const isProviderProfile = (currentUser?.providerProfileId ?? 0) > 0;
+
+  // The app's language is the person's language: keep the server's copy in step with it, so
+  // emails, push notifications and reminders follow it too. Switching language used to change
+  // only this device, and every message sent while the app was closed stayed in English.
+  // A managed partner profile has no user settings row (its language lives on the profile).
+  useEffect(() => {
+    const userId = currentUser?.id;
+    if (!userId || isProviderProfile) return;
+    if (currentUser?.preferredLanguage === language) return;
+    let cancelled = false;
+    savePreferredLanguage(userId, language)
+      .then(() => {
+        if (!cancelled) {
+          setCurrentUser((u) => (u && u.id === userId ? { ...u, preferredLanguage: language } : u));
+        }
+      })
+      .catch(() => {
+        // Best-effort: the app itself is already in the new language; the next start retries.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.id, currentUser?.preferredLanguage, language, isProviderProfile]);
 
   useEffect(() => {
     const checkAuthStatus = async () => {

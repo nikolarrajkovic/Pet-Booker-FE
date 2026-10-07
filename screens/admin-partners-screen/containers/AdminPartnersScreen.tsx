@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useResponsive } from '../../../hooks/useResponsive';
@@ -18,13 +18,16 @@ import SortMenu from '../../../components/shared/SortMenu';
 import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import {
   ApprovalStatus,
+  ModerationStatus,
   SubmissionOrder,
+  countServiceProviders,
   getServiceProvidersPage,
+  type ModerationStatusValue,
   type ServiceProviderDto,
   type SubmissionOrderValue,
 } from '../../../services/service-providers';
 import { PartnerCard } from '../components';
-import type { Partner, PartnerStatus } from '../components';
+import type { PartnerStatus } from '../components';
 import { PartnerListHeader, PartnerRow } from '../components/PartnerRow';
 import { providerToPartner } from '../providerToPartner';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -64,6 +67,14 @@ const TABS: readonly FilterTab<Tab>[] = [
 
 const PAGE_SIZE = 20;
 
+/** The server filter behind each tab; "all" sends none. */
+const TAB_MODERATION: Record<Tab, ModerationStatusValue | undefined> = {
+  all: undefined,
+  active: ModerationStatus.Active,
+  timeout: ModerationStatus.TimedOut,
+  banned: ModerationStatus.Banned,
+};
+
 /**
  * Partner management: every approved provider, paging from the server as the admin scrolls,
  * newest first (re-orderable), searchable by name.
@@ -76,13 +87,13 @@ const PAGE_SIZE = 20;
  * whose services sat past row 200 read "0 services". The name search now runs on the server, and
  * both counts come exact on the provider row.
  *
- * Timeout and ban are still session-only overrides (the backend has no such concept): those two
- * tabs list the partners overridden this session, and "Active" is the server's list without them.
+ * Every tab is a server filter (`Moderation`), counted on the server too, so a timeout or ban set
+ * on Partner Details shows here for every admin, not only in the session that set it — they used
+ * to be session-only overrides that a reload threw away.
  */
 export default function AdminPartnersScreen() {
   const gutter = usePageGutter();
   const navigation = useNavigation<any>();
-  const route = useRoute<any>();
   const { goUp } = useAppNavigation();
   const { isDarkMode, subtextColor, hex } = useThemeColors();
   const { isWebLayout } = useResponsive();
@@ -94,75 +105,63 @@ export default function AdminPartnersScreen() {
   const [search, setSearch] = useState('');
   const name = useDebouncedValue(search.trim(), 300);
   const [order, setOrder] = useState<SubmissionOrderValue>(SubmissionOrder.NewestFirst);
-  /** Partners put on timeout or banned this session, as they were when it happened. */
-  const [overrides, setOverrides] = useState<Record<string, Partner>>({});
+  const [counts, setCounts] = useState<Record<Tab, number>>({
+    all: 0,
+    active: 0,
+    timeout: 0,
+    banned: 0,
+  });
 
+  const moderation = TAB_MODERATION[activeTab];
   const fetchPage = useCallback(
     (page: number) =>
       getServiceProvidersPage({
         approvalStatus: ApprovalStatus.Approved,
+        moderation,
         name: name || undefined,
         order,
         page,
         perPage: PAGE_SIZE,
       }),
-    [name, order]
+    [name, order, moderation]
   );
   const list = usePagedList<ServiceProviderDto>(fetchPage, {
     errorFallback: t('admin.partnersLoadFailed'),
     resource: 'service-providers',
   });
-  const isPagedTab = activeTab === 'all' || activeTab === 'active';
-  const listRef = useNearBottomLoader(isPagedTab, list.loadMore);
+  const listRef = useNearBottomLoader(true, list.loadMore);
 
-  const partners = useMemo(
+  const rows = useMemo(
     () =>
-      list.items.map((dto) => {
-        const partner = providerToPartner(dto, {
-          services: dto.serviceCount ?? 0,
-          reviews: dto.reviewCount ?? 0,
-        });
-        return overrides[partner.id] ?? partner;
-      }),
-    [list.items, overrides]
-  );
-  const partnersRef = useRef(partners);
-  partnersRef.current = partners;
-
-  // A timeout or ban set on the details screen comes back as route params (local-only moderation).
-  useFocusEffect(
-    useCallback(() => {
-      const updatedId: string | undefined = route.params?.updatedId;
-      const updatedStatus = route.params?.updatedStatus as PartnerStatus | undefined;
-      if (!updatedId || !updatedStatus) return;
-      setOverrides((prev) => {
-        const next = { ...prev };
-        if (updatedStatus === 'active') {
-          delete next[updatedId];
-        } else {
-          const base = prev[updatedId] ?? partnersRef.current.find((p) => p.id === updatedId);
-          if (base) next[updatedId] = { ...base, status: updatedStatus };
-        }
-        return next;
-      });
-      navigation.setParams({ updatedId: undefined, updatedStatus: undefined });
-    }, [route.params?.updatedId, route.params?.updatedStatus, navigation])
+      list.items.map((dto) =>
+        providerToPartner(dto, { services: dto.serviceCount ?? 0, reviews: dto.reviewCount ?? 0 })
+      ),
+    [list.items]
   );
 
-  const overridden = Object.values(overrides);
-  const matchesSearch = (p: Partner) => !name || p.name.toLowerCase().includes(name.toLowerCase());
-  const timeoutCount = overridden.filter((p) => p.status === 'timeout').length;
-  const bannedCount = overridden.filter((p) => p.status === 'banned').length;
-  const counts: Record<Tab, number> = {
-    all: list.totalItems,
-    active: Math.max(0, list.totalItems - timeoutCount - bannedCount),
-    timeout: timeoutCount,
-    banned: bannedCount,
-  };
-
-  const rows = isPagedTab
-    ? partners.filter((p) => activeTab === 'all' || p.status === 'active')
-    : overridden.filter((p) => p.status === activeTab && matchesSearch(p));
+  // Tab badges, one count per status on the server (a single-row read each). Refreshed on focus,
+  // so coming back from a timeout or ban on Partner Details moves the numbers.
+  const loadCounts = useCallback(() => {
+    let cancelled = false;
+    const tabs = Object.keys(TAB_MODERATION) as Tab[];
+    Promise.all(
+      tabs.map((tab) =>
+        countServiceProviders({
+          approvalStatus: ApprovalStatus.Approved,
+          moderation: TAB_MODERATION[tab],
+          name: name || undefined,
+        }).catch(() => 0)
+      )
+    ).then((values) => {
+      if (cancelled) return;
+      setCounts(Object.fromEntries(tabs.map((tab, i) => [tab, values[i]])) as Record<Tab, number>);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [name]);
+  // Runs on focus and again whenever the search changes while focused (a new callback).
+  useFocusEffect(loadCounts);
 
   // The search field rides in the header on both designs — under the title inside the green slab
   // on the phone (translucent, on green), under the page title on web (a plain bordered field).
@@ -217,9 +216,7 @@ export default function AdminPartnersScreen() {
     </View>
   );
 
-  const sort = isPagedTab ? (
-    <SortMenu value={order} options={SUBMISSION_ORDER_OPTIONS} onChange={setOrder} />
-  ) : null;
+  const sort = <SortMenu value={order} options={SUBMISSION_ORDER_OPTIONS} onChange={setOrder} />;
 
   return (
     <ScreenLayout
@@ -241,7 +238,7 @@ export default function AdminPartnersScreen() {
         contentContainerStyle={{ paddingBottom: 32 + (isWebLayout ? 0 : bottomInset) }}
         showsVerticalScrollIndicator={isWebLayout}
         scrollEventThrottle={16}
-        onScroll={(e) => (isPagedTab && isNearBottom(e) ? list.loadMore() : undefined)}>
+        onScroll={(e) => (isNearBottom(e) ? list.loadMore() : undefined)}>
         {/* The order control out-ranks the rows in paint order, so its panel opens over them. */}
         {isWebLayout ? (
           <View
@@ -268,8 +265,8 @@ export default function AdminPartnersScreen() {
           ref={listRef}
           style={{ paddingHorizontal: gutter.value, paddingTop: isWebLayout || !sort ? 4 : 12 }}>
           <ListState
-            isLoading={isPagedTab && list.isLoading}
-            error={isPagedTab ? list.error : null}
+            isLoading={list.isLoading}
+            error={list.error}
             isEmpty={rows.length === 0}
             emptyIcon="people-outline"
             emptyMessage={t('admin.noPartnersFound')}>
@@ -300,7 +297,7 @@ export default function AdminPartnersScreen() {
             )}
           </ListState>
 
-          {isPagedTab && rows.length > 0 && (
+          {rows.length > 0 && (
             <LoadMoreFooter
               loaded={list.items.length}
               total={list.totalItems}
@@ -309,7 +306,7 @@ export default function AdminPartnersScreen() {
               onLoadMore={list.loadMore}
             />
           )}
-          {isPagedTab && rows.length > 0 && !list.hasMore && !list.isLoadingMore && (
+          {rows.length > 0 && !list.hasMore && !list.isLoadingMore && (
             <Text className={`pt-4 text-center text-xs ${subtextColor}`}>
               {t('admin.endOfList', { count: list.totalItems })}
             </Text>

@@ -32,10 +32,14 @@ export type PartnerApplication = {
   email: string;
   phone: string;
   address: string;
-  experience: string;
+  /** Years of experience from the application; null when not given. Format with admin.yearsValue. */
+  yearsOfExperience: number | null;
   bio: string;
+  /** Why they want to partner. Admin-only on the API. */
+  motivation: string;
   certifications: string;
-  availability: string;
+  /** Government-ID images on file (2 = front and back), counted by the server even on list rows. */
+  governmentIdCount: number;
   documents: {
     profilePhoto: ApplicationImage | null;
     petPhotos: ApplicationImage[];
@@ -270,7 +274,12 @@ export function PartnerApplicationCard({
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
             <Ionicons name="briefcase-outline" size={14} color={subTextColor} />
             <Text style={{ color: subTextColor, fontSize: 12, marginLeft: 6 }}>
-              {t('admin.experienceLine', { text: application.experience })}
+              {t('admin.experienceLine', {
+                text:
+                  application.yearsOfExperience != null
+                    ? t('admin.yearsValue', { n: application.yearsOfExperience })
+                    : '—',
+              })}
             </Text>
           </View>
           <Text style={{ color: subTextColor, fontSize: 12, marginBottom: 6, fontWeight: '600' }}>
@@ -286,10 +295,10 @@ export function PartnerApplicationCard({
             {application.certifications}
           </Text>
           <Text style={{ color: subTextColor, fontSize: 12, marginBottom: 2, fontWeight: '500' }}>
-            {t('admin.availabilityColon')}
+            {t('admin.motivationColon')}
           </Text>
           <Text style={{ color: textColor, fontSize: 12, marginBottom: 10 }}>
-            {application.availability}
+            {application.motivation || '—'}
           </Text>
 
           <View style={{ height: 1, backgroundColor: infoBorderColor, marginBottom: 14 }} />

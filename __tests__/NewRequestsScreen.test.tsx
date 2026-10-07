@@ -18,12 +18,16 @@ const flush = () =>
  *
  * The claim being tested is behavioural, not structural: tapping Accept must update the card the
  * partner is looking at using the booking the transition returned, WITHOUT re-listing every
- * booking they have. Asserting on `getBookings` call counts is the whole point — a refetch would
- * still turn the card green, so only the call count distinguishes the two implementations.
+ * booking they have. Asserting on `getBookingsPage` call counts is the whole point — a refetch
+ * would still turn the card green, so only the call count distinguishes the two implementations.
+ *
+ * Each tab is a server query now (open requests, soonest first) rather than one page filtered on
+ * the device, which hid every request after a provider's 50th booking.
  */
 
 // `mock`-prefixed because jest hoists the factories below above these declarations.
 const mockGetBookings = jest.fn();
+const mockCountBookings = jest.fn();
 const mockConfirmBooking = jest.fn();
 const mockDeclineBooking = jest.fn();
 
@@ -31,7 +35,8 @@ jest.mock('../services/bookings', () => {
   const actual = jest.requireActual('../services/bookings');
   return {
     ...actual, // keep applyBookingTransition, the enums and parseBookingDate real
-    getBookings: (...args: unknown[]) => mockGetBookings(...args),
+    getBookingsPage: (...args: unknown[]) => mockGetBookings(...args),
+    countBookings: (...args: unknown[]) => mockCountBookings(...args),
     confirmBooking: (...args: unknown[]) => mockConfirmBooking(...args),
     declineBooking: (...args: unknown[]) => mockDeclineBooking(...args),
   };
@@ -68,12 +73,23 @@ jest.mock('@react-navigation/native', () => {
     useFocusEffect: (cb: () => void | (() => void)) => react.useEffect(cb, [cb]),
     useNavigation: () => ({ navigate: jest.fn(), goBack: jest.fn() }),
     useRoute: () => ({ params: {} }),
+    // `usePagedList` reads it for its refocus refresh; no navigator here is fine.
+    NavigationContext: react.createContext(undefined),
   };
 });
 
 import NewRequestsScreen from '../screens/new-requests-screen/containers/NewRequestsScreen';
 import { withProviders } from './test-utils';
-import { BookingState, BookingStatusType } from '../services/bookings';
+import { BookingState, BookingStatusType, BookingSortBy } from '../services/bookings';
+
+const page = (items: unknown[]) => ({
+  items,
+  totalItems: items.length,
+  totalPages: 1,
+  currentPage: 1,
+  itemsPerPage: 20,
+  hasMore: false,
+});
 
 /** A pending request as GET /api/bookings returns it, includes and all. */
 const pendingBooking = (id: number, petName: string) => ({
@@ -105,7 +121,10 @@ const pendingBooking = (id: number, petName: string) => ({
 describe('NewRequestsScreen — accepting a request', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetBookings.mockResolvedValue([pendingBooking(101, 'Rex'), pendingBooking(102, 'Milo')]);
+    mockGetBookings.mockResolvedValue(
+      page([pendingBooking(101, 'Rex'), pendingBooking(102, 'Milo')])
+    );
+    mockCountBookings.mockResolvedValue(2);
   });
 
   it('renders the partner’s pending requests', async () => {
@@ -113,8 +132,15 @@ describe('NewRequestsScreen — accepting a request', () => {
     expect(await screen.findByText('Rex')).toBeTruthy();
     expect(screen.getByText('Milo')).toBeTruthy();
     expect(mockGetBookings).toHaveBeenCalledTimes(1);
+    // The New tab asks the server for what is still open, soonest first: not the first 50 of
+    // everything, filtered here.
     expect(mockGetBookings).toHaveBeenCalledWith(
-      expect.objectContaining({ serviceProviderId: 77 })
+      expect.objectContaining({
+        serviceProviderId: 77,
+        state: BookingState.Upcoming,
+        sortBy: BookingSortBy.SoonestFirst,
+      }),
+      1
     );
   });
 

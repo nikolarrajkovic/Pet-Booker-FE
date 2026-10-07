@@ -12,7 +12,7 @@ import { useResponsive } from '../../../hooks/useResponsive';
 import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
-import { getBookings, parseBookingDate, BookingStatusType } from '../../../services/bookings';
+import { countBookings, BookingState } from '../../../services/bookings';
 import { MenuItem } from '../components';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import Constants from 'expo-constants';
@@ -146,23 +146,23 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      if (currentUser?.id) {
+      // A managed partner's login has no user record (and books nothing as a customer), so
+      // both reads below were a 401 on every visit to Profile.
+      if (currentUser?.id && !isProviderProfile) {
         getUser(currentUser.id)
           .then((u) => {
             if (!cancelled) setUser(u);
           })
           .catch(() => {});
-        getBookings({ userId: currentUser.id })
-          .then((list) => {
+        // Two counts rather than a page of bookings: a page of the oldest 50 never contained the
+        // session that was due once an account had more. Accepted excludes expired ones.
+        Promise.all([
+          countBookings({ userId: currentUser.id, state: BookingState.InProgress }),
+          countBookings({ userId: currentUser.id, state: BookingState.Accepted }),
+        ])
+          .then(([started, upcoming]) => {
             if (cancelled) return;
-            const started = list.some((b) => b.currentStatus === BookingStatusType.ServiceStarted);
-            const upcoming = list.some(
-              (b) =>
-                (b.currentStatus === BookingStatusType.ServiceConfirmedByProvider ||
-                  b.currentStatus === BookingStatusType.PrePayment) &&
-                parseBookingDate(b.bookingTo).getTime() >= Date.now()
-            );
-            setLiveSession(started ? 'started' : upcoming ? 'upcoming' : 'none');
+            setLiveSession(started > 0 ? 'started' : upcoming > 0 ? 'upcoming' : 'none');
           })
           .catch(() => {
             if (!cancelled) setLiveSession('none');
@@ -171,7 +171,7 @@ export default function ProfileScreen() {
       return () => {
         cancelled = true;
       };
-    }, [currentUser?.id])
+    }, [currentUser?.id, isProviderProfile])
   );
 
   const fullName =
@@ -207,7 +207,9 @@ export default function ProfileScreen() {
 
   const handleMenuPress = (id: string) => {
     if (id === 'live-session') (navigation as any).navigate('LiveSession', { mode: 'user' });
-    else if (id === 'account') (navigation as any).navigate('Account');
+    // A managed partner's login has no personal account to edit — their profile is the business.
+    else if (id === 'account')
+      (navigation as any).navigate(isProviderProfile ? 'BusinessProfile' : 'Account');
     else if (id === 'pets') (navigation as any).navigate('MyPets');
     else if (id === 'bookings') (navigation as any).navigate('MyBookings');
     else if (id === 'group-requests') (navigation as any).navigate('MyGroupRequests');

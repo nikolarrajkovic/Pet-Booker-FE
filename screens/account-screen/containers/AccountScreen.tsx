@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import {
   ScrollView,
   Text,
@@ -42,7 +43,8 @@ type PickedPhoto = { uri: string; fileName?: string; mimeType?: string };
 
 export default function AccountScreen() {
   const gutter = usePageGutter();
-  const { currentUser, refreshUser } = useAuth();
+  const { currentUser, refreshUser, isProviderProfile } = useAuth();
+  const navigation = useNavigation<any>();
   const {
     isDarkMode,
     bgColor,
@@ -73,11 +75,17 @@ export default function AccountScreen() {
   const [address, setAddress] = useState<AddressDto | null>(null); // newly picked
   const [pickerVisible, setPickerVisible] = useState(false);
 
+  // A managed partner's login has no user record: this form could neither load nor save. Their
+  // editable profile is the business, so a link or bookmark to /account lands there instead.
+  useEffect(() => {
+    if (isProviderProfile) navigation.replace('BusinessProfile');
+  }, [isProviderProfile, navigation]);
+
   // Load the full user record (id from auth/me) and prefill the form.
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!currentUser?.id) {
+      if (!currentUser?.id || isProviderProfile) {
         setIsLoading(false);
         return;
       }
@@ -98,7 +106,7 @@ export default function AccountScreen() {
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.id, t]);
+  }, [currentUser?.id, isProviderProfile, t]);
 
   const pickProfilePhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocation } from '../../../hooks/useLocation';
@@ -7,16 +7,26 @@ import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import FormCard from '../../../components/shared/FormCard';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
-import { AddressDto } from '../../../services/service-providers';
+import { AddressDto, PROVIDER_NAME_TAKEN } from '../../../services/service-providers';
 import { PersonalInfoStep, ServiceInfoStep } from '../../partner-application-screen/components';
 import { showAlert } from '../../../services/alert';
+import { invitePartner } from '../../../services/admin';
+import { ApiError, getErrorMessage } from '../../../services/http';
+import { LANGUAGES } from '../../../i18n';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { useResponsive } from '../../../hooks/useResponsive';
+import StepProgress from '../../../components/shared/StepProgress';
 
 export default function AdminAddPartnerScreen() {
   const gutter = usePageGutter();
+  const { isWebLayout } = useResponsive();
   const navigation = useNavigation();
   const location = useLocation();
-  const { t } = useLocale();
+  const { t, language } = useLocale();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  // The invite email's language: the partner's, which may not be the admin's.
+  const [inviteLanguage, setInviteLanguage] = useState<string>(language);
   const {
     isDarkMode,
     bgColor,
@@ -32,8 +42,10 @@ export default function AdminAddPartnerScreen() {
   const [step, setStep] = useState(1);
   const [addressPickerVisible, setAddressPickerVisible] = useState(false);
 
+  const [businessNameError, setBusinessNameError] = useState('');
   const [formData, setFormData] = useState({
     fullName: '',
+    businessName: '',
     email: '',
     phone: '',
     country: '',
@@ -47,8 +59,12 @@ export default function AdminAddPartnerScreen() {
     motivation: '',
   });
 
+  // A taken-name error describes the name as it was; editing either name clears it.
+  useEffect(() => {
+    setBusinessNameError('');
+  }, [formData.businessName, formData.fullName]);
+
   const totalSteps = 2;
-  const progressPercentage = (step / totalSteps) * 100;
 
   const themeProps = {
     isDarkMode,
@@ -71,12 +87,53 @@ export default function AdminAddPartnerScreen() {
     }));
   };
 
-  const handleSubmit = () => {
-    showAlert(
-      t('admin.partnerAddedTitle'),
-      t('admin.partnerAddedMsg', { name: formData.fullName || t('admin.partner') }),
-      [{ text: t('admin.ok'), onPress: () => navigation.goBack() }]
-    );
+  // Creates the partner (approved) and emails them an invite to set their password. This used to
+  // show "Partner added" and send nothing at all.
+  const handleSubmit = async () => {
+    const name = formData.businessName.trim() || formData.fullName.trim();
+    const email = formData.email.trim();
+    if (!name || !email.includes('@') || formData.serviceType == null) {
+      setSubmitError(t('admin.invitePartnerMissing'));
+      if (!name || !email.includes('@')) setStep(1);
+      return;
+    }
+    const years = /\d+/.exec(formData.yearsOfExperience)?.[0];
+    setIsSubmitting(true);
+    setSubmitError('');
+    try {
+      await invitePartner({
+        name,
+        email,
+        phone: formData.phone || null,
+        type: formData.serviceType,
+        yearsOfExperience: years ? Math.min(80, Number(years)) : null,
+        about: formData.aboutYou.trim() || null,
+        address: formData.streetAddress.trim()
+          ? {
+              id: 0,
+              line1: formData.streetAddress.trim(),
+              line2: '',
+              city: formData.city.trim(),
+              state: '',
+              postalCode: formData.zipCode.trim(),
+              country: formData.country || 'RS',
+            }
+          : null,
+        language: inviteLanguage,
+      });
+      showAlert(t('admin.partnerInvitedTitle'), t('admin.partnerInvitedMsg', { name, email }), [
+        { text: t('admin.ok'), onPress: () => navigation.goBack() },
+      ]);
+    } catch (e) {
+      if (e instanceof ApiError && e.hasCode(PROVIDER_NAME_TAKEN)) {
+        setBusinessNameError(e.message);
+        setStep(1);
+        return;
+      }
+      setSubmitError(getErrorMessage(e, t('admin.invitePartnerFailed')));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Named so Enter on a step's last field can run exactly what Continue runs — the same screen
@@ -89,6 +146,27 @@ export default function AdminAddPartnerScreen() {
     }
   };
 
+  const actions = (
+    <>
+      {submitError ? (
+        <Text className="mb-3 text-center text-sm text-red-500">{submitError}</Text>
+      ) : null}
+      <TouchableOpacity
+        accessibilityRole="button"
+        onPress={handleContinue}
+        disabled={isSubmitting}
+        className={`items-center rounded-2xl bg-brand-500 py-4 ${isSubmitting ? 'opacity-70' : ''}`}>
+        {isSubmitting ? (
+          <ActivityIndicator color="white" />
+        ) : (
+          <Text className="text-lg font-bold text-white">
+            {step === totalSteps ? t('admin.sendInvite') : t('admin.continue')}
+          </Text>
+        )}
+      </TouchableOpacity>
+    </>
+  );
+
   return (
     <ScreenLayout
       headerVariant="standard"
@@ -96,23 +174,7 @@ export default function AdminAddPartnerScreen() {
       headerTitle={t('admin.addPartnerTitle')}
       headerSubtitle={t('admin.addPartnerSubtitle')}
       contentBg={bgColor}
-      headerChildren={
-        <>
-          <View className="mb-2 mt-4">
-            <View className="h-2 overflow-hidden rounded-full bg-white/30">
-              <View
-                className="h-full rounded-full bg-white transition-all duration-300"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </View>
-          </View>
-          {/* mb-6: clears the rounded content sheet, which is pulled 32px up over the header
-              (AppHeader's own pb-6 covers 24 of it). */}
-          <Text className="mb-6 text-sm text-white">
-            {t('partnerWelcome.stepOf', { current: step, total: totalSteps })}
-          </Text>
-        </>
-      }
+      headerChildren={<StepProgress step={step} total={totalSteps} />}
       // A form: one column of fields. Capped narrow so a label never sits a screen-width
       // away from the input it names.
       width="narrow">
@@ -120,7 +182,8 @@ export default function AdminAddPartnerScreen() {
         className="flex-1"
         contentContainerStyle={{
           paddingTop: 24,
-          paddingBottom: 100,
+          // The phone's action bar sits below the scroll; the web one is inside it, after the form.
+          paddingBottom: isWebLayout ? 40 : 100,
           paddingHorizontal: gutter.value,
         }}>
         <FormCard>
@@ -130,32 +193,57 @@ export default function AdminAddPartnerScreen() {
               formData={formData}
               setFormData={setFormData}
               onOpenAddressMap={() => setAddressPickerVisible(true)}
+              businessNameError={businessNameError}
               {...themeProps}
             />
           )}
 
           {step === 2 && (
-            <ServiceInfoStep
-              formData={formData}
-              setFormData={setFormData}
-              onContinue={handleContinue}
-              {...themeProps}
-            />
+            <>
+              <ServiceInfoStep
+                formData={formData}
+                setFormData={setFormData}
+                onContinue={handleContinue}
+                showMotivation={false}
+                {...themeProps}
+              />
+              {/* The invite email goes out in the partner's language. */}
+              <Text className={`mb-1 text-sm font-semibold ${textColor}`}>
+                {t('admin.inviteLanguage')}
+              </Text>
+              <Text className={`mb-3 text-xs ${subtextColor}`}>
+                {t('admin.inviteLanguageHint')}
+              </Text>
+              <View className="mb-2 flex-row flex-wrap" style={{ gap: 8 }}>
+                {LANGUAGES.map((lang) => {
+                  const selected = inviteLanguage === lang.code;
+                  return (
+                    <TouchableOpacity
+                      key={lang.code}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      onPress={() => setInviteLanguage(lang.code)}
+                      className={`rounded-full border px-4 py-2 ${selected ? 'border-brand-500 bg-brand-500' : borderColor}`}>
+                      <Text
+                        className={`text-sm font-medium ${selected ? 'text-white' : textColor}`}>
+                        {lang.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </>
           )}
         </FormCard>
+        {isWebLayout && <View className="mt-6">{actions}</View>}
       </ScrollView>
 
-      {/* Fixed Bottom Button */}
-      <View className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={handleContinue}
-          className="items-center rounded-2xl bg-brand-500 py-4">
-          <Text className="text-lg font-bold text-white">
-            {step === totalSteps ? t('admin.addPartner') : t('admin.continue')}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* Phone: the action bar pinned under the form. On the web design it follows the form
+          inside the scroll instead — a full-width white strip at the bottom of the window,
+          detached from the card above it, read as a separate panel. */}
+      {!isWebLayout && (
+        <View className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>{actions}</View>
+      )}
 
       {/* Map picker for the street address — opens on the current location */}
       {addressPickerVisible && (

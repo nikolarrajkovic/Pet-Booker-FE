@@ -85,7 +85,8 @@ const CATEGORY_CONFIG: Record<
     /** Expressed as catalogue-search parameters — pages and filters normally. */
     preset?: Partial<GetServicesParams>;
     /** A Home endpoint returning one complete list, for what a preset can't express. */
-    load?: (lat: number, lng: number) => Promise<ServiceDto[]>;
+    /** `lat`/`lng` are omitted when there is no real device position (see getNearMe). */
+    load?: (lat?: number, lng?: number) => Promise<ServiceDto[]>;
     /** True only where `load` actually reads the coordinates. */
     usesLocation?: boolean;
   }
@@ -376,10 +377,17 @@ export default function SearchScreen() {
     [filterParamsKey]
   );
 
+  // Only a list that reads the position (near-me) cares whether there is a real one. Keyed on
+  // that alone: in a browser that denies or lacks geolocation the error arrives after mount, and
+  // depending on it everywhere reloaded page one of every plain browse list a second time.
+  const positionUnavailable = !!categoryConfig?.usesLocation && !!location.error;
   const fetchPage = useCallback(
     async (page: number): Promise<PagedResult<ServiceDto>> => {
       if (categoryConfig?.load) {
-        const dtos = await categoryConfig.load(latitude, longitude);
+        // Without a real position, let the server rank from the saved address (see getNearMe).
+        const dtos = positionUnavailable
+          ? await categoryConfig.load()
+          : await categoryConfig.load(latitude, longitude);
         return {
           items: dtos,
           totalItems: dtos.length,
@@ -398,7 +406,7 @@ export default function SearchScreen() {
         perPage: PAGE_SIZE,
       });
     },
-    [categoryConfig, latitude, longitude, filterParams, sortBy]
+    [categoryConfig, latitude, longitude, positionUnavailable, filterParams, sortBy]
   );
 
   const {
@@ -749,9 +757,10 @@ export default function SearchScreen() {
     //
     // Beside the rail the map also needs a definite height: TwoColumn lays its columns out
     // top-aligned with auto height, so a `flex-1` map collapses to its 400px minimum and reads as
-    // a letterbox strip under the header.
+    // a letterbox strip under the header. And not `flex-1` there: its 0 flex-basis outranks the
+    // height inside that content-sized column, which is how the map stayed 400px tall anyway.
     <View
-      className={`flex-1 ${isWebLayout ? 'px-8 pb-4' : 'pb-20'}`}
+      className={`${showFilterRail ? '' : 'flex-1'} ${isWebLayout ? 'px-8 pb-4' : 'pb-20'}`}
       style={showFilterRail ? { height: 680 } : undefined}>
       {queryChip}
       <MapViewComponent services={mapServices} location={location} isDarkMode={isDarkMode} />

@@ -60,6 +60,16 @@ export type CertificateFileDto = {
 // ApprovalStatus enum (providers, certificates, reviews): 0=Pending, 1=Approved, 2=Declined
 export const ApprovalStatus = { Pending: 0, Approved: 1, Declined: 2 } as const;
 
+/** The 422 rule code for a name another partner already has (names customers see are unique). */
+export const PROVIDER_NAME_TAKEN = 'ServiceProvider_NameTaken';
+
+/**
+ * An admin's moderation of a partner — backend `ProviderModerationStatus`, derived from dates on
+ * every read, so a timeout that has run out simply reads Active.
+ */
+export const ModerationStatus = { Active: 0, TimedOut: 1, Banned: 2 } as const;
+export type ModerationStatusValue = (typeof ModerationStatus)[keyof typeof ModerationStatus];
+
 /**
  * Row order for the admin lists (applications, partners, reviews) — backend `SubmissionOrder`.
  * Ranked by id, which is arrival order; omitted means oldest first, the historical order.
@@ -89,6 +99,14 @@ export type ServiceProviderDto = {
   type: number;
   currency?: string | null;
   contactEmail?: string | null;
+  /** From the partner application. Owner/admin only — null for anyone else. */
+  contactPhone?: string | null;
+  /** Why they want to partner (application). Owner/admin only. */
+  motivation?: string | null;
+  /** Public profile: how long they have done this work. */
+  yearsOfExperience?: number | null;
+  /** Public profile: the partner's own description of themselves. */
+  about?: string | null;
   userId?: number | null;
   providerProfileId?: number | null;
   address?: AddressDto;
@@ -102,8 +120,21 @@ export type ServiceProviderDto = {
   ratingAvg?: number | null; // server-computed average rating (null until reviews exist)
   reviewCount?: number; // number of reviews backing ratingAvg (exposed at list level now)
   serviceCount?: number; // services the provider lists — filled on find/search in one batched query
+  /**
+   * Government-ID images on file — owner/admin only (null otherwise). Set on list rows too, which
+   * never carry the images themselves: only find-by-id does.
+   */
+  governmentIdPhotoCount?: number | null;
   addressId?: number | null;
   isApplicationPartner?: boolean; // true when created via the partner-application flow
+  /** Timeout or ban (ModerationStatus). Public: a page can say they aren't taking bookings. */
+  moderationStatus?: ModerationStatusValue;
+  /** When the running timeout ends (an instant). Owner/admin only. */
+  timedOutUntil?: string | null;
+  /** When the ban began. Owner/admin only. */
+  bannedAt?: string | null;
+  /** The admin's reason for the timeout or ban in force. Owner/admin only. */
+  moderationReason?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -124,6 +155,10 @@ export type ProviderViewModel = {
   price: number; // 0 until services are loaded (populated in ProviderDetail)
   image: string; // first isSelected photo, or first photo
   verified: boolean; // = isApproved
+  /** The partner's own description, from their application (public). */
+  about?: string | null;
+  /** Years doing this work, from their application (public). */
+  yearsOfExperience?: number | null;
   latitude: number; // 0 — not in API
   longitude: number; // 0 — not in API
   address?: AddressDto;
@@ -218,6 +253,8 @@ export function providerToViewModel(dto: ServiceProviderDto): ProviderViewModel 
     latitude: dto.address?.location?.latitude ?? 0,
     longitude: dto.address?.location?.longitude ?? 0,
     address: dto.address,
+    about: dto.about ?? null,
+    yearsOfExperience: dto.yearsOfExperience ?? null,
   };
 }
 
@@ -304,6 +341,8 @@ export type GetServiceProvidersParams = {
   type?: number;
   isApproved?: boolean;
   approvalStatus?: number; // ApprovalStatus
+  /** Admin-only: Active, TimedOut or Banned (ModerationStatus). */
+  moderation?: ModerationStatusValue;
   order?: SubmissionOrderValue;
   page?: number;
   perPage?: number;
@@ -318,6 +357,7 @@ function providersRequest(params?: GetServiceProvidersParams): ApiRequestOptions
       Type: params?.type,
       IsApproved: params?.isApproved,
       ApprovalStatus: params?.approvalStatus,
+      Moderation: params?.moderation,
       Order: params?.order,
       Page: params?.page ?? 1,
       PerPage: params?.perPage ?? 50,
@@ -373,6 +413,56 @@ export function getServiceProvider(id: number): Promise<ServiceProviderDto> {
   });
 }
 
+/** The fields a partner edits on their business profile. */
+export type BusinessProfileUpdate = {
+  name: string;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  yearsOfExperience: number | null;
+  about: string | null;
+  /** A newly picked address (sent as id 0), or null to keep the saved one. */
+  address: AddressDto | null;
+  /**
+   * The whole gallery, when the profile photo changes: the server replaces the gallery with what
+   * it is sent (an empty array leaves it alone), so the existing photos go back too. Omit to keep it.
+   */
+  photos?: PhotoDto[];
+};
+
+/**
+ * Saves a partner's business profile (`PUT /api/service-providers/{id}`) from the record they
+ * loaded. Only the profile fields change: photos, government-ID photos and certificates go as
+ * empty arrays, which the server reads as "leave as they are", and approval and moderation are
+ * never client-written.
+ */
+export function updateBusinessProfile(
+  current: ServiceProviderDto,
+  changes: BusinessProfileUpdate
+): Promise<ServiceProviderDto> {
+  return apiJson<ServiceProviderDto>(`/api/service-providers/${current.id}`, {
+    method: 'PUT',
+    body: {
+      id: current.id,
+      type: current.type,
+      currency: current.currency || 'RSD',
+      userId: current.userId ?? null,
+      providerProfileId: current.providerProfileId ?? null,
+      motivation: current.motivation ?? null,
+      name: changes.name.trim(),
+      contactEmail: changes.contactEmail?.trim() || null,
+      contactPhone: changes.contactPhone?.trim() || null,
+      yearsOfExperience: changes.yearsOfExperience,
+      about: changes.about?.trim() || null,
+      address: changes.address ? { ...changes.address, id: 0 } : (current.address ?? null),
+      photos: changes.photos ?? [],
+      governmentIdPhotos: [],
+      certificates: [],
+    },
+    fallback: 'Failed to save your profile.',
+    context: 'updateBusinessProfile',
+  });
+}
+
 // NOTE: a partner's own provider id is now exposed on /auth/me as
 // `currentUser.serviceProviderId` (P1 resolved) — read it directly instead of
 // fetching the provider list. (The old getMyProvider helper has been removed.)
@@ -392,6 +482,8 @@ export function providerTypeLabel(type: number): string {
 
 export type CreateServiceProviderPayload = {
   fullName: string;
+  /** The name customers see; falls back to the applicant's own name when blank. */
+  businessName?: string;
   email: string;
   phone: string;
   streetAddress: string;
@@ -425,6 +517,13 @@ export type CreateServiceProviderPayload = {
   }[];
   userId: number;
 };
+
+/** "5", "5 years", "5+" → 5; anything without a number → null. */
+function parseYears(value: string): number | null {
+  const match = /\d+/.exec(value ?? '');
+  if (!match) return null;
+  return Math.min(80, Number(match[0]));
+}
 
 export async function createServiceProvider(payload: CreateServiceProviderPayload): Promise<void> {
   // Build a single flat upload list, tracking where each group starts:
@@ -494,12 +593,18 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
 
   const body = {
     id: 0,
-    name: payload.fullName,
+    name: payload.businessName?.trim() || payload.fullName.trim(),
     // The type the applicant picked in step 2 (ServiceProviderType, from /enums).
     type: payload.serviceType,
     // Approval is server-controlled: new applications start Pending — an admin
     // approves/declines later via the /admin endpoints.
     contactEmail: payload.email,
+    // What the application asks is kept on the provider (it used to be collected and dropped):
+    // the phone and motivation for the admin reviewing it, About and experience for the profile.
+    contactPhone: payload.phone || null,
+    yearsOfExperience: parseYears(payload.yearsOfExperience),
+    about: payload.aboutYou.trim() || null,
+    motivation: payload.motivation.trim() || null,
     // The API enforces a XOR: exactly ONE of userId / providerProfileId may be set.
     // An applicant is a user, so providerProfileId MUST be null here (sending 0 counts
     // as "provided" and trips the CK_ServiceProvider_OwnerXor DB constraint → 500).

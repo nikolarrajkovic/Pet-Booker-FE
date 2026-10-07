@@ -123,6 +123,11 @@ export function routeForPayload(
     // state (an approved partner can list services, a declined one cannot). The notification’s
     // own message carries the decline reason.
     case NotificationType.ServiceProviderDeclined:
+    // A timeout or ban (or its lift): the hub carries the paused banner with the date and reason.
+    case NotificationType.ProviderTimedOut:
+    case NotificationType.ProviderTimeoutLifted:
+    case NotificationType.ProviderBanned:
+    case NotificationType.ProviderUnbanned:
     case NotificationType.CertificateApproved:
     case NotificationType.CertificateDeclined:
     // An expiring certificate is renewed from the same place it was uploaded.

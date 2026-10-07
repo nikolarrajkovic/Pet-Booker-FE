@@ -2,11 +2,17 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import './global.css';
-import React, { useEffect, useMemo, useState } from 'react';
-import { View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  DefaultTheme,
+  DarkTheme,
+  getStateFromPath,
+  getActionFromState,
+} from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from './screens/home-screen/containers/HomeScreen';
@@ -26,10 +32,16 @@ import ApplicationSubmittedScreen from './screens/application-submitted-screen/c
 import AccountScreen from './screens/account-screen/containers/AccountScreen';
 import ChangePasswordScreen from './screens/change-password-screen/containers/ChangePasswordScreen';
 import ForgotPasswordScreen from './screens/forgot-password-screen/containers/ForgotPasswordScreen';
+import AlertHost from './components/shared/AlertHost';
+import AcceptInviteScreen from './screens/accept-invite-screen/containers/AcceptInviteScreen';
 import MyBookingsScreen from './screens/my-bookings-screen/containers/MyBookingsScreen';
 import BookingDetailsScreen from './screens/booking-details-screen/containers/BookingDetailsScreen';
 import MyScheduleScreen from './screens/my-schedule-screen/containers/MyScheduleScreen';
 import MyServicesScreen from './screens/my-services-screen/containers/MyServicesScreen';
+import BusinessProfileScreen from './screens/business-profile-screen/containers/BusinessProfileScreen';
+import LegalScreen from './screens/legal-screen/containers/LegalScreen';
+import HelpScreen from './screens/help-screen/containers/HelpScreen';
+import PaymentMethodsScreen from './screens/payment-methods-screen/containers/PaymentMethodsScreen';
 import AddEditServiceScreen from './screens/my-services-screen/containers/AddEditServiceScreen';
 import ServicePreviewScreen from './screens/service-preview-screen/containers/ServicePreviewScreen';
 import NotificationsScreen from './screens/notifications-screen/containers/NotificationsScreen';
@@ -70,6 +82,12 @@ import AppShell from './components/layout/AppShell';
 import { useResponsive } from './hooks/useResponsive';
 import { linking } from './navigation/linking';
 import { navigationRef } from './navigation/navigationRef';
+import {
+  captureInitialDeepLink,
+  clearPendingDeepLink,
+  rememberDeepLink,
+  takePendingDeepLink,
+} from './navigation/pendingDeepLink';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import {
   NotificationType,
@@ -129,6 +147,34 @@ function AppContent() {
   useEffect(() => {
     enableDocumentScroll();
   }, []);
+
+  // A link opened while signed out is kept and opened once the user signs in (see
+  // navigation/pendingDeepLink). Captured before the session restore settles; if that restore
+  // signs the user straight in, the navigator already resolved the link and it is dropped.
+  useEffect(() => {
+    captureInitialDeepLink();
+  }, []);
+  const restoreSettled = useRef(false);
+  useEffect(() => {
+    if (isLoading || restoreSettled.current) return;
+    restoreSettled.current = true;
+    if (isLoggedIn) clearPendingDeepLink();
+  }, [isLoading, isLoggedIn]);
+  useEffect(() => {
+    if (isLoggedIn) return;
+    const sub = Linking.addEventListener('url', ({ url }) => rememberDeepLink(url));
+    return () => sub.remove();
+  }, [isLoggedIn]);
+  useEffect(() => {
+    if (!navReady || !isLoggedIn) return;
+    const path = takePendingDeepLink();
+    if (!path || !linking.config) return;
+    const state = getStateFromPath(path, linking.config);
+    const action = state ? getActionFromState(state, linking.config) : undefined;
+    // Pushed on top of the signed-in home, so Back from the linked screen still has somewhere
+    // to go.
+    if (action) navigationRef.dispatch(action);
+  }, [navReady, isLoggedIn]);
 
   // Sign-in goes to Home (or Partner Hub for a managed provider account — see `MainTabs`),
   // with one exception: a partner who has an UNREAD "your application was approved"
@@ -258,6 +304,9 @@ function AppContent() {
                     options={{ animation: 'slide_from_bottom' }}
                   />
                   <Stack.Screen name="Settings" component={SettingsScreen} />
+                  <Stack.Screen name="Legal" component={LegalScreen} />
+                  <Stack.Screen name="Help" component={HelpScreen} />
+                  <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
                   <Stack.Screen name="BecomePartner" component={BecomePartnerScreen} />
                   <Stack.Screen name="PartnerApplication" component={PartnerApplicationScreen} />
                   <Stack.Screen
@@ -276,6 +325,7 @@ function AppContent() {
                   <Stack.Screen name="BookingDetails" component={BookingDetailsScreen} />
                   <Stack.Screen name="MySchedule" component={MyScheduleScreen} />
                   <Stack.Screen name="MyServices" component={MyServicesScreen} />
+                  <Stack.Screen name="BusinessProfile" component={BusinessProfileScreen} />
                   <Stack.Screen
                     name="AddEditService"
                     component={AddEditServiceScreen}
@@ -323,12 +373,19 @@ function AppContent() {
                   <Stack.Screen name="Register" component={RegisterScreen} />
                   <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
                   <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+                  <Stack.Screen name="AcceptInvite" component={AcceptInviteScreen} />
+                  {/* Readable before an account exists: sign-up links to both. */}
+                  <Stack.Screen name="Legal" component={LegalScreen} />
+                  <Stack.Screen name="Help" component={HelpScreen} />
                 </>
               )}
             </Stack.Navigator>
           </AppShell>
         </NavigationContainer>
       </KeyboardProvider>
+      {/* The web build's dialog for showAlert (see services/alert.web.ts). Harmless on native,
+          where showAlert is the platform dialog and nothing ever reaches this host. */}
+      <AlertHost />
       {/* First-run language chooser — asks the user before they interact. */}
       <LanguagePicker visible={!hasChosen} current={language} onSelect={setLanguage} />
       <StatusBar style={isDarkMode ? 'light' : 'auto'} />
@@ -375,6 +432,10 @@ const SCREEN_TITLE_KEYS: Record<string, TranslationKey> = {
   PartnerApplication: 'partnerApplication.title',
   MySchedule: 'profile.schedule',
   MyServices: 'myServices.title',
+  BusinessProfile: 'businessProfile.title',
+  Legal: 'legal.termsTitle',
+  Help: 'help.title',
+  PaymentMethods: 'payments.methodsTitle',
   NewRequests: 'partnerHub.requests',
   Promotions: 'promotions.title',
   LiveSession: 'liveSession.title',
@@ -386,6 +447,7 @@ const SCREEN_TITLE_KEYS: Record<string, TranslationKey> = {
   Login: 'login.signIn',
   Register: 'register.subtitle',
   VerifyEmail: 'verifyEmail.title',
+  AcceptInvite: 'acceptInvite.title',
   ForgotPassword: 'forgotPassword.title',
 };
 

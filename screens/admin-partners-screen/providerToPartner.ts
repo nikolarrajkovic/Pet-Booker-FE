@@ -1,16 +1,23 @@
 import {
+  ModerationStatus,
   providerTypeLabel,
   resolveImageUrl,
+  type ModerationStatusValue,
   type ServiceProviderDto,
 } from '../../services/service-providers';
-import type { Partner } from './components';
+import type { Partner, PartnerStatus } from './components';
 import { formatMonthYear } from '../../i18n/dates';
 
 // Maps a raw ServiceProviderDto into the Partner card/detail view shape.
-// The backend has no timeout/ban moderation concept, so every provider maps to
-// 'active'; the admin can still timeout/ban in-session (kept as local overrides).
-// Fields not exposed at the list level (reviews count, total services, phone,
-// bio, starting price) default to 0/'' until the API provides them.
+// The starting price and recent bookings are not on the list row; Partner Details loads them.
+
+/** The server's moderation status (derived from dates, so an expired timeout is Active). */
+export function partnerStatusOf(status?: ModerationStatusValue | null): PartnerStatus {
+  if (status === ModerationStatus.Banned) return 'banned';
+  if (status === ModerationStatus.TimedOut) return 'timeout';
+  return 'active';
+}
+
 /** Per-provider tallies the provider list itself doesn't carry. */
 export type ProviderTallies = { services: number; reviews: number };
 
@@ -28,7 +35,7 @@ export function providerToPartner(dto: ServiceProviderDto, tallies?: ProviderTal
     id: String(dto.id ?? 0),
     name: dto.name ?? 'Unknown Provider',
     image: resolveImageUrl(profilePhoto?.src),
-    status: 'active',
+    status: partnerStatusOf(dto.moderationStatus),
     rating,
     // Counted from the catalogue/review lists fetched alongside the providers. Both used to be
     // hardcoded 0, so every partner in this list read "0 services · (0)" no matter how many they
@@ -39,17 +46,22 @@ export function providerToPartner(dto: ServiceProviderDto, tallies?: ProviderTal
     distance: addr?.city ?? '',
     joinedDate: created ? formatMonthYear(created) : '',
     email: dto.contactEmail ?? '',
-    phone: '',
+    // An admin reads these (the API withholds the phone from everyone else).
+    phone: dto.contactPhone ?? '',
     address,
-    bio: '',
-    startingPrice: 0,
+    bio: dto.about ?? '',
     currency: dto.currency,
     avgRating: rating,
+    moderationReason: dto.moderationReason ?? null,
+    timedOutUntil: dto.timedOutUntil ?? null,
+    bannedAt: dto.bannedAt ?? null,
     documents: {
       profilePhoto: !!profilePhoto?.src,
-      governmentId: (dto.governmentIdPhotos ?? []).some((p) => p.src),
+      // List rows never carry the ID images; the server counts them for an admin instead.
+      governmentId:
+        (dto.governmentIdPhotoCount ?? (dto.governmentIdPhotos ?? []).filter((p) => p.src).length) >
+        0,
       insuranceCertificate: (dto.certificates ?? []).some((c) => (c.files ?? []).length > 0),
     },
-    serviceHistory: [],
   };
 }

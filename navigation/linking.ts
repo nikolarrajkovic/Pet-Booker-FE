@@ -60,6 +60,16 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
           service: () => 'undefined',
         },
       },
+      // A provider's public page by id, opened from a service's provider card. Same shape as
+      // ServiceDetail: the optional view model is a head start and stays out of the URL.
+      ProviderDetail: {
+        path: 'providers/:providerId',
+        parse: { providerId: Number },
+        stringify: {
+          providerId: (id: number) => String(id),
+          provider: () => 'undefined',
+        },
+      },
       BookingDetails: {
         path: 'bookings/:bookingId',
         parse: { bookingId: Number },
@@ -104,6 +114,7 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       PartnerApplication: 'become-partner/apply',
       MySchedule: 'partner/schedule',
       MyServices: 'partner/services',
+      BusinessProfile: 'partner/profile',
       NewRequests: 'partner/requests',
       GroupRequests: 'partner/group-requests',
       Promotions: 'partner/promotions',
@@ -123,6 +134,12 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       Register: 'register',
       VerifyEmail: 'verify-email',
       ForgotPassword: 'forgot-password',
+      // A managed partner's invite email links here with the set-password token.
+      AcceptInvite: 'accept-invite',
+      // Readable signed in or out: /legal/terms, /legal/privacy.
+      Legal: 'legal/:doc',
+      Help: 'help',
+      PaymentMethods: 'account/payment-methods',
     },
   },
 };

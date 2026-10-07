@@ -7,22 +7,20 @@
  * empty form looked like a dead button, and why a successful password change neither confirmed
  * nor navigated back: both lived in `Alert.alert` callbacks.
  *
- * The browser's own dialogs are used deliberately. They are plain, but they are synchronous and
- * modal in the way the call sites assume — a promise-based replacement would need all 32 of them
- * rewritten, and a styled one needs a provider the imperative callers cannot reach. Replacing
- * these with the app's own dialog is worth doing; having the buttons work is worth doing first.
+ * Rendered by the app's own dialog (`AlertHost`, reached through `alert-bus`). The browser's
+ * `window.alert`/`confirm` remain only as the fallback before the host has mounted (and in unit
+ * tests): they are synchronous and modal the way the call sites assume, but they are the grey
+ * system box at the top of the window, which read as a site error rather than part of the app.
  *
  * Button semantics follow `Alert.alert`:
  *  - none or one  → a message, then that button's `onPress`
  *  - two or more  → a confirm; OK runs the first non-cancel button, Cancel the cancel one
  */
-type AlertButton = {
-  text?: string;
-  onPress?: (value?: string) => void;
-  style?: 'default' | 'cancel' | 'destructive';
-};
+import { requestAlert, type AlertButton } from './alert-bus';
 
 export function showAlert(title: string, message?: string, buttons?: AlertButton[]): void {
+  if (requestAlert({ title, message, buttons })) return;
+
   const body = [title, message].filter(Boolean).join('\n\n');
 
   if (!buttons || buttons.length <= 1) {

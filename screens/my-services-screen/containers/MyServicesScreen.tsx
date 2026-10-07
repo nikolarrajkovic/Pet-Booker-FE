@@ -198,6 +198,7 @@ export default function MyServicesScreen() {
                   <ServiceListCard
                     key={ui.id}
                     service={ui}
+                    notBookable={dto.isBookable === false}
                     currency={serviceCurrency(dto)}
                     isDarkMode={isDarkMode}
                     onEdit={() => handleEdit(dto)}
@@ -217,10 +218,13 @@ function ServiceListCard({
   service,
   currency,
   isDarkMode,
+  notBookable,
   onEdit,
   onDelete,
 }: {
   service: UiService;
+  /** No working hours (or paused): customers see it as unavailable and cannot book it. */
+  notBookable?: boolean;
   /** The service's own currency; omit to use the partner's display preference. */
   currency?: string | null;
   isDarkMode: boolean;
@@ -268,6 +272,7 @@ function ServiceListCard({
         <View className="absolute right-3 top-3 flex-row" style={{ gap: 8 }}>
           <TouchableOpacity
             accessibilityRole="button"
+            accessibilityLabel={t('myServices.editA11y', { name: service.name })}
             onPress={onEdit}
             className="h-9 w-9 items-center justify-center rounded-full bg-white"
             style={{ elevation: 3, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4 }}>
@@ -275,6 +280,7 @@ function ServiceListCard({
           </TouchableOpacity>
           <TouchableOpacity
             accessibilityRole="button"
+            accessibilityLabel={t('myServices.deleteA11y', { name: service.name })}
             onPress={onDelete}
             className="h-9 w-9 items-center justify-center rounded-full bg-red-500"
             style={{ elevation: 3, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 4 }}>
@@ -294,6 +300,19 @@ function ServiceListCard({
 
         {/* Name */}
         <Text className={`text-base font-bold ${textColor} mb-1`}>{service.name}</Text>
+
+        {/* Customers cannot book a service with no working hours; tell the partner why. */}
+        {notBookable ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={onEdit}
+            className="mb-3 flex-row items-center rounded-xl border border-amber-300 bg-amber-50 px-3 py-2">
+            <Ionicons name="warning-outline" size={16} color="#B45309" />
+            <Text className="ml-2 flex-1 text-xs font-medium text-amber-800">
+              {t('myServices.notBookableWarning')}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
 
         {/* Description */}
         <Text className={`text-sm ${subtextColor} mb-3`} numberOfLines={2}>

@@ -111,11 +111,29 @@ function safeJsonParse(text: string): unknown {
  */
 export class ApiError extends Error {
   readonly status: number;
+  /**
+   * The server's stable error code (`code` in the error body), when it sends one — the same in
+   * every language, so a screen can act on it (e.g. `Auth_EmailNotConfirmed`) instead of matching
+   * translated text.
+   */
+  readonly code?: string;
+  /**
+   * The per-rule codes of a 422 (`details[].errorCode`). Most are FluentValidation's generic ones;
+   * a rule a screen must react to carries its own (e.g. `ServiceProvider_NameTaken`).
+   */
+  readonly codes: string[];
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string, codes: string[] = []) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.code = code ?? undefined;
+    this.codes = codes;
+  }
+
+  /** True when the server named `code`, either as the error's code or as one rule's. */
+  hasCode(code: string): boolean {
+    return this.code === code || this.codes.includes(code);
   }
 
   /** The request never got an answer, so nothing is known about what was sent. */
@@ -487,7 +505,25 @@ export async function apiRequest(path: string, options: ApiRequestOptions): Prom
 
   if (!response.ok) {
     // Carries the status so a caller can branch on it (401 vs 500) instead of guessing from text.
-    throw new ApiError(await parseApiError(response, fallback, context), response.status);
+    // Read the code from a copy: parseApiError consumes the body.
+    const codeSource = response.clone();
+    const message = await parseApiError(response, fallback, context);
+    let code: string | undefined;
+    let codes: string[] = [];
+    try {
+      const parsed = (await codeSource.json()) as { code?: unknown; details?: unknown };
+      if (typeof parsed?.code === 'string') code = parsed.code;
+      if (Array.isArray(parsed?.details)) {
+        codes = parsed.details
+          .map((d) =>
+            d && typeof d === 'object' ? (d as { errorCode?: unknown }).errorCode : null
+          )
+          .filter((c): c is string => typeof c === 'string');
+      }
+    } catch {
+      // Not JSON — no code.
+    }
+    throw new ApiError(message, response.status, code, codes);
   }
 
   // A write landed, so whatever the cache holds for that resource is now behind the server.

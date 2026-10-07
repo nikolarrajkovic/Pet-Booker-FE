@@ -1,20 +1,26 @@
 import React, { useState } from 'react';
 import { Text, View, TouchableOpacity, TextInput } from 'react-native';
 
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useFormChain } from '../../../hooks/useFormChain';
 import { useAuth } from '../../../context/AuthContext';
-import { getErrorMessage, isNetworkError, statusOf } from '../../../services/http';
+import { ApiError, getErrorMessage, isNetworkError, statusOf } from '../../../services/http';
+
 import { useLocale } from '../../../context/LocaleContext';
 import Button from '../../../components/shared/Button';
 import AuthLayout from '../../../components/layout/AuthLayout';
 
+/** The gateway's code for a sign-in refused only because the email was never confirmed. */
+const EMAIL_NOT_CONFIRMED = 'Auth_EmailNotConfirmed';
+const ACCOUNT_BANNED = 'Auth_AccountBanned';
+
 type RootStackParamList = {
-  Login: undefined;
+  Login: { email?: string; notice?: string } | undefined;
   Register: undefined;
+  VerifyEmail: { email: string; resend?: boolean };
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -64,7 +70,11 @@ export default function LoginScreen() {
   const { t } = useLocale();
   const navigation = useNavigation<NavigationProp>();
 
-  const [identifier, setIdentifier] = useState('');
+  // Arriving from Accept Invite (or another flow that just set a password): the address to sign in
+  // with, and a line saying what happened.
+  const route = useRoute<RouteProp<RootStackParamList, 'Login'>>();
+  const [identifier, setIdentifier] = useState(route.params?.email ?? '');
+  const notice = route.params?.notice;
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -100,6 +110,20 @@ export default function LoginScreen() {
       setLoginError('');
       await signInWithCredentials(identifier.trim(), password);
     } catch (error) {
+      // The password was right but the email was never confirmed. Send them to finish it (with a
+      // fresh code when we know the address) instead of a dead end: a user who left the verify
+      // screen used to be told their credentials were invalid, with no way back.
+      if (error instanceof ApiError && error.code === EMAIL_NOT_CONFIRMED) {
+        const typed = identifier.trim();
+        const email = typed.includes('@') ? typed : '';
+        navigation.navigate('VerifyEmail', { email, resend: !!email });
+        return;
+      }
+      // A banned partner: say so plainly, and where the reason is (the ban email).
+      if (error instanceof ApiError && error.code === ACCOUNT_BANNED) {
+        setLoginError(t('moderation.loginBanned'));
+        return;
+      }
       setLoginError(resolveLoginError(error, t as (key: string) => string));
     } finally {
       setIsSubmitting(false);
@@ -201,6 +225,8 @@ export default function LoginScreen() {
       {/* Global login error */}
       {loginError ? (
         <Text className="mb-4 text-center text-sm text-red-500">{loginError}</Text>
+      ) : notice ? (
+        <Text className="mb-4 text-center text-sm text-brand-600">{notice}</Text>
       ) : null}
 
       {/* Sign In Button */}

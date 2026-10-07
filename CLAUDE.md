@@ -39,7 +39,7 @@ services/           # All API calls and storage utilities
   users.ts          # UserDto, getUser(id), updateUser(user) — profile data (GET + PUT; NO PATCH — see note)
   geocoding.ts      # reverseGeocodeToAddress + forwardGeocode + getCurrentPosition + addressLabel + addressToPoint (native: expo-location, web: Nominatim/navigator.geolocation). **`addressToPoint(addr)`** is the shared "AddressDto → coordinate" resolver: stored `address.location` when present, else forward-geocodes `line1, postalCode, city, country`, null on failure. Use it instead of hand-rolling the location-else-geocode dance (stored addresses very often have `location: null`). NOTE: `getCurrentPosition()` resolves **null** on denial/timeout rather than throwing — callers must treat null as a real failure state, not "still loading", or they render an infinite spinner.
   google-maps.ts    # WEB-ONLY Maps JavaScript API loader: loadGoogleMaps(language?) (idempotent script inject; key from EXPO_PUBLIC_GOOGLE_MAPS_WEB_KEY, sr → sr-Latn labels) + DEV_MAP_ID. Key is referrer-restricted (localhost:8081) + API-restricted; billing-less key = "For development purposes only" watermark, which is expected in dev. Only import from .web.tsx files.
-  web-map.ts        # WEB-ONLY map adapter every .web.tsx map goes through: createWebMap(container, { center, zoom, language, isDarkMode, classicStyles? }) → one small API (addMarker with svg/element/pin visuals, addLine incl. dashed, openPopup, fitBounds, setCenter/panTo/setZoom/getCenter, onIdle, destroy). Google when the Maps API loads; **Leaflet + OpenStreetMap tiles when it doesn't** (missing/placeholder key, wrong origin, blocked script) — so no web map is ever blank. Callers never touch either library. Always `destroy()` in the effect cleanup (Leaflet refuses to re-initialise a container). Leaflet specifics handled inside: the container gets `isolation: isolate` (Leaflet's z-index 400–1000 panes otherwise paint over the screen's own overlays — the picker's centre pin, the live map's chip) and a non-scrolling focus (Leaflet focuses on mousedown, which scrolled a half-visible map and swallowed the first click on a pin). OSM labels are local-script (Cyrillic in Belgrade) and dark mode dims the tiles — acceptable for a fallback; the real key restores Google.
+  web-map.ts        # WEB-ONLY map adapter every .web.tsx map goes through: createWebMap(container, { center, zoom, language, isDarkMode, classicStyles? }) → one small API (addMarker with svg/element/pin visuals, addLine incl. dashed, openPopup, fitBounds, setCenter/panTo/setZoom/getCenter, onIdle, destroy). Google when the Maps API loads; **Leaflet + OpenStreetMap tiles when it doesn't** (missing/placeholder key, wrong origin, blocked script) — so no web map is ever blank. Callers never touch either library. Always `destroy()` in the effect cleanup (Leaflet refuses to re-initialise a container). Leaflet's `fitBounds` is **not animated**: the search map is rebuilt as results page in, and a map destroyed mid zoom-animation throws `_leaflet_pos of undefined`. The search/group-request map (`MapView.web`) fits the reader plus the pins within 25 km (else the nearest five) on open — centred on the reader at a fixed zoom, results a few km away sat just off the edge. Beside the filter rail the search map has a fixed 680px height and must not be `flex-1` (its 0 flex-basis beats the height in a content-sized column, which pinned it to its 400px minimum). Leaflet specifics handled inside: the container gets `isolation: isolate` (Leaflet's z-index 400–1000 panes otherwise paint over the screen's own overlays — the picker's centre pin, the live map's chip) and a non-scrolling focus (Leaflet focuses on mousedown, which scrolled a half-visible map and swallowed the first click on a pin). OSM labels are local-script (Cyrillic in Belgrade) and dark mode dims the tiles — acceptable for a fallback; the real key restores Google.
 
 context/
   AuthContext.tsx   # isLoggedIn, isAdmin, isPartner, currentUser, auth actions
@@ -163,13 +163,13 @@ if (!response.ok) {
 ### `services/auth.ts`
 - `loginWithEmailPassword(payload)` → POST `/auth/login` → `{ accessToken, refreshToken }`
 - `refreshAccessToken(refreshToken)` → POST `/auth/refresh` → `{ accessToken, refreshToken? }`
-- `registerUser(payload)` → POST `/auth/register`
+- `registerUser(payload)` → POST `/auth/register`. Carries `acceptedTermsVersion` (`LEGAL_VERSION`); Register requires the terms checkbox first.
 - `getMe()` → GET `/auth/me` (auth) → `CurrentUser`
 - `confirmEmail(email, code)` → POST `/auth/confirm-email`
 - `resendConfirmation(email)` → POST `/auth/resend-confirmation`
 - `updateProfile({ userName, firstName, lastName, phone, email })` → PUT `/auth/profile` (auth). **Email is read-only server-side** — sending a changed email returns 400 "Email cannot be changed via profile update"; send the current email unchanged. AccountScreen keeps the email field read-only.
 - `changePassword({ currentPassword, newPassword, confirmPassword })` → POST `/auth/change-password` (auth)
-- `forgotPassword(email)` → POST `/auth/forgot-password` (public)
+- `forgotPassword(email)` → POST `/auth/forgot-password` (public). The email (in the account's language) links to `/forgot-password?token=…`: `ForgotPasswordScreen` reads `route.params.token` and opens straight on the new-password step with the token hidden; the code in the email still works pasted into step 2.
 - `resetPassword({ resetToken, newPassword, confirmPassword })` → POST `/auth/reset-password` (public)
 - `logout()` → POST `/auth/logout` (auth). Called best-effort by `signOut()` before clearing tokens.
 - Type `CurrentUser`: `{ id, email, emailConfirmed, roles[], groups[], userName, firstName, lastName, serviceProviderId?, providerProfileId?, preferredLanguage?, preferredCurrency? }`. `serviceProviderId` (0 = none) is the partner's own provider — partner screens read it directly instead of fetching the provider list (P1). `preferredLanguage`/`preferredCurrency` are display preferences the gateway resolves from UserNotificationSettings (2026-07); currency is display-only — payments are always in RSD for now.
@@ -209,7 +209,7 @@ if (!response.ok) {
 
 ### `services/service-providers.ts`
 - **Types**: `ServiceProviderDto`, `AddressDto`, `PhotoDto`, `CertificateDto`, `ProviderViewModel`. Exported const `ApprovalStatus` = { Pending: 0, Approved: 1, Declined: 2 } (shared by providers, certificates, and reviews).
-- **`ProviderViewModel`** / **`providerToViewModel(dto)`** — provider display shape + mapper. **No longer used by any user screen** — the whole app is service-centric now: Home, Search, ProviderDetail(orphaned) → BookService → ReviewBooking → BookingConfirmed all pass the `ServiceDto` (which carries `serviceProviderId`), not a provider. These remain only for the orphaned ProviderDetailScreen; user screens never fetch providers. (Admin screens use `ServiceProviderDto` directly.)
+- **`ProviderViewModel`** / **`providerToViewModel(dto)`** — provider display shape + mapper, used by **ProviderDetail** (the provider page). The rest of the app is service-centric (Home, Search → ServiceDetail → BookService → ReviewBooking all pass the `ServiceDto`). ProviderDetail is opened from the provider card on ServiceDetail and by URL (`/providers/:providerId`): it takes `{ providerId, provider? }` — the id is enough (it fetches the record), the view model is only a head start from a list and stays out of the URL. It lists the provider's **active** services, marking those with `isBookable === false` as Unavailable (they open ServiceDetail, not the booking form). (Admin screens use `ServiceProviderDto` directly.)
 - **`resolveImageUrl(src)`** — prepends `getApiBaseUrl()` to relative `/files/...` paths; returns absolute URLs as-is.
 - `getServiceProviders(params?)` → GET `/api/service-providers` (auth) → `ServiceProviderDto[]`. Params: `name`, `city`, `type`, `isApproved`, `approvalStatus`, `page`, `perPage`. The **`IsApproved`/`ApprovalStatus` server filters exist (verified live)** — use them instead of fetching all and filtering. There is still no `UserId` filter, but a partner's own provider id is now on `/auth/me` as `currentUser.serviceProviderId` (P1 resolved) — read it directly; don't fetch the list to find your own provider.
 - `getServiceProvider(id)` → GET `/api/service-providers/{id}` (auth) → `ServiceProviderDto`
@@ -298,6 +298,18 @@ if (!response.ok) {
 - **`providerPaymentMethodId` is required** on create (non-empty) — 422 otherwise; `provider` likewise.
 - **An explicit `null` on `cardHolderName`, `cardBrand`, `cardLast4` or `providerToken` returns a 500** with an opaque body (verified live 2026-08-10) — the columns are not nullable, though the fields are optional. Omitting the key is fine. `createPaymentMethod` strips null/undefined keys (`withoutNulls`) so no call site has to know the difference.
 - ReviewBookingScreen auto-creates a default placeholder payment method (synthetic `providerPaymentMethodId`) when the user has none, so bookings can be created before a real gateway exists.
+- **Saved cards (2026-10):** Settings → **Payment methods** (`PaymentMethodsScreen`, `/account/payment-methods`, hidden for managed partners) lists, adds and removes cards; the pay sheet on Booking Details uses the same list. Cards are added through `components/shared/AddCardForm` — Luhn-checked number, expiry, CVC — and stored as **brand + last four + expiry only** with `provider: 'mock'` (the number and CVC never leave the form). `provider: 'manual'` rows (the placeholder above) are filtered out of both lists: they are a booking reference, not something to pay with. The backend keeps one default per user. Display a card with `cardLabel(card, t('payments.card'))` from `services/payments.ts`.
+
+### `services/payments.ts` — booking payments (mock gateway)
+- `getPaymentSummary(bookingId)` → GET `/payments/bookings/{id}/summary` → `{ currency, totalPrice, depositAmount, amountPaid, amountRefunded, balanceDue, payments[] }` (customer, the booking's provider, admin). `payBooking(bookingId, PaymentPhase.Deposit | PaymentPhase.Balance, paymentMethodId)` → POST `/payments/bookings/{id}/pay` — the **server computes the amount**; the body has none. Note the route has no `/api` prefix.
+- UI: `screens/booking-details-screen/components/BookingPaymentPanel` under the bill — deposit / paid / refunded / still to pay, the payment history (refunded rows struck through), and for the **customer only** "Pay deposit" (confirmed, deposit outstanding) and "Pay the rest"/"Pay in full" (any status in `BookingWorkflow.AcceptsPayment`, mirrored as `PAYABLE_STATUSES`). The pay sheet picks a saved card or adds one. A request still awaiting the provider shows "You can pay once the provider confirms".
+- Cancelling or declining a paid booking refunds it on the backend; the customer gets `PaymentRefunded` (31), which invalidates `payments` + `bookings` and opens the booking.
+- Card processing is a mock (every charge succeeds, no money moves). With a real provider: replace `AddCardForm` with the provider's hosted card element and keep the rest.
+
+### `services/legal.ts` + `screens/legal-screen` / `screens/help-screen`
+- Terms of Service and Privacy Policy are a **placeholder draft** in i18n (`legal.termsS1..9Title|Body`, `legal.privacyS1..9…`, en/sr/ru), rendered by `LegalScreen` at `/legal/terms` and `/legal/privacy` (both stacks — readable signed out). `LEGAL_VERSION` is sent with sign-up and stored on the account (`acceptedTermsVersion`); **bump it, and `LEGAL_UPDATED`, when the real texts replace the draft** (and update `LEGAL_SECTION_COUNT` if the section count changes).
+- `components/shared/LegalAgreement` is the one control for agreeing: a checkbox + sentence with links to the documents (`docs`: both / terms; `prefixKey`: the sign-up, partner-application or invite wording). Required on Register and the partner application; a plain notice on Accept Invite. Checkout links the terms under the cancellation policy; Settings and Help link both.
+- `HelpScreen` (`/help`): FAQ, the support contact when `services/support.ts` has one, and the legal links.
 
 ### `services/group-booking-requests.ts` — Group requests ("ask several providers at once")
 A pet owner sends **one** service request to several providers; the **first to accept** gets an
@@ -553,7 +565,7 @@ Stack screens (on top of tabs):
 ```
 ProviderDetail, ServiceDetail, BookService, ReviewBooking, BookingConfirmed,
 MyPets, AddPet, Settings, BecomePartner, PartnerApplication,
-ApplicationSubmitted, PartnerWelcome, Account, ChangePassword, MyBookings, BookingDetails,
+ApplicationSubmitted, PartnerWelcome, Account, ChangePassword, PaymentMethods, Legal, Help, MyBookings, BookingDetails,
 MySchedule, MyServices, Messages, Chat,
 AddEditService, ServicePreview, Notifications, NotificationSettings, NewRequests, LiveSession,
 Promotions, CreatePromotion, EditPromotion, PromotionAnalytics,
@@ -858,6 +870,7 @@ Filter *options* have the mirror-image trap: derive them from the current result
 
 ### Role checks
 - Use `isAdmin` / `isPartner` booleans from `useAuth()` — never check `currentUser.roles` array directly
+- **`isProviderProfile` = a managed partner** (created by Add Partner; a ProviderProfile login with **no `Domain.User`**). Their session has no user record, no notification-settings row and none of the User-group permissions, so any user-scoped read (`getUser`, `getNotificationSettings`, the customer's own bookings) answers 401. Guard such calls with `!isProviderProfile`, and send them to Business profile where others go to Account (TopBar menu, Profile menu, and `/account` itself redirects). Uploads work for them (the backend records the uploading profile).
 
 ### Tokens
 - Never read/write tokens directly — always go through `services/token-storage.ts`

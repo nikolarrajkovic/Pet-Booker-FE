@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useFormChain } from '../../../hooks/useFormChain';
 import { useToast } from '../../../context/ToastContext';
@@ -19,9 +19,13 @@ export default function ForgotPasswordScreen() {
   const { showError } = useToast();
   const { t } = useLocale();
 
-  const [step, setStep] = useState<'request' | 'reset'>('request');
+  // The reset email links here with the token (`/forgot-password?token=…`): straight to choosing a
+  // new password, with nothing to paste. Without a link the user still pastes the emailed code.
+  const route = useRoute<any>();
+  const linkedToken: string = typeof route.params?.token === 'string' ? route.params.token : '';
+  const [step, setStep] = useState<'request' | 'reset'>(linkedToken ? 'reset' : 'request');
   const [email, setEmail] = useState('');
-  const [resetToken, setResetToken] = useState('');
+  const [resetToken, setResetToken] = useState(linkedToken);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,7 +78,11 @@ export default function ForgotPasswordScreen() {
   // jump to a reset field that is not rendered, which focuses nothing and looks like Enter is
   // simply broken.
   const form = useFormChain(
-    step === 'request' ? ['email'] : ['resetToken', 'newPassword', 'confirmPassword'],
+    step === 'request'
+      ? ['email']
+      : linkedToken
+        ? ['newPassword', 'confirmPassword']
+        : ['resetToken', 'newPassword', 'confirmPassword'],
     step === 'request' ? sendEmail : submitReset
   );
 
@@ -139,15 +147,21 @@ export default function ForgotPasswordScreen() {
         ) : (
           <>
             <Text className={`text-sm ${subtextColor} mb-5`}>
-              {t('forgotPassword.resetSubtitle')}
+              {linkedToken
+                ? t('forgotPassword.resetSubtitleLinked')
+                : t('forgotPassword.resetSubtitle')}
             </Text>
-            <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-              {t('forgotPassword.resetCode')}
-            </Text>
-            {input('resetToken', resetToken, setResetToken, {
-              placeholder: t('forgotPassword.resetCodePlaceholderPaste'),
-              autoCapitalize: 'none',
-            })}
+            {!linkedToken && (
+              <>
+                <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                  {t('forgotPassword.resetCode')}
+                </Text>
+                {input('resetToken', resetToken, setResetToken, {
+                  placeholder: t('forgotPassword.resetCodePlaceholderPaste'),
+                  autoCapitalize: 'none',
+                })}
+              </>
+            )}
             <Text className={`text-sm font-semibold ${textColor} mb-2`}>
               {t('forgotPassword.newPassword')}
             </Text>

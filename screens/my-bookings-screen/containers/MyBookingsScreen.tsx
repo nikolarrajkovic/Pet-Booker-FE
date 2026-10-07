@@ -1,23 +1,44 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import ListState from '../../../components/shared/ListState';
+import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import ReviewModal from '../../../components/shared/ReviewModal';
 import { useReviewModal } from '../../../hooks/useReviewModal';
+import { usePagedList } from '../../../hooks/usePagedList';
 import { BookingCard } from '../components';
 import {
-  getBookings,
+  getBookingsPage,
   bookingToViewModel,
-  parseBookingDate,
-  BookingViewModel,
-  ACTIVE_STATUS_LABELS,
+  BookingState,
+  BookingSortBy,
 } from '../../../services/bookings';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+
+/**
+ * The two tabs are two server queries, each paged as the list scrolls.
+ *
+ * They used to be one 50-row page filtered and sorted on the device — so once an account had more
+ * than 50 bookings, the newest ones (the ones that matter) were never fetched, and Upcoming read
+ * "No upcoming bookings" over an appointment booked for next week. The server now owns both the
+ * split and the order, including what has expired: a request nobody answered before it started,
+ * or a confirmed booking never started before it ended, reads as Expired and goes to Past.
+ */
+const UPCOMING = {
+  states: [BookingState.Upcoming, BookingState.Accepted, BookingState.InProgress],
+  // Soonest first — an "upcoming" list is read in the order things happen.
+  sortBy: BookingSortBy.SoonestFirst,
+};
+const PAST = {
+  states: [BookingState.Completed, BookingState.Cancelled, BookingState.Expired],
+  // Most recent first — the opposite order, for the same reason.
+  sortBy: BookingSortBy.LatestFirst,
+};
 
 export default function MyBookingsScreen() {
   const gutter = usePageGutter();
@@ -26,83 +47,33 @@ export default function MyBookingsScreen() {
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
-  const [bookings, setBookings] = useState<BookingViewModel[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const userId = currentUser?.id;
 
-  const load = useCallback(async () => {
-    const userId = currentUser?.id;
-    if (!userId) {
-      setBookings([]);
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    try {
-      const dtos = await getBookings({ userId });
-      setBookings(dtos.map(bookingToViewModel));
-    } catch (e: any) {
-      setError(e?.message ?? t('myBookings.loadFailed'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentUser?.id, t]);
+  const fetchUpcoming = useCallback(
+    (page: number) => getBookingsPage({ userId, ...UPCOMING }, page),
+    [userId]
+  );
+  const fetchPast = useCallback(
+    (page: number) => getBookingsPage({ userId, ...PAST }, page),
+    [userId]
+  );
+  const listOptions = {
+    enabled: !!userId,
+    resource: 'bookings',
+    errorFallback: t('myBookings.loadFailed'),
+  };
+  const upcoming = usePagedList(fetchUpcoming, listOptions);
+  const past = usePagedList(fetchPast, listOptions);
+  const list = activeTab === 'upcoming' ? upcoming : past;
 
   // Reload after a review is submitted so the new rating replaces the CTA.
   const review = useReviewModal(() => {
-    load();
+    past.reload();
   });
 
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        if (!cancelled) await load();
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [load])
-  );
-
-  /**
-   * Splits the two tabs by state AND by the clock.
-   *
-   * State alone is not enough: a booking the provider accepted but never completed keeps its
-   * "Booked" status forever, so it sat under **Upcoming** indefinitely — this account's Upcoming
-   * tab listed six appointments, every one of them weeks in the past. A tab labelled "Upcoming"
-   * has to mean "still ahead of you".
-   *
-   * Two deliberate softenings so nothing vanishes while the user is looking at it:
-   * - an in-progress booking always counts as current, whatever its start time says;
-   * - the cutoff is the START OF TODAY, not "now", so a booking earlier today stays put rather
-   *   than jumping tabs partway through the day it happens on.
-   */
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-
-  const isStillAhead = (b: BookingViewModel) => {
-    if (b.statusLabel === 'in-progress') return true;
-    const start = parseBookingDate(b.bookingFrom);
-    return isNaN(start.getTime()) || start.getTime() >= startOfToday.getTime();
-  };
-
-  const upcomingBookings = bookings
-    .filter((b) => ACTIVE_STATUS_LABELS.includes(b.statusLabel) && isStillAhead(b))
-    // Soonest first — an "upcoming" list is read in the order things happen.
-    .sort(
-      (a, b) =>
-        parseBookingDate(a.bookingFrom).getTime() - parseBookingDate(b.bookingFrom).getTime()
-    );
-  const pastBookings = bookings
-    .filter((b) => !ACTIVE_STATUS_LABELS.includes(b.statusLabel) || !isStillAhead(b))
-    // Most recent first — the opposite order, for the same reason.
-    .sort(
-      (a, b) =>
-        parseBookingDate(b.bookingFrom).getTime() - parseBookingDate(a.bookingFrom).getTime()
-    );
-  const visible = activeTab === 'upcoming' ? upcomingBookings : pastBookings;
+  const visible = useMemo(() => list.items.map(bookingToViewModel), [list.items]);
+  const isLoading = list.isLoading;
+  const error = list.error;
 
   const renderBody = () => (
     <ListState
@@ -114,7 +85,7 @@ export default function MyBookingsScreen() {
       <>
         {activeTab === 'past' && (
           <Text className={`text-sm ${subtextColor} mb-3`}>
-            {t('myBookings.bookingsCount', { count: pastBookings.length })}
+            {t('myBookings.bookingsCount', { count: past.totalItems })}
           </Text>
         )}
         {/*
@@ -147,9 +118,7 @@ export default function MyBookingsScreen() {
                 (navigation as any).navigate('BookingDetails', { bookingId: booking.id })
               }
               // Chat only on the Upcoming tab — there is nothing left to coordinate about a job
-              // that has already happened. Keyed off the tab rather than the status label on
-              // purpose: a booking the provider accepted but never completed keeps an "active"
-              // label forever, and those sit under Past once their date has gone by.
+              // that has already happened (or expired).
               onMessage={
                 activeTab === 'upcoming'
                   ? () =>
@@ -176,6 +145,15 @@ export default function MyBookingsScreen() {
             />
           ))}
         </ResponsiveGrid>
+        {visible.length > 0 && (
+          <LoadMoreFooter
+            loaded={visible.length}
+            total={list.totalItems}
+            hasMore={list.hasMore}
+            isLoadingMore={list.isLoadingMore}
+            onLoadMore={list.loadMore}
+          />
+        )}
       </>
     </ListState>
   );
@@ -190,6 +168,8 @@ export default function MyBookingsScreen() {
         width="default">
         <ScrollView
           className="flex-1"
+          scrollEventThrottle={200}
+          onScroll={(e) => (isNearBottom(e) ? list.loadMore() : undefined)}
           contentContainerStyle={{ paddingTop: 16, paddingBottom: 24 }}>
           <View className={`mb-4 ${gutter.px}`}>
             <View className="flex-row">
@@ -200,7 +180,9 @@ export default function MyBookingsScreen() {
                 <Text
                   className={`text-center font-semibold ${activeTab === 'upcoming' ? 'text-brand-600' : subtextColor}`}>
                   {t('myBookings.upcoming')}
-                  {!isLoading && upcomingBookings.length > 0 ? ` (${upcomingBookings.length})` : ''}
+                  {!upcoming.isLoading && upcoming.totalItems > 0
+                    ? ` (${upcoming.totalItems})`
+                    : ''}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity

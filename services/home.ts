@@ -38,11 +38,22 @@ export const getOnSale = (take: number = DEFAULT_TAKE) => getHomeSection('on-sal
 export const getRecentlyBooked = (take: number = DEFAULT_TAKE) =>
   getHomeSection('recently-booked', { take });
 
-/** GET /api/home/near-me — requires the user's coordinates. */
-export const getNearMe = (params: { lat: number; lng: number; radiusKm?: number; take?: number }) =>
+/**
+ * GET /api/home/near-me. Pass the device's real position when there is one. Without it, omit
+ * `lat`/`lng` and the server ranks from the user's saved address (then their city) — never send
+ * the app's Belgrade placeholder as if it were where they are: that put a Novi Sad user who
+ * declined location sharing in central Belgrade.
+ */
+export const getNearMe = (params: {
+  lat?: number;
+  lng?: number;
+  radiusKm?: number;
+  take?: number;
+}) =>
   getHomeSection('near-me', {
     lat: params.lat,
     lng: params.lng,
-    radiusKm: params.radiusKm ?? 50,
+    // The radius only means something around a real position.
+    radiusKm: params.lat != null && params.lng != null ? (params.radiusKm ?? 50) : undefined,
     take: params.take ?? DEFAULT_TAKE,
   });

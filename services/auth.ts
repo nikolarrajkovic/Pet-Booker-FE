@@ -85,7 +85,15 @@ export async function loginWithEmailPassword(payload: LoginPayload) {
     // it short-circuited the status-aware mapping in LoginScreen's resolveLoginError — so a 429
     // read as a typo and sent people off to reset a password that was fine. Leaving the message
     // empty lets that mapper see the status and choose the right words.
-    throw new ApiError(body.message || body.detail || '', response.status);
+    // The gateway answers a refused sign-in as { error, code }. Reading only message/detail
+    // dropped every reason the server gave, so "email not confirmed" and the lockout notice both
+    // reached the user as "Invalid credentials".
+    const failure = body as { message?: string; detail?: string; error?: string; code?: string };
+    throw new ApiError(
+      failure.message || failure.detail || failure.error || '',
+      response.status,
+      failure.code
+    );
   }
 
   const accessToken = extractAccessToken(body);
@@ -100,6 +108,8 @@ export async function loginWithEmailPassword(payload: LoginPayload) {
 }
 
 export type RegisterPayload = {
+  /** The Terms/Privacy version the person agreed to (services/legal.ts). */
+  acceptedTermsVersion?: string;
   email: string;
   password: string;
   firstName: string;
@@ -134,7 +144,10 @@ export async function refreshAccessToken(
   const body = parseResponseBody(raw);
 
   if (!response.ok) {
-    throw new Error(body.message || body.detail || 'Session expired. Please log in again.');
+    const failure = body as { message?: string; detail?: string; error?: string };
+    throw new Error(
+      failure.message || failure.detail || failure.error || 'Session expired. Please log in again.'
+    );
   }
 
   const accessToken = extractAccessToken(body);
@@ -255,6 +268,20 @@ export function logout(): Promise<void> {
     method: 'POST',
     fallback: 'Failed to log out.',
     context: 'logout',
+  });
+}
+
+/**
+ * Closes the signed-in account for good (`DELETE /auth/account`). The password confirms it. The
+ * server calls off upcoming bookings (the other side is told), removes the profile, pets and any
+ * partner profile, and closes the login. The caller signs out afterwards.
+ */
+export function deleteAccount(password: string): Promise<void> {
+  return apiVoid('/auth/account', {
+    method: 'DELETE',
+    body: { password },
+    fallback: 'Failed to delete the account.',
+    context: 'deleteAccount',
   });
 }
 

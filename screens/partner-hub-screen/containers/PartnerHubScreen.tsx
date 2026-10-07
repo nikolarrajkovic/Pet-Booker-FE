@@ -10,7 +10,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { useMessages } from '../../../context/MessagesContext';
 import { getErrorMessage } from '../../../services/http';
 import {
-  getBookings,
+  countBookings,
   BookingState,
   BookingStatusType,
   formatBookingDate,
@@ -24,6 +24,8 @@ import {
   ActivityEntry,
 } from '../../../services/stats';
 import { getServices } from '../../../services/services';
+import { ModerationStatus, getServiceProvider } from '../../../services/service-providers';
+import { formatModerationTime } from '../../admin-partners-screen/components/moderationFormat';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -194,12 +196,8 @@ async function countActivePromos(providerId: number): Promise<number> {
  */
 async function countPendingRequests(providerId: number): Promise<number> {
   try {
-    const bookings = await getBookings({
-      serviceProviderId: providerId,
-      currentStatus: BookingStatusType.ServiceRequestedByUser,
-      perPage: 100,
-    });
-    return bookings.filter((b) => b.state !== BookingState.Cancelled).length;
+    // Exactly the New tab's query: awaiting a decision and not expired.
+    return await countBookings({ serviceProviderId: providerId, state: BookingState.Upcoming });
   } catch {
     return 0;
   }
@@ -217,14 +215,19 @@ async function countToday(providerId: number): Promise<number> {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   try {
-    const bookings = await getBookings({
+    return await countBookings({
       serviceProviderId: providerId,
       // Booking times are naive wall-clock — serialize the bounds the same way.
       bookingFrom: formatBookingDate(startOfToday),
       bookingTo: formatBookingDate(startOfTomorrow),
-      perPage: 100,
+      // Neither cancelled nor expired: appointments that are actually on today.
+      states: [
+        BookingState.Upcoming,
+        BookingState.Accepted,
+        BookingState.InProgress,
+        BookingState.Completed,
+      ],
     });
-    return bookings.filter((b) => b.state !== BookingState.Cancelled).length;
   } catch {
     return 0;
   }
@@ -299,6 +302,16 @@ const QUICK_ACTIONS = [
     iconColor: '#F59E0B',
     route: 'Promotions',
   },
+  {
+    // Name, About, contact and address — asked once by the application, editable here.
+    id: 'business-profile',
+    titleKey: 'businessProfile.title',
+    subtitleKey: 'businessProfile.hubSub',
+    icon: 'storefront-outline' as const,
+    iconBg: '#E0F2FE',
+    iconColor: '#0369A1',
+    route: 'BusinessProfile',
+  },
 ];
 
 /**
@@ -362,6 +375,33 @@ export default function PartnerHubScreen() {
     useCallback(() => {
       refreshUnreadMessages();
     }, [refreshUnreadMessages])
+  );
+
+  // A timeout an admin set: the partner keeps working, but should know customers can't find them,
+  // until when, and why. Read on focus, so a lift shows as soon as they come back to the hub.
+  const [paused, setPaused] = useState<{ until: string; reason: string | null } | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const providerId = currentUser?.serviceProviderId || null;
+      if (!providerId) {
+        setPaused(null);
+        return;
+      }
+      let cancelled = false;
+      getServiceProvider(providerId)
+        .then((dto) => {
+          if (cancelled) return;
+          setPaused(
+            dto.moderationStatus === ModerationStatus.TimedOut && dto.timedOutUntil
+              ? { until: dto.timedOutUntil, reason: dto.moderationReason ?? null }
+              : null
+          );
+        })
+        .catch(() => undefined);
+      return () => {
+        cancelled = true;
+      };
+    }, [currentUser?.serviceProviderId])
   );
 
   useFocusEffect(
@@ -658,6 +698,39 @@ export default function PartnerHubScreen() {
           contentContainerStyle={
             isWebLayout ? { paddingBottom: 40 } : { paddingBottom: tabBarSpacing }
           }>
+          {/* ── Paused by an admin ── */}
+          {paused && (
+            <View
+              accessibilityRole="alert"
+              style={{
+                marginHorizontal: gutter.value,
+                marginTop: 24,
+                backgroundColor: isDarkMode ? 'rgba(217,119,6,0.14)' : '#FFFBEB',
+                borderColor: isDarkMode ? 'rgba(217,119,6,0.4)' : '#FDE68A',
+                borderWidth: 1,
+                borderRadius: 16,
+                padding: 16,
+                flexDirection: 'row',
+                gap: 12,
+              }}>
+              <Ionicons name="time-outline" size={22} color="#D97706" style={{ marginTop: 1 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: hex.text, fontSize: 15, fontWeight: '700' }}>
+                  {t('moderation.hubPausedTitle', { date: formatModerationTime(paused.until) })}
+                </Text>
+                <Text style={{ color: hex.subtext, fontSize: 13, marginTop: 4, lineHeight: 19 }}>
+                  {t('moderation.hubPausedBody')}
+                </Text>
+                {paused.reason ? (
+                  <Text style={{ color: hex.text, fontSize: 13, marginTop: 6, lineHeight: 19 }}>
+                    <Text style={{ fontWeight: '600' }}>{t('moderation.reasonLabel')} </Text>
+                    {paused.reason}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          )}
+
           {/* ── Active Live Session banner ── */}
           {hasLiveSession && (
             <TouchableOpacity
