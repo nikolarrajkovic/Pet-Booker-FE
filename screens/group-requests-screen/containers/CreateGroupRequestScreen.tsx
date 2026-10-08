@@ -101,8 +101,14 @@ function toPickItem(svc: ServiceDto, typeLabel: string): ServiceSearchItem | nul
     distance: '',
     price: serviceFromPrice(svc),
     image: resolveImageUrl(photoSrc),
-    latitude: svc.mapLocation?.latitude ?? svc.address?.location?.latitude ?? null,
-    longitude: svc.mapLocation?.longitude ?? svc.address?.location?.longitude ?? null,
+    latitude:
+      svc.mapLocation?.latitude ??
+      (svc.effectiveAddress ?? svc.address)?.location?.latitude ??
+      null,
+    longitude:
+      svc.mapLocation?.longitude ??
+      (svc.effectiveAddress ?? svc.address)?.location?.longitude ??
+      null,
     dto: svc,
   };
 }

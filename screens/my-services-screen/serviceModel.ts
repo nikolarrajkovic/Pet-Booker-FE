@@ -9,7 +9,6 @@ import {
   providerTypeValue,
   ServiceProviderType,
 } from '../../services/service-providers';
-import { createAddress } from '../../services/addresses';
 import { uploadFilesBulk } from '../../services/files';
 import { getApiBaseUrl } from '../../services/http';
 import {
@@ -563,6 +562,9 @@ export type ServiceFormInput = {
   description: string;
   pricingTiers: PricingTier[];
   maxPetCapacity?: number; // → details.maxConcurrentBookings
+  // Which pets the service takes (PetSpeciesType FLAGS) → details.acceptedSpecies. The screen
+  // refuses to save with none, as the API does.
+  acceptedSpecies?: number;
   // The full desired set of extras. Same row shape the editor binds to; unnamed rows are
   // dropped on the way to the DTO. Previously this was a fixed three-row list with an
   // `expanded` flag doubling as "enabled" — now it's an open list with an explicit `enabled`.
@@ -572,41 +574,39 @@ export type ServiceFormInput = {
   workingHours: WorkingHours;
   // Ready-to-send photos array — build with buildServicePhotos()
   photos?: ServiceDto['photos'];
-  // Ready-to-send address (id already resolved) — build with
-  // resolveServiceAddressForSave(). Omit to keep the original's address.
+  // The service's own address as it should be saved — build with resolveServiceAddressForSave().
+  // null removes it (the service is where its provider is); omit to keep the original's.
   address?: AddressDto | null;
 };
 
 /**
- * Resolves the address the user picked (map pin or profile copy) into the shape
- * the service POST/PUT accepts (contract verified live 2026-07-19):
- * - POST takes a new address inline (id 0 → row created + linked).
- * - PUT only accepts the service's EXISTING address id (updates it in place);
- *   a new inline address 500s — so an edit that ADDS a location creates the row
- *   standalone (POST /api/addresses) first and sends its real id instead.
- * The standalone create requires a non-empty `state` — falls back to
- * city/country. Nothing picked → the original address (or null) unchanged.
+ * The service's own address as the save should send it:
+ * - a newly picked one goes inline as `id: 0`. The server updates the service's address row in
+ *   place, or creates one; it never links an existing row by id, so a pick can't end up sharing
+ *   (and later rewriting) the provider's or the account's address. (This used to create the row
+ *   through POST /api/addresses first and send its id, working around a PUT that 500'd on a new
+ *   inline address — fixed server-side in 2026-09, and since 2026-10 the id would be ignored.)
+ * - `useProviderLocation` sends `null`, which removes the override: the service is where its
+ *   provider is again (their business address, else their account address).
+ * - otherwise the saved address goes back unchanged.
  */
-export async function resolveServiceAddressForSave(
+export function resolveServiceAddressForSave(
   picked: AddressDto | null,
   original: AddressDto | null | undefined,
-  isEdit: boolean
-): Promise<AddressDto | null> {
-  if (!picked) return original ?? null;
-  const normalized = {
-    ...picked,
-    state: picked.state || picked.city || picked.country || '-',
-  };
-  if (original?.id) return { ...normalized, id: original.id };
-  if (isEdit) return createAddress(normalized);
-  return { ...normalized, id: 0 };
+  useProviderLocation: boolean
+): AddressDto | null {
+  if (picked) {
+    return { ...picked, id: 0, state: picked.state || picked.city || picked.country || '-' };
+  }
+  if (useProviderLocation) return null;
+  return original ?? null;
 }
 
 /**
  * Rich form state → ServiceDto for create/update. Only API-backed fields persist.
  * Pass the original DTO in edit mode: details/pricing fields the form doesn't
- * capture (acceptedSpecies, weight/duration limits, capacity, escrow, unit) are
- * non-nullable server-side and would reset to 0/None if omitted from a PUT.
+ * capture (weight/duration limits, escrow, unit) are non-nullable server-side and
+ * would reset to 0/None if omitted from a PUT.
  *
  * **The whole aggregate goes in one request.** `schedules` and `pricingOptions` ride along with
  * the service instead of being reconciled afterwards through their own CRUD: saving a service
@@ -650,8 +650,8 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
     supportsLiveTracking: typeAllowsLiveTracking
       ? (original?.details?.supportsLiveTracking ?? false)
       : false,
-    // FLAGS: 63 = all species accepted; new services default to accepting all
-    acceptedSpecies: original?.details?.acceptedSpecies ?? 63,
+    // FLAGS, chosen on the form. The fallbacks only cover a caller that doesn't pass it.
+    acceptedSpecies: form.acceptedSpecies || original?.details?.acceptedSpecies || 63,
     maxConcurrentBookings: form.maxPetCapacity ?? original?.details?.maxConcurrentBookings ?? 1,
   };
 

@@ -2,6 +2,7 @@ import {
   providerTypeLabel,
   extractProviderDocuments,
   ApprovalStatus,
+  providerAddress,
   type ServiceProviderDto,
 } from '../../services/service-providers';
 import type { PartnerApplication } from './components';
@@ -12,7 +13,8 @@ import { formatShortDate } from '../../i18n/dates';
 // list rows rely on the server's governmentIdPhotoCount.
 export function providerToApplication(dto: ServiceProviderDto): PartnerApplication {
   const created = dto.createdAt ? new Date(dto.createdAt) : null;
-  const addr = dto.address;
+  // The business address, else the applicant's account address.
+  const addr = providerAddress(dto);
   const address = addr
     ? [addr.line1, addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')
     : '';

@@ -1,5 +1,6 @@
 import {
   ModerationStatus,
+  providerAddress,
   providerTypeLabel,
   resolveImageUrl,
   type ModerationStatusValue,
@@ -25,7 +26,8 @@ export function providerToPartner(dto: ServiceProviderDto, tallies?: ProviderTal
   const photos = dto.photos ?? [];
   const profilePhoto = photos.find((p) => p.isSelected) ?? photos[0];
   const created = dto.createdAt ? new Date(dto.createdAt) : null;
-  const addr = dto.address;
+  // The business address, else the partner's account address.
+  const addr = providerAddress(dto);
   const address = addr
     ? [addr.line1, addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')
     : '';

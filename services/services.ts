@@ -163,8 +163,9 @@ export type ServiceDto = {
   additionalServices?: AdditionalServiceDto[] | null;
   details?: {
     supportsLiveTracking: boolean;
-    // Accepted pet species — PetSpeciesType FLAGS (63 = All). Defaults to 0
-    // (None) if omitted on write, so always send a value.
+    // Which pets this service takes — PetSpeciesType FLAGS (63 = All). Declared per service on
+    // the service form (a partner may price dog and cat boarding apart). The API refuses 0 (None)
+    // and refuses a booking for a pet the service doesn't take.
     acceptedSpecies?: number;
     minWeightKg?: number | null;
     maxWeightKg?: number | null;
@@ -180,15 +181,15 @@ export type ServiceDto = {
   // Duration/price variants (managed via /api/service-pricing-options; embedded
   // on GET). Non-empty → bookings must pick one; empty → classic booking.
   pricingOptions?: ServicePricingOptionDto[] | null;
-  // The service's location — carries geo coords under `address.location` (used
-  // for map placement). WRITABLE, with a quirky PUT contract (verified live
-  // 2026-07-19): POST accepts it inline (id 0 → row created + linked); PUT only
-  // accepts the service's EXISTING address id (updates it in place) and 500s on
-  // a new inline address — create the row via createAddress() (services/
-  // addresses.ts) first and send the returned real-id row instead (see
-  // resolveServiceAddressForSave in my-services-screen/serviceModel.ts).
-  // Omitting the field on PUT keeps the stored address.
+  // The service's OWN location — null when it uses its provider's. WRITABLE: a newly picked
+  // address goes inline as `id: 0` (the server updates the service's row in place, or creates
+  // one; it never links a row by id), and `null` on PUT removes the override so the service is
+  // where its provider is again. Display reads `effectiveAddress`.
   address?: AddressDto | null;
+  // Where the service is (read-only): `address`, else the provider's business address, else the
+  // provider's account address. `isAddressInherited` is true when it is not the service's own.
+  effectiveAddress?: AddressDto | null;
+  isAddressInherited?: boolean;
   // Read-only fields the API computes and returns on GET (not sent on create):
   imageUrl?: string | null;
   basicServiceName?: string | null; // human label for the service type, e.g. "Walker"

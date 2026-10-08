@@ -32,6 +32,7 @@ import {
   type ServiceProviderDto,
 } from '../../../services/service-providers';
 import { ApiError, getErrorMessage } from '../../../services/http';
+import { getUser } from '../../../services/users';
 import { addressLabel } from '../../../services/geocoding';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { DEFAULT_LOCATION } from '../../../hooks/useLocation';
@@ -42,10 +43,13 @@ import { DEFAULT_LOCATION } from '../../../hooks/useLocation';
  * application and could never be changed afterwards — a typo in About stayed on the public page.
  *
  * The service type is shown, not edited: every service the partner lists is of that type.
+ *
+ * The business address is optional and is the provider's own row: without one, customers see the
+ * partner's account address, and setting or removing it never changes the account address.
  */
 export default function BusinessProfileScreen() {
   const gutter = usePageGutter();
-  const { currentUser } = useAuth();
+  const { currentUser, isProviderProfile } = useAuth();
   const {
     isDarkMode,
     bgColor,
@@ -75,6 +79,11 @@ export default function BusinessProfileScreen() {
   const [years, setYears] = useState('');
   const [about, setAbout] = useState('');
   const [address, setAddress] = useState<AddressDto | null>(null); // newly picked
+  // "Use my account address instead": drops the business address on save.
+  const [removeAddress, setRemoveAddress] = useState(false);
+  // The account address that stands in when there is no business address. A managed partner's
+  // login has no account (and reading one is a 401), so for them there is nothing to fall back on.
+  const [accountAddress, setAccountAddress] = useState<AddressDto | null>(null);
   // A newly picked profile photo, uploaded on save (like Account's avatar).
   const [newPhoto, setNewPhoto] = useState<{
     uri: string;
@@ -110,6 +119,19 @@ export default function BusinessProfileScreen() {
       cancelled = true;
     };
   }, [providerId, t]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!currentUser?.id || isProviderProfile) return;
+    getUser(currentUser.id)
+      .then((u) => {
+        if (!cancelled) setAccountAddress(u.address ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.id, isProviderProfile]);
 
   const handleSave = async () => {
     if (!original?.id || isSaving) return;
@@ -147,9 +169,11 @@ export default function BusinessProfileScreen() {
         yearsOfExperience: digits ? Math.min(Number(digits), 80) : null,
         about,
         address,
+        removeAddress: removeAddress && !address,
       });
       setOriginal(updated);
       setAddress(null);
+      setRemoveAddress(false);
       setNewPhoto(null);
       showSuccess(t('businessProfile.saved'));
     } catch (e) {
@@ -196,7 +220,12 @@ export default function BusinessProfileScreen() {
 
   // Name -> email -> years -> save. About is multi-line (Enter adds a line), phone is composite.
   const form = useFormChain(['name', 'contactEmail', 'years'], handleSave);
-  const currentAddress = address ?? original?.address ?? null;
+  // The business address as it will be saved, and what customers will see in its place without one.
+  const ownAddress = address ?? (removeAddress ? null : (original?.address ?? null));
+  const standIn =
+    accountAddress ?? (original?.isAddressInherited ? (original.effectiveAddress ?? null) : null);
+  const currentAddress = ownAddress ?? standIn;
+  const usesAccountAddress = !ownAddress && !!standIn;
   const inputClass = `${inputBg} rounded-xl px-4 py-3 ${inputText} border ${borderColor}`;
 
   const layout = (children: React.ReactNode) => (
@@ -396,6 +425,27 @@ export default function BusinessProfileScreen() {
                 color={isDarkMode ? '#9CA3AF' : '#6B7280'}
               />
             </TouchableOpacity>
+            <Text className={`mt-1 text-xs ${subtextColor}`}>
+              {usesAccountAddress
+                ? t('businessProfile.addressInheritedHint')
+                : ownAddress
+                  ? t('businessProfile.addressOwnHint')
+                  : t('businessProfile.addressEmptyHint')}
+            </Text>
+            {ownAddress && standIn ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => {
+                  setAddress(null);
+                  setRemoveAddress(true);
+                }}
+                className="mt-2 flex-row items-center self-start">
+                <Ionicons name="home-outline" size={16} color={BRAND_GREEN} />
+                <Text className="ml-2 text-sm font-semibold text-brand-500">
+                  {t('businessProfile.useAccountAddress')}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           {/* Repeated by Save, where the eye is when it fails (the field may be off screen). */}
@@ -427,7 +477,10 @@ export default function BusinessProfileScreen() {
           locateOnOpen={!currentAddress?.location}
           isDarkMode={isDarkMode}
           onClose={() => setPickerVisible(false)}
-          onSelect={(picked) => setAddress(picked)}
+          onSelect={(picked) => {
+            setAddress(picked);
+            setRemoveAddress(false);
+          }}
         />
       )}
     </ScrollView>

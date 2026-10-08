@@ -109,7 +109,19 @@ export type ServiceProviderDto = {
   about?: string | null;
   userId?: number | null;
   providerProfileId?: number | null;
-  address?: AddressDto;
+  /**
+   * The provider's OWN (business) address — null when they set none. This is what the business
+   * profile edits; it is a separate row from the owner's account address, so saving it never
+   * changes the account. Display reads `effectiveAddress`.
+   */
+  address?: AddressDto | null;
+  /**
+   * Where the provider is: `address`, else the owner's account address (read-only). A managed
+   * partner has no account, so for them it is `address` or nothing.
+   */
+  effectiveAddress?: AddressDto | null;
+  /** True when `effectiveAddress` is the account address standing in for a business address. */
+  isAddressInherited?: boolean;
   photos?: PhotoDto[];
   governmentIdPhotos?: GovernmentIdPhotoDto[];
   certificates?: CertificateDto[];
@@ -161,7 +173,8 @@ export type ProviderViewModel = {
   yearsOfExperience?: number | null;
   latitude: number; // 0 — not in API
   longitude: number; // 0 — not in API
-  address?: AddressDto;
+  /** Where the provider is (their business address, else their account address). */
+  address?: AddressDto | null;
 };
 
 // Service-type labels sourced from /enums `displayName` at runtime. This is the
@@ -232,6 +245,15 @@ export function resolveImageUrl(src: string | null | undefined): string {
   }
 }
 
+/**
+ * Where a provider is, for display: their business address, else their account address (the
+ * server resolves it as `effectiveAddress`). Falls back to `address` for a response from an API
+ * older than that field.
+ */
+export function providerAddress(dto: ServiceProviderDto | null | undefined): AddressDto | null {
+  return dto?.effectiveAddress ?? dto?.address ?? null;
+}
+
 /** Maps a raw ServiceProviderDto to the ProviderViewModel used by all screens. */
 export function providerToViewModel(dto: ServiceProviderDto): ProviderViewModel {
   const selectedPhoto = dto.photos?.find((p) => p.isSelected) ?? dto.photos?.[0];
@@ -248,11 +270,11 @@ export function providerToViewModel(dto: ServiceProviderDto): ProviderViewModel 
       dto.approvalStatus != null
         ? dto.approvalStatus === ApprovalStatus.Approved
         : !!dto.isApproved,
-    // The address now carries geo coords (null until geocoded) — use them for
-    // map markers instead of the old 0/0 placeholder.
-    latitude: dto.address?.location?.latitude ?? 0,
-    longitude: dto.address?.location?.longitude ?? 0,
-    address: dto.address,
+    // Where the provider is — their business address, else their account address. Carries geo
+    // coords (null until geocoded) for map markers.
+    latitude: providerAddress(dto)?.location?.latitude ?? 0,
+    longitude: providerAddress(dto)?.location?.longitude ?? 0,
+    address: providerAddress(dto),
     about: dto.about ?? null,
     yearsOfExperience: dto.yearsOfExperience ?? null,
   };
@@ -420,8 +442,13 @@ export type BusinessProfileUpdate = {
   contactPhone: string | null;
   yearsOfExperience: number | null;
   about: string | null;
-  /** A newly picked address (sent as id 0), or null to keep the saved one. */
+  /** A newly picked business address (sent as id 0), or null to keep the saved one. */
   address: AddressDto | null;
+  /**
+   * Drop the business address, so customers see the account address instead. Only the
+   * provider's own row goes; the account address is never written by this call.
+   */
+  removeAddress?: boolean;
   /**
    * The whole gallery, when the profile photo changes: the server replaces the gallery with what
    * it is sent (an empty array leaves it alone), so the existing photos go back too. Omit to keep it.
@@ -453,7 +480,13 @@ export function updateBusinessProfile(
       contactPhone: changes.contactPhone?.trim() || null,
       yearsOfExperience: changes.yearsOfExperience,
       about: changes.about?.trim() || null,
-      address: changes.address ? { ...changes.address, id: 0 } : (current.address ?? null),
+      // Only ever the provider's OWN address — never `effectiveAddress`, which may be the account
+      // address standing in. `null` removes the business address.
+      address: changes.address
+        ? { ...changes.address, id: 0 }
+        : changes.removeAddress
+          ? null
+          : (current.address ?? null),
       photos: changes.photos ?? [],
       governmentIdPhotos: [],
       certificates: [],
@@ -610,20 +643,24 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
     // as "provided" and trips the CK_ServiceProvider_OwnerXor DB constraint → 500).
     userId: payload.userId,
     providerProfileId: null,
-    address: {
-      id: 0,
-      line1: payload.streetAddress,
-      line2: '',
-      city: payload.city,
-      // State is no longer collected in the application (Belgrade-first). The
-      // backend accepts an empty string (verified live), and leaving it blank
-      // keeps the admin address line clean (no duplicated city).
-      state: payload.state ?? '',
-      postalCode: payload.zipCode,
-      // Country comes from the phone-number country picker (ISO code), defaulting
-      // to Serbia (the Belgrade-first audience) when not set.
-      country: payload.country || 'RS',
-    },
+    // Left empty, the applicant has no business address and their page uses their account
+    // address. Sending the empty fields instead created a blank address row that hid it.
+    address: !(payload.streetAddress.trim() || payload.city.trim() || payload.zipCode.trim())
+      ? null
+      : {
+          id: 0,
+          line1: payload.streetAddress,
+          line2: '',
+          city: payload.city,
+          // State is no longer collected in the application (Belgrade-first). The
+          // backend accepts an empty string (verified live), and leaving it blank
+          // keeps the admin address line clean (no duplicated city).
+          state: payload.state ?? '',
+          postalCode: payload.zipCode,
+          // Country comes from the phone-number country picker (ISO code), defaulting
+          // to Serbia (the Belgrade-first audience) when not set.
+          country: payload.country || 'RS',
+        },
     photos: [
       ...(profileUpload
         ? [

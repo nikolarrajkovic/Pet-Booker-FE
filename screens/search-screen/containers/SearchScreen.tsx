@@ -137,10 +137,17 @@ function toSearchItem(svc: ServiceDto): ServiceSearchItem | null {
     price: serviceFromPrice(svc),
     image: resolveImageUrl(photoSrc),
     // Map pin position: the server's resolved point (the service's own address, else its
-    // provider's). null = no pin yet: a service address without coords is forward-geocoded
-    // lazily when the map view opens (see the geocode effect below).
-    latitude: svc.mapLocation?.latitude ?? svc.address?.location?.latitude ?? null,
-    longitude: svc.mapLocation?.longitude ?? svc.address?.location?.longitude ?? null,
+    // provider's business address, else the provider's account address). null = no pin yet: an
+    // address without coords is forward-geocoded lazily when the map view opens (see the geocode
+    // effect below).
+    latitude:
+      svc.mapLocation?.latitude ??
+      (svc.effectiveAddress ?? svc.address)?.location?.latitude ??
+      null,
+    longitude:
+      svc.mapLocation?.longitude ??
+      (svc.effectiveAddress ?? svc.address)?.location?.longitude ??
+      null,
     dto: svc,
   };
 }
@@ -451,13 +458,18 @@ export default function SearchScreen() {
   useEffect(() => {
     if (viewMode !== 'map') return;
     const pending = allServices
-      .filter((s) => s.latitude == null && s.dto.address && geocoded[s.id] === undefined)
+      .filter(
+        (s) =>
+          s.latitude == null &&
+          (s.dto.effectiveAddress ?? s.dto.address) &&
+          geocoded[s.id] === undefined
+      )
       .slice(0, 25);
     if (!pending.length) return;
     let cancelled = false;
     (async () => {
       for (const item of pending) {
-        const a = item.dto.address!;
+        const a = (item.dto.effectiveAddress ?? item.dto.address)!;
         const query = [a.line1, a.postalCode, a.city, a.country].filter(Boolean).join(', ');
         let point: GeoPoint | null = null;
         try {

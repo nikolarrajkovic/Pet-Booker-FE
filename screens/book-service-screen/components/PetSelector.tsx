@@ -9,6 +9,8 @@ interface Pet {
   name: string;
   breed: string;
   image: string;
+  /** False when the service doesn't take this pet's species — shown, but not selectable. */
+  accepted?: boolean;
 }
 
 interface PetSelectorProps {
@@ -51,12 +53,25 @@ export default function PetSelector({
         <Text className={`text-sm ${subtextColor} ml-2`}>{t('bookService.selectPetHint')}</Text>
       </View>
 
+      {pets.every((pet) => pet.accepted === false) ? (
+        <Text className={`mb-3 text-sm ${subtextColor}`}>{t('bookService.noPetsAccepted')}</Text>
+      ) : null}
+
       <View className="flex-row gap-3">
         {pets.map((pet) => (
           <TouchableOpacity
             accessibilityRole="button"
+            accessibilityState={{
+              disabled: pet.accepted === false,
+              selected: selectedPet === pet.id,
+            }}
+            // react-native-web reads aria-*, not accessibilityState.
+            aria-disabled={pet.accepted === false}
+            aria-selected={selectedPet === pet.id}
             key={pet.id}
+            disabled={pet.accepted === false}
             onPress={() => onSelectPet(pet.id)}
+            style={pet.accepted === false ? { opacity: 0.5 } : undefined}
             className={`flex-1 rounded-2xl border-2 p-4 ${
               selectedPet === pet.id
                 ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
@@ -76,6 +91,11 @@ export default function PetSelector({
             )}
             <Text className={`text-base font-semibold ${textColor}`}>{pet.name}</Text>
             <Text className={`text-sm ${subtextColor}`}>{pet.breed}</Text>
+            {pet.accepted === false ? (
+              <Text className={`mt-1 text-xs ${subtextColor}`}>
+                {t('bookService.petNotAccepted')}
+              </Text>
+            ) : null}
           </TouchableOpacity>
         ))}
       </View>

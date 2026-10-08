@@ -31,6 +31,11 @@ interface PersonalInfoStepProps {
   /** When provided, the street address field can open a map picker (fills street/city/ZIP). */
   onOpenAddressMap?: () => void;
   /**
+   * The applicant's account address, formatted. When set, the business address is optional: left
+   * empty, the partner's page uses the account address (and follows it when it changes).
+   */
+  accountAddressLabel?: string | null;
+  /**
    * Shown under Business name: the server refused the name customers would see because another
    * partner has it (names are unique), so the applicant picks a business name of their own.
    */
@@ -55,6 +60,7 @@ export default function PersonalInfoStep({
   setFormData,
   onPrefill,
   onOpenAddressMap,
+  accountAddressLabel,
   businessNameError,
   onContinue,
   isDarkMode,
@@ -67,6 +73,9 @@ export default function PersonalInfoStep({
   cardBg,
 }: PersonalInfoStepProps) {
   const { t } = useLocale();
+  // Without an account address to fall back on, the business address is what places the partner.
+  const addressRequired = !accountAddressLabel;
+  const requiredMark = addressRequired ? <Text className="text-red-500">*</Text> : null;
   // Phone is a composite control (dial-code dropdown + number), so it stays out of the chain;
   // Enter runs full name -> email -> street -> city -> ZIP and then continues to step 2.
   const form = useFormChain(
@@ -206,7 +215,7 @@ export default function PersonalInfoStep({
           why. The map fills street/city/ZIP in one tap when it works; typing is the floor. */}
       <View className="mb-4">
         <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-          {t('partnerApplication.streetAddress')} <Text className="text-red-500">*</Text>
+          {t('partnerApplication.streetAddress')} {requiredMark}
         </Text>
         <View
           className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
@@ -238,12 +247,17 @@ export default function PersonalInfoStep({
         {onOpenAddressMap && (
           <Text className={`text-xs ${subtextColor} mt-1`}>{t('partnerApplication.mapHint')}</Text>
         )}
+        {accountAddressLabel ? (
+          <Text className={`text-xs ${subtextColor} mt-1`}>
+            {t('partnerApplication.addressOptionalHint', { address: accountAddressLabel })}
+          </Text>
+        ) : null}
       </View>
 
       {/* City */}
       <View className="mb-4">
         <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-          {t('partnerApplication.city')} <Text className="text-red-500">*</Text>
+          {t('partnerApplication.city')} {requiredMark}
         </Text>
         <View className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
           <TextInput
@@ -260,7 +274,7 @@ export default function PersonalInfoStep({
       {/* ZIP Code */}
       <View className="mb-4">
         <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-          {t('partnerApplication.zipCode')} <Text className="text-red-500">*</Text>
+          {t('partnerApplication.zipCode')} {requiredMark}
         </Text>
         <View className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
           <TextInput
