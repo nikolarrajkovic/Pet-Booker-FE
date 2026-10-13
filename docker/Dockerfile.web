@@ -59,5 +59,13 @@ RUN grep -qF "$EXPO_PUBLIC_API_BASE_URL" dist/_expo/static/js/web/*.js \
 
 FROM caddy:2-alpine
 
+# The Content-Security-Policy in web.Caddyfile names the API origin the bundle calls: the same
+# build-arg, read by Caddy as {$API_ORIGIN}, plus its WebSocket form ({$API_WS_ORIGIN}, https -> wss)
+# for the SignalR hubs, derived when the container starts.
+ARG EXPO_PUBLIC_API_BASE_URL
+ENV API_ORIGIN=${EXPO_PUBLIC_API_BASE_URL}
+
 COPY --from=build /src/dist /srv
 COPY docker/web.Caddyfile /etc/caddy/Caddyfile
+
+CMD ["sh", "-c", "export API_WS_ORIGIN=\"$(echo \"$API_ORIGIN\" | sed 's#^http#ws#')\" && exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile"]
