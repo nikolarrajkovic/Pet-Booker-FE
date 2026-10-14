@@ -5,6 +5,8 @@ import { useNavigation } from '@react-navigation/native';
  *
  * - **Back (history)** — `goUp()` pops the push history for linear drill-downs
  *   (Home → Detail → Book). Falls back to a tab if there's nothing to pop.
+ * - **Saved** — `leaveTo(parent)` closes a form that has its own URL: back if there's history,
+ *   else to its parent list.
  * - **Done / Up (hierarchy)** — `resetToTab()` / `resetToScreen()` wipe the
  *   stack so a *completed* flow (booking, application, auth) can't be re-entered
  *   by pressing back. Use these on terminal screens instead of `navigate()`,
@@ -48,5 +50,16 @@ export function useAppNavigation() {
     else navigation.navigate('MainTabs', { screen: fallbackTab });
   };
 
-  return { navigation, resetToTab, resetToScreen, resetToAuth, goUp };
+  /**
+   * Leave a form after it saved: back to wherever it was opened from, or — opened from its own
+   * URL (a reload, a shared link), with nothing to pop — to `parent`, which replaces the form.
+   * A bare goBack() did nothing there, so the saved form sat on screen and invited a second,
+   * duplicate save.
+   */
+  const leaveTo = (parent: string, params?: object) => {
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.popTo(parent, params);
+  };
+
+  return { navigation, resetToTab, resetToScreen, resetToAuth, goUp, leaveTo };
 }

@@ -25,6 +25,8 @@ import { addressLabel } from '../../../services/geocoding';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useAuth } from '../../../context/AuthContext';
 import BookingPaymentPanel from '../components/BookingPaymentPanel';
+import TwoColumn from '../../../components/shared/TwoColumn';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 type RouteParams = { bookingId: number };
 
@@ -43,7 +45,8 @@ export default function BookingDetailsScreen() {
   const gutter = usePageGutter();
   const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
   const { bookingId } = route.params;
-  const { isDarkMode, bgColor, textColor, subtextColor, borderColor } = useThemeColors();
+  const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
+  const { isWebLayout } = useResponsive();
   const { t, tEnum } = useLocale();
 
   const { showError, showSuccess } = useToast();
@@ -80,6 +83,10 @@ export default function BookingDetailsScreen() {
   );
   const reviewRating = dto?.review?.rating ?? null;
   const isCompleted = vm?.statusLabel === 'completed';
+  // The partner opens this screen too (accepting a group request lands here), and every action
+  // on it is the customer's: a partner was offered "Cancel booking", which the API refuses them,
+  // and "Leave a review" on their own work. The partner sees who the booking is for instead.
+  const isCustomer = currentUser?.id != null && dto != null && currentUser.id === dto.userId;
 
   // The owner may call off a booking any time before the provider starts the service — the same
   // window CancelBookingCommand allows server-side. Once it is ServiceStarted or later the API
@@ -91,7 +98,10 @@ export default function BookingDetailsScreen() {
   ];
   // An expired booking is over without having happened — nothing left to call off.
   const canCancel =
-    dto != null && !dto.isExpired && CANCELLABLE_STATUSES.includes(dto.currentStatus ?? -1);
+    isCustomer &&
+    dto != null &&
+    !dto.isExpired &&
+    CANCELLABLE_STATUSES.includes(dto.currentStatus ?? -1);
   const [isCancelPromptOpen, setIsCancelPromptOpen] = useState(false);
 
   // Asks why first: the reason is stored on the booking and shown to the provider. The app used to
@@ -117,17 +127,319 @@ export default function BookingDetailsScreen() {
     dto?.pet?.photos?.find((p) => p.isSelected)?.src ?? dto?.pet?.photos?.[0]?.src
   );
 
-  const Row = ({ icon, label, value }: { icon: string; label: string; value: string }) => (
+  const Row = ({
+    icon,
+    label,
+    value,
+    media,
+  }: {
+    icon: string;
+    label: string;
+    value: string;
+    /** Drawn just before the value — the pet's photo beside its name. */
+    media?: React.ReactNode;
+  }) => (
     <View className={`flex-row items-center justify-between border-b py-3 ${borderColor}`}>
       <View className="mr-3 flex-1 flex-row items-center">
         <Ionicons name={icon as any} size={18} color={BRAND_GREEN} />
         <Text className={`text-sm ${subtextColor} ml-3`}>{label}</Text>
       </View>
-      <Text className={`text-sm font-semibold ${textColor} flex-1 text-right`} numberOfLines={2}>
-        {value}
-      </Text>
+      <View className="flex-1 flex-row items-center justify-end">
+        {media}
+        <Text className={`text-sm font-semibold ${textColor} shrink text-right`} numberOfLines={2}>
+          {value}
+        </Text>
+      </View>
     </View>
   );
+
+  // The page's sections, laid out per design below.
+  const header =
+    dto && vm ? (
+      <>
+        {/* Service / provider header */}
+        <View className={`flex-row items-center ${gutter.px} pt-5`}>
+          {heroImage ? (
+            <Image
+              source={{ uri: heroImage }}
+              className="mr-4 h-20 w-20 rounded-2xl"
+              resizeMode="cover"
+            />
+          ) : (
+            <View
+              className={`mr-4 h-20 w-20 rounded-2xl ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
+              <Ionicons name="paw" size={30} color="#9CA3AF" />
+            </View>
+          )}
+          <View className="flex-1">
+            <Text className={`text-lg font-bold ${textColor}`}>{vm.serviceName}</Text>
+            <Text className={`text-sm ${subtextColor} mt-0.5`}>{vm.providerName}</Text>
+            <View className={`mt-2 self-start rounded-full px-2.5 py-1 ${status.bg}`}>
+              <Text className={`text-xs font-semibold ${status.text}`}>
+                {tEnum('bookingState', status.state)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {dto.isExpired ? (
+          <View className={`mt-4 ${gutter.px}`}>
+            <View className="flex-row items-center rounded-xl bg-gray-100 px-4 py-3">
+              <Ionicons name="time-outline" size={18} color="#6B7280" />
+              <Text className="ml-2 flex-1 text-sm text-gray-700">
+                {t('bookingDetails.expiredNotice')}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+      </>
+    ) : null;
+  const appointment =
+    dto && vm ? (
+      <>
+        {/* Appointment */}
+        <View className={`mt-6 ${gutter.px}`}>
+          <Text className={`text-base font-bold ${textColor} mb-1`}>
+            {t('bookingDetails.appointment')}
+          </Text>
+          <Row icon="calendar-outline" label={t('bookingDetails.date')} value={vm.date} />
+          <Row icon="time-outline" label={t('bookingDetails.time')} value={vm.timeRange} />
+          {/* The pet's photo sits in its own row; it used to repeat below the section with
+                  the name again, unlabelled. ServicePhoto layers a paw behind a photo that 404s. */}
+          <Row
+            icon="paw-outline"
+            label={t('bookingDetails.pet')}
+            value={dto.pet?.name ?? vm.petName}
+            media={
+              petImage ? (
+                <ServicePhoto
+                  uri={petImage}
+                  radiusClass="rounded-lg"
+                  iconSize={14}
+                  className="mr-2 h-8 w-8"
+                />
+              ) : null
+            }
+          />
+          {isCustomer ? (
+            <Row
+              icon="person-outline"
+              label={t('bookingDetails.provider')}
+              value={vm.providerName}
+            />
+          ) : (
+            <Row
+              icon="person-outline"
+              label={t('bookingDetails.customer')}
+              value={dto.user?.userName ?? '—'}
+            />
+          )}
+          {/* Why it was called off, as the person who did it wrote it. */}
+          {vm.statusLabel === 'cancelled' && dto.cancelReason ? (
+            <Row
+              icon="chatbox-ellipses-outline"
+              label={t('bookingDetails.cancelReasonLabel')}
+              value={dto.cancelReason}
+            />
+          ) : null}
+        </View>
+      </>
+    ) : null;
+  const location =
+    dto && vm ? (
+      <>
+        {/* Location */}
+        {(pickup || dropoff) && (
+          <View className={`mt-6 ${gutter.px}`}>
+            <Text className={`text-base font-bold ${textColor} mb-1`}>
+              {t('bookingDetails.location')}
+            </Text>
+            {pickup ? (
+              <Row
+                icon="car-outline"
+                label={t('bookingDetails.pickup')}
+                value={addressLabel(pickup)}
+              />
+            ) : null}
+            {dropoff ? (
+              <Row
+                icon="home-outline"
+                label={t('bookingDetails.dropoff')}
+                value={addressLabel(dropoff)}
+              />
+            ) : null}
+          </View>
+        )}
+      </>
+    ) : null;
+  const payment =
+    dto && vm ? (
+      <>
+        {/* Payment */}
+        <View className={`mt-6 ${gutter.px}`}>
+          <Text className={`text-base font-bold ${textColor} mb-1`}>
+            {t('bookingDetails.payment')}
+          </Text>
+          <Row
+            icon="card-outline"
+            label={t('bookingDetails.method')}
+            value={dto.paymentType != null ? tEnum('paymentType', dto.paymentType, '—') : '—'}
+          />
+          <View className={`flex-row items-center justify-between border-b py-3 ${borderColor}`}>
+            <Text className={`text-sm ${subtextColor}`}>{t('bookingDetails.subtotal')}</Text>
+            <Text className={`text-sm ${textColor}`}>
+              {formatMoney(dto.basePrice, dto.priceCurrency)}
+            </Text>
+          </View>
+          {dto.discountAmount > 0 && (
+            <View className={`flex-row items-center justify-between border-b py-3 ${borderColor}`}>
+              <Text className={`text-sm ${subtextColor}`}>{t('bookingDetails.discount')}</Text>
+              <Text className="text-sm text-brand-600">
+                - {formatMoney(dto.discountAmount, dto.priceCurrency)}
+              </Text>
+            </View>
+          )}
+
+          {/*
+                The extras the booking was actually charged for. Without these the screen jumped
+                straight from a base price to a total that could be several times larger with no
+                explanation — on a per-distance extra the add-ons are most of the bill. The lines
+                are the server's own, frozen when the booking was priced, so a per-distance one
+                already carries the fees and its measured distance: render them rather than
+                recomputing the surcharge formula (which must never be mirrored client-side).
+              */}
+          {addOnLines.map((line, i) => {
+            const perKmCharge = line.price - (line.baseFee ?? 0);
+            return (
+              <View key={line.id ?? `${line.name}-${i}`} className={`border-b py-3 ${borderColor}`}>
+                <View className="flex-row items-center justify-between">
+                  <Text className={`text-sm ${subtextColor} flex-1 pr-2`}>{line.name}</Text>
+                  <Text className={`text-sm ${textColor}`}>
+                    {formatMoney(line.price, dto.priceCurrency)}
+                  </Text>
+                </View>
+                {line.baseFee != null && line.distanceKm != null && (
+                  <View className={`ml-1 mt-1.5 border-l pl-3 ${borderColor}`}>
+                    <View className="mb-1 flex-row justify-between">
+                      <Text className={`text-xs ${subtextColor}`}>
+                        {t('reviewBooking.addonStartFee')}
+                      </Text>
+                      <Text className={`text-xs ${subtextColor}`}>
+                        {formatMoney(line.baseFee, dto.priceCurrency)}
+                      </Text>
+                    </View>
+                    {perKmCharge > 0 && (
+                      <View className="flex-row justify-between">
+                        <Text className={`text-xs ${subtextColor} flex-1 pr-2`}>
+                          {t('reviewBooking.addonDistance', {
+                            km: line.distanceKm.toFixed(2),
+                            rate: formatMoney(line.perKmFee ?? 0, dto.priceCurrency),
+                          })}
+                        </Text>
+                        <Text className={`text-xs ${subtextColor}`}>
+                          {formatMoney(perKmCharge, dto.priceCurrency)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+
+          <View className="flex-row items-center justify-between py-3">
+            <Text className={`text-base font-bold ${textColor}`}>{t('bookingDetails.total')}</Text>
+            <Text className="text-xl font-bold text-brand-600">
+              {formatMoney(dto.totalPrice, dto.priceCurrency)}
+            </Text>
+          </View>
+
+          {/* Paid / refunded / owed, and the customer's Pay buttons. */}
+          <BookingPaymentPanel
+            bookingId={dto.id ?? bookingId}
+            currentStatus={dto.currentStatus ?? -1}
+            isExpired={!!dto.isExpired}
+            isCustomer={isCustomer}
+            userId={dto.userId}
+            onPaid={refresh}
+          />
+        </View>
+      </>
+    ) : null;
+  const reviewBlock =
+    dto && vm ? (
+      <>
+        {/* Review — show the existing rating, or a CTA for completed bookings */}
+        {reviewRating != null ? (
+          <View className={`mt-6 ${gutter.px}`}>
+            <Text className={`text-base font-bold ${textColor} mb-2`}>
+              {isCustomer ? t('bookingDetails.yourReview') : t('bookingDetails.customersReview')}
+            </Text>
+            <View className="flex-row items-center">
+              {[1, 2, 3, 4, 5].map((v) => (
+                <Ionicons
+                  key={v}
+                  name={v <= reviewRating ? 'star' : 'star-outline'}
+                  size={22}
+                  color="#F59E0B"
+                  style={{ marginRight: 4 }}
+                />
+              ))}
+            </View>
+          </View>
+        ) : isCompleted && isCustomer ? (
+          <View className={`mt-6 ${gutter.px}`}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() =>
+                review.open({
+                  bookingId: dto.id ?? bookingId,
+                  serviceProviderId: dto.serviceProviderId,
+                  serviceId: dto.serviceId,
+                  serviceName: vm.serviceName,
+                })
+              }
+              activeOpacity={0.85}
+              className="flex-row items-center justify-center rounded-2xl bg-brand-500 py-4">
+              <Ionicons name="star" size={18} color="white" />
+              <Text className="ml-2 text-base font-bold text-white">
+                {t('bookingDetails.leaveAReview')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      </>
+    ) : null;
+  const cancelBlock =
+    dto && vm ? (
+      <>
+        {/* Cancel — the owner's own way out, available until the service starts. */}
+        {canCancel ? (
+          <View className={`mt-6 ${gutter.px}`}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t('bookingDetails.cancelBooking')}
+              disabled={isCancelling}
+              onPress={handleCancel}
+              activeOpacity={0.85}
+              className={`flex-row items-center justify-center rounded-2xl border-2 border-red-500 py-4 ${
+                isCancelling ? 'opacity-50' : ''
+              }`}>
+              {isCancelling ? (
+                <ActivityIndicator size="small" color="#EF4444" />
+              ) : (
+                <>
+                  <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
+                  <Text className="ml-2 text-base font-bold text-red-500">
+                    {t('bookingDetails.cancelBooking')}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      </>
+    ) : null;
 
   return (
     <>
@@ -156,268 +468,37 @@ export default function BookingDetailsScreen() {
           </View>
         ) : (
           <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
-            {/* Service / provider header */}
-            <View className={`flex-row items-center ${gutter.px} pt-5`}>
-              {heroImage ? (
-                <Image
-                  source={{ uri: heroImage }}
-                  className="mr-4 h-20 w-20 rounded-2xl"
-                  resizeMode="cover"
-                />
-              ) : (
-                <View
-                  className={`mr-4 h-20 w-20 rounded-2xl ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
-                  <Ionicons name="paw" size={30} color="#9CA3AF" />
-                </View>
-              )}
-              <View className="flex-1">
-                <Text className={`text-lg font-bold ${textColor}`}>{vm.serviceName}</Text>
-                <Text className={`text-sm ${subtextColor} mt-0.5`}>{vm.providerName}</Text>
-                <View className={`mt-2 self-start rounded-full px-2.5 py-1 ${status.bg}`}>
-                  <Text className={`text-xs font-semibold ${status.text}`}>
-                    {tEnum('bookingState', status.state)}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {dto.isExpired ? (
-              <View className={`mt-4 ${gutter.px}`}>
-                <View className="flex-row items-center rounded-xl bg-gray-100 px-4 py-3">
-                  <Ionicons name="time-outline" size={18} color="#6B7280" />
-                  <Text className="ml-2 flex-1 text-sm text-gray-700">
-                    {t('bookingDetails.expiredNotice')}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-
-            {/* Appointment */}
-            <View className={`mt-6 ${gutter.px}`}>
-              <Text className={`text-base font-bold ${textColor} mb-1`}>
-                {t('bookingDetails.appointment')}
-              </Text>
-              <Row icon="calendar-outline" label={t('bookingDetails.date')} value={vm.date} />
-              <Row icon="time-outline" label={t('bookingDetails.time')} value={vm.time} />
-              <Row
-                icon="paw-outline"
-                label={t('bookingDetails.pet')}
-                value={dto.pet?.name ?? vm.petName}
-              />
-              <Row
-                icon="person-outline"
-                label={t('bookingDetails.provider')}
-                value={vm.providerName}
-              />
-              {/* Why it was called off, as the person who did it wrote it. */}
-              {vm.statusLabel === 'cancelled' && dto.cancelReason ? (
-                <Row
-                  icon="chatbox-ellipses-outline"
-                  label={t('bookingDetails.cancelReasonLabel')}
-                  value={dto.cancelReason}
-                />
-              ) : null}
-            </View>
-
-            {/* Pet image (optional flourish). ServicePhoto layers its placeholder behind the
-                photo, so a src that 404s shows a paw rather than an empty 48px box with the pet's
-                name floating beside it, unlabelled, between two sections. */}
-            {petImage ? (
-              <View className={`mt-4 flex-row items-center ${gutter.px}`}>
-                <ServicePhoto
-                  uri={petImage}
-                  radiusClass="rounded-xl"
-                  iconSize={20}
-                  className="mr-3 h-12 w-12"
-                />
-                <Text className={`text-sm ${subtextColor}`}>{dto.pet?.name ?? vm.petName}</Text>
-              </View>
-            ) : null}
-
-            {/* Location */}
-            {(pickup || dropoff) && (
-              <View className={`mt-6 ${gutter.px}`}>
-                <Text className={`text-base font-bold ${textColor} mb-1`}>
-                  {t('bookingDetails.location')}
-                </Text>
-                {pickup ? (
-                  <Row
-                    icon="car-outline"
-                    label={t('bookingDetails.pickup')}
-                    value={addressLabel(pickup)}
-                  />
-                ) : null}
-                {dropoff ? (
-                  <Row
-                    icon="home-outline"
-                    label={t('bookingDetails.dropoff')}
-                    value={addressLabel(dropoff)}
-                  />
-                ) : null}
-              </View>
-            )}
-
-            {/* Payment */}
-            <View className={`mt-6 ${gutter.px}`}>
-              <Text className={`text-base font-bold ${textColor} mb-1`}>
-                {t('bookingDetails.payment')}
-              </Text>
-              <Row
-                icon="card-outline"
-                label={t('bookingDetails.method')}
-                value={dto.paymentType != null ? tEnum('paymentType', dto.paymentType, '—') : '—'}
-              />
-              <View
-                className={`flex-row items-center justify-between border-b py-3 ${borderColor}`}>
-                <Text className={`text-sm ${subtextColor}`}>{t('bookingDetails.subtotal')}</Text>
-                <Text className={`text-sm ${textColor}`}>
-                  {formatMoney(dto.basePrice, dto.priceCurrency)}
-                </Text>
-              </View>
-              {dto.discountAmount > 0 && (
-                <View
-                  className={`flex-row items-center justify-between border-b py-3 ${borderColor}`}>
-                  <Text className={`text-sm ${subtextColor}`}>{t('bookingDetails.discount')}</Text>
-                  <Text className="text-sm text-brand-600">
-                    - {formatMoney(dto.discountAmount, dto.priceCurrency)}
-                  </Text>
-                </View>
-              )}
-
-              {/*
-                The extras the booking was actually charged for. Without these the screen jumped
-                straight from a base price to a total that could be several times larger with no
-                explanation — on a per-distance extra the add-ons are most of the bill. The lines
-                are the server's own, frozen when the booking was priced, so a per-distance one
-                already carries the fees and its measured distance: render them rather than
-                recomputing the surcharge formula (which must never be mirrored client-side).
-              */}
-              {addOnLines.map((line, i) => {
-                const perKmCharge = line.price - (line.baseFee ?? 0);
-                return (
-                  <View
-                    key={line.id ?? `${line.name}-${i}`}
-                    className={`border-b py-3 ${borderColor}`}>
-                    <View className="flex-row items-center justify-between">
-                      <Text className={`text-sm ${subtextColor} flex-1 pr-2`}>{line.name}</Text>
-                      <Text className={`text-sm ${textColor}`}>
-                        {formatMoney(line.price, dto.priceCurrency)}
-                      </Text>
+            {isWebLayout ? (
+              // A recap beside its bill: the booking on the left, what it costs and the ways to
+              // pay or call it off in a sticky card on the right. One column stretched a two-word
+              // label and its value across the whole window.
+              <View className={`${gutter.px} pt-5`}>
+                <TwoColumn
+                  asideWidth={400}
+                  aside={
+                    <View className={`${cardBg} rounded-2xl border ${borderColor} pb-5`}>
+                      {payment}
+                      {cancelBlock}
                     </View>
-                    {line.baseFee != null && line.distanceKm != null && (
-                      <View className={`ml-1 mt-1.5 border-l pl-3 ${borderColor}`}>
-                        <View className="mb-1 flex-row justify-between">
-                          <Text className={`text-xs ${subtextColor}`}>
-                            {t('reviewBooking.addonStartFee')}
-                          </Text>
-                          <Text className={`text-xs ${subtextColor}`}>
-                            {formatMoney(line.baseFee, dto.priceCurrency)}
-                          </Text>
-                        </View>
-                        {perKmCharge > 0 && (
-                          <View className="flex-row justify-between">
-                            <Text className={`text-xs ${subtextColor} flex-1 pr-2`}>
-                              {t('reviewBooking.addonDistance', {
-                                km: line.distanceKm.toFixed(2),
-                                rate: formatMoney(line.perKmFee ?? 0, dto.priceCurrency),
-                              })}
-                            </Text>
-                            <Text className={`text-xs ${subtextColor}`}>
-                              {formatMoney(perKmCharge, dto.priceCurrency)}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    )}
+                  }>
+                  <View className={`${cardBg} rounded-2xl border ${borderColor} pb-5`}>
+                    {header}
+                    {appointment}
+                    {location}
+                    {reviewBlock}
                   </View>
-                );
-              })}
-
-              <View className="flex-row items-center justify-between py-3">
-                <Text className={`text-base font-bold ${textColor}`}>
-                  {t('bookingDetails.total')}
-                </Text>
-                <Text className="text-xl font-bold text-brand-600">
-                  {formatMoney(dto.totalPrice, dto.priceCurrency)}
-                </Text>
+                </TwoColumn>
               </View>
-
-              {/* Paid / refunded / owed, and the customer's Pay buttons. */}
-              <BookingPaymentPanel
-                bookingId={dto.id ?? bookingId}
-                currentStatus={dto.currentStatus ?? -1}
-                isExpired={!!dto.isExpired}
-                isCustomer={currentUser?.id != null && currentUser.id === dto.userId}
-                userId={dto.userId}
-                onPaid={refresh}
-              />
-            </View>
-
-            {/* Review — show the existing rating, or a CTA for completed bookings */}
-            {reviewRating != null ? (
-              <View className={`mt-6 ${gutter.px}`}>
-                <Text className={`text-base font-bold ${textColor} mb-2`}>
-                  {t('bookingDetails.yourReview')}
-                </Text>
-                <View className="flex-row items-center">
-                  {[1, 2, 3, 4, 5].map((v) => (
-                    <Ionicons
-                      key={v}
-                      name={v <= reviewRating ? 'star' : 'star-outline'}
-                      size={22}
-                      color="#F59E0B"
-                      style={{ marginRight: 4 }}
-                    />
-                  ))}
-                </View>
-              </View>
-            ) : isCompleted ? (
-              <View className={`mt-6 ${gutter.px}`}>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={() =>
-                    review.open({
-                      bookingId: dto.id ?? bookingId,
-                      serviceProviderId: dto.serviceProviderId,
-                      serviceId: dto.serviceId,
-                      serviceName: vm.serviceName,
-                    })
-                  }
-                  activeOpacity={0.85}
-                  className="flex-row items-center justify-center rounded-2xl bg-brand-500 py-4">
-                  <Ionicons name="star" size={18} color="white" />
-                  <Text className="ml-2 text-base font-bold text-white">
-                    {t('bookingDetails.leaveAReview')}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-
-            {/* Cancel — the owner's own way out, available until the service starts. */}
-            {canCancel ? (
-              <View className={`mt-6 ${gutter.px}`}>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  accessibilityLabel={t('bookingDetails.cancelBooking')}
-                  disabled={isCancelling}
-                  onPress={handleCancel}
-                  activeOpacity={0.85}
-                  className={`flex-row items-center justify-center rounded-2xl border-2 border-red-500 py-4 ${
-                    isCancelling ? 'opacity-50' : ''
-                  }`}>
-                  {isCancelling ? (
-                    <ActivityIndicator size="small" color="#EF4444" />
-                  ) : (
-                    <>
-                      <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
-                      <Text className="ml-2 text-base font-bold text-red-500">
-                        {t('bookingDetails.cancelBooking')}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            ) : null}
+            ) : (
+              <>
+                {header}
+                {appointment}
+                {location}
+                {payment}
+                {reviewBlock}
+                {cancelBlock}
+              </>
+            )}
           </ScrollView>
         )}
       </ScreenLayout>

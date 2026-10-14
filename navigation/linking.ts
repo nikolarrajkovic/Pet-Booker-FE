@@ -1,3 +1,4 @@
+import { getPathFromState as defaultGetPathFromState } from '@react-navigation/native';
 import type { LinkingOptions } from '@react-navigation/native';
 import type { ServiceDto } from '../services/services';
 
@@ -15,16 +16,34 @@ import type { ServiceDto } from '../services/services';
  * something sensible. That means the screen needs either no params, optional ones, or an id it can
  * refetch from.
  *
- * Screens driven by an in-flight object are left out on purpose: `BookService` and `ReviewBooking`
- * carry a half-built booking, `AddEditService` an unsaved draft, `ApplicationReview` the
- * application being moderated. A URL cannot carry any of that, so giving them a path would trade
- * today's harmless "refresh goes Home" for a crash on reload. Unmapped screens simply don't change
- * the address bar — Back from one still works, because it pops to the last URL that did.
+ * Screens driven by an in-flight object are left out on purpose: `ReviewBooking` carries a
+ * half-built booking, `AddEditService` an unsaved draft, `ApplicationReview` the application being
+ * moderated. A URL cannot carry any of that, so giving them a path would trade a harmless "refresh
+ * goes Home" for a crash on reload. Unmapped screens don't change the address bar —
+ * `getPathFromState` below keeps the last mapped screen's URL (React Navigation's default used to
+ * write `/ReviewBooking?service=[object Object]&appointments=[object Object]`). `BookService`
+ * is mapped: it needs only the service, which it can fetch by id.
  *
  * The exception worth having is the pair users actually link to: a service and a booking, both
  * identified by an id the screen can fetch. See ServiceDetailScreen, which accepts either the
  * whole service (fast path from a list) or just `serviceId` (deep link).
  */
+type NavState = Parameters<typeof defaultGetPathFromState>[0];
+
+/**
+ * The state with any unmapped screens on top of the root stack left out, so their URL is the last
+ * mapped screen's. Nested navigators (the tabs) are all mapped, so only the root needs trimming.
+ */
+function withoutUnmappedScreens(state: NavState, mapped: ReadonlySet<string>): NavState {
+  let routes = state.routes;
+  let index = state.index ?? routes.length - 1;
+  while (index > 0 && !mapped.has(routes[index].name)) {
+    routes = routes.slice(0, index);
+    index -= 1;
+  }
+  return routes === state.routes ? state : ({ ...state, routes, index } as NavState);
+}
+
 export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
   // Static, so this module pulls in no runtime dependency. `petbooker://` is the scheme declared
   // in app.json. Expo's own `Linking.createURL('/')` would additionally cover the `exp://` URL
@@ -69,6 +88,13 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
           providerId: (id: number) => String(id),
           provider: () => 'undefined',
         },
+      },
+      // The booking form for one service. The service object is a head start from ServiceDetail;
+      // opened from this URL the screen fetches it by id, so a reload resumes the form.
+      BookService: {
+        path: 'services/:serviceId/book',
+        parse: { serviceId: Number },
+        stringify: { serviceId: (id: number) => String(id), service: () => 'undefined' },
       },
       BookingDetails: {
         path: 'bookings/:bookingId',
@@ -143,6 +169,12 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
     },
   },
 };
+
+// Root screens with a path of their own; anything else keeps the URL of the screen beneath it.
+const MAPPED_SCREENS: ReadonlySet<string> = new Set(Object.keys(linking.config?.screens ?? {}));
+
+linking.getPathFromState = (state, options) =>
+  defaultGetPathFromState(withoutUnmappedScreens(state, MAPPED_SCREENS), options);
 
 /**
  * Params for opening a service from a list. The id is what the URL (and a reload) needs; the

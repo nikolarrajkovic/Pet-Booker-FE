@@ -132,6 +132,18 @@ Then in a browser, because these are the parts curl cannot answer:
 
 ---
 
+## Security headers
+
+`docker/web.Caddyfile` sends a **Content-Security-Policy** (plus `X-Frame-Options: DENY`,
+`nosniff`, a referrer policy): scripts only from the bundle and Google Maps, connections only to
+the API and its hubs, Google Maps, Nominatim and OSRM, and no framing. On the web the login
+tokens live in `localStorage`, so this is the main guard against injected script. The API origin
+in it is the `EXPO_PUBLIC_API_BASE_URL` build-arg (`API_ORIGIN` in the image; the `wss://` form is
+derived when the container starts, since Chrome does not let an `https://` source cover the hubs).
+**Adding a new outside origin the app calls means adding it to the policy**, or the browser
+refuses the request ("Refused to connect … Content Security Policy" in the console). The edge
+Caddy (backend `docker/Caddyfile`) adds HSTS.
+
 ## Operating
 
 **Deploy a change**

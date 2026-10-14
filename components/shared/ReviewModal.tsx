@@ -14,6 +14,7 @@ import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
+import type { TranslationKey } from '../../i18n';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 import { usePageGutter } from '../../hooks/usePageGutter';
 
@@ -27,9 +28,8 @@ type ReviewModalProps = {
   onSubmit: (rating: number, comment: string) => void;
 };
 
-// Translation keys per star value, resolved with t() at render.
-const RATING_LABEL_KEYS = [
-  '',
+// Translation keys per star value (1–5, so index value - 1), resolved with t() at render.
+const RATING_LABEL_KEYS: TranslationKey[] = [
   'reviewModal.ratingPoor',
   'reviewModal.ratingFair',
   'reviewModal.ratingGood',
@@ -146,6 +146,11 @@ export default function ReviewModal({
               {[1, 2, 3, 4, 5].map((value) => (
                 <TouchableOpacity
                   accessibilityRole="button"
+                  accessibilityLabel={t('reviewModal.starLabel', {
+                    value,
+                    label: t(RATING_LABEL_KEYS[value - 1]),
+                  })}
+                  accessibilityState={{ selected: value === rating }}
                   key={value}
                   onPress={() => !submitting && setRating(value)}
                   activeOpacity={0.7}
@@ -161,7 +166,7 @@ export default function ReviewModal({
             <Text
               style={{ color: rating > 0 ? '#F59E0B' : hex.subtext }}
               className="mt-2 text-center text-sm font-semibold">
-              {rating > 0 ? t(RATING_LABEL_KEYS[rating] as any) : t('reviewModal.tapToRate')}
+              {rating > 0 ? t(RATING_LABEL_KEYS[rating - 1]) : t('reviewModal.tapToRate')}
             </Text>
 
             {/* Comment */}

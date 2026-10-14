@@ -134,11 +134,16 @@ export default function ServiceCard({
         <Text className={`text-xs ${subtextColor} mb-2`}>{service}</Text>
 
         <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center">
-            <Ionicons name="star" size={14} color="#FBBF24" />
-            <Text className={`text-xs font-semibold ${textColor} ml-1`}>{rating.toFixed(1)}</Text>
-            <Text className={`text-xs ${subtextColor} ml-1`}>({reviews})</Text>
-          </View>
+          {reviews > 0 ? (
+            <View className="flex-row items-center">
+              <Ionicons name="star" size={14} color="#FBBF24" />
+              <Text className={`text-xs font-semibold ${textColor} ml-1`}>{rating.toFixed(1)}</Text>
+              <Text className={`text-xs ${subtextColor} ml-1`}>({reviews})</Text>
+            </View>
+          ) : (
+            // "★ 0.0 (0)" read as the worst possible rating; the search rows already say this.
+            <Text className={`text-xs ${subtextColor}`}>{t('card.a11yNoReviews')}</Text>
+          )}
           {distance && <Text className={`text-xs ${subtextColor}`}>{distance}</Text>}
         </View>
       </View>

@@ -144,15 +144,19 @@ export async function refreshAccessToken(
   const body = parseResponseBody(raw);
 
   if (!response.ok) {
-    const failure = body as { message?: string; detail?: string; error?: string };
-    throw new Error(
-      failure.message || failure.detail || failure.error || 'Session expired. Please log in again.'
+    // Keep the status: services/session.ts ends the session only when the server REFUSED this
+    // refresh token (400/401/403). A 429 or a 5xx says nothing about the session.
+    const failure = body as { message?: string; detail?: string; error?: string; code?: string };
+    throw new ApiError(
+      failure.message || failure.detail || failure.error || 'Session expired. Please log in again.',
+      response.status,
+      failure.code
     );
   }
 
   const accessToken = extractAccessToken(body);
   if (!accessToken) {
-    throw new Error('Refresh response did not include an access token.');
+    throw new ApiError('Refresh response did not include an access token.', response.status);
   }
 
   return { accessToken, refreshToken: extractRefreshToken(body) ?? undefined };
@@ -262,10 +266,17 @@ export function resetPassword(payload: {
   });
 }
 
-/** Server-side logout (best-effort; the client clears tokens regardless). */
-export function logout(): Promise<void> {
+/**
+ * Server-side logout (best-effort; the client clears tokens regardless).
+ *
+ * Names this device's refresh token so only this session ends. Each sign-in is its own session, and
+ * a body-less logout ends all of them — signing out on a phone used to sign the browser out too.
+ * `allDevices` is the deliberate "sign out everywhere".
+ */
+export function logout(refreshToken?: string | null, allDevices = false): Promise<void> {
   return apiVoid('/auth/logout', {
     method: 'POST',
+    body: { refreshToken: refreshToken ?? null, allDevices },
     fallback: 'Failed to log out.',
     context: 'logout',
   });

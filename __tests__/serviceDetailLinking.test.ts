@@ -51,3 +51,43 @@ describe('CreateGroupRequest URL', () => {
     expect(route.params).toEqual({ serviceType: 1 });
   });
 });
+
+// The booking form has an address of its own, and screens that only live in memory keep the URL
+// of the page beneath them. React Navigation's default wrote `/BookService?service=[object Object]`
+// and `/ReviewBooking?service=[object Object]&appointments=[object Object]`.
+describe('booking flow URLs', () => {
+  const config = linking.config as any;
+  const service = { id: 42, name: 'Riverside Dog Walks' } as ServiceDto;
+  const path = (routes: any[]) =>
+    linking.getPathFromState!({ index: routes.length - 1, routes } as any, config);
+
+  it('the booking form is /services/{id}/book, with the DTO kept out', () => {
+    expect(path([{ name: 'BookService', params: { serviceId: 42, service } }])).toBe(
+      '/services/42/book'
+    );
+  });
+
+  it('parses back to the id the form fetches by', () => {
+    const state = getStateFromPath('/services/42/book', config) as any;
+    const route = state.routes[state.routes.length - 1];
+    expect(route.name).toBe('BookService');
+    expect(route.params).toEqual({ serviceId: 42 });
+  });
+
+  it('a screen with no path of its own keeps the URL beneath it', () => {
+    expect(
+      path([
+        { name: 'MainTabs', state: { routes: [{ name: 'Home' }] } },
+        { name: 'ServiceDetail', params: serviceDetailParams(service) },
+        { name: 'BookService', params: { serviceId: 42, service } },
+        { name: 'ReviewBooking', params: { service, appointments: [{ id: 1 }] } },
+      ])
+    ).toBe('/services/42/book');
+    expect(
+      path([
+        { name: 'MainTabs', state: { routes: [{ name: 'Home' }] } },
+        { name: 'PartnerWelcome' },
+      ])
+    ).toBe('/');
+  });
+});

@@ -22,6 +22,22 @@
 	@shell path / /index.html
 	header @shell Cache-Control "no-cache"
 
+	# Content-Security-Policy (front-end review 2026-10-14, S6: the app sent none). Login tokens live
+	# in localStorage on the web, so a policy that only runs our own bundle is the main guard against
+	# injected script. What it allows, and why:
+	#   - script: the bundle; Google's Maps JS when a key is set (blocked, the maps fall back to OSM).
+	#   - style 'unsafe-inline': react-native-web writes its styles into <style> tags and attributes.
+	#   - img: uploaded photos from the API, map tiles, flags, Google imagery (https:, data:, blob:).
+	#   - connect: the API and its hubs ({$API_ORIGIN} and {$API_WS_ORIGIN}: Chrome does not treat an
+	#     https:// source as covering wss://), Google Maps, the Nominatim geocoder, the OSRM router.
+	#   - frame-ancestors 'none': nobody may frame the app (clickjacking).
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self' https://*.googleapis.com https://*.gstatic.com https://*.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' {$API_ORIGIN} data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' {$API_ORIGIN} {$API_WS_ORIGIN} https://*.googleapis.com https://*.google.com https://*.gstatic.com https://nominatim.openstreetmap.org https://router.project-osrm.org; worker-src 'self' blob:; frame-src https://*.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
 	file_server
 
 	log {

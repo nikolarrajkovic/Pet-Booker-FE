@@ -6,7 +6,7 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
-import { DAY_KEYS, MONTH_KEYS } from '../../../i18n';
+import { formatFullDate } from '../../../i18n/dates';
 import { durationDisplayLabel } from '../../my-services-screen/serviceModel';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
@@ -296,9 +296,7 @@ export default function ReviewBookingScreen() {
                       color={BRAND_GREEN}
                       style={{ marginRight: 6 }}
                     />
-                    <Text className={`text-sm ${subtextColor}`}>
-                      {`${t(DAY_KEYS[start.getDay()])}, ${t(MONTH_KEYS[start.getMonth()])} ${start.getDate()}, ${start.getFullYear()}`}
-                    </Text>
+                    <Text className={`text-sm ${subtextColor}`}>{formatFullDate(start)}</Text>
                   </View>
                   <View className="mt-1 flex-row items-center">
                     <Ionicons
@@ -380,6 +378,12 @@ export default function ReviewBookingScreen() {
             selectedMethod={selectedPaymentMethod}
             onSelectMethod={setSelectedPaymentMethod}
           />
+          {/* Choosing "online" charges nothing here; the pay sheet is on the booking, once the
+              provider has confirmed. Without this the next screen's "sent to the provider" read
+              as if a payment had gone missing. */}
+          <Text className={`${gutter.px} -mt-2 pb-4 text-xs ${subtextColor}`}>
+            {t('reviewBooking.payLaterNote')}
+          </Text>
 
           {/* Cancellation Policy */}
           <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>

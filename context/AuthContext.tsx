@@ -1,6 +1,12 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { loginWithEmailPassword, getMe, logout as logoutApi, CurrentUser } from '../services/auth';
-import { saveTokens, getAccessToken, clearTokens } from '../services/token-storage';
+import {
+  saveTokens,
+  getAccessToken,
+  getRefreshToken,
+  clearTokens,
+} from '../services/token-storage';
+import { getValidAccessToken, SessionEndedError } from '../services/session';
 import { clearCache } from '../services/cache';
 import { registerSessionExpiredHandler, statusOf } from '../services/http';
 import { resetShownOnce } from '../hooks/useShowOnce';
@@ -73,25 +79,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        const token = await getAccessToken();
-        if (token) {
+        // A session exists while EITHER token does. An expired access token is renewed with the
+        // refresh token by `getMe()` (apiAuthFetch → services/session.ts); this used to look at the
+        // access token alone, so every reload or app start more than 30 minutes after the last
+        // request showed the login screen with a valid 7-day refresh token in storage
+        // (front-end review 2026-10-14, S2).
+        const hasSession = (await getAccessToken()) !== null || (await getRefreshToken()) !== null;
+        if (hasSession) {
           setIsLoggedIn(true);
           const user = await getMe();
           setCurrentUser(user);
         }
       } catch (error) {
-        // Only a rejected TOKEN means the session is over. `getAccessToken()` has already
-        // refreshed if it needed to, so a 401/403 here is the server saying this identity is no
-        // longer valid — sign out. Anything else (429, 5xx, a network blip, the API restarting)
-        // says nothing about the session, and signing out on it stranded users who still held
-        // perfectly good tokens: the app showed the login screen while `auth_access_token` sat
-        // in storage, unexpired. That happened for real whenever the shared auth rate limit was
-        // exhausted by someone else on the same IP.
+        // Only a rejected session means it is over: the refresh token refused (SessionEndedError,
+        // already signed out by the handler below) or `/auth/me` refusing the token. Anything else
+        // (429, 5xx, a network blip, the API restarting) says nothing about the session, and
+        // signing out on it stranded users who still held perfectly good tokens: the app showed
+        // the login screen while `auth_access_token` sat in storage, unexpired. That happened for
+        // real whenever the shared auth rate limit was exhausted by someone else on the same IP.
         //
         // Stay signed in on a transient failure and leave `currentUser` null; screens already
         // tolerate that, and `refreshUser()` fills it in on the next successful call.
         const status = statusOf(error);
-        const tokenRejected = status === 401 || status === 403;
+        const tokenRejected =
+          error instanceof SessionEndedError || status === 401 || status === 403;
         if (tokenRejected) {
           await clearTokens();
           setIsLoggedIn(false);
@@ -135,9 +146,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    // Best-effort server-side logout; clear local state regardless of the result.
+    // Best-effort server-side logout of THIS device's session; clear local state regardless of
+    // the result. The token is read after any renewal the call itself needs, so the one named is
+    // the current one rather than a token the renewal has just replaced.
     try {
-      await logoutApi();
+      await getValidAccessToken();
+      await logoutApi(await getRefreshToken());
     } catch {
       /* ignore — proceed with local sign-out */
     }

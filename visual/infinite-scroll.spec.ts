@@ -88,11 +88,12 @@ async function mockPagedServices(
     }
     if (url.pathname === '/enums') return json(ENUMS);
 
+    if (url.pathname === '/api/services/facets') {
+      return json({ maxPrice: 1000 + TOTAL, currency: 'RSD', additionalServiceNames: [] });
+    }
     if (url.pathname === '/api/services') {
       const pageNo = Number(url.searchParams.get('Page') ?? '1');
       const perPage = Number(url.searchParams.get('PerPage') ?? String(PER_PAGE));
-      // The facets sample (one row, most expensive first) is a different query, not a page of
-      // the list — recording it would make the paging assertion meaningless.
       if (perPage === PER_PAGE) pagesRequested.push(pageNo);
       const items = ALL.slice((pageNo - 1) * perPage, pageNo * perPage);
       return json({

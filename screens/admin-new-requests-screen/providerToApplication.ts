@@ -1,3 +1,4 @@
+import { addressLabel } from '../../services/geocoding';
 import {
   providerTypeLabel,
   extractProviderDocuments,
@@ -15,9 +16,7 @@ export function providerToApplication(dto: ServiceProviderDto): PartnerApplicati
   const created = dto.createdAt ? new Date(dto.createdAt) : null;
   // The business address, else the applicant's account address.
   const addr = providerAddress(dto);
-  const address = addr
-    ? [addr.line1, addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')
-    : '';
+  const address = addr ? addressLabel(addr) : '';
 
   const documents = extractProviderDocuments(dto);
 

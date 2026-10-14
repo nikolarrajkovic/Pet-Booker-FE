@@ -1,3 +1,5 @@
+import { formatNumber } from '../i18n/numbers';
+
 // Single source of truth for rendering money.
 //
 // Two things were wrong before this module existed:
@@ -145,7 +147,10 @@ export function currencyAffix(code?: string | null): {
 }
 
 /**
- * Rounds for display and drops trailing zeros: 35.41666 → "35.42", 30 → "30".
+ * Rounds for display and writes the number the reader's way: 1250 → "1,250" in English, "1.250"
+ * in Serbian, "1 250" in Russian (it was `String(n)`, so "8511 RSD" and "12.5 €" everywhere).
+ * A whole amount shows no decimals (30 → "30"); a fractional one shows the currency's full
+ * precision (12.5 € → "12.50").
  *
  * Precision follows the CURRENCY, not a fixed 2 (see `CurrencyFormat.decimals`) — a zero-decimal
  * currency like RSD must never render "5210.5". Passing no currency keeps the old 2-decimal
@@ -154,7 +159,12 @@ export function currencyAffix(code?: string | null): {
 export function formatAmount(amount: number, currency?: string | null): string {
   if (!Number.isFinite(amount)) return String(amount);
   const decimals = currency == null ? 2 : currencyFormat(currency).decimals;
-  return String(roundMoney(amount, decimals));
+  const rounded = roundMoney(amount, decimals);
+  const fractionDigits = Number.isInteger(rounded) ? 0 : decimals;
+  return formatNumber(rounded, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
 }
 
 /** Rounds to `decimals` places without formatting — for arithmetic, not display. */

@@ -7,7 +7,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useFormChain } from '../../../hooks/useFormChain';
 import { useToast } from '../../../context/ToastContext';
@@ -22,7 +22,7 @@ import { usePageGutter } from '../../../hooks/usePageGutter';
 
 export default function ChangePasswordScreen() {
   const gutter = usePageGutter();
-  const navigation = useNavigation();
+  const { leaveTo } = useAppNavigation();
   const { bgColor, textColor, inputBg, inputText, borderColor, placeholderColor } =
     useThemeColors();
   const { showError } = useToast();
@@ -46,7 +46,7 @@ export default function ChangePasswordScreen() {
     try {
       await changePassword({ currentPassword, newPassword, confirmPassword });
       showAlert(t('changePassword.changedTitle'), t('changePassword.changedBody'), [
-        { text: t('common.ok'), onPress: () => navigation.goBack() },
+        { text: t('common.ok'), onPress: () => leaveTo('Account') },
       ]);
     } catch (e) {
       showError(getErrorMessage(e, t('changePassword.changeFailed')));

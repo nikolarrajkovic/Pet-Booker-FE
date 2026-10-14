@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getServicesForDate, ScheduleMode } from '../utils/scheduleData';
 import { themeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
-import { DAY_KEYS, MONTH_KEYS } from '../../../i18n';
+import { formatFullDate } from '../../../i18n/dates';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 
 interface DayViewProps {
@@ -45,8 +45,7 @@ export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }
   const { textColor, subtextColor, cardBg, borderColor } = themeColors(isDarkMode);
   const { t } = useLocale();
 
-  const formatDate = (date: Date) =>
-    `${t(DAY_KEYS[date.getDay()])}, ${t(MONTH_KEYS[date.getMonth()])} ${date.getDate()}, ${date.getFullYear()}`;
+  const formatDate = (date: Date) => formatFullDate(date);
 
   // Get services for the selected date, filtered by mode
   const all = getServicesForDate(selectedDate);
@@ -93,7 +92,7 @@ export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }
               <View className="flex-1">
                 <Text className={`text-base font-bold ${textColor} mb-1`}>{service.title}</Text>
                 <Text className={`text-sm ${subtextColor}`}>
-                  {service.provider} • {service.petName}
+                  {[service.counterpart, service.petName].filter(Boolean).join(' • ')}
                 </Text>
               </View>
               <View className={`rounded-full px-3 py-1 ${getTypeBg(service.type, isDarkMode)}`}>
@@ -110,14 +109,16 @@ export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }
               <Text className={`text-sm ${subtextColor} ml-2`}>{service.time}</Text>
             </View>
 
-            <View className="flex-row items-center">
-              <Ionicons
-                name="location-outline"
-                size={16}
-                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-              />
-              <Text className={`text-sm ${subtextColor} ml-2`}>{service.location}</Text>
-            </View>
+            {service.location ? (
+              <View className="flex-row items-center">
+                <Ionicons
+                  name="location-outline"
+                  size={16}
+                  color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                />
+                <Text className={`text-sm ${subtextColor} ml-2`}>{service.location}</Text>
+              </View>
+            ) : null}
           </View>
         ))
       ) : (

@@ -121,6 +121,8 @@ export default function PromotionCard({
   const status = PROMOTION_STATUS_STYLES[promotion.status];
   const typeIcon = TYPE_ICON[promotion.type];
   const isActive = promotion.status === 'active';
+  // Past its end date: re-enabling it changes nothing, so it offers new dates instead of Resume.
+  const isEnded = promotion.status === 'ended';
   const isScheduled = promotion.status === 'scheduled';
 
   const budgetPercent =
@@ -253,6 +255,15 @@ export default function PromotionCard({
             <Ionicons name="play" size={14} color="white" style={{ marginRight: 6 }} />
             <Text className="text-sm font-semibold text-white">{t('promotions.startNow')}</Text>
           </TouchableOpacity>
+        ) : isEnded ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => (navigation as any).navigate('EditPromotion', { promotion })}
+            activeOpacity={0.7}
+            className="flex-1 flex-row items-center justify-center rounded-xl bg-brand-500 py-2.5">
+            <Ionicons name="calendar-outline" size={14} color="white" style={{ marginRight: 6 }} />
+            <Text className="text-sm font-semibold text-white">{t('promotions.extendDates')}</Text>
+          </TouchableOpacity>
         ) : (
           <TouchableOpacity
             accessibilityRole="button"
@@ -293,6 +304,7 @@ export default function PromotionCard({
         </TouchableOpacity>
         <TouchableOpacity
           accessibilityRole="button"
+          accessibilityLabel={t('promotions.editNamed', { name: promotion.title })}
           activeOpacity={0.7}
           onPress={() => (navigation as any).navigate('EditPromotion', { promotion })}
           className={`w-10 items-center justify-center rounded-xl border ${borderColor} ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'}`}>

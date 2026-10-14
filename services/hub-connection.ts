@@ -5,32 +5,25 @@ import {
   type IRetryPolicy,
 } from '@microsoft/signalr';
 import { getApiBaseUrl } from './http';
+import { getValidAccessToken } from './session';
 
 /**
  * Shared SignalR connection factory for the backend's hubs (/hubs/*).
  *
  * The JWT rides the `?access_token=` query param (SignalR cannot send an
  * Authorization header on the WebSocket handshake); the backend accepts that
- * only for /hubs/* paths. The token factory below mirrors apiAuthFetch's
- * refresh-then-attach flow (services/http.ts) with the same lazy imports to
- * avoid circular deps, and is re-invoked by SignalR on every negotiate /
- * reconnect — so the 30-minute access-token TTL is handled transparently.
+ * only for /hubs/* paths. The token factory below is re-invoked by SignalR on
+ * every negotiate / reconnect, so the 30-minute access-token TTL is handled
+ * transparently.
  *
- * Deliberately does NOT trigger the global session-expired sign-out: a dropped
- * hub connection shouldn't force-logout the user — the next REST call decides.
+ * It renews through services/session.ts, the same single refresh REST calls
+ * share: a hub reconnecting at the moment the access token expired used to run
+ * its own refresh, racing every request in flight for the one rotating refresh
+ * token. A dropped connection or a network error never ends the session; only
+ * the server refusing the refresh token does, whoever asked.
  */
-async function getHubAccessToken(): Promise<string> {
-  const tokenStorage = await import('./token-storage');
-  const token = await tokenStorage.getAccessToken();
-  if (token) return token;
-
-  const refreshToken = await tokenStorage.getRefreshToken();
-  if (!refreshToken) throw new Error('Not signed in.');
-
-  const { refreshAccessToken } = await import('./auth');
-  const result = await refreshAccessToken(refreshToken);
-  await tokenStorage.saveTokens(result.accessToken, result.refreshToken);
-  return result.accessToken;
+function getHubAccessToken(): Promise<string> {
+  return getValidAccessToken();
 }
 
 /**

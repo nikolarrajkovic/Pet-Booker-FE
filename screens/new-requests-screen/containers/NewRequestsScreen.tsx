@@ -5,6 +5,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
+import { subscribeResource } from '../../../services/cache';
+import { useFocusEffect } from '@react-navigation/native';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ListState from '../../../components/shared/ListState';
 import { RequestCard } from '../components';
@@ -13,6 +15,7 @@ import { resolveImageUrl } from '../../../services/service-providers';
 import {
   getBookingsPage,
   countBookings,
+  adjustBookingPrice,
   confirmBooking,
   declineBooking,
   parseBookingDate,
@@ -25,6 +28,7 @@ import {
 import { usePagedList } from '../../../hooks/usePagedList';
 import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import { formatMoney } from '../../../services/currency';
+import { useCurrency } from '../../../hooks/useCurrency';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import ResponsiveModal from '../../../components/shared/ResponsiveModal';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -100,6 +104,7 @@ function bookingToRequest(t: TFn, b: BookingDto): ServiceRequest {
     serviceLocation: '', // BACKEND-GAP: no location name on booking
     duration: hours === 1 ? t('requests.hour', { h: hours }) : t('requests.hours', { h: hours }),
     totalPrice: b.totalPrice,
+    basePrice: b.basePrice,
     currency: b.priceCurrency ?? null,
     additionalServices: selectedAddOns(t, b), // pickup / drop-off / special-needs the booker picked
     notesFromOwner: '', // BACKEND-GAP: no owner-notes field
@@ -151,12 +156,16 @@ export default function NewRequestsScreen() {
     inputText,
     placeholderColor,
   } = useThemeColors();
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
   const { t } = useLocale();
   const [activeTab, setActiveTab] = useState<FilterTab>('new');
   const [busyId, setBusyId] = useState<number | null>(null);
   // Decline-reason modal: the request being declined + the partner's reason text.
   const [declineTargetId, setDeclineTargetId] = useState<number | null>(null);
+  // Adjust price: the request being re-priced and the amount typed for it.
+  const [priceTarget, setPriceTarget] = useState<ServiceRequest | null>(null);
+  const [priceInput, setPriceInput] = useState('');
+  const { prefix: pricePrefix, suffix: priceSuffix } = useCurrency(priceTarget?.currency);
   const [declineReason, setDeclineReason] = useState('');
   const [counts, setCounts] = useState<Record<FilterTab, number>>({
     new: 0,
@@ -193,9 +202,15 @@ export default function NewRequestsScreen() {
       // Badges are a convenience; the list itself reports its own errors.
     }
   }, [providerId]);
-  useEffect(() => {
-    refreshCounts();
-  }, [refreshCounts, list.items]);
+  // On focus, and whenever bookings change anywhere (an accept or decline here invalidates them).
+  // It used to follow `list.items`, so it ran twice on open and four more requests went out
+  // for every page loaded while scrolling.
+  useFocusEffect(
+    useCallback(() => {
+      refreshCounts();
+    }, [refreshCounts])
+  );
+  useEffect(() => subscribeResource('bookings', () => void refreshCounts()), [refreshCounts]);
 
   const isLoading = list.isLoading;
   const loadError = list.error;
@@ -227,6 +242,37 @@ export default function NewRequestsScreen() {
       applyDecision(updated);
     } catch (e) {
       showError(getErrorMessage(e, t('requests.acceptFailed')));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Re-price a request before accepting it: POST /bookings/{id}/adjust-price with the service
+  // price (extras keep their lines). The card stays where it is, with the server's new total.
+  const handleAdjustPrice = (id: number) => {
+    if (busyId !== null) return;
+    const request = filtered.find((r) => r.id === id);
+    if (!request) return;
+    setPriceInput(String(request.basePrice ?? ''));
+    setPriceTarget(request);
+  };
+
+  const confirmAdjustPrice = async () => {
+    if (!priceTarget) return;
+    const value = Number(priceInput.replace(',', '.'));
+    if (!priceInput.trim() || !Number.isFinite(value) || value < 0) {
+      showError(t('requests.invalidPrice'));
+      return;
+    }
+    const { id, currency } = priceTarget;
+    setPriceTarget(null);
+    setBusyId(id);
+    try {
+      const updated = await adjustBookingPrice(id, value, currency);
+      list.setItems((prev) => prev.map((b) => (b.id === updated.id ? { ...b, ...updated } : b)));
+      showSuccess(t('requests.priceAdjusted'));
+    } catch (e) {
+      showError(getErrorMessage(e, t('requests.adjustPriceFailed')));
     } finally {
       setBusyId(null);
     }
@@ -348,6 +394,7 @@ export default function NewRequestsScreen() {
                 borderColor={borderColor}
                 onAccept={handleAccept}
                 onDecline={handleDecline}
+                onAdjustPrice={handleAdjustPrice}
               />
             ))}
           </ResponsiveGrid>
@@ -362,6 +409,55 @@ export default function NewRequestsScreen() {
           )}
         </ListState>
       </ScrollView>
+
+      {/* Adjust-price modal */}
+      <ResponsiveModal
+        visible={priceTarget !== null}
+        onClose={() => setPriceTarget(null)}
+        mobilePresentation="centered"
+        dialogWidth={480}>
+        <View className={`${cardBg} p-5`}>
+          <Text className={`text-lg font-bold ${textColor} mb-1`}>
+            {t('requests.adjustPriceTitle')}
+          </Text>
+          <Text className={`text-sm ${subtextColor} mb-4`}>
+            {t('requests.adjustPriceSubtitle')}
+          </Text>
+          <Text className={`text-xs font-semibold ${subtextColor} mb-1`}>
+            {t('requests.servicePrice')}
+          </Text>
+          <View className={`${inputBg} mb-4 flex-row items-center rounded-xl px-4`}>
+            {pricePrefix ? <Text className={`${inputText} mr-1`}>{pricePrefix}</Text> : null}
+            <TextInput
+              value={priceInput}
+              onChangeText={setPriceInput}
+              keyboardType="decimal-pad"
+              accessibilityLabel={t('requests.servicePrice')}
+              placeholderTextColor={placeholderColor}
+              onSubmitEditing={confirmAdjustPrice}
+              className={`flex-1 py-3 ${inputText}`}
+              selectionColor={BRAND_GREEN}
+            />
+            {priceSuffix ? <Text className={`${inputText} ml-1`}>{priceSuffix}</Text> : null}
+          </View>
+          <View className="flex-row" style={{ gap: 12 }}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => setPriceTarget(null)}
+              activeOpacity={0.7}
+              className={`flex-1 items-center rounded-xl border py-3 ${borderColor}`}>
+              <Text className={`font-semibold ${textColor}`}>{t('requests.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={confirmAdjustPrice}
+              activeOpacity={0.7}
+              className="flex-1 items-center rounded-xl bg-brand-500 py-3">
+              <Text className="font-semibold text-white">{t('requests.savePrice')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ResponsiveModal>
 
       {/* Decline-reason modal */}
       {/* ResponsiveModal owns the presentation: a centred card on both designs here (the prompt

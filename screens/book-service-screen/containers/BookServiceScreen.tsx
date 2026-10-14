@@ -8,7 +8,8 @@ import { useLocation } from '../../../hooks/useLocation';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
-import { DAY_SHORT_KEYS, MONTH_KEYS, MONTH_SHORT_KEYS } from '../../../i18n';
+import { DAY_SHORT_KEYS, MONTH_SHORT_KEYS } from '../../../i18n';
+import { formatFullDate } from '../../../i18n/dates';
 import { durationDisplayLabel } from '../../my-services-screen/serviceModel';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
@@ -44,10 +45,18 @@ import {
 import { addressLabel } from '../../../services/geocoding';
 import { getBookingQuote, type BookingQuote } from '../../../services/booking-quote';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { useResource } from '../../../hooks/useResource';
+import { LoadingState, MessageState } from '../../../components/shared/ListState';
 
 // The user books one specific service (chosen before entering this screen), not
 // a provider — the service comes in as a route param and carries serviceProviderId.
-type BookServiceRouteParams = { service: ServiceDto };
+/**
+ * `serviceId` is the address (`/services/:serviceId/book`); `service` is the in-memory head start
+ * a list or ServiceDetail hands over. Opened from its URL — a reload, a shared link — only the id
+ * exists and the service is fetched. It used to need the object, so the address bar read
+ * `/BookService?service=[object Object]` and a reload dropped the user on Home.
+ */
+type BookServiceRouteParams = { serviceId?: number; service?: ServiceDto };
 
 const servicePrice = (s: ServiceDto) => s.price ?? s.pricing?.basePrice ?? 0;
 
@@ -130,10 +139,41 @@ type QuoteState = { quote: BookingQuote | null; loading: boolean; failed: boolea
 // only inside a quote — see useBookingQuote below.
 
 export default function BookServiceScreen() {
+  const route = useRoute<RouteProp<{ params: BookServiceRouteParams }, 'params'>>();
+  const passed = route.params?.service;
+  const serviceId = passed?.id ?? route.params?.serviceId;
+  const { t } = useLocale();
+  const { bgColor } = useThemeColors();
+  const { data, isLoading, error } = useResource(
+    ['services', serviceId],
+    () => getService(serviceId as number),
+    { enabled: !passed && serviceId != null, revalidate: false }
+  );
+  const service = passed ?? data;
+
+  if (service) return <BookServiceForm service={service} />;
+  return (
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle={t('bookService.title')}
+      contentBg={bgColor}>
+      {isLoading ? (
+        <LoadingState />
+      ) : (
+        <MessageState
+          icon="alert-circle-outline"
+          tone="error"
+          message={error ?? t('serviceDetail.notFound')}
+        />
+      )}
+    </ScreenLayout>
+  );
+}
+
+function BookServiceForm({ service }: { service: ServiceDto }) {
   const gutter = usePageGutter();
   const navigation = useNavigation();
-  const route = useRoute<RouteProp<{ params: BookServiceRouteParams }, 'params'>>();
-  const { service } = route.params;
   const { currentUser } = useAuth();
   const { showError } = useToast();
   const {
@@ -710,6 +750,23 @@ export default function BookServiceScreen() {
 
   const canContinue = selectionComplete || appointments.length > 0;
 
+  // Why Continue is greyed out, in the order the form asks. A disabled button with no reason
+  // left people re-checking every section to find the one step they had not done.
+  const missingStep = canContinue
+    ? null
+    : !optionChosen
+      ? t('bookService.needDuration')
+      : !startDateTime
+        ? t('bookService.needTime')
+        : selectedPet === null
+          ? t('bookService.needPet')
+          : !addressesProvided
+            ? t('bookService.needAddress')
+            : null;
+  // Before the quote, the figure is the service alone: extras are priced by the server once the
+  // time and pet are known. It used to read as the final total with an extra already picked.
+  const extrasPending = !quote && selectedAddonDefs.length > 0;
+
   return (
     <ScreenLayout
       headerVariant="standard"
@@ -999,7 +1056,7 @@ export default function BookServiceScreen() {
                   <Ionicons name="calendar-outline" size={20} color={BRAND_GREEN} />
                   <Text className={`ml-3 ${selectedDate ? textColor : subtextColor}`}>
                     {selectedDate
-                      ? `${t(DAY_SHORT_KEYS[selectedDate.getDay()])}, ${t(MONTH_KEYS[selectedDate.getMonth()])} ${selectedDate.getDate()}, ${selectedDate.getFullYear()}`
+                      ? formatFullDate(selectedDate, undefined, 'short')
                       : t('bookService.selectDate')}
                   </Text>
                 </View>
@@ -1187,11 +1244,16 @@ export default function BookServiceScreen() {
               <Text className="text-2xl font-bold text-brand-600">
                 {/* Until a required duration is picked the figure is the cheapest option, so say
                     "from" rather than presenting a provisional number as the final one. */}
-                {!optionChosen ? `${t('bookService.priceFrom')} ` : ''}
+                {!optionChosen || extrasPending ? `${t('bookService.priceFrom')} ` : ''}
                 {fmt(currentTotal())}
               </Text>
             </View>
           )}
+          {appointments.length === 0 && selectedService && extrasPending ? (
+            <Text className={`${gutter.px} -mt-3 pb-4 text-right text-xs ${subtextColor}`}>
+              {t('bookService.extrasPricedLater')}
+            </Text>
+          ) : null}
         </ScrollView>
       )}
 
@@ -1204,6 +1266,9 @@ export default function BookServiceScreen() {
           className={`items-center rounded-2xl py-4 ${canContinue ? 'bg-brand-500' : 'bg-gray-300'}`}>
           <Text className="text-lg font-bold text-white">{t('bookService.continueToReview')}</Text>
         </TouchableOpacity>
+        {missingStep ? (
+          <Text className={`mt-2 text-center text-xs ${subtextColor}`}>{missingStep}</Text>
+        ) : null}
       </StickyFooter>
 
       {/* Map picker for pickup / drop-off location — mounted only when open so it

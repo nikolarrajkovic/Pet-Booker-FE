@@ -8,6 +8,11 @@ export function registerSessionExpiredHandler(handler: () => void): void {
   _onSessionExpired = handler;
 }
 
+/** Tells AuthContext the session is over (services/session.ts calls this when a refresh is refused). */
+export function notifySessionExpired(): void {
+  _onSessionExpired?.();
+}
+
 // Active UI language, sent as the Accept-Language header on EVERY request so the
 // backend localizes what it produces (validation messages, notifications, emails).
 // Registered by LocaleContext on load/change — same pattern as the session handler,
@@ -178,7 +183,7 @@ export async function parseApiError(
 ): Promise<string> {
   const text = await response.text();
 
-  if (context) {
+  if (context && __DEV__) {
     console.error(`[${context}] error`, response.status, text);
   }
 
@@ -344,63 +349,73 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
     throw new ApiError('Cannot reach the server. Check your connection and try again.', 0);
   }
 
-  const clone = response.clone();
-
+  // Cloned only for the dev log: an unread clone still tees the body and holds it in memory.
   if (__DEV__) {
-    clone.text().then((body) => {
-      console.log('[API Response]', response.status, url, body);
-    });
+    response
+      .clone()
+      .text()
+      .then((body) => {
+        console.log('[API Response]', response.status, url, body);
+      })
+      .catch(() => {});
   }
 
   return response;
 }
 
 /**
+ * A token older than this that gets a 401 is renewed once and the request retried: its permissions
+ * may be behind the server's (an application approved, or a new command granted, since it was
+ * issued). A younger one is not — the backend also answers a plain "not allowed" with 401, and a
+ * renewal per refusal would spend refresh tokens for nothing.
+ */
+const STALE_TOKEN_AGE_MS = 60 * 1000;
+
+/**
  * Authenticated fetch — automatically reads the stored access token and
  * attaches it as a Bearer Authorization header.  Works the same way as an
  * Angular HTTP interceptor: callers never have to touch the token manually.
+ *
+ * Renewal goes through `services/session.ts` — one refresh shared by every caller (and tab), and
+ * the session ends only when the server refuses the refresh token, never on a network error.
  */
 export async function apiAuthFetch(url: string, init?: RequestInit): Promise<Response> {
-  // Lazy imports to avoid circular deps: http ↔ token-storage and http ↔ auth
-  const tokenStorage = await import('./token-storage');
-  let token = await tokenStorage.getAccessToken();
+  // Required lazily: session.ts → auth.ts → this module, so a static import would be a cycle.
+  // (A dynamic import() would also do, but Jest cannot run one.)
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const session: typeof import('./session') = require('./session');
 
-  // Access token is missing or expired — attempt a silent refresh
-  if (!token) {
-    const refreshToken = await tokenStorage.getRefreshToken();
-
-    if (refreshToken) {
-      try {
-        const { refreshAccessToken } = await import('./auth');
-        const result = await refreshAccessToken(refreshToken);
-        await tokenStorage.saveTokens(result.accessToken, result.refreshToken);
-        token = result.accessToken;
-      } catch {
-        // Refresh failed — clear storage and notify AuthContext to sign the user out
-        await tokenStorage.clearTokens();
-        _onSessionExpired?.();
-        throw new Error('Session expired. Please log in again.');
-      }
-    } else {
-      // No refresh token available — session is fully expired
-      _onSessionExpired?.();
-      throw new Error('Session expired. Please log in again.');
-    }
-  }
+  // Throws SessionEndedError (and has already signed the user out) when the session is over.
+  const token = await session.getValidAccessToken();
 
   // Do not set Content-Type for FormData — the runtime must set it automatically
   // so that the multipart boundary is included correctly.
   const isFormData = init?.body instanceof FormData;
 
-  const headers: Record<string, string> = {
-    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-    Accept: 'application/json',
-    ...(init?.headers as Record<string, string>),
-  };
+  const send = (bearer: string) =>
+    apiFetch(url, {
+      ...init,
+      headers: {
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+        Accept: 'application/json',
+        ...(init?.headers as Record<string, string>),
+        Authorization: `Bearer ${bearer}`,
+      },
+    });
 
-  headers['Authorization'] = `Bearer ${token}`;
+  const response = await send(token);
+  if (response.status !== 401 || session.tokenAgeMs(token) < STALE_TOKEN_AGE_MS) {
+    return response;
+  }
 
-  return apiFetch(url, { ...init, headers });
+  // Possibly a token issued before a permission change — renew once and try again.
+  let renewed: string;
+  try {
+    renewed = await session.refreshSession({ force: true, staleToken: token });
+  } catch {
+    return response;
+  }
+  return send(renewed);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

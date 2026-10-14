@@ -3,6 +3,7 @@ import type { PagedResult } from './http';
 import { resolveImageUrl, AddressDto } from './service-providers';
 import type { ServicePricingOptionDto } from './services';
 import { formatShortDate } from '../i18n/dates';
+import { declaredWriteCurrency } from './currency';
 
 // BookingState enum (verified /enums 2026-06-19). The API advances `state` as the
 // provider acts on a booking: confirming moves it to Accepted(3), starting the
@@ -232,6 +233,8 @@ export type BookingViewModel = {
   petId: number;
   date: string; // formatted, e.g. "Jun 15, 2026"
   time: string; // formatted, e.g. "10:00 AM"
+  /** The booked window, "10:00 – 11:00" (just the start when the end is missing). */
+  timeRange: string;
   bookingFrom: string; // raw ISO
   price: number;
   currency: string | null; // server-stamped from the provider; format via formatMoney
@@ -313,6 +316,9 @@ export function bookingToViewModel(dto: BookingDto): BookingViewModel {
     petId: dto.petId,
     date: formatDate(dto.bookingFrom),
     time: formatTime(dto.bookingFrom),
+    timeRange: [formatTime(dto.bookingFrom), dto.bookingTo ? formatTime(dto.bookingTo) : '']
+      .filter(Boolean)
+      .join(' – '),
     bookingFrom: dto.bookingFrom,
     price: dto.totalPrice,
     currency: dto.priceCurrency ?? null,
@@ -365,6 +371,27 @@ function bookingQuery(params?: GetBookingsParams) {
  * bookings outgrow any single page, and reading only the first one used to hide every booking
  * after the 50th — the newest ones — from My Bookings, Requests and the schedule.
  */
+/**
+ * Re-prices a request before the provider confirms it (`POST /bookings/{id}/adjust-price`,
+ * provider-only, refused once the booking is confirmed). Only the service price changes; extras
+ * keep their own lines, the server recomputes the total and tells the customer. The amount is in
+ * the provider's display currency and is declared so the server converts it to storage.
+ */
+export async function adjustBookingPrice(
+  id: number,
+  basePrice: number,
+  currency?: string | null
+): Promise<BookingDto> {
+  return withResolvedAddresses(
+    await apiJson<BookingDto>(`/bookings/${id}/adjust-price`, {
+      method: 'POST',
+      body: { basePrice, currency: declaredWriteCurrency(currency) },
+      fallback: 'Failed to adjust the price.',
+      context: 'adjustBookingPrice',
+    })
+  );
+}
+
 export async function getBookings(params?: GetBookingsParams): Promise<BookingDto[]> {
   const items = await apiList<BookingDto>('/api/bookings', {
     query: { ...bookingQuery(params), Page: params?.page ?? 1, PerPage: params?.perPage ?? 50 },

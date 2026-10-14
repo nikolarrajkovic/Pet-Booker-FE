@@ -294,6 +294,10 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
       typingListenersRef.current.forEach((listener) => listener(event));
     });
 
+    // The hub acknowledges each SubscribeToConversation. Nothing waits on it (the invoke itself
+    // resolves), but an event with no handler made SignalR warn on every chat that was opened.
+    connection.on('SubscribedToConversation', () => {});
+
     // Group membership does not survive a new socket, so every thread a screen is holding has
     // to be re-joined — both when this connection first comes up (screens mount long before
     // it does) and after any reconnect. Without the replay an open chat receives nothing.

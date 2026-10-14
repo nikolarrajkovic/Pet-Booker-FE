@@ -25,6 +25,21 @@ import {
 import { followNotificationRoute, routeForNotification } from '../navigation/notificationRoute';
 import { invalidate } from '../services/cache';
 import { resourcesForNotification } from '../services/notification-invalidation';
+import { refreshSession } from '../services/session';
+import { getAccessToken } from '../services/token-storage';
+
+/**
+ * Notifications that change what this account may do. The access token carries the account's
+ * permissions as of when it was issued, so after an approval the partner screens answered 401 —
+ * and `isPartner` stayed false — until the user signed out and in again (front-end review
+ * 2026-10-14, S3). On one of these the token is renewed and the user re-read at once. A ban makes
+ * the renewal fail, which ends the session there and then.
+ */
+const SESSION_CHANGING_TYPES: ReadonlySet<number> = new Set([
+  NotificationType.ServiceProviderApproved,
+  NotificationType.ProviderBanned,
+  NotificationType.ProviderUnbanned,
+]);
 
 type Listener = (notification: AppNotificationDto) => void;
 
@@ -50,8 +65,12 @@ const NotificationsContext = createContext<NotificationsContextValue | undefined
  * re-seeded from the API on login and reconnect, so a missed push self-heals.
  */
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
-  const { currentUser } = useAuth();
+  const { currentUser, refreshUser } = useAuth();
   const { showInfo } = useToast();
+  // Read through a ref: refreshUser is a new function each render, and depending on it would
+  // reconnect the hub every time.
+  const refreshUserRef = useRef(refreshUser);
+  refreshUserRef.current = refreshUser;
   const [unreadCount, setUnreadCount] = useState(0);
   const listenersRef = useRef<Set<Listener>>(new Set());
   const fetchingCountRef = useRef(false);
@@ -106,6 +125,15 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       // the user is sitting on while the OTHER side acts, where no focus or navigation event
       // will ever fire. See services/notification-invalidation.ts.
       invalidate(resourcesForNotification(notification));
+      if (SESSION_CHANGING_TYPES.has(Number(notification.type))) {
+        getAccessToken()
+          .then((token) => refreshSession({ force: true, staleToken: token ?? undefined }))
+          .then(() => refreshUserRef.current())
+          .catch(() => {
+            // A refused renewal has already ended the session; a network error leaves the old
+            // token, and the next request retries the renewal on its 401.
+          });
+      }
       const text = notification.message?.trim() || notification.title;
       // Every notification toasts, hidden-from-the-inbox ones included — for a message that
       // toast IS the notification, and tapping it is the way into the thread. Except a message

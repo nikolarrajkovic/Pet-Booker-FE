@@ -17,7 +17,8 @@ export type ScheduleMode = 'partner' | 'user';
 export interface ServiceItem {
   id: string;
   title: string;
-  provider: string;
+  /** Who the appointment is with: the customer on a partner's schedule, the provider on a user's. */
+  counterpart: string;
   petName: string;
   time: string;
   location: string;
@@ -83,7 +84,8 @@ export function buildScheduleFromBookings(
     const item: ServiceItem = {
       id: String(b.id ?? 0),
       title: b.service?.name ?? 'Service',
-      provider: b.serviceProvider?.name ?? '',
+      // A partner's schedule used to print the partner's own business name on every card.
+      counterpart: mode === 'partner' ? (b.user?.userName ?? '') : (b.serviceProvider?.name ?? ''),
       petName: b.pet?.name ?? '',
       time: isNaN(to.getTime()) ? fmt(from) : `${fmt(from)} - ${fmt(to)}`,
       location: '', // BACKEND-GAP: no location name on booking

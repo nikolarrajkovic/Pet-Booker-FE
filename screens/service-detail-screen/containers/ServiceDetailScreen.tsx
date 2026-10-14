@@ -1,3 +1,4 @@
+import { addressLabel } from '../../../services/geocoding';
 import React, { useState, useEffect } from 'react';
 import {
   ScrollView,
@@ -15,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocale } from '../../../context/LocaleContext';
+import TwoColumn from '../../../components/shared/TwoColumn';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import StickyFooter from '../../../components/shared/StickyFooter';
 import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
@@ -112,6 +114,9 @@ export default function ServiceDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
+  // The gallery pages by its own width. On the web design that is the details card beside the
+  // booking panel, so it is measured rather than derived from the window.
+  const [galleryWidth, setGalleryWidth] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -239,7 +244,7 @@ export default function ServiceDetailScreen() {
   // Where this service happens: its own address, else its provider's business address, else the
   // provider's account address (resolved by the server as effectiveAddress).
   const where = svc.effectiveAddress ?? svc.address ?? providerAddress(provider);
-  const address = where ? [where.line1, where.city, where.state].filter(Boolean).join(', ') : null;
+  const address = where ? addressLabel(where) : null;
 
   // Extra facts worth surfacing before booking (only the ones the service sets).
   const facts: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [];
@@ -279,7 +284,10 @@ export default function ServiceDetailScreen() {
     });
 
   const onBook = () => {
-    (navigation as any).navigate('BookService', { service: selectedService });
+    (navigation as any).navigate('BookService', {
+      serviceId: selectedService.id,
+      service: selectedService,
+    });
   };
 
   // Opens (or reuses) the thread with this provider. The service is passed along so the
@@ -305,11 +313,367 @@ export default function ServiceDetailScreen() {
     </View>
   );
 
+  // The page body. On a phone it is the screen, with Book Now pinned below; on the web design it
+  // is a card beside the booking panel, so the price and Book Now stay in view while reading —
+  // they used to sit ~1,750px down, at the end of a column stretched across the window.
+  const pageWidth = galleryWidth ?? screenWidth;
+  const details = (
+    <>
+      {/* Photo gallery — profile photo first, swipe through the rest */}
+      {photoUris.length > 0 ? (
+        <View onLayout={(e) => setGalleryWidth(e.nativeEvent.layout.width)}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e: NativeSyntheticEvent<NativeScrollEvent>) =>
+              setActivePhoto(Math.round(e.nativeEvent.contentOffset.x / pageWidth))
+            }>
+            {photoUris.map((uri, i) => (
+              <Image
+                key={i}
+                source={{ uri }}
+                style={{ width: pageWidth, height: 224 }}
+                resizeMode="cover"
+              />
+            ))}
+          </ScrollView>
+          {photoUris.length > 1 && (
+            <View className="absolute bottom-3 left-0 right-0 flex-row items-center justify-center gap-1.5">
+              {photoUris.map((_, i) => (
+                <View
+                  key={i}
+                  className={`h-2 rounded-full ${i === activePhoto ? 'w-5 bg-white' : 'w-2 bg-white/60'}`}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+      ) : (
+        <View
+          className={`h-56 w-full ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
+          <Ionicons name="paw" size={48} color="#9CA3AF" />
+        </View>
+      )}
+
+      {/* Title / type / rating / price */}
+      <View className={`${gutter.px} py-5`}>
+        <Text className={`text-2xl font-bold ${textColor}`}>{svc.name ?? 'Service'}</Text>
+        {serviceTypeLabel ? (
+          <Text className="mt-1 text-base text-brand-600">{serviceTypeLabel}</Text>
+        ) : null}
+
+        <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-2">
+          {rating > 0 && (
+            <View className="flex-row items-center">
+              <View className="flex-row items-center rounded-lg bg-brand-50 px-2 py-1">
+                <Ionicons name="star" size={16} color={BRAND_GREEN} />
+                <Text className="ml-1 font-semibold text-brand-700">{rating.toFixed(1)}</Text>
+              </View>
+              <Text className={`${subtextColor} ml-2`}>
+                {reviewCount}{' '}
+                {reviewCount === 1
+                  ? t('serviceDetail.reviewSingular')
+                  : t('serviceDetail.reviewPlural')}
+              </Text>
+            </View>
+          )}
+          {provider?.isApproved && (
+            <View className="flex-row items-center">
+              <Ionicons name="checkmark-circle" size={16} color={BRAND_GREEN} />
+              <Text className="ml-1 text-sm text-brand-600">
+                {t('serviceDetail.verifiedProvider')}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {!isWebLayout && (
+          <View className="mt-4 flex-row items-baseline">
+            <Text className="text-3xl font-bold text-brand-600">{money(effective)}</Text>
+            {hasDiscount ? (
+              <Text className={`${subtextColor} ml-2 line-through`}>{money(base)}</Text>
+            ) : null}
+            <Text className={`${subtextColor} ml-2`}>{t('serviceDetail.startingFrom')}</Text>
+          </View>
+        )}
+      </View>
+
+      {unavailable && !isWebLayout ? (
+        <View
+          className={`mb-4 flex-row items-center rounded-xl bg-gray-100 px-4 py-3 ${gutter.mx}`}>
+          <Ionicons name="time-outline" size={18} color="#6B7280" />
+          <Text className="ml-2 flex-1 text-sm text-gray-700">
+            {/* Why it can't be booked: a provider paused by an admin, or no working hours. */}
+            {svc.isProviderPaused
+              ? t('moderation.providerPaused')
+              : t('serviceDetail.unavailableNote')}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* About */}
+      {(svc.description || svc.about) &&
+        section(
+          t('serviceDetail.about'),
+          <Text className={`${subtextColor} leading-6`}>{svc.description ?? svc.about}</Text>
+        )}
+
+      {/* Provider */}
+      {provider?.name &&
+        section(
+          t('serviceDetail.provider'),
+          // Opens the provider's page (all their services and reviews). The card used to be
+          // the only place a customer saw who they were booking, and it went nowhere.
+          <TouchableOpacity
+            accessibilityRole="link"
+            accessibilityLabel={provider.name}
+            activeOpacity={0.8}
+            disabled={!(provider.id ?? svc.serviceProviderId)}
+            onPress={() =>
+              (navigation as any).navigate('ProviderDetail', {
+                providerId: provider.id ?? svc.serviceProviderId,
+              })
+            }
+            className="flex-row items-center">
+            {providerAvatar ? (
+              <Image
+                source={{ uri: providerAvatar }}
+                className="mr-3 h-12 w-12 rounded-full"
+                resizeMode="cover"
+              />
+            ) : (
+              <View className="mr-3 h-12 w-12 items-center justify-center rounded-full bg-brand-100">
+                <Ionicons name="business-outline" size={22} color={BRAND_GREEN} />
+              </View>
+            )}
+            <View className="flex-1">
+              <Text className={`font-semibold ${textColor}`}>{provider.name}</Text>
+              {address ? (
+                <View className="mt-0.5 flex-row items-center">
+                  <Ionicons name="location-outline" size={14} color="#6B7280" />
+                  <Text className={`${subtextColor} ml-1 flex-1 text-sm`}>{address}</Text>
+                </View>
+              ) : null}
+              {provider.yearsOfExperience != null ? (
+                <Text className={`${subtextColor} mt-0.5 text-sm`}>
+                  {t('shared.yearsOfExperience', { n: provider.yearsOfExperience })}
+                </Text>
+              ) : null}
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+          </TouchableOpacity>
+        )}
+      {/* The partner in their own words, from their application. */}
+      {provider?.about ? (
+        <Text className={`${subtextColor} -mt-2 mb-4 leading-6 ${gutter.px}`}>
+          {provider.about}
+        </Text>
+      ) : null}
+
+      {/* Pricing options (duration/price variants) — the booker picks one
+              on the Book Service screen */}
+      {hasOptions &&
+        section(
+          t('serviceDetail.pricingOptions'),
+          pricingOptions.map((option, idx) => {
+            const optionEffective = effectiveOptionPrice(svc, option);
+            return (
+              <View
+                key={option.id ?? idx}
+                className={`mb-2 flex-row items-center justify-between rounded-2xl p-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`}>
+                <View className="mr-3 flex-1 flex-row items-center">
+                  <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-100">
+                    <Ionicons name="time-outline" size={20} color={BRAND_GREEN} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className={`font-medium ${textColor}`}>
+                      {durationDisplayLabel(t, option.name)}
+                    </Text>
+                    <Text className={`text-xs ${subtextColor} mt-0.5`}>
+                      {t('durations.nMin', { n: option.durationMinutes })}
+                      {option.description ? ` • ${option.description}` : ''}
+                    </Text>
+                  </View>
+                </View>
+                <View className="items-end">
+                  {optionEffective < option.price && (
+                    <Text className={`text-xs ${subtextColor} line-through`}>
+                      {money(option.price)}
+                    </Text>
+                  )}
+                  <Text className="font-semibold text-brand-600">{money(optionEffective)}</Text>
+                </View>
+              </View>
+            );
+          })
+        )}
+
+      {/* Additional services (add-ons) */}
+      {addons.length > 0 &&
+        section(
+          t('serviceDetail.additionalServices'),
+          addons.map((addon) => (
+            <View
+              key={addon.id ?? addon.name}
+              className={`mb-2 flex-row items-center justify-between rounded-2xl p-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`}>
+              <View className="mr-3 flex-1 flex-row items-center">
+                <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-100">
+                  {/* Extras are provider-named now, so the icon comes from HOW it bills
+                          rather than from a known name: a trip vs a flat service. */}
+                  <Ionicons
+                    name={isPerDistance(addon) ? 'car-outline' : 'heart-outline'}
+                    size={20}
+                    color={BRAND_GREEN}
+                  />
+                </View>
+                <View className="flex-1">
+                  {/* Provider-authored text — shown verbatim, nothing to translate. */}
+                  <Text className={`font-medium ${textColor}`}>{addon.name}</Text>
+                  {addon.description ? (
+                    <Text className={`text-xs ${subtextColor} mt-0.5`}>{addon.description}</Text>
+                  ) : null}
+                </View>
+              </View>
+              <Text className="font-semibold text-brand-600">
+                {addonPriceLabel(t, addon, serviceCurrency(svc))
+                  ? `+${addonPriceLabel(t, addon, serviceCurrency(svc))}`
+                  : t('addons.included')}
+              </Text>
+            </View>
+          ))
+        )}
+
+      {/* Accepted pets */}
+      {section(
+        t('serviceDetail.acceptedPets'),
+        species.length === 0 ? (
+          <Text className={subtextColor}>{t('serviceDetail.allPetsWelcome')}</Text>
+        ) : (
+          <View className="flex-row flex-wrap gap-2">
+            {species.map((s) => (
+              <View
+                key={s}
+                className={`rounded-full px-3 py-1.5 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
+                <Text className={`text-sm ${textColor}`}>{t(s as any)}</Text>
+              </View>
+            ))}
+          </View>
+        )
+      )}
+
+      {/* Extra facts */}
+      {facts.length > 0 &&
+        section(
+          t('serviceDetail.goodToKnow'),
+          <View className="flex-row flex-wrap gap-2">
+            {facts.map((f) => (
+              <View
+                key={f.label}
+                className={`flex-row items-center rounded-xl px-3 py-2 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
+                <Ionicons name={f.icon} size={16} color={BRAND_GREEN} />
+                <Text className={`text-sm ${textColor} ml-2`}>{f.label}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+      {/* Working hours */}
+      {openDays.length > 0 &&
+        section(
+          t('serviceDetail.workingHours'),
+          openDays.map(([day, h]) => (
+            <View key={day} className="flex-row items-center justify-between py-1.5">
+              <Text className={`${textColor}`}>{t(`days.${day.toLowerCase()}` as any)}</Text>
+              <Text className={subtextColor}>
+                {/* A full-day window renders as a phrase, not "00:00 – 24:00" — which reads
+                        like a data glitch rather than "we're open all day". */}
+                {isAllDay(h.startTime, h.endTime)
+                  ? t('serviceDetail.openAllDay')
+                  : `${h.startTime} – ${h.endTime}`}
+              </Text>
+            </View>
+          ))
+        )}
+
+      {/* Reviews */}
+      {reviews.length > 0 &&
+        section(
+          t('serviceDetail.reviewsCount', { count: reviews.length }),
+          reviews.slice(0, 5).map((review, idx) => (
+            <View
+              key={review.id ?? idx}
+              className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>
+              <View className="mb-2 flex-row items-center">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Ionicons
+                    key={i}
+                    name={i < review.rating ? 'star' : 'star-outline'}
+                    size={14}
+                    color="#F59E0B"
+                  />
+                ))}
+              </View>
+              {review.title ? (
+                <Text className={`font-semibold ${textColor} mb-1`}>{review.title}</Text>
+              ) : null}
+              {review.comment ? (
+                <Text className={`text-sm ${subtextColor}`}>{review.comment}</Text>
+              ) : null}
+            </View>
+          ))
+        )}
+    </>
+  );
+
+  const unavailableNote = (
+    <View className="mt-4 flex-row items-center rounded-xl bg-gray-100 px-4 py-3">
+      <Ionicons name="time-outline" size={18} color="#6B7280" />
+      <Text className="ml-2 flex-1 text-sm text-gray-700">
+        {svc.isProviderPaused ? t('moderation.providerPaused') : t('serviceDetail.unavailableNote')}
+      </Text>
+    </View>
+  );
+
+  const bookingPanel = (
+    <View className={`${cardBg} rounded-2xl border ${borderColor} p-5`}>
+      <View className="flex-row flex-wrap items-baseline">
+        <Text className="text-3xl font-bold text-brand-600">{money(effective)}</Text>
+        {hasDiscount ? (
+          <Text className={`${subtextColor} ml-2 line-through`}>{money(base)}</Text>
+        ) : null}
+      </View>
+      <Text className={`${subtextColor} mt-1 text-sm`}>{t('serviceDetail.startingFrom')}</Text>
+      {unavailable ? unavailableNote : null}
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isLoading || unavailable }}
+        aria-disabled={isLoading || unavailable}
+        onPress={onBook}
+        disabled={isLoading || unavailable}
+        className={`mt-5 items-center rounded-2xl py-4 ${isLoading || unavailable ? 'bg-gray-300' : 'bg-brand-500'}`}>
+        <Text className="text-lg font-bold text-white">
+          {unavailable ? t('serviceDetail.unavailableCta') : t('serviceDetail.bookNow')}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        accessibilityRole="button"
+        onPress={onMessage}
+        disabled={isLoading}
+        activeOpacity={0.8}
+        className={`mt-3 flex-row items-center justify-center rounded-2xl border py-3 ${borderColor}`}>
+        <Ionicons name="chatbubble-outline" size={18} color={BRAND_GREEN} />
+        <Text className="ml-2 font-semibold text-brand-600">{t('messages.messageProvider')}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <ScreenLayout
       headerVariant="standard"
       showBackButton
       contentBg={contentBg}
+      width="default"
       headerTitle={isWebLayout ? t('serviceDetail.title') : undefined}
       headerSubtitle={isWebLayout ? t('serviceDetail.subtitle') : undefined}
       headerChildren={
@@ -331,352 +695,61 @@ export default function ServiceDetailScreen() {
         <ScrollView
           className="flex-1"
           contentContainerStyle={{ paddingBottom: isWebLayout ? 24 : 110 }}>
-          {/* Photo gallery — profile photo first, swipe through the rest */}
-          {photoUris.length > 0 ? (
-            <View>
-              <ScrollView
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={(e: NativeSyntheticEvent<NativeScrollEvent>) =>
-                  setActivePhoto(Math.round(e.nativeEvent.contentOffset.x / screenWidth))
-                }>
-                {photoUris.map((uri, i) => (
-                  <Image
-                    key={i}
-                    source={{ uri }}
-                    style={{ width: screenWidth, height: 224 }}
-                    resizeMode="cover"
-                  />
-                ))}
-              </ScrollView>
-              {photoUris.length > 1 && (
-                <View className="absolute bottom-3 left-0 right-0 flex-row items-center justify-center gap-1.5">
-                  {photoUris.map((_, i) => (
-                    <View
-                      key={i}
-                      className={`h-2 rounded-full ${i === activePhoto ? 'w-5 bg-white' : 'w-2 bg-white/60'}`}
-                    />
-                  ))}
+          {isWebLayout ? (
+            <View className={gutter.px}>
+              <TwoColumn aside={bookingPanel}>
+                <View className={`${cardBg} overflow-hidden rounded-2xl border ${borderColor}`}>
+                  {details}
                 </View>
-              )}
+              </TwoColumn>
             </View>
           ) : (
-            <View
-              className={`h-56 w-full ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
-              <Ionicons name="paw" size={48} color="#9CA3AF" />
-            </View>
+            details
           )}
-
-          {/* Title / type / rating / price */}
-          <View className={`${gutter.px} py-5`}>
-            <Text className={`text-2xl font-bold ${textColor}`}>{svc.name ?? 'Service'}</Text>
-            {serviceTypeLabel ? (
-              <Text className="mt-1 text-base text-brand-600">{serviceTypeLabel}</Text>
-            ) : null}
-
-            <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-2">
-              {rating > 0 && (
-                <View className="flex-row items-center">
-                  <View className="flex-row items-center rounded-lg bg-brand-50 px-2 py-1">
-                    <Ionicons name="star" size={16} color={BRAND_GREEN} />
-                    <Text className="ml-1 font-semibold text-brand-700">{rating.toFixed(1)}</Text>
-                  </View>
-                  <Text className={`${subtextColor} ml-2`}>
-                    {reviewCount}{' '}
-                    {reviewCount === 1
-                      ? t('serviceDetail.reviewSingular')
-                      : t('serviceDetail.reviewPlural')}
-                  </Text>
-                </View>
-              )}
-              {provider?.isApproved && (
-                <View className="flex-row items-center">
-                  <Ionicons name="checkmark-circle" size={16} color={BRAND_GREEN} />
-                  <Text className="ml-1 text-sm text-brand-600">
-                    {t('serviceDetail.verifiedProvider')}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <View className="mt-4 flex-row items-baseline">
-              <Text className="text-3xl font-bold text-brand-600">{money(effective)}</Text>
-              {hasDiscount ? (
-                <Text className={`${subtextColor} ml-2 line-through`}>{money(base)}</Text>
-              ) : null}
-              <Text className={`${subtextColor} ml-2`}>{t('serviceDetail.startingFrom')}</Text>
-            </View>
-          </View>
-
-          {unavailable ? (
-            <View
-              className={`mb-4 flex-row items-center rounded-xl bg-gray-100 px-4 py-3 ${gutter.mx}`}>
-              <Ionicons name="time-outline" size={18} color="#6B7280" />
-              <Text className="ml-2 flex-1 text-sm text-gray-700">
-                {/* Why it can't be booked: a provider paused by an admin, or no working hours. */}
-                {svc.isProviderPaused
-                  ? t('moderation.providerPaused')
-                  : t('serviceDetail.unavailableNote')}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* About */}
-          {(svc.description || svc.about) &&
-            section(
-              t('serviceDetail.about'),
-              <Text className={`${subtextColor} leading-6`}>{svc.description ?? svc.about}</Text>
-            )}
-
-          {/* Provider */}
-          {provider?.name &&
-            section(
-              t('serviceDetail.provider'),
-              // Opens the provider's page (all their services and reviews). The card used to be
-              // the only place a customer saw who they were booking, and it went nowhere.
-              <TouchableOpacity
-                accessibilityRole="link"
-                accessibilityLabel={provider.name}
-                activeOpacity={0.8}
-                disabled={!(provider.id ?? svc.serviceProviderId)}
-                onPress={() =>
-                  (navigation as any).navigate('ProviderDetail', {
-                    providerId: provider.id ?? svc.serviceProviderId,
-                  })
-                }
-                className="flex-row items-center">
-                {providerAvatar ? (
-                  <Image
-                    source={{ uri: providerAvatar }}
-                    className="mr-3 h-12 w-12 rounded-full"
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View className="mr-3 h-12 w-12 items-center justify-center rounded-full bg-brand-100">
-                    <Ionicons name="business-outline" size={22} color={BRAND_GREEN} />
-                  </View>
-                )}
-                <View className="flex-1">
-                  <Text className={`font-semibold ${textColor}`}>{provider.name}</Text>
-                  {address ? (
-                    <View className="mt-0.5 flex-row items-center">
-                      <Ionicons name="location-outline" size={14} color="#6B7280" />
-                      <Text className={`${subtextColor} ml-1 flex-1 text-sm`}>{address}</Text>
-                    </View>
-                  ) : null}
-                  {provider.yearsOfExperience != null ? (
-                    <Text className={`${subtextColor} mt-0.5 text-sm`}>
-                      {t('shared.yearsOfExperience', { n: provider.yearsOfExperience })}
-                    </Text>
-                  ) : null}
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-              </TouchableOpacity>
-            )}
-          {/* The partner in their own words, from their application. */}
-          {provider?.about ? (
-            <Text className={`${subtextColor} -mt-2 mb-4 leading-6 ${gutter.px}`}>
-              {provider.about}
-            </Text>
-          ) : null}
-
-          {/* Pricing options (duration/price variants) — the booker picks one
-              on the Book Service screen */}
-          {hasOptions &&
-            section(
-              t('serviceDetail.pricingOptions'),
-              pricingOptions.map((option, idx) => {
-                const optionEffective = effectiveOptionPrice(svc, option);
-                return (
-                  <View
-                    key={option.id ?? idx}
-                    className={`mb-2 flex-row items-center justify-between rounded-2xl p-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`}>
-                    <View className="mr-3 flex-1 flex-row items-center">
-                      <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-100">
-                        <Ionicons name="time-outline" size={20} color={BRAND_GREEN} />
-                      </View>
-                      <View className="flex-1">
-                        <Text className={`font-medium ${textColor}`}>
-                          {durationDisplayLabel(t, option.name)}
-                        </Text>
-                        <Text className={`text-xs ${subtextColor} mt-0.5`}>
-                          {t('durations.nMin', { n: option.durationMinutes })}
-                          {option.description ? ` • ${option.description}` : ''}
-                        </Text>
-                      </View>
-                    </View>
-                    <View className="items-end">
-                      {optionEffective < option.price && (
-                        <Text className={`text-xs ${subtextColor} line-through`}>
-                          {money(option.price)}
-                        </Text>
-                      )}
-                      <Text className="font-semibold text-brand-600">{money(optionEffective)}</Text>
-                    </View>
-                  </View>
-                );
-              })
-            )}
-
-          {/* Additional services (add-ons) */}
-          {addons.length > 0 &&
-            section(
-              t('serviceDetail.additionalServices'),
-              addons.map((addon) => (
-                <View
-                  key={addon.id ?? addon.name}
-                  className={`mb-2 flex-row items-center justify-between rounded-2xl p-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`}>
-                  <View className="mr-3 flex-1 flex-row items-center">
-                    <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-100">
-                      {/* Extras are provider-named now, so the icon comes from HOW it bills
-                          rather than from a known name: a trip vs a flat service. */}
-                      <Ionicons
-                        name={isPerDistance(addon) ? 'car-outline' : 'heart-outline'}
-                        size={20}
-                        color={BRAND_GREEN}
-                      />
-                    </View>
-                    <View className="flex-1">
-                      {/* Provider-authored text — shown verbatim, nothing to translate. */}
-                      <Text className={`font-medium ${textColor}`}>{addon.name}</Text>
-                      {addon.description ? (
-                        <Text className={`text-xs ${subtextColor} mt-0.5`}>
-                          {addon.description}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-                  <Text className="font-semibold text-brand-600">
-                    {addonPriceLabel(t, addon, serviceCurrency(svc))
-                      ? `+${addonPriceLabel(t, addon, serviceCurrency(svc))}`
-                      : t('addons.included')}
-                  </Text>
-                </View>
-              ))
-            )}
-
-          {/* Accepted pets */}
-          {section(
-            t('serviceDetail.acceptedPets'),
-            species.length === 0 ? (
-              <Text className={subtextColor}>{t('serviceDetail.allPetsWelcome')}</Text>
-            ) : (
-              <View className="flex-row flex-wrap gap-2">
-                {species.map((s) => (
-                  <View
-                    key={s}
-                    className={`rounded-full px-3 py-1.5 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
-                    <Text className={`text-sm ${textColor}`}>{t(s as any)}</Text>
-                  </View>
-                ))}
-              </View>
-            )
-          )}
-
-          {/* Extra facts */}
-          {facts.length > 0 &&
-            section(
-              t('serviceDetail.goodToKnow'),
-              <View className="flex-row flex-wrap gap-2">
-                {facts.map((f) => (
-                  <View
-                    key={f.label}
-                    className={`flex-row items-center rounded-xl px-3 py-2 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
-                    <Ionicons name={f.icon} size={16} color={BRAND_GREEN} />
-                    <Text className={`text-sm ${textColor} ml-2`}>{f.label}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-          {/* Working hours */}
-          {openDays.length > 0 &&
-            section(
-              t('serviceDetail.workingHours'),
-              openDays.map(([day, h]) => (
-                <View key={day} className="flex-row items-center justify-between py-1.5">
-                  <Text className={`${textColor}`}>{t(`days.${day.toLowerCase()}` as any)}</Text>
-                  <Text className={subtextColor}>
-                    {/* A full-day window renders as a phrase, not "00:00 – 24:00" — which reads
-                        like a data glitch rather than "we're open all day". */}
-                    {isAllDay(h.startTime, h.endTime)
-                      ? t('serviceDetail.openAllDay')
-                      : `${h.startTime} – ${h.endTime}`}
-                  </Text>
-                </View>
-              ))
-            )}
-
-          {/* Reviews */}
-          {reviews.length > 0 &&
-            section(
-              t('serviceDetail.reviewsCount', { count: reviews.length }),
-              reviews.slice(0, 5).map((review, idx) => (
-                <View
-                  key={review.id ?? idx}
-                  className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>
-                  <View className="mb-2 flex-row items-center">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Ionicons
-                        key={i}
-                        name={i < review.rating ? 'star' : 'star-outline'}
-                        size={14}
-                        color="#F59E0B"
-                      />
-                    ))}
-                  </View>
-                  {review.title ? (
-                    <Text className={`font-semibold ${textColor} mb-1`}>{review.title}</Text>
-                  ) : null}
-                  {review.comment ? (
-                    <Text className={`text-sm ${subtextColor}`}>{review.comment}</Text>
-                  ) : null}
-                </View>
-              ))
-            )}
         </ScrollView>
       )}
 
       {/* Sticky footer: ask a question, or book. The chat button sits alongside Book Now
           because the question that stops someone booking ("do you take reactive dogs?")
           occurs to them right here, before any booking exists to hang a thread off. */}
-      <StickyFooter
-        className={`flex-row items-center ${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
-        <TouchableOpacity
-          onPress={onMessage}
-          disabled={isLoading}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={t('messages.messageProvider')}
-          className={`mr-3 h-14 w-14 items-center justify-center rounded-2xl border ${borderColor} ${
-            isLoading ? 'opacity-50' : ''
-          }`}>
-          <Ionicons name="chatbubble-outline" size={22} color={BRAND_GREEN} />
-        </TouchableOpacity>
+      {!isWebLayout && (
+        <StickyFooter
+          className={`flex-row items-center ${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
+          <TouchableOpacity
+            onPress={onMessage}
+            disabled={isLoading}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={t('messages.messageProvider')}
+            className={`mr-3 h-14 w-14 items-center justify-center rounded-2xl border ${borderColor} ${
+              isLoading ? 'opacity-50' : ''
+            }`}>
+            <Ionicons name="chatbubble-outline" size={22} color={BRAND_GREEN} />
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityState={{ disabled: isLoading || unavailable }}
-          onPress={onBook}
-          disabled={isLoading || unavailable}
-          className={`flex-1 items-center rounded-2xl py-4 ${isLoading || unavailable ? 'bg-gray-300' : 'bg-brand-500'}`}
-          style={
-            isLoading || unavailable
-              ? {}
-              : {
-                  shadowColor: BRAND_GREEN,
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 8,
-                  elevation: 8,
-                }
-          }>
-          <Text className="text-lg font-bold text-white">
-            {unavailable ? t('serviceDetail.unavailableCta') : t('serviceDetail.bookNow')}
-          </Text>
-        </TouchableOpacity>
-      </StickyFooter>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityState={{ disabled: isLoading || unavailable }}
+            onPress={onBook}
+            disabled={isLoading || unavailable}
+            className={`flex-1 items-center rounded-2xl py-4 ${isLoading || unavailable ? 'bg-gray-300' : 'bg-brand-500'}`}
+            style={
+              isLoading || unavailable
+                ? {}
+                : {
+                    shadowColor: BRAND_GREEN,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                    elevation: 8,
+                  }
+            }>
+            <Text className="text-lg font-bold text-white">
+              {unavailable ? t('serviceDetail.unavailableCta') : t('serviceDetail.bookNow')}
+            </Text>
+          </TouchableOpacity>
+        </StickyFooter>
+      )}
     </ScreenLayout>
   );
 }

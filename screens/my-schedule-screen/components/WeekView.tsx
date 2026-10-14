@@ -8,7 +8,8 @@ import {
 } from '../utils/scheduleData';
 import { themeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
-import { DAY_KEYS, DAY_SHORT_KEYS, MONTH_SHORT_KEYS } from '../../../i18n';
+import { DAY_SHORT_KEYS, MONTH_SHORT_KEYS } from '../../../i18n';
+import { formatWeekdayDayMonth } from '../../../i18n/dates';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 
 interface WeekViewProps {
@@ -225,7 +226,7 @@ export default function WeekView({
           return (
             <View key={index} className="mb-6">
               <Text className={`text-sm font-bold ${textColor} mb-3`}>
-                {t(DAY_KEYS[day.getDay()])}, {t(MONTH_SHORT_KEYS[day.getMonth()])} {day.getDate()}
+                {formatWeekdayDayMonth(day, undefined, 'long')}
               </Text>
 
               {services.map((service) => (

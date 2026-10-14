@@ -200,6 +200,11 @@ test.describe('search results', () => {
     await signIn(page);
     await mockApi(page, {
       '/api/services': SERVICES,
+      '/api/services/facets': {
+        maxPrice: 4000,
+        currency: 'RSD',
+        additionalServiceNames: ['Pet taxi', 'Pickup'],
+      },
       '/enums': ENUMS,
     });
     await open(page, '/search');
