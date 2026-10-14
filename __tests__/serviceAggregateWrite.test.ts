@@ -1,8 +1,10 @@
 import {
   uiToServiceDto,
+  serviceDtoToUi,
   schedulesToWorkingHours,
   type WorkingHours,
 } from '../screens/my-services-screen/serviceModel';
+import type { ServiceDto } from '../services/services';
 import { applyBookingTransition, BookingState, BookingStatusType } from '../services/bookings';
 
 /**
@@ -128,6 +130,27 @@ describe('uiToServiceDto — the whole aggregate in one payload', () => {
     // ...but `[]` for schedules means "leave untouched", which is why the screen still has to
     // call clearServiceSchedules when the provider switches every day off.
     expect(dto.schedules).toEqual([]);
+  });
+
+  it('edits the stored price, not the price after a live promotion', () => {
+    // `price` on a read is what a customer pays today. The editor used to start from it, so
+    // saving any change during a 15% offer stored 1,020 as the new base price of a 1,200 service.
+    const ui = serviceDtoToUi({
+      id: 7,
+      serviceProviderId: 42,
+      name: 'City walk',
+      type: 1,
+      price: 1020,
+      pricing: { basePrice: 1200, isEscrowPercentEnabled: false, escrowAmount: 0 },
+    } as unknown as ServiceDto);
+    expect(ui.pricingTiers).toEqual([{ duration: 'Standard', price: '1200' }]);
+
+    const dto = uiToServiceDto({
+      ...baseForm,
+      pricingTiers: ui.pricingTiers,
+      workingHours: allOff(),
+    });
+    expect(dto.pricing?.basePrice).toBe(1200);
   });
 
   it('never sends discounts (they are written through their own endpoint)', () => {

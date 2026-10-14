@@ -444,7 +444,10 @@ export function workingHoursToSchedules(
 
 /** ServiceDto (GET) → rich UI shape for cards and the edit form. */
 export function serviceDtoToUi(dto: ServiceDto): UiService {
-  const price = String(dto.price ?? dto.pricing?.basePrice ?? 0);
+  // The stored price, never `dto.price`: that is what a customer pays today, with any live
+  // promotion taken off. Seeding the editor from it wrote the discounted figure back as the base
+  // price on save, so each edit during a 15% offer cut the real price by another 15%.
+  const price = String(dto.pricing?.basePrice ?? dto.price ?? 0);
   // Resolve photos once so the profile (isSelected) index lines up with `images`.
   const photoList = (dto.photos ?? [])
     .map((p) => ({ uri: resolveImageUrl(p.src), isSelected: !!p.isSelected }))
