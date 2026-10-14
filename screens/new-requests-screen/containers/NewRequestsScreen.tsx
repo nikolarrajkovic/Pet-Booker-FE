@@ -6,7 +6,7 @@ import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
 import { subscribeResource } from '../../../services/cache';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ListState from '../../../components/shared/ListState';
 import { RequestCard } from '../components';
@@ -146,6 +146,7 @@ const TABS: { key: FilterTab; labelKey: string }[] = [
 
 export default function NewRequestsScreen() {
   const gutter = usePageGutter();
+  const navigation = useNavigation();
   const { currentUser } = useAuth();
   const {
     isDarkMode,
@@ -396,6 +397,14 @@ export default function NewRequestsScreen() {
                 onAccept={handleAccept}
                 onDecline={handleDecline}
                 onAdjustPrice={handleAdjustPrice}
+                // The partner's way to reach a customer: the booking names them, so the thread
+                // opens from it (the chat API's provider entry point, unused until now).
+                onMessage={(bookingId) =>
+                  (navigation as any).navigate('Chat', {
+                    bookingId,
+                    subtitle: request.serviceName,
+                  })
+                }
               />
             ))}
           </ResponsiveGrid>

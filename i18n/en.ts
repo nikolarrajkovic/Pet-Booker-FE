@@ -662,6 +662,7 @@ const en = {
     sendFailed: 'Message not sent. Please try again.',
     threadUnavailable: 'This conversation is unavailable.',
     messageProvider: 'Message provider',
+    messageCustomer: 'Message customer',
     typing: 'typing…',
     // Shown while the enquiry allowance is counting down, so the limit is never a surprise.
     enquiryAllowance: '{count} more before they reply',

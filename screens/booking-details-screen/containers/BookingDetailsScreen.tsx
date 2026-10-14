@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ScrollView, Text, View, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
@@ -52,6 +52,7 @@ export default function BookingDetailsScreen() {
 
   const { showError, showSuccess } = useToast();
   const { currentUser } = useAuth();
+  const navigation = useNavigation();
 
   // Read through the shared cache rather than a private `useState` seeded once on mount. This
   // screen is pushed over the list and stays mounted while you go deeper (a live session, the
@@ -88,6 +89,22 @@ export default function BookingDetailsScreen() {
   // on it is the customer's: a partner was offered "Cancel booking", which the API refuses them,
   // and "Leave a review" on their own work. The partner sees who the booking is for instead.
   const isCustomer = currentUser?.id != null && dto != null && currentUser.id === dto.userId;
+  const isProvider =
+    !!currentUser?.serviceProviderId &&
+    dto != null &&
+    currentUser.serviceProviderId === dto.serviceProviderId;
+  // Either side can open the booking's thread (the server decides whether it is still writable).
+  // A partner had no way at all to reach a customer; a customer only had the Upcoming card.
+  // Not for an admin reading someone else's booking, and not once it was called off.
+  const canMessage =
+    (isCustomer || isProvider) && vm != null && vm.statusLabel !== 'cancelled' && !dto?.isExpired;
+  const openChat = () => {
+    if (!dto) return;
+    (navigation as any).navigate('Chat', {
+      bookingId: dto.id ?? bookingId,
+      subtitle: vm?.serviceName,
+    });
+  };
 
   // The owner may call off a booking any time before the provider starts the service — the same
   // window CancelBookingCommand allows server-side. Once it is ServiceStarted or later the API
@@ -235,6 +252,18 @@ export default function BookingDetailsScreen() {
               value={customerName(dto.user, '—')}
             />
           )}
+          {canMessage ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={openChat}
+              activeOpacity={0.85}
+              className="mt-4 flex-row items-center justify-center rounded-2xl border-2 border-brand-500 py-3">
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color={BRAND_GREEN} />
+              <Text className="ml-2 text-base font-semibold text-brand-600">
+                {isCustomer ? t('messages.messageProvider') : t('messages.messageCustomer')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           {/* Why it was called off, as the person who did it wrote it. */}
           {vm.statusLabel === 'cancelled' && dto.cancelReason ? (
             <Row

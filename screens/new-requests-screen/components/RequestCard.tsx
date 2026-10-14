@@ -52,6 +52,8 @@ interface RequestCardProps {
   onDecline: (id: number) => void;
   /** Re-price a request before accepting it; omitted, the action is not offered. */
   onAdjustPrice?: (id: number) => void;
+  /** Open this booking's thread with the customer; omitted, the action is not offered. */
+  onMessage?: (id: number) => void;
 }
 
 const petTypeEmoji: Record<string, string> = {
@@ -70,6 +72,7 @@ export default function RequestCard({
   onAccept,
   onDecline,
   onAdjustPrice,
+  onMessage,
 }: RequestCardProps) {
   const { t } = useLocale();
   const sectionBg = isDarkMode ? 'bg-[#243447]' : 'bg-gray-50';
@@ -100,6 +103,16 @@ export default function RequestCard({
             <Text className={`text-xs ${subtextColor}`}>{request.postedAgo}</Text>
           </View>
         </View>
+        {onMessage ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t('messages.messageCustomer')}
+            onPress={() => onMessage(request.id)}
+            hitSlop={8}
+            className="mr-2 h-10 w-10 items-center justify-center rounded-full bg-brand-50">
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={BRAND_GREEN} />
+          </TouchableOpacity>
+        ) : null}
         <Text className="text-2xl">{petTypeEmoji[request.petType]}</Text>
       </View>
 

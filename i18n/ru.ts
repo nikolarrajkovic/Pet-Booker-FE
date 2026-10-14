@@ -641,6 +641,7 @@ const ru: TranslationDict = {
     sendFailed: 'Сообщение не отправлено. Попробуйте ещё раз.',
     threadUnavailable: 'Этот диалог недоступен.',
     messageProvider: 'Написать исполнителю',
+    messageCustomer: 'Написать клиенту',
     typing: 'печатает…',
     enquiryAllowance: 'Ещё {count} до ответа',
     lockedAwaitingReply:

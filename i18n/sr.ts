@@ -637,6 +637,7 @@ const sr: TranslationDict = {
     sendFailed: 'Poruka nije poslata. Pokušajte ponovo.',
     threadUnavailable: 'Ovaj razgovor nije dostupan.',
     messageProvider: 'Pošaljite poruku pružaocu',
+    messageCustomer: 'Pošaljite poruku korisniku',
     typing: 'kuca…',
     enquiryAllowance: 'Još {count} pre nego što odgovori',
     lockedAwaitingReply:
