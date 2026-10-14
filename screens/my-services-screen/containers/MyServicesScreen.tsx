@@ -21,6 +21,7 @@ import { AdditionalServiceChargeType } from '../../../services/service-addons';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import { showAlert } from '../../../services/alert';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import IllustratedEmptyState from '../../../components/shared/IllustratedEmptyState';
 
 // Extras are provider-named free text now, so there's no fixed name→icon table to key off.
 // A per-distance extra is a trip, everything else is a generic service.
@@ -182,12 +183,20 @@ export default function MyServicesScreen() {
               </Text>
             </View>
           ) : services.length === 0 ? (
-            <View style={{ alignItems: 'center', paddingVertical: 48 }}>
-              <Ionicons name="paw-outline" size={56} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
-              <Text style={{ color: hex.subtext, textAlign: 'center', marginTop: 12 }}>
-                {t('myServices.noServices')}
-              </Text>
-            </View>
+            // A new partner's first stop: an invitation with the one button that matters, as My
+            // Pets has. It was a grey line on the pattern pointing at a header button.
+            <IllustratedEmptyState
+              image={require('../../../assets/empty-pets.png')}
+              title={t('myServices.emptyTitle')}
+              body={t('myServices.emptyBody')}
+              actionLabel={t('myServices.emptyCta')}
+              onAction={() =>
+                (navigation as any).navigate('AddEditService', {
+                  mode: 'add',
+                  serviceProviderId: providerId,
+                })
+              }
+            />
           ) : (
             // These cards have no bottom margin of their own — the wrapping View's `gap` supplies
             // the spacing — so the grid owns both axes here, unlike the moderation lists.

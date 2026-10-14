@@ -884,6 +884,14 @@ const ru: TranslationDict = {
     declinedBadge: '✕ Отклонено',
   },
   partnerHub: {
+    setupFirstTitle: 'Добавьте свою первую услугу',
+    setupFirstBody:
+      'Клиенты находят и бронируют вас через ваши услуги. Добавьте услугу с ценой и часами работы.',
+    setupFirstCta: 'Добавить услугу',
+    setupBookableTitle: 'Пока ни одну услугу нельзя забронировать',
+    setupBookableBody:
+      'Клиенты видят ваши услуги как недоступные, пока хотя бы одна не станет активной и не получит часы работы.',
+    setupBookableCta: 'Открыть мои услуги',
     title: 'Центр партнёра',
     welcomeBack: 'С возвращением, {name}!',
     partner: 'Партнёр',
@@ -930,6 +938,10 @@ const ru: TranslationDict = {
     yesterday: 'Вчера',
   },
   myServices: {
+    emptyTitle: 'Пока нет услуг',
+    emptyBody:
+      'Клиенты находят и бронируют вас через ваши услуги. Добавьте услугу с ценой и часами работы.',
+    emptyCta: 'Добавить услугу',
     notBookableWarning: 'Клиенты пока не могут это забронировать — добавьте рабочее время.',
     editA11y: 'Изменить {name}',
     deleteA11y: 'Удалить {name}',
@@ -946,7 +958,6 @@ const ru: TranslationDict = {
     delete: 'Удалить',
     deleteFailed: 'Не удалось удалить услугу. Попробуйте снова.',
     noProvider: 'Для вашего аккаунта ещё не найден профиль исполнителя.',
-    noServices: 'Пока нет услуг. Нажмите «Добавить», чтобы создать первую.',
     bookingsCount: 'Бронирований: {count}',
     pricingOptions: 'Варианты цен',
     additionalServices: 'Дополнительные услуги',

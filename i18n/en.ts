@@ -904,6 +904,14 @@ const en = {
     declinedBadge: '✕ Declined',
   },
   partnerHub: {
+    setupFirstTitle: 'Add your first service',
+    setupFirstBody:
+      'Customers find and book you through your services. Add one with its price and working hours.',
+    setupFirstCta: 'Add a service',
+    setupBookableTitle: 'No service can be booked yet',
+    setupBookableBody:
+      'Customers see your services as Unavailable until one is active and has working hours.',
+    setupBookableCta: 'Open My Services',
     title: 'Partner Hub',
     welcomeBack: 'Welcome back, {name}!',
     partner: 'Partner',
@@ -950,6 +958,10 @@ const en = {
     yesterday: 'Yesterday',
   },
   myServices: {
+    emptyTitle: 'No services yet',
+    emptyBody:
+      'Customers find and book you through your services. Add one with its price and working hours.',
+    emptyCta: 'Add a service',
     notBookableWarning: "Customers can't book this yet — add working hours.",
     editA11y: 'Edit {name}',
     deleteA11y: 'Delete {name}',
@@ -966,7 +978,6 @@ const en = {
     delete: 'Delete',
     deleteFailed: 'Could not delete the service. Please try again.',
     noProvider: 'No provider profile found for your account yet.',
-    noServices: 'No services yet. Tap “Add New” to create your first one.',
     bookingsCount: '{count} bookings',
     pricingOptions: 'Pricing Options',
     additionalServices: 'Additional Services',

@@ -879,6 +879,14 @@ const sr: TranslationDict = {
     declinedBadge: '✕ Odbijeno',
   },
   partnerHub: {
+    setupFirstTitle: 'Dodajte svoju prvu uslugu',
+    setupFirstBody:
+      'Korisnici vas pronalaze i rezervišu preko vaših usluga. Dodajte uslugu sa cenom i radnim vremenom.',
+    setupFirstCta: 'Dodaj uslugu',
+    setupBookableTitle: 'Nijedna usluga još nije dostupna za rezervaciju',
+    setupBookableBody:
+      'Korisnici vide vaše usluge kao nedostupne dok bar jedna nije aktivna i nema radno vreme.',
+    setupBookableCta: 'Otvori moje usluge',
     title: 'Partnerski centar',
     welcomeBack: 'Dobro došli nazad, {name}!',
     partner: 'Partneru',
@@ -925,6 +933,10 @@ const sr: TranslationDict = {
     yesterday: 'Juče',
   },
   myServices: {
+    emptyTitle: 'Još nemate usluga',
+    emptyBody:
+      'Korisnici vas pronalaze i rezervišu preko vaših usluga. Dodajte uslugu sa cenom i radnim vremenom.',
+    emptyCta: 'Dodaj uslugu',
     notBookableWarning: 'Klijenti ovo još ne mogu da rezervišu — dodajte radno vreme.',
     editA11y: 'Izmeni {name}',
     deleteA11y: 'Obriši {name}',
@@ -942,7 +954,6 @@ const sr: TranslationDict = {
     delete: 'Obriši',
     deleteFailed: 'Brisanje usluge nije uspelo. Pokušajte ponovo.',
     noProvider: 'Za vaš nalog još nije pronađen profil pružaoca.',
-    noServices: 'Još nema usluga. Dodirnite „Dodaj novu“ da napravite prvu.',
     bookingsCount: '{count} rezervacija',
     pricingOptions: 'Opcije cena',
     additionalServices: 'Dodatne usluge',
