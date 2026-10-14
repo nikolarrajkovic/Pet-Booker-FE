@@ -5,6 +5,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
+import { subscribeResource } from '../../../services/cache';
+import { useFocusEffect } from '@react-navigation/native';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ListState from '../../../components/shared/ListState';
 import { RequestCard } from '../components';
@@ -193,9 +195,15 @@ export default function NewRequestsScreen() {
       // Badges are a convenience; the list itself reports its own errors.
     }
   }, [providerId]);
-  useEffect(() => {
-    refreshCounts();
-  }, [refreshCounts, list.items]);
+  // On focus, and whenever bookings change anywhere (an accept or decline here invalidates them).
+  // It used to follow `list.items`, so it ran twice on open and four more requests went out
+  // for every page loaded while scrolling.
+  useFocusEffect(
+    useCallback(() => {
+      refreshCounts();
+    }, [refreshCounts])
+  );
+  useEffect(() => subscribeResource('bookings', () => void refreshCounts()), [refreshCounts]);
 
   const isLoading = list.isLoading;
   const loadError = list.error;
