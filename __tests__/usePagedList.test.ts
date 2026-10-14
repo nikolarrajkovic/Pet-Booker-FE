@@ -87,6 +87,29 @@ describe('usePagedList', () => {
     expect(result.current.items).not.toContain('old-p1-a');
   });
 
+  // Search is a tab that stays mounted: tapping a type on Home changed its query, and until the
+  // new page arrived the previous search's rows were shown as the answer, with no spinner.
+  it('reports loading from the render that changes the query, keeping old rows out of view', async () => {
+    const first = deferredFetcher('old');
+    const second = deferredFetcher('new');
+    const { rerender, result } = renderHook<
+      PagedListState<string>,
+      { fetchPage: (page: number) => Promise<PagedResult<string>> }
+    >(({ fetchPage }) => usePagedList(fetchPage), {
+      initialProps: { fetchPage: first.fetchPage },
+    });
+    await first.settleAll();
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.items).toEqual(['old-p1-a', 'old-p1-b']);
+
+    rerender({ fetchPage: second.fetchPage });
+    expect(result.current.isLoading).toBe(true);
+
+    await second.settleAll();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.items).toEqual(['new-p1-a', 'new-p1-b']);
+  });
+
   it('a reload after the load settles does refetch', async () => {
     const f = deferredFetcher('q1');
     const { result } = renderHook(() => usePagedList(f.fetchPage));
