@@ -21,7 +21,7 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { ListView, MapViewComponent } from '../components';
 import type { ServiceSearchItem } from '../components/ListView';
 import {
-  getServices,
+  getServiceFacets,
   getServicesPage,
   serviceFromPrice,
   ServiceDto,
@@ -115,9 +115,6 @@ const CATEGORY_CONFIG: Record<
 // One screenful plus headroom on a phone; the rest pages in on scroll.
 const PAGE_SIZE = 25;
 
-// A sample of the catalogue big enough to populate the filter options. See `facets` below.
-const FACET_SAMPLE_SIZE = 100;
-
 // Flattens a ServiceDto (from getServices OR a Home endpoint) into a card item.
 // The type-derived label is localized by the caller (via tEnum); here `service`
 // holds only backend free-text (basicServiceName) so it's never left in English.
@@ -204,13 +201,11 @@ export default function SearchScreen() {
 
   // ── filter options ────────────────────────────────────────────────────────
   // The add-on chips and the price ceiling are facts about the catalogue, not about the current
-  // results, so they are sampled once rather than derived from the rows on screen. Deriving them
+  // results, so they come from the facets endpoint rather than the rows on screen. Deriving them
   // from the results is circular under server-side filtering: filter by "Pickup" and every row
-  // offers Pickup, so the chip list collapses to that one chip and there is no way back.
-  //
-  // The ceiling is exact despite being a sample — the sample is sorted most-expensive-first, so
-  // its first row IS the most expensive service. The add-on names are a genuine sample; a facets
-  // endpoint would be the real fix if the catalogue grows past this.
+  // offers Pickup, so the chip list collapses to that one chip and there is no way back. (They
+  // used to be sampled from the 100 most expensive services: ~190 KB per visit, and an extra only
+  // cheaper services offer never became a chip.)
   const [facets, setFacets] = useState<{ maxPrice: number; addOns: string[] }>({
     maxPrice: DEFAULT_MAX_PRICE,
     addOns: [],
@@ -218,38 +213,20 @@ export default function SearchScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const sample = await getServices({
-          isActive: true,
-          sortBy: ServiceSortBy.PriceDesc,
-          perPage: FACET_SAMPLE_SIZE,
-        });
+    getServiceFacets()
+      .then((f) => {
         if (cancelled) return;
-
-        const top = sample[0]?.price ?? sample[0]?.pricing?.basePrice ?? 0;
-        const seen = new Map<string, string>();
-        for (const svc of sample) {
-          for (const addOn of svc.additionalServices ?? []) {
-            const name = (addOn.name ?? '').trim();
-            if (!name || addOn.isActive === false) continue;
-            // Deduped case-insensitively (two providers may capitalise "Pickup" differently),
-            // keeping the first spelling seen.
-            const key = name.toLowerCase();
-            if (!seen.has(key)) seen.set(key, name);
-          }
-        }
-
+        const top = f.maxPrice;
         setFacets({
           maxPrice:
             top > 0 ? Math.max(DEFAULT_MAX_PRICE, Math.ceil(top / 10) * 10) : DEFAULT_MAX_PRICE,
-          addOns: [...seen.values()].sort((a, b) => a.localeCompare(b)),
+          addOns: f.additionalServiceNames,
         });
-      } catch {
+      })
+      .catch(() => {
         // Filter options are a nicety — a failure here leaves the defaults rather than blocking
         // the search itself.
-      }
-    })();
+      });
     return () => {
       cancelled = true;
     };

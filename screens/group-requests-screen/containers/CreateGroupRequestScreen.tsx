@@ -47,10 +47,9 @@ import { addressLabel } from '../../../services/geocoding';
 import { ensurePaymentMethodId } from '../../../services/payment-methods';
 import { formatBookingDate, PaymentType } from '../../../services/bookings';
 import {
-  getServices,
+  getServiceFacets,
   getServicesPage,
   serviceFromPrice,
-  ServiceSortBy,
   type GetServicesParams,
   type ServiceDto,
 } from '../../../services/services';
@@ -237,32 +236,19 @@ export default function CreateGroupRequestScreen() {
     }, [currentUser?.id, showError, t, setAccountAddress])
   );
 
-  // Filter options for the chosen type: the price ceiling and the extras on offer. Sampled once
-  // per type rather than derived from the rows on screen — see SearchScreen's `facets`.
+  // Filter options for the chosen type: the price ceiling and the extras on offer, from the facets
+  // endpoint rather than the rows on screen — see SearchScreen's `facets`.
   useEffect(() => {
     if (serviceType == null) return;
     let cancelled = false;
-    getServices({
-      isActive: true,
-      types: [serviceType],
-      sortBy: ServiceSortBy.PriceDesc,
-      perPage: 100,
-    })
-      .then((sample) => {
+    getServiceFacets([serviceType])
+      .then((f) => {
         if (cancelled) return;
-        const top = sample[0]?.price ?? sample[0]?.pricing?.basePrice ?? 0;
-        const seen = new Map<string, string>();
-        for (const svc of sample) {
-          for (const a of svc.additionalServices ?? []) {
-            const name = (a.name ?? '').trim();
-            if (name && a.isActive !== false && !seen.has(name.toLowerCase()))
-              seen.set(name.toLowerCase(), name);
-          }
-        }
+        const top = f.maxPrice;
         setFacets({
           maxPrice:
             top > 0 ? Math.max(DEFAULT_MAX_PRICE, Math.ceil(top / 10) * 10) : DEFAULT_MAX_PRICE,
-          addOns: [...seen.values()].sort((a, b) => a.localeCompare(b)),
+          addOns: f.additionalServiceNames,
         });
       })
       .catch(() => {

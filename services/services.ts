@@ -408,6 +408,28 @@ export function getServicesPage(params?: GetServicesParams): Promise<PagedResult
   return apiPage<ServiceDto>('/api/services', servicesRequest(params));
 }
 
+/** What the browse filters can offer over the bookable catalogue (`GET /api/services/facets`). */
+export type ServiceFacets = {
+  /** The highest base price, in the caller's display currency (`currency`). 0 when there is none. */
+  maxPrice: number;
+  currency: string;
+  /** Every active extra on offer, de-duplicated case-insensitively and sorted. */
+  additionalServiceNames: string[];
+};
+
+/**
+ * The slider ceiling and the add-on chips, for the whole catalogue or the given service types.
+ * Replaces sampling 100 full services sorted most-expensive-first (~190 KB per Search visit),
+ * which also missed every extra offered only by cheaper services.
+ */
+export function getServiceFacets(types?: number[]): Promise<ServiceFacets> {
+  return apiJson<ServiceFacets>('/api/services/facets', {
+    query: { Types: types?.length ? types : undefined },
+    fallback: 'Failed to load the filter options.',
+    context: 'getServiceFacets',
+  });
+}
+
 export function getService(id: number): Promise<ServiceDto> {
   return apiJson<ServiceDto>(`/api/services/${id}`, {
     fallback: 'Failed to load service.',
