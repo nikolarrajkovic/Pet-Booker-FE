@@ -1,3 +1,4 @@
+import { formatNumber } from '../../../i18n/numbers';
 import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -16,7 +17,8 @@ import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
-const fmtCount = (n: number) => n.toLocaleString('en-US');
+// The app language's grouping ("1,008" / "1.008" / "1 008"), not always en-US.
+const fmtCount = (n: number) => formatNumber(n);
 
 type AdminMetrics = {
   currency: string | null;
@@ -354,7 +356,7 @@ export default function AdminDashboardScreen() {
                   borderColor,
                   alignItems: 'flex-start',
                 }}>
-                <View style={{ position: 'relative', marginBottom: 12 }}>
+                <View style={{ position: 'relative', marginBottom: 12, alignSelf: 'stretch' }}>
                   <View
                     style={{
                       width: 48,
@@ -371,14 +373,16 @@ export default function AdminDashboardScreen() {
                       style={{
                         position: 'absolute',
                         top: -6,
-                        right: -6,
+                        right: 0,
                         backgroundColor: '#F97316',
                         borderRadius: 10,
                         paddingHorizontal: 6,
                         paddingVertical: 2,
                       }}>
-                      <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
-                        {t('admin.nNew', { n: metrics.pendingRequests })}
+                      <Text
+                        numberOfLines={1}
+                        style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
+                        {t('admin.nNew', { n: fmtCount(metrics.pendingRequests) })}
                       </Text>
                     </View>
                   )}
@@ -407,7 +411,7 @@ export default function AdminDashboardScreen() {
                   borderColor,
                   alignItems: 'flex-start',
                 }}>
-                <View style={{ position: 'relative', marginBottom: 12 }}>
+                <View style={{ position: 'relative', marginBottom: 12, alignSelf: 'stretch' }}>
                   <View
                     style={{
                       width: 48,
@@ -424,14 +428,16 @@ export default function AdminDashboardScreen() {
                       style={{
                         position: 'absolute',
                         top: -6,
-                        right: -6,
+                        right: 0,
                         backgroundColor: BRAND_GREEN,
                         borderRadius: 10,
                         paddingHorizontal: 6,
                         paddingVertical: 2,
                       }}>
-                      <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
-                        {t('admin.nActive', { n: metrics.activePartners })}
+                      <Text
+                        numberOfLines={1}
+                        style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
+                        {t('admin.nActive', { n: fmtCount(metrics.activePartners) })}
                       </Text>
                     </View>
                   )}
@@ -497,7 +503,7 @@ export default function AdminDashboardScreen() {
                   borderColor,
                   alignItems: 'flex-start',
                 }}>
-                <View style={{ position: 'relative', marginBottom: 12 }}>
+                <View style={{ position: 'relative', marginBottom: 12, alignSelf: 'stretch' }}>
                   <View
                     style={{
                       width: 48,
@@ -514,14 +520,16 @@ export default function AdminDashboardScreen() {
                       style={{
                         position: 'absolute',
                         top: -6,
-                        right: -6,
+                        right: 0,
                         backgroundColor: '#F97316',
                         borderRadius: 10,
                         paddingHorizontal: 6,
                         paddingVertical: 2,
                       }}>
-                      <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
-                        {t('admin.nNew', { n: metrics.pendingReviews })}
+                      <Text
+                        numberOfLines={1}
+                        style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
+                        {t('admin.nNew', { n: fmtCount(metrics.pendingReviews) })}
                       </Text>
                     </View>
                   )}

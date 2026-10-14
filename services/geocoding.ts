@@ -4,9 +4,16 @@ import { AddressDto } from './service-providers';
 
 export type GeoPoint = { latitude: number; longitude: number };
 
-/** One-line label for a resolved address (for display in the booking UI). */
+/**
+ * One-line label for an address, the way it reads here: "Nemanjina 4, 11000 Belgrade".
+ *
+ * The region (`state`) is left out. Serbian addresses have none, and while the backend required
+ * one the apps filled it with "-", the city again or a made-up code, so every address line read
+ * "Belgrade, CS". Use this for every address shown to a person rather than joining fields by hand.
+ */
 export function addressLabel(a: AddressDto): string {
-  return [a.line1, a.city, a.state].filter(Boolean).join(', ') || 'Selected location';
+  const place = [a.postalCode, a.city].filter(Boolean).join(' ');
+  return [a.line1, place].filter(Boolean).join(', ') || 'Selected location';
 }
 
 /**

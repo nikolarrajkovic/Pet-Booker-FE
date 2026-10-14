@@ -1,5 +1,6 @@
 import {
   formatBirthDate,
+  formatFullDate,
   formatDayMonth,
   formatLongDate,
   formatMonthYear,
@@ -8,6 +9,7 @@ import {
   registerDateLanguage,
 } from '../i18n/dates';
 import { bookingToViewModel } from '../services/bookings';
+import { formatMoney } from '../services/currency';
 
 // Dates follow the APP's language, not the device's: a Serbian session on an English-locale
 // phone used to read "Oct 3, 2026" and "Sat, Oct 3" beside Serbian labels.
@@ -26,12 +28,18 @@ describe('date formatting', () => {
   });
 
   it('follows the registered app language, whatever the device locale', () => {
+    // In each language's own order and grammar — not the English pattern with translated words
+    // ("Okt 3, 2026", "Sreda, Oktobar 14, 2026"), which is what Serbian and Russian used to get.
     registerDateLanguage('sr');
-    expect(formatWeekdayDayMonth(saturday)).toBe('Sub, Okt 3');
-    expect(formatShortDate(saturday)).toBe('Okt 3, 2026');
+    expect(formatWeekdayDayMonth(saturday)).toBe('sub 3. okt');
+    expect(formatShortDate(saturday)).toBe('3. okt 2026.');
+    expect(formatLongDate(saturday)).toBe('3. oktobar 2026.');
+    expect(formatFullDate(saturday)).toBe('subota, 3. oktobar 2026.');
 
     registerDateLanguage('ru');
-    expect(formatShortDate(saturday)).not.toContain('Oct');
+    expect(formatShortDate(saturday)).toBe('3 окт. 2026 г.');
+    // Russian inflects the month inside a date.
+    expect(formatLongDate(saturday)).toBe('3 октября 2026 г.');
   });
 
   it('an explicit language wins over the registered one', () => {
@@ -51,6 +59,20 @@ describe('date formatting', () => {
       bookingTo: '2026-10-03T05:00:00',
       state: 1,
     } as any);
-    expect(vm.date).toBe('Okt 3, 2026');
+    expect(vm.date).toBe('3. okt 2026.');
+  });
+});
+
+describe('number formatting', () => {
+  afterEach(() => registerDateLanguage('en'));
+
+  it("groups and punctuates money the reader's way", () => {
+    expect(formatMoney(1250000, 'RSD')).toBe('1,250,000 RSD');
+    expect(formatMoney(12.5, 'EUR')).toBe('12.50 €');
+
+    registerDateLanguage('sr');
+    expect(formatMoney(1250000, 'RSD')).toBe('1.250.000 RSD');
+    expect(formatMoney(12.5, 'EUR')).toBe('12,50 €');
+    expect(formatMoney(30, 'EUR')).toBe('30 €');
   });
 });

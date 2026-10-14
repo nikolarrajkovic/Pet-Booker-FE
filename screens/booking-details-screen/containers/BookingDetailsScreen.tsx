@@ -117,15 +117,29 @@ export default function BookingDetailsScreen() {
     dto?.pet?.photos?.find((p) => p.isSelected)?.src ?? dto?.pet?.photos?.[0]?.src
   );
 
-  const Row = ({ icon, label, value }: { icon: string; label: string; value: string }) => (
+  const Row = ({
+    icon,
+    label,
+    value,
+    media,
+  }: {
+    icon: string;
+    label: string;
+    value: string;
+    /** Drawn just before the value — the pet's photo beside its name. */
+    media?: React.ReactNode;
+  }) => (
     <View className={`flex-row items-center justify-between border-b py-3 ${borderColor}`}>
       <View className="mr-3 flex-1 flex-row items-center">
         <Ionicons name={icon as any} size={18} color={BRAND_GREEN} />
         <Text className={`text-sm ${subtextColor} ml-3`}>{label}</Text>
       </View>
-      <Text className={`text-sm font-semibold ${textColor} flex-1 text-right`} numberOfLines={2}>
-        {value}
-      </Text>
+      <View className="flex-1 flex-row items-center justify-end">
+        {media}
+        <Text className={`text-sm font-semibold ${textColor} shrink text-right`} numberOfLines={2}>
+          {value}
+        </Text>
+      </View>
     </View>
   );
 
@@ -198,11 +212,23 @@ export default function BookingDetailsScreen() {
                 {t('bookingDetails.appointment')}
               </Text>
               <Row icon="calendar-outline" label={t('bookingDetails.date')} value={vm.date} />
-              <Row icon="time-outline" label={t('bookingDetails.time')} value={vm.time} />
+              <Row icon="time-outline" label={t('bookingDetails.time')} value={vm.timeRange} />
+              {/* The pet's photo sits in its own row; it used to repeat below the section with
+                  the name again, unlabelled. ServicePhoto layers a paw behind a photo that 404s. */}
               <Row
                 icon="paw-outline"
                 label={t('bookingDetails.pet')}
                 value={dto.pet?.name ?? vm.petName}
+                media={
+                  petImage ? (
+                    <ServicePhoto
+                      uri={petImage}
+                      radiusClass="rounded-lg"
+                      iconSize={14}
+                      className="mr-2 h-8 w-8"
+                    />
+                  ) : null
+                }
               />
               <Row
                 icon="person-outline"
@@ -218,21 +244,6 @@ export default function BookingDetailsScreen() {
                 />
               ) : null}
             </View>
-
-            {/* Pet image (optional flourish). ServicePhoto layers its placeholder behind the
-                photo, so a src that 404s shows a paw rather than an empty 48px box with the pet's
-                name floating beside it, unlabelled, between two sections. */}
-            {petImage ? (
-              <View className={`mt-4 flex-row items-center ${gutter.px}`}>
-                <ServicePhoto
-                  uri={petImage}
-                  radiusClass="rounded-xl"
-                  iconSize={20}
-                  className="mr-3 h-12 w-12"
-                />
-                <Text className={`text-sm ${subtextColor}`}>{dto.pet?.name ?? vm.petName}</Text>
-              </View>
-            ) : null}
 
             {/* Location */}
             {(pickup || dropoff) && (

@@ -89,7 +89,6 @@ export default function RequestCard({
                 <Ionicons name="person" size={24} color="#9CA3AF" />
               </View>
             )}
-            <View className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
           </View>
           <View className="flex-1">
             <Text className={`text-base font-bold ${textColor}`}>{request.clientName}</Text>

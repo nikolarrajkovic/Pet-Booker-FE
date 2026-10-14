@@ -1,3 +1,4 @@
+import { addressLabel } from '../../services/geocoding';
 import {
   ModerationStatus,
   providerAddress,
@@ -28,9 +29,7 @@ export function providerToPartner(dto: ServiceProviderDto, tallies?: ProviderTal
   const created = dto.createdAt ? new Date(dto.createdAt) : null;
   // The business address, else the partner's account address.
   const addr = providerAddress(dto);
-  const address = addr
-    ? [addr.line1, addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ')
-    : '';
+  const address = addr ? addressLabel(addr) : '';
   const rating = dto.ratingAvg ?? 0;
 
   return {

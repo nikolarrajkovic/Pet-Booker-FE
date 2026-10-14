@@ -232,6 +232,8 @@ export type BookingViewModel = {
   petId: number;
   date: string; // formatted, e.g. "Jun 15, 2026"
   time: string; // formatted, e.g. "10:00 AM"
+  /** The booked window, "10:00 – 11:00" (just the start when the end is missing). */
+  timeRange: string;
   bookingFrom: string; // raw ISO
   price: number;
   currency: string | null; // server-stamped from the provider; format via formatMoney
@@ -313,6 +315,9 @@ export function bookingToViewModel(dto: BookingDto): BookingViewModel {
     petId: dto.petId,
     date: formatDate(dto.bookingFrom),
     time: formatTime(dto.bookingFrom),
+    timeRange: [formatTime(dto.bookingFrom), dto.bookingTo ? formatTime(dto.bookingTo) : '']
+      .filter(Boolean)
+      .join(' – '),
     bookingFrom: dto.bookingFrom,
     price: dto.totalPrice,
     currency: dto.priceCurrency ?? null,

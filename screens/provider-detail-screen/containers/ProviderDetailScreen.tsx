@@ -1,3 +1,4 @@
+import { addressLabel } from '../../../services/geocoding';
 import React from 'react';
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -112,11 +113,7 @@ export default function ProviderDetailScreen() {
   // All of a provider's services are priced in the same currency (the server converts every amount
   // to the caller's display currency), so the first service's stamp speaks for the "from" price.
   const providerCurrency = services[0]?.currency;
-  const address = provider.address
-    ? [provider.address.line1, provider.address.city, provider.address.state]
-        .filter(Boolean)
-        .join(', ')
-    : null;
+  const address = provider.address ? addressLabel(provider.address) : null;
 
   return (
     <View className={`flex-1 ${bgColor}`} style={{ paddingTop: topInset }}>

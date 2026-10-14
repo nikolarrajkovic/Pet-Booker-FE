@@ -102,7 +102,7 @@ const ru: TranslationDict = {
     termsPrivacy: 'Условия и политика конфиденциальности',
   },
   login: {
-    appName: 'Pet Booker',
+    appName: 'PetBooker',
     welcomeBack: 'С возвращением!',
     emailOrUsername: 'Email или имя пользователя',
     emailOrUsernamePlaceholder: 'Введите email или имя пользователя',
@@ -553,6 +553,11 @@ const ru: TranslationDict = {
     option: 'Вариант: {name}',
     total: 'Итого',
     continueToReview: 'Перейти к проверке',
+    needDuration: 'Выберите длительность, чтобы продолжить.',
+    needTime: 'Выберите дату и время, чтобы продолжить.',
+    needPet: 'Выберите питомца, чтобы продолжить.',
+    needAddress: 'Укажите место забора или доставки на карте, чтобы продолжить.',
+    extrasPricedLater: 'Доп. услуги добавятся, когда вы выберете время и питомца.',
     pickupLocation: 'Место забора',
     dropoffLocation: 'Место возврата',
     petsLoadError: 'Не удалось загрузить питомцев. Попробуйте снова.',
@@ -583,6 +588,8 @@ const ru: TranslationDict = {
     pickupLine: 'Забор: {address}',
     dropoffLine: 'Возврат: {address}',
     cancellationPolicy: 'Политика отмены',
+    payLaterNote:
+      'Сейчас ничего не списывается: вы оплатите в бронировании после подтверждения исполнителем.',
     cancellationPolicyText:
       'Вы можете бесплатно отменить бронирование в любое время до начала услуги.',
     confirmBooking: 'Подтвердить бронирование',
@@ -983,6 +990,7 @@ const ru: TranslationDict = {
     startNow: 'Запустить сейчас',
     pause: 'Пауза',
     resume: 'Возобновить',
+    extendDates: 'Продлить сроки',
     analytics: 'Аналитика',
     createTitle: 'Создать предложение',
     createSubtitle: 'Установите скидку на одну из ваших услуг',

@@ -86,7 +86,8 @@ describe('where a service is', () => {
     // the server updates the service's own row or creates one.
     const picked = { ...saved, id: 99, line1: 'River Rd 1', state: '' };
     const sent = resolveServiceAddressForSave(picked, saved, false);
-    expect(sent).toMatchObject({ id: 0, line1: 'River Rd 1', state: 'Belgrade' });
+    // No made-up region: the backend no longer requires one (it used to be the city copied in).
+    expect(sent).toMatchObject({ id: 0, line1: 'River Rd 1', state: '' });
   });
 
   it('a service without its own address sends none', () => {

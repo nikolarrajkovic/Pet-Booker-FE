@@ -1,3 +1,4 @@
+import { addressLabel } from '../../../services/geocoding';
 import React, { useState, useEffect } from 'react';
 import {
   ScrollView,
@@ -239,7 +240,7 @@ export default function ServiceDetailScreen() {
   // Where this service happens: its own address, else its provider's business address, else the
   // provider's account address (resolved by the server as effectiveAddress).
   const where = svc.effectiveAddress ?? svc.address ?? providerAddress(provider);
-  const address = where ? [where.line1, where.city, where.state].filter(Boolean).join(', ') : null;
+  const address = where ? addressLabel(where) : null;
 
   // Extra facts worth surfacing before booking (only the ones the service sets).
   const facts: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [];

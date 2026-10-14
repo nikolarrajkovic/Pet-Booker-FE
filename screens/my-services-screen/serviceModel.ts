@@ -596,7 +596,7 @@ export function resolveServiceAddressForSave(
   useProviderLocation: boolean
 ): AddressDto | null {
   if (picked) {
-    return { ...picked, id: 0, state: picked.state || picked.city || picked.country || '-' };
+    return { ...picked, id: 0, state: picked.state || '' };
   }
   if (useProviderLocation) return null;
   return original ?? null;

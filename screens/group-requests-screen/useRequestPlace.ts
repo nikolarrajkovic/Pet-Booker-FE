@@ -38,7 +38,8 @@ export const pointOf = (a?: AddressDto | null): GeoPoint | null =>
 const withState = (a: AddressDto): AddressDto => ({
   ...a,
   id: undefined,
-  state: a.state || a.city || a.country || '-',
+  // Optional since 2026-10; it used to be required, so the city or "-" was sent in its place.
+  state: a.state || '',
 });
 
 type DeviceLocation = {

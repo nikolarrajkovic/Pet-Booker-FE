@@ -107,7 +107,7 @@ const en = {
     termsPrivacy: 'Terms & Privacy Policy',
   },
   login: {
-    appName: 'Pet Booker',
+    appName: 'PetBooker',
     welcomeBack: 'Welcome back!',
     emailOrUsername: 'Email or Username',
     emailOrUsernamePlaceholder: 'Enter your email or username',
@@ -573,6 +573,11 @@ const en = {
     option: 'Option: {name}',
     total: 'Total',
     continueToReview: 'Continue to Review',
+    needDuration: 'Choose a duration to continue.',
+    needTime: 'Choose a date and time to continue.',
+    needPet: 'Choose your pet to continue.',
+    needAddress: 'Pick the pickup or drop-off place on the map to continue.',
+    extrasPricedLater: 'Extras are added once you choose a time and your pet.',
     pickupLocation: 'Pickup location',
     dropoffLocation: 'Drop-off location',
     petsLoadError: 'Could not load your pets. Please try again.',
@@ -603,6 +608,7 @@ const en = {
     pickupLine: 'Pickup: {address}',
     dropoffLine: 'Drop-off: {address}',
     cancellationPolicy: 'Cancellation Policy',
+    payLaterNote: 'Nothing is charged now: you pay from the booking once the provider confirms it.',
     // Says what the booking workflow enforces: cancellable until the service starts, no fee. It
     // used to promise a 24-hour window and a 50% charge that nothing in the system implements.
     cancellationPolicyText:
@@ -1004,6 +1010,7 @@ const en = {
     startNow: 'Start Now',
     pause: 'Pause',
     resume: 'Resume',
+    extendDates: 'Extend dates',
     analytics: 'Analytics',
     createTitle: 'Create Offer',
     createSubtitle: 'Set a discount on one of your services',

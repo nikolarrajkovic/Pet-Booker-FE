@@ -104,7 +104,8 @@ describe('useRequestPlace', () => {
 
     expect(await result.current.resolveAddressId(save)).toBe(99);
     expect(save).toHaveBeenCalledWith(
-      expect.objectContaining({ city: 'Novi Sad', state: 'Novi Sad' })
+      // The region stays empty rather than repeating the city (no longer required by the API).
+      expect.objectContaining({ city: 'Novi Sad', state: '' })
     );
 
     act(() => result.current.setAccountAddress(HOME));
