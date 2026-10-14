@@ -580,7 +580,7 @@ const sr: TranslationDict = {
     noWorkingHours:
       'Ova usluga još nema podešeno radno vreme, pa se ne može rezervisati. Probajte drugu uslugu ili pokušajte kasnije.',
     priceFrom: 'od',
-    selectPetHint: 'Izaberite jednog ili više ljubimaca',
+    selectPetHint: 'Jedan po terminu',
     availableTimes: 'Dostupni termini',
     checkingAvailability: 'Provera dostupnosti…',
     noWindowsForDay: 'Pružalac nije dostupan ovog dana — izaberite drugi dan.',

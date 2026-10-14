@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 interface Pet {
   id: number;
@@ -36,6 +37,7 @@ export default function PetSelector({
 }: PetSelectorProps) {
   const gutter = usePageGutter();
   const { t } = useLocale();
+  const { isWebLayout } = useResponsive();
   return (
     <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
       <View className="mb-4 flex-row items-center">
@@ -57,7 +59,10 @@ export default function PetSelector({
         <Text className={`mb-3 text-sm ${subtextColor}`}>{t('bookService.noPetsAccepted')}</Text>
       ) : null}
 
-      <View className="flex-row gap-3">
+      {/* A wrapping grid: two per row on a phone, three on the web design. One flex row of equal
+          columns squeezed four pets into strips ~80px wide, and every further pet narrowed them
+          again. */}
+      <View className="flex-row flex-wrap gap-3">
         {pets.map((pet) => (
           <TouchableOpacity
             accessibilityRole="button"
@@ -71,8 +76,11 @@ export default function PetSelector({
             key={pet.id}
             disabled={pet.accepted === false}
             onPress={() => onSelectPet(pet.id)}
-            style={pet.accepted === false ? { opacity: 0.5 } : undefined}
-            className={`flex-1 rounded-2xl border-2 p-4 ${
+            style={[
+              { flexBasis: isWebLayout ? '31%' : '47%', flexGrow: pets.length === 1 ? 1 : 0 },
+              pet.accepted === false ? { opacity: 0.5 } : null,
+            ]}
+            className={`rounded-2xl border-2 p-4 ${
               selectedPet === pet.id
                 ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
                 : `${borderColor} ${cardBg}`

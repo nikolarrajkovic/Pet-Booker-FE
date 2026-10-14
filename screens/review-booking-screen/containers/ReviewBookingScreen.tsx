@@ -281,6 +281,12 @@ export default function ReviewBookingScreen() {
             </Text>
             {appointments.map((apt, i) => {
               const start = parseBookingDate(apt.bookingFrom);
+              const clock = (d: Date) =>
+                d.toLocaleTimeString(undefined, {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false,
+                });
               return (
                 <View key={apt.id} className={i > 0 ? `mt-4 border-t pt-4 ${borderColor}` : ''}>
                   <Text className={`text-base font-semibold ${textColor}`}>
@@ -306,11 +312,8 @@ export default function ReviewBookingScreen() {
                       style={{ marginRight: 6 }}
                     />
                     <Text className={`text-sm ${subtextColor}`}>
-                      {start.toLocaleTimeString(undefined, {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: false,
-                      })}
+                      {/* The window, not just its start: "10:00 – 11:00", as Booking Details reads. */}
+                      {`${clock(start)} – ${clock(parseBookingDate(apt.bookingTo))}`}
                     </Text>
                   </View>
                   {apt.pricingOptionName && (

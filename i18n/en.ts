@@ -602,7 +602,7 @@ const en = {
     noWorkingHours:
       "This service hasn't set any working hours yet, so it can't be booked. Try another service, or check back later.",
     priceFrom: 'from',
-    selectPetHint: 'Select one or more pets',
+    selectPetHint: 'One per appointment',
     availableTimes: 'Available Times',
     checkingAvailability: 'Checking availability…',
     noWindowsForDay: "The provider isn't available on this day — please pick another day.",
