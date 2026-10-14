@@ -234,6 +234,7 @@ export default function DatePicker({
           marginBottom: 12,
         }}>
         <TouchableOpacity
+          accessibilityLabel={t('common.previous')}
           accessibilityRole="button"
           onPress={stepBack}
           disabled={backDisabled}
@@ -248,6 +249,7 @@ export default function DatePicker({
               )}
         </View>
         <TouchableOpacity
+          accessibilityLabel={t('common.next')}
           accessibilityRole="button"
           onPress={stepForward}
           disabled={forwardDisabled}

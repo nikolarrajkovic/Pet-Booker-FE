@@ -32,7 +32,7 @@ import { resolveImageUrl, AddressDto } from '../../../services/service-providers
 import { getPet, PetResponse } from '../../../services/pets';
 import { getService, ServiceDto } from '../../../services/services';
 import { DistanceLeg } from '../../../services/service-addons';
-import { getUser } from '../../../services/users';
+import { customerName, getUser } from '../../../services/users';
 import {
   addressLabel,
   addressToPoint,
@@ -707,7 +707,7 @@ export default function LiveSessionScreen() {
   // sees the full name + about.
   const headerTitle = isPartner ? serviceType || t('liveSession.service') : serviceName;
   const counterpartyName = isPartner
-    ? dto?.user?.userName || t('liveSession.client')
+    ? customerName(dto?.user, t('liveSession.client'))
     : dto?.serviceProvider?.name || t('liveSession.provider');
   const counterpartyAvatar = isPartner
     ? firstPhoto(dto?.user?.photos)
@@ -791,6 +791,7 @@ export default function LiveSessionScreen() {
             <View
               className={`mb-4 flex-row items-center justify-between ${cardBg} rounded-2xl border ${borderColor} px-3 py-2`}>
               <TouchableOpacity
+                accessibilityLabel={t('common.previousSession')}
                 accessibilityRole="button"
                 disabled={index === 0}
                 onPress={() => setIndex((i) => Math.max(0, i - 1))}
@@ -815,6 +816,7 @@ export default function LiveSessionScreen() {
                 </Text>
               </View>
               <TouchableOpacity
+                accessibilityLabel={t('common.nextSession')}
                 accessibilityRole="button"
                 disabled={index === sessions.length - 1}
                 onPress={() => setIndex((i) => Math.min(sessions.length - 1, i + 1))}

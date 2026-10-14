@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
-import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
+import { useThemeColors } from '../../../hooks/useThemeColors';
+import PetLoader from '../../../components/shared/PetLoader';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
@@ -31,7 +32,7 @@ export default function MyScheduleScreen() {
   const gutter = usePageGutter();
   const route = useRoute();
   const { currentUser } = useAuth();
-  const { isDarkMode, bgColor: contentBg, subtextColor } = useThemeColors();
+  const { isDarkMode, bgColor: contentBg, subtextColor, cardBg, borderColor } = useThemeColors();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
   const [selectedView, setSelectedView] = useState<ViewType>('day');
@@ -133,37 +134,34 @@ export default function MyScheduleScreen() {
       headerTitle={title}
       showBackButton>
       <View className="flex-1">
-        {/* Tab Selector */}
+        {/* Tab Selector. On a phone it sits in the green header; on the web design it is its own
+            white card with the chosen view in solid green — it used to be a grey strip on the
+            paw pattern with a white pill, which read as unstyled. */}
         <View className={`${isWebLayout ? contentBg : bgColor} ${gutter.px} py-4`}>
           <View
-            className={`flex-row rounded-xl p-1 ${isWebLayout ? (isDarkMode ? 'bg-[#243447]' : 'bg-gray-100') : 'bg-white/20'}`}>
-            <TouchableOpacity
-              accessibilityRole="button"
-              className={`flex-1 rounded-lg py-2 ${selectedView === 'day' ? 'bg-white' : ''}`}
-              onPress={() => setSelectedView('day')}>
-              <Text
-                className={`text-center font-semibold ${selectedView === 'day' ? 'text-brand-600' : isWebLayout ? subtextColor : 'text-white'}`}>
-                {t('schedule.day')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              className={`flex-1 rounded-lg py-2 ${selectedView === 'week' ? 'bg-white' : ''}`}
-              onPress={() => setSelectedView('week')}>
-              <Text
-                className={`text-center font-semibold ${selectedView === 'week' ? 'text-brand-600' : isWebLayout ? subtextColor : 'text-white'}`}>
-                {t('schedule.week')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              accessibilityRole="button"
-              className={`flex-1 rounded-lg py-2 ${selectedView === 'month' ? 'bg-white' : ''}`}
-              onPress={() => setSelectedView('month')}>
-              <Text
-                className={`text-center font-semibold ${selectedView === 'month' ? 'text-brand-600' : isWebLayout ? subtextColor : 'text-white'}`}>
-                {t('schedule.month')}
-              </Text>
-            </TouchableOpacity>
+            className={`flex-row rounded-xl p-1 ${
+              isWebLayout ? `${cardBg} border ${borderColor}` : 'bg-white/20'
+            }`}>
+            {(['day', 'week', 'month'] as const).map((view) => {
+              const active = selectedView === view;
+              const activeBg = isWebLayout ? 'bg-brand-500' : 'bg-white';
+              const activeText = isWebLayout ? 'text-white' : 'text-brand-600';
+              return (
+                <TouchableOpacity
+                  key={view}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  className={`flex-1 rounded-lg py-2 ${active ? activeBg : ''}`}
+                  onPress={() => setSelectedView(view)}>
+                  <Text
+                    className={`text-center font-semibold ${
+                      active ? activeText : isWebLayout ? subtextColor : 'text-white'
+                    }`}>
+                    {t(`schedule.${view}`)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -171,7 +169,7 @@ export default function MyScheduleScreen() {
         <ScrollView className="flex-1">
           {isLoading ? (
             <View className="items-center justify-center py-16">
-              <ActivityIndicator size="large" color={BRAND_GREEN} />
+              <PetLoader label={t('common.loading')} />
             </View>
           ) : error ? (
             <View className="items-center justify-center py-16">

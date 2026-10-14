@@ -1,11 +1,10 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View } from 'react-native';
 import { getServicesForDate, ScheduleMode } from '../utils/scheduleData';
-import { themeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatFullDate } from '../../../i18n/dates';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { SchedulePanel, ScheduleHeader, ScheduleRow, ScheduleEmpty } from './ScheduleParts';
 
 interface DayViewProps {
   selectedDate: Date;
@@ -14,119 +13,51 @@ interface DayViewProps {
   mode: ScheduleMode;
 }
 
-const getTypeColor = (type: string) => {
-  switch (type) {
-    case 'walking':
-      return '#3B82F6';
-    case 'grooming':
-      return '#A855F7';
-    case 'sitting':
-      return '#10B981';
-    default:
-      return '#6B7280';
-  }
-};
-
-const getTypeBg = (type: string, isDarkMode: boolean) => {
-  switch (type) {
-    case 'walking':
-      return isDarkMode ? 'bg-blue-300/20' : 'bg-blue-100';
-    case 'grooming':
-      return isDarkMode ? 'bg-purple-300/20' : 'bg-purple-100';
-    case 'sitting':
-      return isDarkMode ? 'bg-green-300/20' : 'bg-green-100';
-    default:
-      return isDarkMode ? 'bg-gray-500/20' : 'bg-gray-50';
-  }
-};
-
 export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }: DayViewProps) {
   const gutter = usePageGutter();
-  const { textColor, subtextColor, cardBg, borderColor } = themeColors(isDarkMode);
   const { t } = useLocale();
-
-  const formatDate = (date: Date) => formatFullDate(date);
 
   // Get services for the selected date, filtered by mode
   const all = getServicesForDate(selectedDate);
   const servicesForDate =
     mode === 'user' ? all.filter((s) => s.isUserService) : all.filter((s) => !s.isUserService);
 
-  const goToPreviousDay = () => {
-    const prevDay = new Date(selectedDate);
-    prevDay.setDate(prevDay.getDate() - 1);
-    onDateChange(prevDay);
-  };
-
-  const goToNextDay = () => {
-    const nextDay = new Date(selectedDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-    onDateChange(nextDay);
+  const shiftDay = (by: number) => {
+    const next = new Date(selectedDate);
+    next.setDate(next.getDate() + by);
+    onDateChange(next);
   };
 
   const isToday = selectedDate.toDateString() === new Date().toDateString();
 
   return (
-    <View className={`${gutter.px} py-6`}>
-      {/* Date Navigation */}
-      <View className="mb-6 flex-row items-center justify-between">
-        <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToPreviousDay}>
-          <Ionicons name="chevron-back" size={24} color={isDarkMode ? '#fff' : '#000'} />
-        </TouchableOpacity>
-        <View className="flex-1 items-center">
-          <Text className={`text-lg font-bold ${textColor}`}>{formatDate(selectedDate)}</Text>
-          {isToday && (
-            <Text className="mt-1 text-sm font-semibold text-brand-500">{t('schedule.today')}</Text>
+    <View className={`${gutter.px} pb-8 pt-2`}>
+      <SchedulePanel isDarkMode={isDarkMode}>
+        <ScheduleHeader
+          title={formatFullDate(selectedDate)}
+          isCurrent={isToday}
+          onPrevious={() => shiftDay(-1)}
+          onNext={() => shiftDay(1)}
+          onToday={() => onDateChange(new Date())}
+          previousLabel={t('common.previousDay')}
+          nextLabel={t('common.nextDay')}
+          isDarkMode={isDarkMode}
+        />
+        <View className="px-4">
+          {servicesForDate.length > 0 ? (
+            servicesForDate.map((service, i) => (
+              <ScheduleRow
+                key={service.id}
+                service={service}
+                isDarkMode={isDarkMode}
+                last={i === servicesForDate.length - 1}
+              />
+            ))
+          ) : (
+            <ScheduleEmpty text={t('schedule.noServicesDay')} isDarkMode={isDarkMode} />
           )}
         </View>
-        <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToNextDay}>
-          <Ionicons name="chevron-forward" size={24} color={isDarkMode ? '#fff' : '#000'} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Services List */}
-      {servicesForDate.length > 0 ? (
-        servicesForDate.map((service) => (
-          <View key={service.id} className={`${cardBg} mb-3 rounded-2xl border p-4 ${borderColor}`}>
-            <View className="mb-3 flex-row items-start justify-between">
-              <View className="flex-1">
-                <Text className={`text-base font-bold ${textColor} mb-1`}>{service.title}</Text>
-                <Text className={`text-sm ${subtextColor}`}>
-                  {[service.counterpart, service.petName].filter(Boolean).join(' • ')}
-                </Text>
-              </View>
-              <View className={`rounded-full px-3 py-1 ${getTypeBg(service.type, isDarkMode)}`}>
-                <Text
-                  className="text-xs font-semibold"
-                  style={{ color: getTypeColor(service.type) }}>
-                  {t(`schedule.${service.type}` as any)}
-                </Text>
-              </View>
-            </View>
-
-            <View className="mb-2 flex-row items-center">
-              <Ionicons name="time-outline" size={16} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
-              <Text className={`text-sm ${subtextColor} ml-2`}>{service.time}</Text>
-            </View>
-
-            {service.location ? (
-              <View className="flex-row items-center">
-                <Ionicons
-                  name="location-outline"
-                  size={16}
-                  color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-                />
-                <Text className={`text-sm ${subtextColor} ml-2`}>{service.location}</Text>
-              </View>
-            ) : null}
-          </View>
-        ))
-      ) : (
-        <View className="items-center justify-center py-12">
-          <Ionicons name="calendar-outline" size={48} color={isDarkMode ? '#4B5563' : '#D1D5DB'} />
-          <Text className={`text-base ${subtextColor} mt-4`}>{t('schedule.noServicesDay')}</Text>
-        </View>
-      )}
+      </SchedulePanel>
     </View>
   );
 }

@@ -213,11 +213,11 @@ export default function NotificationsScreen() {
     followNotificationRoute(routeForNotification(n, { reviewHandled: true }));
   };
 
+  // The whole feed, not just the rows loaded: the button shows whenever the unread count is above
+  // zero, and that count covers every page.
   const handleMarkAll = () => {
-    const unreadIds = notifications.filter((n) => !n.isRead).map((n) => n.id);
-    if (unreadIds.length === 0) return;
     setNotifications((prev) => prev.map((x) => ({ ...x, isRead: true })));
-    markAllNotificationsRead(unreadIds)
+    markAllNotificationsRead()
       .catch(() => {})
       .finally(refreshUnreadCount);
   };

@@ -48,7 +48,11 @@ const MAX_QUIET_REFRESH_PAGES = 3;
 
 export interface PagedListState<T> {
   items: T[];
-  /** First page is loading (show a spinner instead of the list). */
+  /**
+   * First page is loading (show a spinner instead of the list). True from the very render in
+   * which the query changes, not only once the new request has started: the rows held until then
+   * answer the previous query.
+   */
   isLoading: boolean;
   /** A further page is loading (keep the list, show a footer spinner). */
   isLoadingMore: boolean;
@@ -107,6 +111,14 @@ export function usePagedList<T>(
   const [hasMore, setHasMore] = useState(false);
   /** When the rows currently held were fetched — decides whether a refocus needs to refresh. */
   const loadedAt = useRef(0);
+  /**
+   * The query (`fetchPage`) whose first page produced the rows held, or whose failure produced
+   * the error. A new query's load only starts in the effect after the render that changed it, so
+   * for that render — and on a debounced or navigated change, for as long as it takes to settle —
+   * the old query's rows would be shown as the answer to the new one. On Search, tapping a type
+   * on Home showed the previous search's results until the new ones arrived.
+   */
+  const [rowsFor, setRowsFor] = useState<typeof fetchPage | null>(null);
 
   // Next page to request, and the generation this hook is on. Refs, not state: both are read
   // inside async callbacks that must see the current value, not the one captured at render.
@@ -151,6 +163,7 @@ export function usePagedList<T>(
         }
 
         setItems((prev) => (mode === 'append' ? [...prev, ...result.items] : result.items));
+        if (mode === 'replace') setRowsFor(() => fetchPage);
         setTotalItems(result.totalItems);
         setHasMore(result.hasMore);
         nextPage.current = result.currentPage + 1;
@@ -161,7 +174,10 @@ export function usePagedList<T>(
         // An append that fails leaves the rows already on screen alone — only the first page
         // replaces the list with an error state.
         setError(getErrorMessage(e, errorFallback));
-        if (mode === 'replace') setItems([]);
+        if (mode === 'replace') {
+          setItems([]);
+          setRowsFor(() => fetchPage);
+        }
       } finally {
         // Only the current generation owns the loading flags and the in-flight slot. A run that
         // has been superseded must not clear either — doing so used to hand `loadMore` a green
@@ -294,7 +310,7 @@ export function usePagedList<T>(
 
   return {
     items,
-    isLoading,
+    isLoading: isLoading || (enabled && rowsFor !== fetchPage),
     isLoadingMore,
     isRefreshing,
     isStale,

@@ -195,3 +195,14 @@ The run found six problems, all now fixed (R6 in the backend):
 | R5 | **Editing a service during a promotion lowered its real price.** The editor took its price from `price`, which is what a customer pays today with the offer applied, and saved it back as the base price. Each save during a 15% offer cut another 15%; the run caught 1,200 RSD stored as 1,020. | The editor starts from `pricing.basePrice` (`serviceAggregateWrite.test.ts`). A flow step now edits a service while an offer is live and checks the stored price. The affected local service was restored. |
 | R6 | An expired booking (confirmed, never started before its end) showed "Still to pay" for the whole price, and the pay endpoint accepted money for it, because expiry is derived and the stored status still reads as payable. | Backend: pay refuses it (`Error_ExpiredBookingNotPayable`) and `BalanceDue` is 0 (BE `10ce50a`). |
 | R4 | Icon-only buttons had no accessible name: a pet card's edit and delete, the five review stars, and a promotion's edit pencil. A screen reader announced "button". | Labels in en/sr/ru: "Edit Bela", "Delete Bela", "5 of 5 stars: Excellent", "Edit 15% Off — …". |
+
+## Follow-ups (2026-10-14, after deploy)
+
+| Item | Fix |
+|---|---|
+| Search showed the previous search after a type was picked on Home | `usePagedList` reports loading from the render that changes the query; Search applies a navigated type at once. Verified: the dog loader from the first frame (it used to show the old results for ~200 ms, longer on a slow network). |
+| Partners saw customers as a username | `displayName` ("Ana P.") from the API through `customerName()`: Requests, schedule, Live Session, Booking Details, admin lists. |
+| 27 more icon-only buttons without a screen-reader name | Labelled (en/sr/ru); a scan for icon-only `TouchableOpacity`/`Pressable` without `accessibilityLabel` now finds none. |
+| My Schedule floated on the page pattern; the web month's rows were ~220 px | Card panels with a shared header, compact web month (84 px cells), tab switch as its own card, dog loader. |
+| An expired paid booking kept the money (backend) | A 10-minute sweep refunds it, with its own "did not take place" notice. |
+| Mark all read left everything past the first page unread | One `POST /api/app-notifications/read-all` over the whole feed (backend + app). |

@@ -126,6 +126,7 @@ export default function ProviderDetailScreen() {
           className="h-64 w-full"
         />
         <TouchableOpacity
+          accessibilityLabel={t('common.back')}
           accessibilityRole="button"
           onPress={() => navigation.goBack()}
           className="absolute left-4 top-12 h-10 w-10 items-center justify-center rounded-full bg-white"

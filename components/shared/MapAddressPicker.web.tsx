@@ -229,6 +229,7 @@ export default function MapAddressPicker({
             <Ionicons name="location" size={42} color={BRAND_GREEN} style={{ marginBottom: 42 }} />
           </View>
           <TouchableOpacity
+            accessibilityLabel={t('common.useMyLocation')}
             accessibilityRole="button"
             onPress={locateMe}
             style={{

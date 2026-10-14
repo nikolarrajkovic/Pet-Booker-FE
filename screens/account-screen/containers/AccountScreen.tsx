@@ -241,6 +241,7 @@ export default function AccountScreen() {
                 textClassName="text-5xl font-bold text-brand-600"
               />
               <TouchableOpacity
+                accessibilityLabel={t('account.changePhoto')}
                 accessibilityRole="button"
                 onPress={pickProfilePhoto}
                 className="absolute bottom-0 right-0 h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-brand-500"

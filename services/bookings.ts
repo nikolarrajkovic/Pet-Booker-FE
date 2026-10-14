@@ -3,6 +3,7 @@ import type { PagedResult } from './http';
 import { resolveImageUrl, AddressDto } from './service-providers';
 import type { ServicePricingOptionDto } from './services';
 import { formatShortDate } from '../i18n/dates';
+import { customerName } from './users';
 import { declaredWriteCurrency } from './currency';
 
 // BookingState enum (verified /enums 2026-06-19). The API advances `state` as the
@@ -99,6 +100,8 @@ export type BookingDto = {
   user?: {
     id?: number | null;
     userName?: string | null;
+    /** "Ana P." — see `customerName`. */
+    displayName?: string | null;
     email?: string | null;
     photos?: NestedPhoto[];
   } | null;
@@ -327,7 +330,7 @@ export function bookingToViewModel(dto: BookingDto): BookingViewModel {
     statusLabel: stateToLabel(dto.state),
     image: firstPhoto(dto.serviceProvider) || firstPhoto(dto.pet),
     rating: dto.review?.rating ?? undefined,
-    clientName: dto.user?.userName ?? '',
+    clientName: customerName(dto.user),
     clientEmail: dto.user?.email ?? '',
     clientAvatar: firstPhoto(dto.user),
   };

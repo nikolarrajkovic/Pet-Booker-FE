@@ -11,6 +11,7 @@ import {
   BookingStatusType,
   parseBookingDate,
 } from '../../../services/bookings';
+import { customerName } from '../../../services/users';
 
 export type ScheduleMode = 'partner' | 'user';
 
@@ -85,7 +86,7 @@ export function buildScheduleFromBookings(
       id: String(b.id ?? 0),
       title: b.service?.name ?? 'Service',
       // A partner's schedule used to print the partner's own business name on every card.
-      counterpart: mode === 'partner' ? (b.user?.userName ?? '') : (b.serviceProvider?.name ?? ''),
+      counterpart: mode === 'partner' ? customerName(b.user) : (b.serviceProvider?.name ?? ''),
       petName: b.pet?.name ?? '',
       time: isNaN(to.getTime()) ? fmt(from) : `${fmt(from)} - ${fmt(to)}`,
       location: '', // BACKEND-GAP: no location name on booking

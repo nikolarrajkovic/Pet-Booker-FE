@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import {
-  getServicesForDate,
   getDayColorInfo,
   getDayColorPressed,
+  getServicesForDate,
   ScheduleMode,
 } from '../utils/scheduleData';
 import { themeColors } from '../../../hooks/useThemeColors';
@@ -11,6 +11,13 @@ import { useLocale } from '../../../context/LocaleContext';
 import { DAY_SHORT_KEYS, MONTH_SHORT_KEYS } from '../../../i18n';
 import { formatWeekdayDayMonth } from '../../../i18n/dates';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import {
+  SchedulePanel,
+  ScheduleHeader,
+  ScheduleLegend,
+  ScheduleRow,
+  ScheduleEmpty,
+} from './ScheduleParts';
 
 interface WeekViewProps {
   selectedDate: Date;
@@ -19,32 +26,6 @@ interface WeekViewProps {
   onDateChange: (date: Date) => void;
   mode: ScheduleMode;
 }
-
-const getTypeColor = (type: string) => {
-  switch (type) {
-    case 'walking':
-      return '#3B82F6';
-    case 'grooming':
-      return '#A855F7';
-    case 'sitting':
-      return '#10B981';
-    default:
-      return '#6B7280';
-  }
-};
-
-const getTypeBg = (type: string, isDarkMode: boolean) => {
-  switch (type) {
-    case 'walking':
-      return isDarkMode ? 'bg-blue-300/30' : 'bg-blue-100';
-    case 'grooming':
-      return isDarkMode ? 'bg-purple-300/30' : 'bg-purple-100';
-    case 'sitting':
-      return isDarkMode ? 'bg-green-300/30' : 'bg-green-100';
-    default:
-      return isDarkMode ? 'bg-gray-500/30' : 'bg-gray-100';
-  }
-};
 
 const getWeekDays = (date: Date) => {
   const startOfWeek = new Date(date);
@@ -75,7 +56,7 @@ export default function WeekView({
 }: WeekViewProps) {
   const gutter = usePageGutter();
   const [pressedDay, setPressedDay] = useState<string | null>(null);
-  const { textColor, subtextColor, cardBg } = themeColors(isDarkMode);
+  const { textColor, subtextColor, borderColor } = themeColors(isDarkMode);
   const { t } = useLocale();
 
   const weekDays = getWeekDays(selectedDate);
@@ -89,120 +70,59 @@ export default function WeekView({
     return `${t(MONTH_SHORT_KEYS[startOfWeek.getMonth()])} ${startOfWeek.getDate()} - ${t(MONTH_SHORT_KEYS[endOfWeek.getMonth()])} ${endOfWeek.getDate()}`;
   };
 
-  const goToPreviousWeek = () => {
-    const prevWeek = new Date(selectedDate);
-    prevWeek.setDate(prevWeek.getDate() - 7);
-    onDateChange(prevWeek);
+  const shiftWeek = (by: number) => {
+    const next = new Date(selectedDate);
+    next.setDate(next.getDate() + 7 * by);
+    onDateChange(next);
   };
 
-  const goToNextWeek = () => {
-    const nextWeek = new Date(selectedDate);
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    onDateChange(nextWeek);
+  const servicesOn = (day: Date) => {
+    const all = getServicesForDate(day);
+    return mode === 'user'
+      ? all.filter((s) => s.isUserService)
+      : all.filter((s) => !s.isUserService);
   };
-
-  const isThisWeek = isCurrentWeek(selectedDate);
+  const daysWithServices = weekDays.filter((day) => servicesOn(day).length > 0);
 
   return (
-    <View className="flex-1">
-      {/* Week Navigation */}
-      <View
-        className={`border-b ${gutter.px} py-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-        <View className="mb-4 flex-row items-center justify-between">
-          <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToPreviousWeek}>
-            <Text className={`text-2xl ${textColor}`}>‹</Text>
-          </TouchableOpacity>
-          <View className="flex-1 items-center">
-            <Text className={`text-lg font-bold ${textColor}`}>
-              {formatWeekRange(selectedDate)}
-            </Text>
-            {isThisWeek && (
-              <Text className="mt-1 text-sm font-semibold text-brand-500">
-                {t('schedule.today')}
-              </Text>
-            )}
-          </View>
-          <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToNextWeek}>
-            <Text className={`text-2xl ${textColor}`}>›</Text>
-          </TouchableOpacity>
-        </View>
+    <View className={`${gutter.px} pb-8 pt-2`}>
+      <SchedulePanel isDarkMode={isDarkMode}>
+        <ScheduleHeader
+          title={formatWeekRange(selectedDate)}
+          isCurrent={isCurrentWeek(selectedDate)}
+          onPrevious={() => shiftWeek(-1)}
+          onNext={() => shiftWeek(1)}
+          onToday={() => onDateChange(new Date())}
+          previousLabel={t('common.previous')}
+          nextLabel={t('common.next')}
+          isDarkMode={isDarkMode}>
+          <ScheduleLegend mode={mode} isDarkMode={isDarkMode} />
+        </ScheduleHeader>
 
-        {/* Legend */}
-        {mode === 'partner' ? (
-          <View className="flex-row flex-wrap items-center justify-center gap-3">
-            <View className="flex-row items-center">
-              <View className="mr-1 h-3 w-3 rounded-full bg-green-300" />
-              <Text className={`text-xs ${subtextColor}`}>{'< 3h'}</Text>
-            </View>
-            <View className="flex-row items-center">
-              <View className="mr-1 h-3 w-3 rounded-full bg-yellow-300" />
-              <Text className={`text-xs ${subtextColor}`}>3-6h</Text>
-            </View>
-            <View className="flex-row items-center">
-              <View className="mr-1 h-3 w-3 rounded-full bg-red-300" />
-              <Text className={`text-xs ${subtextColor}`}>6+ h</Text>
-            </View>
-          </View>
-        ) : (
-          <View className="flex-row flex-wrap items-center justify-center gap-3">
-            <View className="flex-row items-center">
-              <View className="mr-1 h-3 w-3 rounded-full" style={{ backgroundColor: '#93C5FD' }} />
-              <Text className={`text-xs ${subtextColor}`}>{t('schedule.walking')}</Text>
-            </View>
-            <View className="flex-row items-center">
-              <View className="mr-1 h-3 w-3 rounded-full" style={{ backgroundColor: '#D8B4FE' }} />
-              <Text className={`text-xs ${subtextColor}`}>{t('schedule.grooming')}</Text>
-            </View>
-            <View className="flex-row items-center">
-              <View className="mr-1 h-3 w-3 rounded-full" style={{ backgroundColor: '#86EFAC' }} />
-              <Text className={`text-xs ${subtextColor}`}>{t('schedule.sitting')}</Text>
-            </View>
-          </View>
-        )}
-      </View>
-
-      {/* Week Calendar */}
-      <View className={`${gutter.px} py-4`}>
-        <View className="mb-4 flex-row">
-          {dayNames.map((day, index) => (
-            <View key={day} className="flex-1 items-center">
-              <Text className={`text-xs ${subtextColor} mb-2`}>{day}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View className="mb-6 flex-row">
+        {/* The week at a glance: each day coloured by its load, today ringed. */}
+        <View className={`flex-row border-b px-2 py-3 ${borderColor}`}>
           {weekDays.map((day, index) => {
-            const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
-            const all = getServicesForDate(day);
-            const services =
-              mode === 'user'
-                ? all.filter((s) => s.isUserService)
-                : all.filter((s) => !s.isUserService);
-            const hasServices = services.length > 0;
-            const isToday = day.toDateString() === new Date().toDateString();
-            const isPressedNow = pressedDay === dateStr;
-
-            const colorInfo = isPressedNow
-              ? getDayColorPressed(day, mode)
-              : getDayColorInfo(day, mode);
-            const dayColor = colorInfo.color;
-
+            const dateStr = day.toDateString();
+            const isToday = dateStr === new Date().toDateString();
+            const colorInfo =
+              pressedDay === dateStr ? getDayColorPressed(day, mode) : getDayColorInfo(day, mode);
             return (
               <TouchableOpacity
                 accessibilityRole="button"
-                key={index}
+                accessibilityLabel={formatWeekdayDayMonth(day, undefined, 'long')}
+                key={dateStr}
                 className="flex-1 items-center"
                 onPressIn={() => setPressedDay(dateStr)}
                 onPressOut={() => setPressedDay(null)}
                 onPress={() => onDateSelect(day)}>
+                <Text className={`mb-1.5 text-xs ${subtextColor}`}>{dayNames[index]}</Text>
                 <View
-                  className="h-10 w-10 items-center justify-center rounded-lg"
-                  style={{
-                    backgroundColor: dayColor,
-                    opacity: isToday && dayColor !== 'transparent' ? 0.8 : 1,
-                  }}>
-                  <Text className={`font-semibold ${hasServices ? 'text-white' : textColor}`}>
+                  className={`h-10 w-10 items-center justify-center rounded-xl ${
+                    isToday ? 'border-2 border-brand-500' : ''
+                  }`}
+                  style={{ backgroundColor: colorInfo.color }}>
+                  <Text
+                    className={`font-semibold ${colorInfo.hasData ? 'text-gray-900' : isToday ? 'text-brand-600' : textColor}`}>
                     {day.getDate()}
                   </Text>
                 </View>
@@ -210,50 +130,34 @@ export default function WeekView({
             );
           })}
         </View>
-      </View>
 
-      {/* Services List */}
-      <ScrollView className={`flex-1 ${gutter.px}`}>
-        {weekDays.map((day, index) => {
-          const all = getServicesForDate(day);
-          const services =
-            mode === 'user'
-              ? all.filter((s) => s.isUserService)
-              : all.filter((s) => !s.isUserService);
-
-          if (services.length === 0) return null;
-
-          return (
-            <View key={index} className="mb-6">
-              <Text className={`text-sm font-bold ${textColor} mb-3`}>
-                {formatWeekdayDayMonth(day, undefined, 'long')}
-              </Text>
-
-              {services.map((service) => (
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  key={service.id}
-                  className={`${cardBg} mb-2 flex-row items-center justify-between rounded-xl p-3`}
-                  onPress={() => onDateSelect(day)}>
-                  <View className="flex-1">
-                    <Text className={`text-sm font-semibold ${textColor}`}>{service.title}</Text>
-                    <Text className={`text-xs ${subtextColor} mt-1`}>
-                      {service.time} • {service.petName}
-                    </Text>
-                  </View>
-                  <View className={`rounded-full px-2 py-1 ${getTypeBg(service.type, isDarkMode)}`}>
-                    <Text
-                      className="text-xs font-medium"
-                      style={{ color: getTypeColor(service.type) }}>
-                      {t(`schedule.${service.type}` as any)}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          );
-        })}
-      </ScrollView>
+        {/* The week's appointments, by day. */}
+        <View className="px-4 pb-2">
+          {daysWithServices.length === 0 ? (
+            <ScheduleEmpty text={t('schedule.noServicesWeek')} isDarkMode={isDarkMode} />
+          ) : (
+            daysWithServices.map((day) => {
+              const services = servicesOn(day);
+              return (
+                <View key={day.toDateString()} className="pt-4">
+                  <Text className={`text-xs font-bold uppercase tracking-wide ${subtextColor}`}>
+                    {formatWeekdayDayMonth(day, undefined, 'long')}
+                  </Text>
+                  {services.map((service, i) => (
+                    <ScheduleRow
+                      key={service.id}
+                      service={service}
+                      isDarkMode={isDarkMode}
+                      onPress={() => onDateSelect(day)}
+                      last={i === services.length - 1}
+                    />
+                  ))}
+                </View>
+              );
+            })
+          )}
+        </View>
+      </SchedulePanel>
     </View>
   );
 }

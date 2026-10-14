@@ -199,6 +199,7 @@ export default function LoginScreen() {
             placeholderTextColor={placeholderColor}
           />
           <TouchableOpacity
+            accessibilityLabel={showPassword ? t('common.hidePassword') : t('common.showPassword')}
             accessibilityRole="button"
             onPress={() => setShowPassword(!showPassword)}
             style={{ position: 'absolute', right: 16, top: 13 }}>

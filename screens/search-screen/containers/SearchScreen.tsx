@@ -243,20 +243,30 @@ export default function SearchScreen() {
     };
   });
 
-  // Sync the service-type filter when the route param changes (tapping a pill from HomeScreen).
-  // Returns the previous state unchanged when it already matches: a new object here is a new
-  // filter set, which reloads the list from page 1 — and on mount the param usually says exactly
-  // what the state already says, so the unconditional version cost a whole extra page fetch every
-  // time Search was opened.
-  useEffect(() => {
+  // Sync the service-type filter when the route param changes (tapping a pill on Home). Done
+  // while rendering rather than in an effect, so not even one frame pairs the new type with the
+  // old rows. Leaves the state alone when it already matches: a new object is a new filter set,
+  // which reloads the list from page 1 — and on mount the param usually says exactly what the
+  // state already says, so the unconditional version cost a whole extra page fetch every time
+  // Search was opened.
+  const [routeServiceType, setRouteServiceType] = useState(serviceType);
+  // The filter set a navigation produced. It is applied at once, not through the debounce below:
+  // picking a type on Home is one deliberate step to a new search, and the 300 ms meant for the
+  // price slider left the previous search's results on screen until it ran out.
+  const [navigatedFilters, setNavigatedFilters] = useState<FilterState | null>(null);
+  if (serviceType !== routeServiceType) {
+    setRouteServiceType(serviceType);
     const v = serviceTypeParamToValue(serviceType);
     const next = v != null ? [v] : [];
-    setFilters((prev) =>
-      prev.serviceTypes.length === next.length && prev.serviceTypes.every((x, i) => x === next[i])
-        ? prev
-        : { ...prev, serviceTypes: next }
-    );
-  }, [serviceType]);
+    const matches =
+      filters.serviceTypes.length === next.length &&
+      filters.serviceTypes.every((x, i) => x === next[i]);
+    if (!matches) {
+      const navigated = { ...filters, serviceTypes: next };
+      setFilters(navigated);
+      setNavigatedFilters(navigated);
+    }
+  }
 
   // When the sampled ceiling raises the maximum, follow the upper bound up — but only while the
   // user hasn't dragged it below the previous ceiling, so an untouched slider never silently
@@ -304,7 +314,8 @@ export default function SearchScreen() {
 
   // The rail applies filters as they are touched, and the price slider emits a value per frame of
   // the drag — so the query settles rather than firing a search per intermediate position.
-  const appliedFilters = useDebouncedValue(filters, 300);
+  const debouncedFilters = useDebouncedValue(filters, 300);
+  const appliedFilters = filters === navigatedFilters ? filters : debouncedFilters;
 
   // Only the Near You rail is a function of where the phone is. Pinning the coordinates to 0
   // everywhere else keeps `fetchPage`'s identity stable when the GPS fix replaces useLocation's
@@ -782,6 +793,7 @@ export default function SearchScreen() {
       showBackButton
       rightAction={
         <TouchableOpacity
+          accessibilityLabel={t('shared.filters')}
           accessibilityRole="button"
           onPress={() => setFilterModalVisible(true)}
           className="h-10 w-10 items-center justify-center rounded-full bg-brand-600">

@@ -22,6 +22,7 @@ import { getErrorMessage } from '../../../services/http';
 import { formatMoney } from '../../../services/currency';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
+import { customerName } from '../../../services/users';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useAuth } from '../../../context/AuthContext';
 import BookingPaymentPanel from '../components/BookingPaymentPanel';
@@ -231,7 +232,7 @@ export default function BookingDetailsScreen() {
             <Row
               icon="person-outline"
               label={t('bookingDetails.customer')}
-              value={dto.user?.userName ?? '—'}
+              value={customerName(dto.user, '—')}
             />
           )}
           {/* Why it was called off, as the person who did it wrote it. */}

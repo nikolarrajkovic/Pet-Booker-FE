@@ -119,6 +119,7 @@ export default function MyPetsScreen() {
       contentBg={contentBg}
       rightAction={
         <TouchableOpacity
+          accessibilityLabel={t('pets.addPet')}
           accessibilityRole="button"
           onPress={() => (navigation as any).navigate('AddPet')}
           className="h-10 w-10 items-center justify-center rounded-full bg-white">
