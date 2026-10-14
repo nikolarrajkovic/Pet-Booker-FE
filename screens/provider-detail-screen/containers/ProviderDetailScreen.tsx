@@ -267,7 +267,10 @@ export default function ProviderDetailScreen() {
                       onPress={() =>
                         unavailable
                           ? (navigation as any).navigate('ServiceDetail', serviceDetailParams(svc))
-                          : (navigation as any).navigate('BookService', { service: svc })
+                          : (navigation as any).navigate('BookService', {
+                              serviceId: svc.id,
+                              service: svc,
+                            })
                       }
                       className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>
                       <View className="flex-row items-start justify-between">

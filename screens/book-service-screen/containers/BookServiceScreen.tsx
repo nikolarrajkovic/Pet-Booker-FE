@@ -45,10 +45,18 @@ import {
 import { addressLabel } from '../../../services/geocoding';
 import { getBookingQuote, type BookingQuote } from '../../../services/booking-quote';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { useResource } from '../../../hooks/useResource';
+import { LoadingState, MessageState } from '../../../components/shared/ListState';
 
 // The user books one specific service (chosen before entering this screen), not
 // a provider — the service comes in as a route param and carries serviceProviderId.
-type BookServiceRouteParams = { service: ServiceDto };
+/**
+ * `serviceId` is the address (`/services/:serviceId/book`); `service` is the in-memory head start
+ * a list or ServiceDetail hands over. Opened from its URL — a reload, a shared link — only the id
+ * exists and the service is fetched. It used to need the object, so the address bar read
+ * `/BookService?service=[object Object]` and a reload dropped the user on Home.
+ */
+type BookServiceRouteParams = { serviceId?: number; service?: ServiceDto };
 
 const servicePrice = (s: ServiceDto) => s.price ?? s.pricing?.basePrice ?? 0;
 
@@ -131,10 +139,41 @@ type QuoteState = { quote: BookingQuote | null; loading: boolean; failed: boolea
 // only inside a quote — see useBookingQuote below.
 
 export default function BookServiceScreen() {
+  const route = useRoute<RouteProp<{ params: BookServiceRouteParams }, 'params'>>();
+  const passed = route.params?.service;
+  const serviceId = passed?.id ?? route.params?.serviceId;
+  const { t } = useLocale();
+  const { bgColor } = useThemeColors();
+  const { data, isLoading, error } = useResource(
+    ['services', serviceId],
+    () => getService(serviceId as number),
+    { enabled: !passed && serviceId != null, revalidate: false }
+  );
+  const service = passed ?? data;
+
+  if (service) return <BookServiceForm service={service} />;
+  return (
+    <ScreenLayout
+      headerVariant="standard"
+      showBackButton
+      headerTitle={t('bookService.title')}
+      contentBg={bgColor}>
+      {isLoading ? (
+        <LoadingState />
+      ) : (
+        <MessageState
+          icon="alert-circle-outline"
+          tone="error"
+          message={error ?? t('serviceDetail.notFound')}
+        />
+      )}
+    </ScreenLayout>
+  );
+}
+
+function BookServiceForm({ service }: { service: ServiceDto }) {
   const gutter = usePageGutter();
   const navigation = useNavigation();
-  const route = useRoute<RouteProp<{ params: BookServiceRouteParams }, 'params'>>();
-  const { service } = route.params;
   const { currentUser } = useAuth();
   const { showError } = useToast();
   const {

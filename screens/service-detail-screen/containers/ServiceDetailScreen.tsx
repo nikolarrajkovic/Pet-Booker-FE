@@ -280,7 +280,10 @@ export default function ServiceDetailScreen() {
     });
 
   const onBook = () => {
-    (navigation as any).navigate('BookService', { service: selectedService });
+    (navigation as any).navigate('BookService', {
+      serviceId: selectedService.id,
+      service: selectedService,
+    });
   };
 
   // Opens (or reuses) the thread with this provider. The service is passed along so the
