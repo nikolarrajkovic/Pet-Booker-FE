@@ -28,6 +28,7 @@ import {
 import { usePagedList } from '../../../hooks/usePagedList';
 import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import { formatMoney } from '../../../services/currency';
+import { customerName } from '../../../services/users';
 import { useCurrency } from '../../../hooks/useCurrency';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import ResponsiveModal from '../../../components/shared/ResponsiveModal';
@@ -84,7 +85,7 @@ function bookingToRequest(t: TFn, b: BookingDto): ServiceRequest {
   const pet: any = b.pet;
   return {
     id: b.id ?? 0,
-    clientName: b.user?.userName ?? t('requests.client'),
+    clientName: customerName(b.user, t('requests.client')),
     clientAvatar: resolveImageUrl(b.user?.photos?.[0]?.src) || null,
     clientEmail: b.user?.email ?? '',
     clientPhone: '', // BACKEND-GAP B1: no phone on the booking's user include

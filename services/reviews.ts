@@ -37,6 +37,8 @@ export type ReviewDto = {
   user?: {
     id?: number;
     userName?: string | null;
+    /** "Ana P." — see `customerName`. */
+    displayName?: string | null;
     email?: string | null;
     photos?: { src?: string | null; isSelected?: boolean }[];
   } | null;

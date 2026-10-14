@@ -23,6 +23,18 @@ export type UserDto = {
   photos?: { id?: number | null; src?: string | null; isSelected?: boolean }[] | null;
 };
 
+/**
+ * How a customer is named to the other side (a partner reading a booking, an admin reading a
+ * review): the server's display name, first name and last initial ("Ana P."), else the username
+ * that older API builds send alone. Partners used to see only the username ("ana_92").
+ */
+export function customerName(
+  user: { displayName?: string | null; userName?: string | null } | null | undefined,
+  fallback = ''
+): string {
+  return user?.displayName || user?.userName || fallback;
+}
+
 /** GET /api/users/{id} — full user record (incl. avatarUrl + address). */
 export function getUser(id: number): Promise<UserDto> {
   return apiJson<UserDto>(`/api/users/${id}`, {

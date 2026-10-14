@@ -2,6 +2,7 @@ import type { ReviewDto } from '../../services/reviews';
 import { ApprovalStatus, resolveImageUrl } from '../../services/service-providers';
 import type { ReviewModerationItem, ReviewStatus } from './components';
 import { formatShortDate } from '../../i18n/dates';
+import { customerName } from '../../services/users';
 
 // ReviewDto (with nested user/serviceProvider includes) → the card's view shape.
 // Takes the translate fn so name fallbacks follow the active language.
@@ -25,7 +26,7 @@ export function reviewToItem(
     id: dto.id ?? 0,
     providerName: dto.serviceProvider?.name ?? t('admin.serviceProvider'),
     providerAvatar: resolveImageUrl(providerPhoto) || null,
-    reviewerName: dto.user?.userName ?? t('admin.user'),
+    reviewerName: customerName(dto.user, t('admin.user')),
     reviewerEmail: dto.user?.email ?? '',
     rating: dto.rating ?? 0,
     title: dto.title ?? '',

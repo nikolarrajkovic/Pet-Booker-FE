@@ -30,6 +30,7 @@ import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 import BackLink from '../../../components/shared/BackLink';
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 import { showAlert } from '../../../services/alert';
+import { customerName } from '../../../services/users';
 import {
   getServiceProvider,
   extractProviderDocuments,
@@ -1206,7 +1207,7 @@ function RecentBookingRow({
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flex: 1, marginRight: 8 }}>
           <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
-            {booking.user?.userName ?? '—'}
+            {customerName(booking.user, '—')}
           </Text>
           <Text style={{ color: subTextColor, fontSize: 12, marginTop: 1 }} numberOfLines={1}>
             {booking.service?.name ?? ''}

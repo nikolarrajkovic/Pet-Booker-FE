@@ -32,7 +32,7 @@ import { resolveImageUrl, AddressDto } from '../../../services/service-providers
 import { getPet, PetResponse } from '../../../services/pets';
 import { getService, ServiceDto } from '../../../services/services';
 import { DistanceLeg } from '../../../services/service-addons';
-import { getUser } from '../../../services/users';
+import { customerName, getUser } from '../../../services/users';
 import {
   addressLabel,
   addressToPoint,
@@ -707,7 +707,7 @@ export default function LiveSessionScreen() {
   // sees the full name + about.
   const headerTitle = isPartner ? serviceType || t('liveSession.service') : serviceName;
   const counterpartyName = isPartner
-    ? dto?.user?.userName || t('liveSession.client')
+    ? customerName(dto?.user, t('liveSession.client'))
     : dto?.serviceProvider?.name || t('liveSession.provider');
   const counterpartyAvatar = isPartner
     ? firstPhoto(dto?.user?.photos)
