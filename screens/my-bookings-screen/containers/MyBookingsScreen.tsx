@@ -81,7 +81,17 @@ export default function MyBookingsScreen() {
       error={error}
       isEmpty={visible.length === 0}
       emptyIcon="calendar-outline"
-      emptyMessage={activeTab === 'upcoming' ? t('myBookings.noUpcoming') : t('myBookings.noPast')}>
+      emptyMessage={activeTab === 'upcoming' ? t('myBookings.noUpcoming') : t('myBookings.noPast')}
+      // An empty Upcoming tab is where a new account starts: say what fills it and open Search.
+      emptyHint={activeTab === 'upcoming' ? t('myBookings.noUpcomingHint') : undefined}
+      emptyAction={
+        activeTab === 'upcoming'
+          ? {
+              label: t('myBookings.findService'),
+              onPress: () => (navigation as any).navigate('MainTabs', { screen: 'Search' }),
+            }
+          : undefined
+      }>
       <>
         {activeTab === 'past' && (
           <Text className={`text-sm ${subtextColor} mb-3`}>

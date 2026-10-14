@@ -138,7 +138,11 @@ export default function MessagesSplitView({ initial, onSelect }: MessagesSplitVi
             // Only reachable with an empty (or still-loading) inbox — with any thread at all,
             // one is preselected above.
             !isLoading && (
-              <MessageState icon="chatbubble-ellipses-outline" message={t('messages.emptyInbox')} />
+              <MessageState
+                icon="chatbubble-ellipses-outline"
+                message={t('messages.emptyInbox')}
+                hint={t('messages.emptyInboxHint')}
+              />
             )
           )}
         </View>
@@ -166,12 +170,9 @@ export default function MessagesSplitView({ initial, onSelect }: MessagesSplitVi
             style={{ flex: 1, minHeight: 0 }}
             contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 16 }}
             showsVerticalScrollIndicator={false}>
-            <ListState
-              isLoading={isLoading}
-              error={loadError}
-              isEmpty={conversations.length === 0}
-              emptyIcon="chatbubbles-outline"
-              emptyMessage={t('messages.emptyInbox')}>
+            <ListState isLoading={isLoading} error={loadError}>
+              {/* An empty inbox says so once, in the thread pane beside it (with what fills it);
+                  repeating it in this narrow column read as two empty screens. */}
               {conversations.map((c) => (
                 <ConversationRow
                   key={c.id}
