@@ -173,3 +173,23 @@ For the backend's own report (`PetBookerBackend/docs/code-review-2026-10-08.md`)
 | E8 repo hygiene | **Fixed.** | FE `536fa2c` |
 | Notification amounts (backend) | **Fixed.** A `DisplayMoney` token rendered in the reader's number format. | BE `e15ec6b` |
 
+
+## Regression run (2026-10-14, after the fixes)
+
+Every role was driven through the UI in a real browser at 390 px and 1440 px against the local stack (backend branch `claude/fe-review-backend-fixes`):
+
+- **Customer (17 steps).** Home rails, search by text and by type, the map, booking a service end to end, My Bookings, cancelling with a reason, adding a pet with an uploaded photo and deleting it, editing the account, adding and removing a card, chat, switching to Serbian and back, marking notifications read, a group request to every matching walker, and logout.
+- **One booking through all three roles (8 steps).** The partner accepts it, the customer pays with a saved card, the partner starts and completes it from Live Session, the customer reviews it, the admin approves the review, and the review shows on the service.
+- **Partner (11 steps).** The hub, schedule day/week/month, declining a request with a reason, accepting one group request and declining another, creating, pausing and deleting a promotion, the business profile, editing a service, and replying in chat.
+- **Admin (7 steps).** The dashboard, an application's details, approving one, rejecting one with a reason (on a phone the card offers Approve only, so Reject is on the details page), opening a partner, declining a review with a reason, and inviting a partner (the invite email arrives).
+
+All steps pass at both widths, with no 5xx and no page errors. The backend e2e suite passes too (24 scripts, 0 failures), as do the visual suite (34) and jest (386).
+
+The run found four problems, all now fixed on this branch:
+
+| # | Problem | Fix |
+|---|---|---|
+| R1 | Accepting a group request opens Booking Details, which assumed the viewer was the customer. The partner saw "Provider: <their own business>", a **Cancel booking** button the API refuses them, and, once completed, "Leave a Review" on their own work. | The screen asks `isCustomer`. A partner sees a **Customer** row, no Cancel or review call to action, and "Customer's Review". The payment panel already checked this. |
+| R2 | The partner's schedule printed the partner's own business name on every appointment, and an empty location row with only an icon. | It names the customer (the provider on a user's schedule) and omits the place row when there is no place (`scheduleCounterpart.test.ts`). |
+| R3 | Create Offer, Add Partner and Change Password closed with `goBack()`. Opened from their own URL (a reload, a link), there was nothing to pop, so the saved form stayed on screen and invited a duplicate save. | `useAppNavigation().leaveTo(parent)` goes back when there is history and otherwise replaces the form with its list, as Add Pet already did. |
+| R4 | Icon-only buttons had no accessible name: a pet card's edit and delete, the five review stars, and a promotion's edit pencil. A screen reader announced "button". | Labels in en/sr/ru: "Edit Bela", "Delete Bela", "5 of 5 stars: Excellent", "Edit 15% Off — …". |
