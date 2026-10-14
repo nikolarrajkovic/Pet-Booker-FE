@@ -11,6 +11,7 @@ import {
 import { bookingToViewModel } from '../services/bookings';
 import { formatMoney } from '../services/currency';
 import { formatDateOnly } from '../services/date-only';
+import { formatKm } from '../i18n/numbers';
 
 // Dates follow the APP's language, not the device's: a Serbian session on an English-locale
 // phone used to read "Oct 3, 2026" and "Sat, Oct 3" beside Serbian labels.
@@ -75,6 +76,14 @@ describe('number formatting', () => {
     expect(formatMoney(1250000, 'RSD')).toBe('1.250.000 RSD');
     expect(formatMoney(12.5, 'EUR')).toBe('12,50 €');
     expect(formatMoney(30, 'EUR')).toBe('30 €');
+  });
+
+  // Trip legs and ETAs went out through toFixed(): "1.15 км" beside Russian text.
+  it("writes distances with the reader's decimal mark", () => {
+    expect(formatKm(1.149, 2)).toBe('1.15');
+    registerDateLanguage('sr');
+    expect(formatKm(1.149, 2)).toBe('1,15');
+    expect(formatKm(5, 1)).toBe('5,0');
   });
 });
 

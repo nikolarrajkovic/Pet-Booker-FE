@@ -28,6 +28,7 @@ import { useAuth } from '../../../context/AuthContext';
 import BookingPaymentPanel from '../components/BookingPaymentPanel';
 import TwoColumn from '../../../components/shared/TwoColumn';
 import { useResponsive } from '../../../hooks/useResponsive';
+import { formatKm } from '../../../i18n/numbers';
 
 type RouteParams = { bookingId: number };
 
@@ -202,9 +203,11 @@ export default function BookingDetailsScreen() {
 
         {dto.isExpired ? (
           <View className={`mt-4 ${gutter.px}`}>
-            <View className="flex-row items-center rounded-xl bg-gray-100 px-4 py-3">
-              <Ionicons name="time-outline" size={18} color="#6B7280" />
-              <Text className="ml-2 flex-1 text-sm text-gray-700">
+            <View
+              className={`flex-row items-center rounded-xl px-4 py-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
+              <Ionicons name="time-outline" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+              <Text
+                className={`ml-2 flex-1 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 {t('bookingDetails.expiredNotice')}
               </Text>
             </View>
@@ -362,7 +365,7 @@ export default function BookingDetailsScreen() {
                       <View className="flex-row justify-between">
                         <Text className={`text-xs ${subtextColor} flex-1 pr-2`}>
                           {t('reviewBooking.addonDistance', {
-                            km: line.distanceKm.toFixed(2),
+                            km: formatKm(line.distanceKm, 2),
                             rate: formatMoney(line.perKmFee ?? 0, dto.priceCurrency),
                           })}
                         </Text>

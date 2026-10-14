@@ -3,6 +3,7 @@ import { View, Text } from 'react-native';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { formatKm } from '../../../i18n/numbers';
 
 // Aggregated distance-pricing components behind a location add-on's total,
 // summed across appointments (see ReviewBookingScreen). Present only for
@@ -55,7 +56,7 @@ interface PriceBreakdownProps {
 }
 
 // Distance to at most 2 decimals, no trailing zeros (3.4 km, 1 km, 2.42 km).
-const km2 = (n: number) => String(Math.round(n * 100) / 100);
+const km2 = (n: number) => formatKm(n, 2);
 
 export default function PriceBreakdown({
   currency,

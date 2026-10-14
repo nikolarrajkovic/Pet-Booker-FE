@@ -111,8 +111,8 @@ export default function ServiceDetailView({
         <View className={`mt-6 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'} rounded-2xl p-4`}>
           <Text className={`text-lg font-semibold ${textColor} mb-2`}>{t('shared.pricing')}</Text>
           <View className="flex-row items-baseline">
+            <Text className={`${subtextColor} mr-2`}>{t('shared.startingFrom')}</Text>
             <Text className="text-3xl font-bold text-brand-600">{money(service.price || 0)}</Text>
-            <Text className={`${subtextColor} ml-2`}>{t('shared.startingFrom')}</Text>
           </View>
         </View>
 

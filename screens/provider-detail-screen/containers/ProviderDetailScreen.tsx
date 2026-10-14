@@ -186,10 +186,10 @@ export default function ProviderDetailScreen() {
           <Text className={`text-lg font-semibold ${textColor} mb-1`}>{t('shared.pricing')}</Text>
           {startingPrice > 0 ? (
             <View className="flex-row items-baseline">
+              <Text className={`${subtextColor} mr-2`}>{t('shared.startingFrom')}</Text>
               <Text className="text-3xl font-bold text-brand-600">
                 {formatMoney(startingPrice, providerCurrency)}
               </Text>
-              <Text className={`${subtextColor} ml-2`}>{t('shared.startingFrom')}</Text>
             </View>
           ) : (
             <Text className={subtextColor}>{t('providerDetail.contactForPricing')}</Text>

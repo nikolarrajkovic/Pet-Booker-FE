@@ -52,6 +52,7 @@ import {
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { googleDirectionsUrl } from '../../../services/route-path';
 import { formatWeekdayDayMonth } from '../../../i18n/dates';
+import { formatKm } from '../../../i18n/numbers';
 
 type RouteParams = { mode?: 'partner' | 'user' };
 type Completion = { pickup: boolean; dropoff: boolean };
@@ -1120,11 +1121,11 @@ export default function LiveSessionScreen() {
                       <Text className={`text-xs ${subtextColor} ml-2`}>
                         {routeSummary.mins != null
                           ? t('liveSession.routeSummary', {
-                              km: routeSummary.km.toFixed(1),
+                              km: formatKm(routeSummary.km, 1),
                               mins: Math.max(1, Math.round(routeSummary.mins)),
                             })
                           : t('liveSession.routeDistanceOnly', {
-                              km: routeSummary.km.toFixed(1),
+                              km: formatKm(routeSummary.km, 1),
                             })}
                       </Text>
                     ) : null}
