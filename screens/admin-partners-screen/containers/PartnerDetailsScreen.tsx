@@ -336,6 +336,7 @@ export default function PartnerDetailsScreen() {
         {isWebLayout && <BackLink />}
         {!isWebLayout && (
           <TouchableOpacity
+            accessibilityLabel={t('common.back')}
             accessibilityRole="button"
             onPress={() => navigation.goBack()}
             style={{
@@ -808,6 +809,7 @@ export default function PartnerDetailsScreen() {
                               </Text>
                             </View>
                             <TouchableOpacity
+                              accessibilityLabel={t('common.openDocument')}
                               accessibilityRole="button"
                               activeOpacity={0.8}
                               onPress={() => openDownload(c.fileSrc, t)}
@@ -928,6 +930,7 @@ export default function PartnerDetailsScreen() {
             />
           ) : null}
           <TouchableOpacity
+            accessibilityLabel={t('common.close')}
             accessibilityRole="button"
             onPress={() => setViewerUri(null)}
             style={{

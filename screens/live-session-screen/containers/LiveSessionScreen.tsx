@@ -791,6 +791,7 @@ export default function LiveSessionScreen() {
             <View
               className={`mb-4 flex-row items-center justify-between ${cardBg} rounded-2xl border ${borderColor} px-3 py-2`}>
               <TouchableOpacity
+                accessibilityLabel={t('common.previousSession')}
                 accessibilityRole="button"
                 disabled={index === 0}
                 onPress={() => setIndex((i) => Math.max(0, i - 1))}
@@ -815,6 +816,7 @@ export default function LiveSessionScreen() {
                 </Text>
               </View>
               <TouchableOpacity
+                accessibilityLabel={t('common.nextSession')}
                 accessibilityRole="button"
                 disabled={index === sessions.length - 1}
                 onPress={() => setIndex((i) => Math.min(sessions.length - 1, i + 1))}

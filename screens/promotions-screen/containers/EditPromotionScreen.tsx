@@ -265,6 +265,7 @@ function EditPromotionForm({ promotion }: { promotion: Promotion }) {
       contentBg={contentBg}
       rightAction={
         <TouchableOpacity
+          accessibilityLabel={t('promotions.analytics')}
           accessibilityRole="button"
           activeOpacity={0.7}
           onPress={() =>
@@ -283,6 +284,7 @@ function EditPromotionForm({ promotion }: { promotion: Promotion }) {
       // phone's green header — on the web page header's light ground it disappears.
       webHeaderRight={
         <TouchableOpacity
+          accessibilityLabel={t('promotions.analytics')}
           accessibilityRole="button"
           activeOpacity={0.7}
           onPress={() =>

@@ -234,6 +234,7 @@ export default function DocumentsStep({
               {cert.fileName ?? t('partnerApplication.certificateN', { n: index + 1 })}
             </Text>
             <TouchableOpacity
+              accessibilityLabel={t('common.remove')}
               accessibilityRole="button"
               onPress={() => onRemoveCertificate(index)}
               activeOpacity={0.7}>

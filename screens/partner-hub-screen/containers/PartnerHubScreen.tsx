@@ -603,6 +603,7 @@ export default function PartnerHubScreen() {
                 </Text>
               </View>
               <TouchableOpacity
+                accessibilityLabel={t('profile.settings')}
                 accessibilityRole="button"
                 onPress={() => (navigation as any).navigate('Settings')}
                 style={{

@@ -417,6 +417,7 @@ export default function RegisterScreen() {
             placeholderTextColor={placeholderColor}
           />
           <TouchableOpacity
+            accessibilityLabel={showPassword ? t('common.hidePassword') : t('common.showPassword')}
             accessibilityRole="button"
             onPress={() => setShowPassword(!showPassword)}
             style={{ position: 'absolute', right: 16, top: 13 }}>
@@ -508,6 +509,9 @@ export default function RegisterScreen() {
             placeholderTextColor={placeholderColor}
           />
           <TouchableOpacity
+            accessibilityLabel={
+              showConfirmPassword ? t('common.hidePassword') : t('common.showPassword')
+            }
             accessibilityRole="button"
             onPress={() => setShowConfirmPassword(!showConfirmPassword)}
             style={{ position: 'absolute', right: 16, top: 13 }}>

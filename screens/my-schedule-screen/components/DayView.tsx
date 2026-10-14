@@ -70,7 +70,11 @@ export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }
     <View className={`${gutter.px} py-6`}>
       {/* Date Navigation */}
       <View className="mb-6 flex-row items-center justify-between">
-        <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToPreviousDay}>
+        <TouchableOpacity
+          accessibilityLabel={t('common.previousDay')}
+          accessibilityRole="button"
+          className="p-2"
+          onPress={goToPreviousDay}>
           <Ionicons name="chevron-back" size={24} color={isDarkMode ? '#fff' : '#000'} />
         </TouchableOpacity>
         <View className="flex-1 items-center">
@@ -79,7 +83,11 @@ export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }
             <Text className="mt-1 text-sm font-semibold text-brand-500">{t('schedule.today')}</Text>
           )}
         </View>
-        <TouchableOpacity accessibilityRole="button" className="p-2" onPress={goToNextDay}>
+        <TouchableOpacity
+          accessibilityLabel={t('common.nextDay')}
+          accessibilityRole="button"
+          className="p-2"
+          onPress={goToNextDay}>
           <Ionicons name="chevron-forward" size={24} color={isDarkMode ? '#fff' : '#000'} />
         </TouchableOpacity>
       </View>

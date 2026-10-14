@@ -199,6 +199,7 @@ export default function ApplicationReviewScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
           {!isWebLayout && (
             <TouchableOpacity
+              accessibilityLabel={t('common.back')}
               accessibilityRole="button"
               onPress={() => navigation.goBack()}
               style={{
@@ -611,6 +612,7 @@ export default function ApplicationReviewScreen() {
                           </Text>
                         </View>
                         <TouchableOpacity
+                          accessibilityLabel={t('common.openDocument')}
                           accessibilityRole="button"
                           activeOpacity={0.8}
                           onPress={() => openDownload(c.fileSrc, t)}
@@ -786,6 +788,7 @@ export default function ApplicationReviewScreen() {
             />
           ) : null}
           <TouchableOpacity
+            accessibilityLabel={t('common.close')}
             accessibilityRole="button"
             onPress={() => setViewerUri(null)}
             style={{

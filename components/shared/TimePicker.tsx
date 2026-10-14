@@ -105,15 +105,21 @@ export default function TimePicker({
     onDown,
     upDisabled = false,
     downDisabled = false,
+    upLabel,
+    downLabel,
   }: {
     value: string;
     onUp: () => void;
     onDown: () => void;
+    /** What the arrows do, for screen readers ("Increase hours"). */
+    upLabel: string;
+    downLabel: string;
     upDisabled?: boolean;
     downDisabled?: boolean;
   }) => (
     <View style={{ alignItems: 'center', flex: 1 }}>
       <TouchableOpacity
+        accessibilityLabel={upLabel}
         accessibilityRole="button"
         onPress={onUp}
         disabled={upDisabled}
@@ -136,6 +142,7 @@ export default function TimePicker({
       </View>
 
       <TouchableOpacity
+        accessibilityLabel={downLabel}
         accessibilityRole="button"
         onPress={onDown}
         disabled={downDisabled}
@@ -179,6 +186,8 @@ export default function TimePicker({
           value={String(hour).padStart(2, '0')}
           onUp={() => changeHour(1)}
           onDown={() => changeHour(-1)}
+          upLabel={t('common.increaseHours')}
+          downLabel={t('common.decreaseHours')}
           upDisabled={atMax}
           downDisabled={!canDecrement(-60)}
         />
@@ -199,6 +208,8 @@ export default function TimePicker({
           value={String(minute).padStart(2, '0')}
           onUp={() => changeMinute(1)}
           onDown={() => changeMinute(-1)}
+          upLabel={t('common.increaseMinutes')}
+          downLabel={t('common.decreaseMinutes')}
           upDisabled={atMax}
           downDisabled={!canDecrement(-1)}
         />
