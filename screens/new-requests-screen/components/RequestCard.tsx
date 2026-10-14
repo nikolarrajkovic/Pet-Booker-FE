@@ -31,6 +31,8 @@ export interface ServiceRequest {
   serviceLocation: string;
   duration: string;
   totalPrice: number;
+  /** The service price alone (the total also carries the extras) — what Adjust price edits. */
+  basePrice: number;
   currency: string | null; // the booking's priceCurrency (server-stamped from the provider)
   additionalServices: string[];
   notesFromOwner: string;
@@ -48,6 +50,8 @@ interface RequestCardProps {
   borderColor: string;
   onAccept: (id: number) => void;
   onDecline: (id: number) => void;
+  /** Re-price a request before accepting it; omitted, the action is not offered. */
+  onAdjustPrice?: (id: number) => void;
 }
 
 const petTypeEmoji: Record<string, string> = {
@@ -65,6 +69,7 @@ export default function RequestCard({
   borderColor,
   onAccept,
   onDecline,
+  onAdjustPrice,
 }: RequestCardProps) {
   const { t } = useLocale();
   const sectionBg = isDarkMode ? 'bg-[#243447]' : 'bg-gray-50';
@@ -206,6 +211,20 @@ export default function RequestCard({
           </Text>
           <Text className={`text-sm ${subtextColor} leading-5`}>{request.notesFromOwner}</Text>
         </View>
+      ) : null}
+
+      {/* Re-price before accepting (the server refuses once the booking is confirmed). */}
+      {request.status === 'new' && onAdjustPrice ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => onAdjustPrice(request.id)}
+          activeOpacity={0.7}
+          className="mx-4 mb-3 flex-row items-center self-start">
+          <Ionicons name="pricetag-outline" size={15} color={BRAND_GREEN} />
+          <Text className="ml-1.5 text-sm font-semibold text-brand-600">
+            {t('requests.adjustPrice')}
+          </Text>
+        </TouchableOpacity>
       ) : null}
 
       {/* Action buttons — only shown for new requests */}

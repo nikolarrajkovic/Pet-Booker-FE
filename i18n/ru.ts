@@ -826,6 +826,15 @@ const ru: TranslationDict = {
     noAcceptedRequests: 'Нет принятых заявок',
     noDeclinedRequests: 'Нет отклонённых заявок',
     declineTitle: 'Отклонить заявку?',
+    adjustPrice: 'Изменить цену',
+    adjustPriceTitle: 'Измените цену услуги',
+    adjustPriceSubtitle:
+      'Укажите цену этого запроса до того, как примете его. Доп. услуги сохраняют свои цены, а клиент получит уведомление о новой сумме.',
+    servicePrice: 'Цена услуги',
+    savePrice: 'Сохранить цену',
+    priceAdjusted: 'Цена изменена. Клиент уведомлён.',
+    adjustPriceFailed: 'Не удалось изменить цену.',
+    invalidPrice: 'Введите цену от 0 и выше.',
     declineSubtitle:
       'Это отменит запрос на бронирование. Добавьте причину для клиента (необязательно).',
     declinePlaceholder: 'напр. В этот день всё занято',
