@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { useAuth } from '../../../context/AuthContext';
@@ -35,7 +35,7 @@ const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
 
 export default function CreatePromotionScreen() {
   const gutter = usePageGutter();
-  const navigation = useNavigation();
+  const { leaveTo } = useAppNavigation();
   const { currentUser } = useAuth();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor, inputBg } = useThemeColors();
   const { showError } = useToast();
@@ -118,7 +118,7 @@ export default function CreatePromotionScreen() {
         applyTo: endDate ? endOfDayIso(endDate) : null,
         isEnabled: true,
       });
-      navigation.goBack();
+      leaveTo('Promotions');
     } catch (e) {
       showError(getErrorMessage(e, t('promotions.createFailed')));
     } finally {

@@ -421,6 +421,8 @@ const en = {
     loadError: 'Failed to load pets.',
     deleteConfirm: 'Are you sure you want to delete {name}? This action cannot be undone.',
     thisPet: 'this pet',
+    editNamed: 'Edit {name}',
+    deleteNamed: 'Delete {name}',
     deleteError: 'Failed to delete pet. Please try again.',
     age: 'Age',
     weight: 'Weight',
@@ -670,6 +672,7 @@ const en = {
     howWas: 'How was {name}?',
     howWasYourService: 'How was your service?',
     tapToRate: 'Tap to rate',
+    starLabel: '{value} of 5 stars: {label}',
     ratingPoor: 'Poor',
     ratingFair: 'Fair',
     ratingGood: 'Good',
@@ -711,6 +714,8 @@ const en = {
     discount: 'Discount',
     total: 'Total',
     yourReview: 'Your Review',
+    customersReview: "Customer's Review",
+    customer: 'Customer',
     leaveAReview: 'Leave a Review',
   },
   notifications: {
@@ -983,6 +988,7 @@ const en = {
   },
   promotions: {
     resumePromotion: 'Resume Promotion',
+    editNamed: 'Edit {name}',
     title: 'Promotions',
     subtitle: 'Boost your visibility and attract more clients',
     newButton: 'New',

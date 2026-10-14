@@ -83,6 +83,10 @@ export default function BookingDetailsScreen() {
   );
   const reviewRating = dto?.review?.rating ?? null;
   const isCompleted = vm?.statusLabel === 'completed';
+  // The partner opens this screen too (accepting a group request lands here), and every action
+  // on it is the customer's: a partner was offered "Cancel booking", which the API refuses them,
+  // and "Leave a review" on their own work. The partner sees who the booking is for instead.
+  const isCustomer = currentUser?.id != null && dto != null && currentUser.id === dto.userId;
 
   // The owner may call off a booking any time before the provider starts the service — the same
   // window CancelBookingCommand allows server-side. Once it is ServiceStarted or later the API
@@ -94,7 +98,10 @@ export default function BookingDetailsScreen() {
   ];
   // An expired booking is over without having happened — nothing left to call off.
   const canCancel =
-    dto != null && !dto.isExpired && CANCELLABLE_STATUSES.includes(dto.currentStatus ?? -1);
+    isCustomer &&
+    dto != null &&
+    !dto.isExpired &&
+    CANCELLABLE_STATUSES.includes(dto.currentStatus ?? -1);
   const [isCancelPromptOpen, setIsCancelPromptOpen] = useState(false);
 
   // Asks why first: the reason is stored on the booking and shown to the provider. The app used to
@@ -214,7 +221,19 @@ export default function BookingDetailsScreen() {
               ) : null
             }
           />
-          <Row icon="person-outline" label={t('bookingDetails.provider')} value={vm.providerName} />
+          {isCustomer ? (
+            <Row
+              icon="person-outline"
+              label={t('bookingDetails.provider')}
+              value={vm.providerName}
+            />
+          ) : (
+            <Row
+              icon="person-outline"
+              label={t('bookingDetails.customer')}
+              value={dto.user?.userName ?? '—'}
+            />
+          )}
           {/* Why it was called off, as the person who did it wrote it. */}
           {vm.statusLabel === 'cancelled' && dto.cancelReason ? (
             <Row
@@ -340,7 +359,7 @@ export default function BookingDetailsScreen() {
             bookingId={dto.id ?? bookingId}
             currentStatus={dto.currentStatus ?? -1}
             isExpired={!!dto.isExpired}
-            isCustomer={currentUser?.id != null && currentUser.id === dto.userId}
+            isCustomer={isCustomer}
             userId={dto.userId}
             onPaid={refresh}
           />
@@ -354,7 +373,7 @@ export default function BookingDetailsScreen() {
         {reviewRating != null ? (
           <View className={`mt-6 ${gutter.px}`}>
             <Text className={`text-base font-bold ${textColor} mb-2`}>
-              {t('bookingDetails.yourReview')}
+              {isCustomer ? t('bookingDetails.yourReview') : t('bookingDetails.customersReview')}
             </Text>
             <View className="flex-row items-center">
               {[1, 2, 3, 4, 5].map((v) => (
@@ -368,7 +387,7 @@ export default function BookingDetailsScreen() {
               ))}
             </View>
           </View>
-        ) : isCompleted ? (
+        ) : isCompleted && isCustomer ? (
           <View className={`mt-6 ${gutter.px}`}>
             <TouchableOpacity
               accessibilityRole="button"

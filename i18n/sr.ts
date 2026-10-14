@@ -410,6 +410,8 @@ const sr: TranslationDict = {
     deleteConfirm:
       'Da li ste sigurni da želite da obrišete {name}? Ova radnja se ne može poništiti.',
     thisPet: 'ovog ljubimca',
+    editNamed: 'Izmeni: {name}',
+    deleteNamed: 'Obriši: {name}',
     deleteError: 'Brisanje ljubimca nije uspelo. Pokušajte ponovo.',
     age: 'Starost',
     weight: 'Težina',
@@ -644,6 +646,7 @@ const sr: TranslationDict = {
     howWas: 'Kako je bilo: {name}?',
     howWasYourService: 'Kako je protekla usluga?',
     tapToRate: 'Dodirnite da ocenite',
+    starLabel: '{value} od 5 zvezdica: {label}',
     ratingPoor: 'Loše',
     ratingFair: 'Solidno',
     ratingGood: 'Dobro',
@@ -685,6 +688,8 @@ const sr: TranslationDict = {
     discount: 'Popust',
     total: 'Ukupno',
     yourReview: 'Vaša recenzija',
+    customersReview: 'Recenzija klijenta',
+    customer: 'Klijent',
     leaveAReview: 'Ostavite recenziju',
   },
   notifications: {
@@ -959,6 +964,7 @@ const sr: TranslationDict = {
   },
   promotions: {
     resumePromotion: 'Nastavi promociju',
+    editNamed: 'Izmeni: {name}',
     title: 'Promocije',
     subtitle: 'Povećajte vidljivost i privucite više klijenata',
     newButton: 'Nova',

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocation } from '../../../hooks/useLocation';
 import { useLocale } from '../../../context/LocaleContext';
@@ -20,7 +20,7 @@ import StepProgress from '../../../components/shared/StepProgress';
 export default function AdminAddPartnerScreen() {
   const gutter = usePageGutter();
   const { isWebLayout } = useResponsive();
-  const navigation = useNavigation();
+  const { leaveTo } = useAppNavigation();
   const location = useLocation();
   const { t, language } = useLocale();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -122,7 +122,7 @@ export default function AdminAddPartnerScreen() {
         language: inviteLanguage,
       });
       showAlert(t('admin.partnerInvitedTitle'), t('admin.partnerInvitedMsg', { name, email }), [
-        { text: t('admin.ok'), onPress: () => navigation.goBack() },
+        { text: t('admin.ok'), onPress: () => leaveTo('AdminPartners') },
       ]);
     } catch (e) {
       if (e instanceof ApiError && e.hasCode(PROVIDER_NAME_TAKEN)) {

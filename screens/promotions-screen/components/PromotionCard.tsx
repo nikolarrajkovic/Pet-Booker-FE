@@ -304,6 +304,7 @@ export default function PromotionCard({
         </TouchableOpacity>
         <TouchableOpacity
           accessibilityRole="button"
+          accessibilityLabel={t('promotions.editNamed', { name: promotion.title })}
           activeOpacity={0.7}
           onPress={() => (navigation as any).navigate('EditPromotion', { promotion })}
           className={`w-10 items-center justify-center rounded-xl border ${borderColor} ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'}`}>

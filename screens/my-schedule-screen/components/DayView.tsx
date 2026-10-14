@@ -92,7 +92,7 @@ export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }
               <View className="flex-1">
                 <Text className={`text-base font-bold ${textColor} mb-1`}>{service.title}</Text>
                 <Text className={`text-sm ${subtextColor}`}>
-                  {service.provider} • {service.petName}
+                  {[service.counterpart, service.petName].filter(Boolean).join(' • ')}
                 </Text>
               </View>
               <View className={`rounded-full px-3 py-1 ${getTypeBg(service.type, isDarkMode)}`}>
@@ -109,14 +109,16 @@ export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }
               <Text className={`text-sm ${subtextColor} ml-2`}>{service.time}</Text>
             </View>
 
-            <View className="flex-row items-center">
-              <Ionicons
-                name="location-outline"
-                size={16}
-                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-              />
-              <Text className={`text-sm ${subtextColor} ml-2`}>{service.location}</Text>
-            </View>
+            {service.location ? (
+              <View className="flex-row items-center">
+                <Ionicons
+                  name="location-outline"
+                  size={16}
+                  color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+                />
+                <Text className={`text-sm ${subtextColor} ml-2`}>{service.location}</Text>
+              </View>
+            ) : null}
           </View>
         ))
       ) : (

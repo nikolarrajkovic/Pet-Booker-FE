@@ -412,6 +412,8 @@ const ru: TranslationDict = {
     loadError: 'Не удалось загрузить питомцев.',
     deleteConfirm: 'Вы уверены, что хотите удалить {name}? Это действие нельзя отменить.',
     thisPet: 'этого питомца',
+    editNamed: 'Изменить: {name}',
+    deleteNamed: 'Удалить: {name}',
     deleteError: 'Не удалось удалить питомца. Попробуйте снова.',
     age: 'Возраст',
     weight: 'Вес',
@@ -648,6 +650,7 @@ const ru: TranslationDict = {
     howWas: 'Как прошло: {name}?',
     howWasYourService: 'Как прошла услуга?',
     tapToRate: 'Нажмите, чтобы оценить',
+    starLabel: '{value} из 5 звёзд: {label}',
     ratingPoor: 'Плохо',
     ratingFair: 'Сносно',
     ratingGood: 'Хорошо',
@@ -689,6 +692,8 @@ const ru: TranslationDict = {
     discount: 'Скидка',
     total: 'Итого',
     yourReview: 'Ваш отзыв',
+    customersReview: 'Отзыв клиента',
+    customer: 'Клиент',
     leaveAReview: 'Оставить отзыв',
   },
   notifications: {
@@ -963,6 +968,7 @@ const ru: TranslationDict = {
   },
   promotions: {
     resumePromotion: 'Возобновить акцию',
+    editNamed: 'Изменить: {name}',
     title: 'Промоакции',
     subtitle: 'Повышайте видимость и привлекайте больше клиентов',
     newButton: 'Новая',
