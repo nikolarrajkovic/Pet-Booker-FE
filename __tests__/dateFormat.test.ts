@@ -10,6 +10,7 @@ import {
 } from '../i18n/dates';
 import { bookingToViewModel } from '../services/bookings';
 import { formatMoney } from '../services/currency';
+import { formatDateOnly } from '../services/date-only';
 
 // Dates follow the APP's language, not the device's: a Serbian session on an English-locale
 // phone used to read "Oct 3, 2026" and "Sat, Oct 3" beside Serbian labels.
@@ -74,5 +75,16 @@ describe('number formatting', () => {
     expect(formatMoney(1250000, 'RSD')).toBe('1.250.000 RSD');
     expect(formatMoney(12.5, 'EUR')).toBe('12,50 €');
     expect(formatMoney(30, 'EUR')).toBe('30 €');
+  });
+});
+
+// A picked calendar date goes to the API as the local "YYYY-MM-DD". Sign-up used toISOString(),
+// which is the previous day in UTC for anyone east of Greenwich: a birthday picked in Belgrade
+// (local midnight = 22:00 or 23:00 UTC the day before) was stored a day early.
+describe('formatDateOnly', () => {
+  it('keeps the local calendar day, where toISOString would roll back east of UTC', () => {
+    const picked = new Date(1995, 5, 16); // local midnight, 16 June 1995
+    expect(formatDateOnly(picked)).toBe('1995-06-16');
+    expect(formatDateOnly(new Date(2026, 0, 1, 0, 30))).toBe('2026-01-01');
   });
 });

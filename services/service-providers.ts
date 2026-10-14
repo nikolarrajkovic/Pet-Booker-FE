@@ -8,6 +8,7 @@ import {
   type PagedResult,
 } from './http';
 import { uploadFilesBulk } from './files';
+import { formatDateOnly } from './date-only';
 
 // ─── Shared DTO types ────────────────────────────────────────────────────────
 
@@ -583,7 +584,7 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
   const govIdUploads = uploaded.slice(govIdStartIndex, certStartIndex);
   const certUploads = uploaded.slice(certStartIndex);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = formatDateOnly(new Date());
 
   // One certificate entry per uploaded file, referencing it by fileIds[].
   // serviceProviderId is omitted — the provider does not exist yet (created in
@@ -599,7 +600,9 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
       issuer: originalFile.issuer ?? '',
       url: '',
       issuedOn: originalFile.issuedDate || today,
-      expiresOn: today,
+      // The application doesn't ask for an expiry, so none is known. It used to send today,
+      // which recorded every submitted certificate as expiring the day it was sent.
+      expiresOn: null,
       fileIds: [Number(f.id)],
     };
   });
