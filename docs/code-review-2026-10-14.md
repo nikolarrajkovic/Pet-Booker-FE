@@ -1,6 +1,10 @@
 # Front-end review — 2026-10-14
 
-A review of `main` @ `ac73d5e`, run against the local docker stack, with the backend on `master` @ `eda0a2e`. Nothing in this report has been fixed yet. Every item marked **(reproduced)** was observed in the running app or against the live local API. The rest come from reading the code.
+A review of `main` @ `ac73d5e`, run against the local docker stack, with the backend on `master` @ `eda0a2e`.
+
+> **Fix status (2026-10-14):** fixed on branches `claude/fe-code-review` (this repo) and
+> `claude/fe-review-backend-fixes` (PetBookerBackend). See [Fix status](#fix-status-2026-10-14)
+> at the end for each item. The findings below describe the code as it was reviewed. Every item marked **(reproduced)** was observed in the running app or against the live local API. The rest come from reading the code.
 
 ## How it was checked
 
@@ -134,3 +138,38 @@ For the backend's own report (`PetBookerBackend/docs/code-review-2026-10-08.md`)
 - No `Alert.alert` left (the web alert host is used).
 - The silent `.catch(() => {})` calls are all on optional side loads (counts, read receipts, hints), which the conventions allow.
 - `getAllBookings` and the other capped reads are bounded by state or date filters.
+
+---
+
+## Fix status (2026-10-14)
+
+| Item | Status | Where |
+|---|---|---|
+| S1 simultaneous refreshes | **Fixed.** One refresh in flight shared by REST and the hubs (`services/session.ts`), a Web Lock across tabs, and a session ended only by a refused refresh token. The backend honours a just-rotated refresh token for 60 s. Verified: one refresh with 400 ms jitter, and one across two tabs; the user stays signed in. | FE `eaaba0c`, BE `bdc4f5f` |
+| S2 reload after 30 min | **Fixed.** Restore renews an expired access token. Verified: one refresh, then Home. | FE `eaaba0c` |
+| S3 approval needs a new sign-in | **Fixed.** The approve, ban and unban notifications renew the token and re-read the user; a 401 on a token older than a minute renews once and retries. Verified: the celebration opens at once and the six partner stats calls answer 200. | FE `eaaba0c` |
+| S4 logout ends every device | **Fixed.** Logout names this device's refresh token, and the backend ends only that session (`allDevices`, or a body-less call, ends all). Verified with two devices. | FE `eaaba0c`, BE `bdc4f5f` |
+| S5 external photo URLs | **Fixed (backend).** Every photo must be the caller's own upload; the stored `src` comes from the file; `avatarUrl` must be an own upload or unchanged. | BE `1b6309e` |
+| S6 security headers | **Fixed.** CSP and frame/nosniff/referrer on the web app (verified on the production export: 32 screens and the map, no refusal); HSTS/nosniff/referrer on every edge host and a locked-down CSP on the API. | FE `ca5779a`, BE `e15ec6b` |
+| U1 desktop service/booking pages | **Fixed.** A sticky side panel holds price + Book Now (service) and the bill + payment + Cancel (booking). | FE `2abf785` |
+| U2 `[object Object]` URLs | **Fixed.** Book Service is `/services/{id}/book` and reloads into the form; unmapped screens keep the URL beneath them. | FE `c2bfb7b` |
+| U3 booking form | **Fixed.** "from" while extras are unpriced, the missing step under a disabled Continue, and "nothing is charged now" on Review. | FE `57f7774` |
+| U4 dates and money formats | **Fixed.** `Intl` for Serbian/Russian dates; grouped, locale-punctuated money and counts. | FE `57f7774` |
+| U5 Home cards / ranking / brand | **Fixed.** "no reviews yet", Home rails rank bookable services first (backend), "PetBooker". | FE `57f7774`, BE `e15ec6b` |
+| U6 fake online dot | **Fixed** (removed). | FE `57f7774` |
+| U7 ended promotion | **Fixed.** "Extend dates". Analytics left as is: it now says plainly that nothing is tracked. | FE `57f7774` |
+| U8 admin badge | **Fixed.** At the tile corner, one line, grouped count. | FE `57f7774` |
+| U9 address region | **Fixed.** `state` optional on the backend; `addressLabel` reads "Nemanjina 4, 11000 Belgrade". | FE `57f7774`, BE `e15ec6b` |
+| U10 system theme | **Kept by design.** `ThemeContext` documents the decision: following the OS would change the app for every existing user on release. | — |
+| U11 booking time / pet | **Fixed.** "10:00 – 11:00"; the pet photo sits in its row. | FE `57f7774` |
+| U12 adjust price | **Built.** "Adjust price" on new requests in the partner inbox. | FE `2a85842` |
+| E1 facets | **Fixed.** `GET /api/services/facets` (~1 KB) replaces the 100-row sample. | FE `0a869f2`, BE `e15ec6b` |
+| E2 duplicate fetches | **Fixed for Requests** (counts once, not per page). Messages' unread count stays: three cheap indexed calls, the last after a real change. | FE `596cf95` |
+| E3 resize photos on the device | **Open.** Needs a native module (`expo-image-manipulator`), a version bump and a new build. | — |
+| E4 prod clone / console | **Fixed.** | FE `eaaba0c` |
+| E5 cache across sign-out | **Fixed.** Generation counter. | FE `b5c9250` |
+| E6 console noise | **Partly.** The web bundle no longer loads expo-notifications; the chat hub's acknowledgement has a handler. React-native-web's `shadow*`/`pointerEvents` deprecations and Reanimated's `gutter.value` false positive are dev-only and left (≈120 call sites for no runtime effect). | FE `536fa2c` |
+| E7 token lifetimes | **Fixed.** Read from the JWT `exp`. | FE `eaaba0c` |
+| E8 repo hygiene | **Fixed.** | FE `536fa2c` |
+| Notification amounts (backend) | **Fixed.** A `DisplayMoney` token rendered in the reader's number format. | BE `e15ec6b` |
+
