@@ -223,9 +223,17 @@ export function markNotificationRead(id: number, isRead = true): Promise<void> {
   });
 }
 
-/** Marks every supplied notification read in parallel (best-effort). */
-export async function markAllNotificationsRead(ids: number[]): Promise<void> {
-  await Promise.all(ids.map((id) => markNotificationRead(id, true)));
+/**
+ * Marks every unread notification in the caller's feed read, in one request
+ * (`POST /api/app-notifications/read-all`). It used to send one PUT per unread row on the page
+ * on screen, so past one page the rest stayed unread and the bell kept its count.
+ */
+export function markAllNotificationsRead(): Promise<void> {
+  return apiVoid('/api/app-notifications/read-all', {
+    method: 'POST',
+    fallback: 'Failed to update notifications.',
+    context: 'markAllNotificationsRead',
+  });
 }
 
 /**
