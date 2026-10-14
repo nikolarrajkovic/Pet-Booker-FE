@@ -1122,6 +1122,8 @@ const sr: TranslationDict = {
       'Kada dođe vreme, pokrenite Sesiju uživo i pratite uslugu od početka do kraja — uključujući preuzimanje i dostavu.',
   },
   partnerApplication: {
+    fieldRequired: 'Ovo polje je obavezno',
+    fixHighlighted: 'Popunite označena polja.',
     businessName: 'Naziv firme',
     businessNamePlaceholder: 'npr. Srećne šape',
     businessNameHint:

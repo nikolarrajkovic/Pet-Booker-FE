@@ -1146,6 +1146,8 @@ const en = {
       'When it’s time, start a Live Session to track the service from start to finish — right down to pickup and drop-off.',
   },
   partnerApplication: {
+    fieldRequired: 'This field is required',
+    fixHighlighted: 'Please fill in the highlighted fields.',
     businessName: 'Business name',
     businessNamePlaceholder: 'e.g. Happy Paws Walking',
     businessNameHint:

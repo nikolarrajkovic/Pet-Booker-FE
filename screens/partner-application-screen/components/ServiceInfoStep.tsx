@@ -6,6 +6,7 @@ import { useEnums } from '../../../context/EnumsContext';
 import type { EnumEntry } from '../../../services/enums';
 import { PROVIDER_TYPE_LABELS } from '../../../services/service-providers';
 import { useFormChain } from '../../../hooks/useFormChain';
+import type { ApplicationErrors, ApplicationField } from '../applicationValidation';
 
 // The provider's type is the ServiceProviderType enum — the same value every other screen
 // filters and labels by. It used to be a local list of six invented ids
@@ -51,6 +52,8 @@ interface ServiceInfoStepProps {
   placeholderColor: string;
   /** The application asks why they want to partner; a partner the admin adds is not asked. */
   showMotivation?: boolean;
+  /** What Continue found missing: those fields get a red outline and the reason under them. */
+  errors?: ApplicationErrors;
 }
 
 export default function ServiceInfoStep({
@@ -65,8 +68,14 @@ export default function ServiceInfoStep({
   borderColor,
   placeholderColor,
   showMotivation = true,
+  errors,
 }: ServiceInfoStepProps) {
   const { t, tEnum } = useLocale();
+  const border = (field: ApplicationField) => (errors?.[field] ? 'border-red-500' : borderColor);
+  const fieldError = (field: ApplicationField) =>
+    errors?.[field] ? (
+      <Text className="mt-1 text-xs text-red-500">{t(errors[field] as any)}</Text>
+    ) : null;
   const { enums } = useEnums();
   const typeEntries = enums?.serviceProviderType?.length
     ? enums.serviceProviderType
@@ -119,6 +128,7 @@ export default function ServiceInfoStep({
             );
           })}
         </View>
+        {fieldError('serviceType')}
       </View>
 
       {/* Years of Experience */}
@@ -127,7 +137,7 @@ export default function ServiceInfoStep({
           {t('partnerApplication.yearsOfExperience')} <Text className="text-red-500">*</Text>
         </Text>
         <View
-          className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
+          className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${border('yearsOfExperience')}`}>
           <Ionicons
             name="briefcase-outline"
             size={20}
@@ -143,6 +153,7 @@ export default function ServiceInfoStep({
             onChangeText={(text) => setFormData({ ...formData, yearsOfExperience: text })}
           />
         </View>
+        {fieldError('yearsOfExperience')}
       </View>
 
       {/* About Me */}
@@ -153,7 +164,7 @@ export default function ServiceInfoStep({
         <Text className={`text-xs ${subtextColor} mb-3`}>
           {t('partnerApplication.aboutMeHint')}
         </Text>
-        <View className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
+        <View className={`${inputBg} rounded-xl border px-4 py-3 ${border('aboutYou')}`}>
           <TextInput
             className={inputText}
             placeholder={t('partnerApplication.aboutMePlaceholder')}
@@ -166,6 +177,7 @@ export default function ServiceInfoStep({
             onChangeText={(text) => setFormData({ ...formData, aboutYou: text })}
           />
         </View>
+        {fieldError('aboutYou')}
       </View>
 
       {/* Motivation for Work */}
@@ -177,7 +189,7 @@ export default function ServiceInfoStep({
           <Text className={`text-xs ${subtextColor} mb-3`}>
             {t('partnerApplication.motivationHint')}
           </Text>
-          <View className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
+          <View className={`${inputBg} rounded-xl border px-4 py-3 ${border('motivation')}`}>
             <TextInput
               className={inputText}
               placeholder={t('partnerApplication.motivationPlaceholder')}
@@ -190,6 +202,7 @@ export default function ServiceInfoStep({
               onChangeText={(text) => setFormData({ ...formData, motivation: text })}
             />
           </View>
+          {fieldError('motivation')}
         </View>
       )}
     </View>

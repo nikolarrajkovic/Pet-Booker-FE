@@ -19,6 +19,7 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { PersonalInfoStep, ServiceInfoStep, DocumentsStep } from '../components';
 import type { CertificateEntry } from '../components/DocumentsStep';
+import { applicationStepErrors, firstIncompleteStep } from '../applicationValidation';
 import {
   createServiceProvider,
   AddressDto,
@@ -290,11 +291,26 @@ export default function PartnerApplicationScreen() {
     cardBg,
   };
 
+  // A step's missing fields are outlined once Continue has been tried on it, and clear as they
+  // are filled. Each step is checked before the next opens (applicationValidation.ts); the service
+  // type among them, since the provider is created AS that type and nothing later corrects it.
+  const validationExtras = {
+    addressRequired: !accountAddressLabel,
+    profilePhoto,
+    governmentIdFront,
+  };
+  const [attemptedSteps, setAttemptedSteps] = useState<number[]>([]);
+  const stepErrors = (s: number) =>
+    attemptedSteps.includes(s) ? applicationStepErrors(s, formData, validationExtras) : {};
+  const blockStep = (s: number) => {
+    setAttemptedSteps((prev) => (prev.includes(s) ? prev : [...prev, s]));
+    setStep(s);
+    showError(t('partnerApplication.fixHighlighted'));
+  };
+
   const handleContinue = async () => {
-    // The service type is what the provider record is created as, and there is no
-    // later screen to correct it — block the step rather than defaulting it.
-    if (step === 2 && formData.serviceType === null) {
-      showError(t('partnerApplication.serviceTypeRequired'));
+    if (Object.keys(applicationStepErrors(step, formData, validationExtras)).length > 0) {
+      blockStep(step);
       return;
     }
 
@@ -303,11 +319,12 @@ export default function PartnerApplicationScreen() {
       return;
     }
 
-    // Safety net for a jumped step: the provider is created AS this type, so
-    // never fall back to a default here.
-    if (formData.serviceType === null) {
-      showError(t('partnerApplication.serviceTypeRequired'));
-      setStep(2);
+    // Safety net for a step left incomplete (Back after an edit): never submit a half-filled
+    // application, and never fall back to a default service type.
+    const incomplete = firstIncompleteStep(formData, validationExtras);
+    const serviceType = formData.serviceType;
+    if (incomplete !== null || serviceType === null) {
+      blockStep(incomplete ?? 2);
       return;
     }
 
@@ -344,7 +361,7 @@ export default function PartnerApplicationScreen() {
         .filter(Boolean) as { uri: string; fileName?: string }[];
       await createServiceProvider({
         ...formData,
-        serviceType: formData.serviceType,
+        serviceType,
         profilePhoto: profilePhoto ? { uri: profilePhoto, fileName: profilePhotoFileName } : null,
         petPhotoFiles,
         governmentIdFiles,
@@ -409,6 +426,7 @@ export default function PartnerApplicationScreen() {
             accountAddressLabel={accountAddressLabel}
             // Enter from the step's last field does what Continue does, guards included.
             onContinue={handleContinue}
+            errors={stepErrors(1)}
             {...themeProps}
           />
         )}
@@ -418,6 +436,7 @@ export default function PartnerApplicationScreen() {
             formData={formData}
             setFormData={setFormData}
             onContinue={handleContinue}
+            errors={stepErrors(2)}
             {...themeProps}
           />
         )}
@@ -434,6 +453,7 @@ export default function PartnerApplicationScreen() {
             pickDocument={pickDocument}
             onRemoveCertificate={removeCertificate}
             onUpdateCertificate={onUpdateCertificate}
+            errors={stepErrors(3)}
             {...themeProps}
           />
         )}

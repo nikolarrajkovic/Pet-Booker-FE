@@ -5,6 +5,7 @@ import DatePicker from '../../../components/shared/DatePicker';
 import { useLocale } from '../../../context/LocaleContext';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
+import type { ApplicationErrors, ApplicationField } from '../applicationValidation';
 export type DocumentFile = { uri: string; fileName?: string };
 export type CertificateEntry = {
   uri: string;
@@ -45,6 +46,8 @@ interface DocumentsStepProps {
   cardBg: string;
   borderColor: string;
   placeholderColor: string;
+  /** What Submit found missing: those slots get a red outline and the reason under them. */
+  errors?: ApplicationErrors;
 }
 
 function isPdf(uri: string) {
@@ -82,8 +85,15 @@ export default function DocumentsStep({
   cardBg,
   borderColor,
   placeholderColor,
+  errors,
 }: DocumentsStepProps) {
   const { t } = useLocale();
+  const slotBorder = (field: ApplicationField) =>
+    errors?.[field] ? 'border-red-500' : borderColor;
+  const fieldError = (field: ApplicationField) =>
+    errors?.[field] ? (
+      <Text className="mt-2 text-xs text-red-500">{t(errors[field] as any)}</Text>
+    ) : null;
   const [openDateIndex, setOpenDateIndex] = useState<number | null>(null);
   const today = new Date();
 
@@ -114,7 +124,7 @@ export default function DocumentsStep({
 
       {/* Profile Photo */}
       <View
-        className={`${cardBg} border-2 border-dashed ${borderColor} mb-4 items-center rounded-2xl p-6`}>
+        className={`${cardBg} border-2 border-dashed ${slotBorder('profilePhoto')} mb-4 items-center rounded-2xl p-6`}>
         {profilePhoto ? (
           <Image source={{ uri: profilePhoto }} className="mb-3 h-24 w-24 rounded-full" />
         ) : (
@@ -134,6 +144,7 @@ export default function DocumentsStep({
           profilePhoto ? t('partnerApplication.changePhoto') : t('partnerApplication.choosePhoto'),
           () => pickImage('profile')
         )}
+        {fieldError('profilePhoto')}
       </View>
 
       {/* Photos with pets — 3 slots */}
@@ -178,7 +189,8 @@ export default function DocumentsStep({
       </Text>
       <View className="mb-6 flex-row gap-3">
         {/* Front */}
-        <View className={`flex-1 ${cardBg} border-2 border-dashed ${borderColor} rounded-2xl p-4`}>
+        <View
+          className={`flex-1 ${cardBg} border-2 border-dashed ${slotBorder('governmentIdFront')} rounded-2xl p-4`}>
           <Text className={`text-xs font-semibold ${subtextColor} mb-2 text-center`}>
             {t('partnerApplication.front')}
           </Text>
@@ -193,6 +205,7 @@ export default function DocumentsStep({
             governmentIdFront ? t('partnerApplication.change') : t('partnerApplication.upload'),
             () => pickDocument('governmentIdFront')
           )}
+          {fieldError('governmentIdFront')}
         </View>
 
         {/* Back */}

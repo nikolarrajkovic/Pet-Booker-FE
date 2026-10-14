@@ -1126,6 +1126,8 @@ const ru: TranslationDict = {
       'Когда придёт время, запустите Живую сессию и отслеживайте услугу от начала до конца — включая забор и возврат питомца.',
   },
   partnerApplication: {
+    fieldRequired: 'Это поле обязательно',
+    fixHighlighted: 'Заполните выделенные поля.',
     businessName: 'Название компании',
     businessNamePlaceholder: 'например, «Счастливые лапы»',
     businessNameHint:
