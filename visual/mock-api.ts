@@ -104,6 +104,7 @@ export async function mockApi(page: Page, overrides: Record<string, unknown> = {
     '/api/user-notification-settings': { items: [], totalItems: 0 },
     '/api/chat/conversations': { items: [], totalItems: 0 },
     '/api/services': { items: [], totalItems: 0 },
+    '/api/services/facets': { maxPrice: 0, currency: 'RSD', additionalServiceNames: [] },
     '/enums': {},
     ...overrides,
   };
@@ -115,7 +116,10 @@ export async function mockApi(page: Page, overrides: Record<string, unknown> = {
       return;
     }
     const path = new URL(route.request().url()).pathname;
-    const match = Object.keys(routes).find((k) => path === k || path.startsWith(k + '/'));
+    // Longest prefix wins, so `/api/services/facets` is not answered by `/api/services`.
+    const match = Object.keys(routes)
+      .sort((a, b) => b.length - a.length)
+      .find((k) => path === k || path.startsWith(k + '/'));
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
