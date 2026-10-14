@@ -81,7 +81,7 @@ export default function ApplicationReviewScreen() {
   const route = useRoute<any>();
   const { isDarkMode, hex } = useThemeColors();
   const { showError } = useToast();
-  const { t, tEnum } = useLocale();
+  const { t, tPlural, tEnum } = useLocale();
   const { isWebLayout } = useResponsive();
   const insets = useSafeAreaInsets();
 
@@ -404,7 +404,11 @@ export default function ApplicationReviewScreen() {
               </Text>
               <Text style={{ color: textColor, fontSize: 13 }}>
                 {application.yearsOfExperience != null
-                  ? t('admin.yearsValue', { n: application.yearsOfExperience })
+                  ? tPlural(application.yearsOfExperience, {
+                      one: 'admin.yearsValueOne',
+                      few: 'admin.yearsValueFew',
+                      many: 'admin.yearsValue',
+                    })
                   : '—'}
               </Text>
             </View>

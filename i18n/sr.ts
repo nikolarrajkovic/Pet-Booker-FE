@@ -347,6 +347,10 @@ const sr: TranslationDict = {
     noDealsSub: 'Partneri redovno dodaju ponude — navratite uskoro.',
   },
   card: {
+    durationOptionsFew: '{count} opcije trajanja',
+    durationOptionsOne: '{count} opcija trajanja',
+    reviewCountFew: '{count} recenzije',
+    reviewCountOne: '{count} recenzija',
     unavailable: 'Nedostupno',
     popular: 'Popularno',
     deal: 'Popust',
@@ -505,6 +509,7 @@ const sr: TranslationDict = {
     perKm: '{amount}/km',
   },
   serviceDetail: {
+    reviewFew: 'recenzije',
     unavailableCta: 'Trenutno nedostupno',
     unavailableNote:
       'Ova usluga još nema radno vreme, pa ne može da se rezerviše. I dalje možete da pišete pružaocu.',
@@ -648,6 +653,8 @@ const sr: TranslationDict = {
     lockedGeneric: 'Trenutno ne možete slati poruke u ovom razgovoru.',
   },
   myBookings: {
+    bookingsCountFew: '{count} rezervacije',
+    bookingsCountOne: '{count} rezervacija',
     title: 'Moje rezervacije',
     upcoming: 'Predstojeće',
     pastBookings: 'Prošle rezervacije',
@@ -833,6 +840,7 @@ const sr: TranslationDict = {
     egPlaceholder: 'npr. {value}',
   },
   requests: {
+    pendingFew: '{count} zahteva na čekanju',
     expiredNotStartedBadge: 'Isteklo — prihvaćeno, ali nikad započeto',
     expiredBadge: 'Istekao — nije odgovoren pre vremena početka',
     title: 'Zahtevi',
@@ -910,8 +918,8 @@ const sr: TranslationDict = {
     ratingNew: 'Novo',
     live: 'UŽIVO',
     nToday: '{n} danas',
-    nNew: '{n} novih',
-    nActive: '{n} aktivnih',
+    nNew: 'novo: {n}',
+    nActive: 'aktivno: {n}',
     liveSession: 'Sesija uživo',
     liveSessionSub: 'Započnite i vodite uslugu',
     mySchedule: 'Moj raspored',
@@ -937,6 +945,9 @@ const sr: TranslationDict = {
     yesterday: 'Juče',
   },
   myServices: {
+    activeFew: '{count} aktivne usluge',
+    bookingsCountFew: '{count} rezervacije',
+    bookingsCountOne: '{count} rezervacija',
     emptyTitle: 'Još nemate usluga',
     emptyBody:
       'Korisnici vas pronalaze i rezervišu preko vaših usluga. Dodajte uslugu sa cenom i radnim vremenom.',
@@ -997,6 +1008,8 @@ const sr: TranslationDict = {
     getStarted: 'Započnite',
   },
   promotions: {
+    usesFew: '{n} korišćenja',
+    usesOne: '{n} korišćenje',
     resumePromotion: 'Nastavi promociju',
     editNamed: 'Izmeni: {name}',
     title: 'Promocije',
@@ -1377,6 +1390,9 @@ const sr: TranslationDict = {
     selectDuration: 'Izaberite trajanje',
   },
   admin: {
+    yearsValueFew: '{n} god.',
+    yearsValueOne: '{n} god.',
+    nServicesFew: '{n} usluge',
     startingPrice: 'Početna cena',
     recentBookings: 'Nedavne rezervacije',
     noBookingsYet: 'Još nema rezervacija.',
@@ -1416,8 +1432,8 @@ const sr: TranslationDict = {
     addPartnerManually: 'Ručno dodajte partnera',
     reviews: 'Recenzije',
     moderateReviews: 'Moderirajte recenzije',
-    nNew: '{n} novih',
-    nActive: '{n} aktivnih',
+    nNew: 'novo: {n}',
+    nActive: 'aktivno: {n}',
     addPartnerTitle: 'Dodaj novog partnera',
     addPartnerSubtitle: 'Ručno unesite podatke partnera',
     partnerAddedTitle: 'Partner dodat',
@@ -1496,7 +1512,7 @@ const sr: TranslationDict = {
     statusBanned: 'Banovan',
     noPartnersFound: 'Nema pronađenih partnera',
     nServices: '{n} usluga',
-    nServicesOne: '1 usluga',
+    nServicesOne: '{n} usluga',
     joined: 'Pridružio se {date}',
     partnerDetails: 'Detalji partnera',
     partnerNotFound: 'Partner nije pronađen.',
@@ -1898,6 +1914,8 @@ const sr: TranslationDict = {
     declineFailed: 'Odbijanje zahteva nije uspelo.',
   },
   shared: {
+    yearsOfExperienceFew: '{n} god. iskustva',
+    yearsOfExperienceOne: '{n} god. iskustva',
     yearsOfExperience: '{n} god. iskustva',
     amountOff: '{amount} POPUSTA',
     selectCountry: 'Izaberite zemlju',

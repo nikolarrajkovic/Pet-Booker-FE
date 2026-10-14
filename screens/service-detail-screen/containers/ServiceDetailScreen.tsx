@@ -46,6 +46,7 @@ import {
 } from '../../my-services-screen/serviceModel';
 import { PetSpecies } from '../../../services/pets';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { YEARS_OF_EXPERIENCE } from '../../../i18n/plural';
 
 // The booker reads everything about ONE specific service here, then taps
 // "Book Now" to proceed.
@@ -107,7 +108,7 @@ export default function ServiceDetailScreen() {
     subtextColor,
     borderColor,
   } = useThemeColors();
-  const { t, tEnum } = useLocale();
+  const { t, tPlural, tEnum } = useLocale();
 
   const [selectedService, setSelectedService] = useState<ServiceDto | null>(service ?? null);
   const [provider, setProvider] = useState<ServiceProviderDto | null>(null);
@@ -383,9 +384,11 @@ export default function ServiceDetailScreen() {
               </View>
               <Text className={`${subtextColor} ml-2`}>
                 {reviewCount}{' '}
-                {reviewCount === 1
-                  ? t('serviceDetail.reviewSingular')
-                  : t('serviceDetail.reviewPlural')}
+                {tPlural(reviewCount, {
+                  one: 'serviceDetail.reviewSingular',
+                  few: 'serviceDetail.reviewFew',
+                  many: 'serviceDetail.reviewPlural',
+                })}
               </Text>
             </View>
           )}
@@ -459,7 +462,7 @@ export default function ServiceDetailScreen() {
               ) : null}
               {provider.yearsOfExperience != null ? (
                 <Text className={`${subtextColor} mt-0.5 text-sm`}>
-                  {t('shared.yearsOfExperience', { n: provider.yearsOfExperience })}
+                  {tPlural(provider.yearsOfExperience, YEARS_OF_EXPERIENCE)}
                 </Text>
               ) : null}
             </View>

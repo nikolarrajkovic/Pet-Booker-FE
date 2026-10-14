@@ -86,7 +86,7 @@ export function PartnerCard({
   borderColor,
   onPress,
 }: Props) {
-  const { t, tEnum } = useLocale();
+  const { t, tPlural, tEnum } = useLocale();
   const cfg = STATUS_CFG[partner.status];
   // Service tags are English enum labels — localize display via the enum value.
   const svcLabel = (label: string) => {
@@ -185,9 +185,11 @@ export function PartnerCard({
           </Text>
           <Text style={{ color: subTextColor, fontSize: 12, marginHorizontal: 6 }}>•</Text>
           <Text style={{ color: subTextColor, fontSize: 12 }}>
-            {partner.totalServices === 1
-              ? t('admin.nServicesOne')
-              : t('admin.nServices', { n: partner.totalServices })}
+            {tPlural(partner.totalServices, {
+              one: 'admin.nServicesOne',
+              few: 'admin.nServicesFew',
+              many: 'admin.nServices',
+            })}
           </Text>
         </View>
 

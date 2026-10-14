@@ -25,6 +25,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { useTopInset } from '../../../hooks/useSafeAreaSpacing';
 import type { ProviderViewModel } from '../../../services/service-providers';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { YEARS_OF_EXPERIENCE } from '../../../i18n/plural';
 
 type ProviderDetailRouteParams = {
   /** The provider to show. Enough on its own: a link or a reload carries only this. */
@@ -51,7 +52,7 @@ export default function ProviderDetailScreen() {
   const providerId = Number(route.params?.providerId ?? route.params?.provider?.id ?? 0);
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const topInset = useTopInset();
-  const { t } = useLocale();
+  const { t, tPlural } = useLocale();
 
   // Both lists come from the shared cache, so this profile reflects a service the provider just
   // edited or a review that was just approved — it used to hold whatever it fetched the first
@@ -158,9 +159,11 @@ export default function ProviderDetailScreen() {
                 </View>
                 <Text className={subtextColor}>
                   {reviewCount}{' '}
-                  {reviewCount === 1
-                    ? t('serviceDetail.reviewSingular')
-                    : t('serviceDetail.reviewPlural')}
+                  {tPlural(reviewCount, {
+                    one: 'serviceDetail.reviewSingular',
+                    few: 'serviceDetail.reviewFew',
+                    many: 'serviceDetail.reviewPlural',
+                  })}
                 </Text>
               </>
             )}
@@ -216,7 +219,7 @@ export default function ProviderDetailScreen() {
               <View className="mb-2 flex-row items-center">
                 <Ionicons name="briefcase-outline" size={16} color={BRAND_GREEN} />
                 <Text className={`${subtextColor} ml-2`}>
-                  {t('shared.yearsOfExperience', { n: yearsOfExperience })}
+                  {tPlural(yearsOfExperience, YEARS_OF_EXPERIENCE)}
                 </Text>
               </View>
             ) : null}

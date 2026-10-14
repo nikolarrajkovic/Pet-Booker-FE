@@ -45,7 +45,7 @@ export default function MyBookingsScreen() {
   const navigation = useNavigation();
   const { currentUser } = useAuth();
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
-  const { t } = useLocale();
+  const { t, tPlural } = useLocale();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const userId = currentUser?.id;
 
@@ -95,7 +95,11 @@ export default function MyBookingsScreen() {
       <>
         {activeTab === 'past' && (
           <Text className={`text-sm ${subtextColor} mb-3`}>
-            {t('myBookings.bookingsCount', { count: past.totalItems })}
+            {tPlural(past.totalItems, {
+              one: 'myBookings.bookingsCountOne',
+              few: 'myBookings.bookingsCountFew',
+              many: 'myBookings.bookingsCount',
+            })}
           </Text>
         )}
         {/*

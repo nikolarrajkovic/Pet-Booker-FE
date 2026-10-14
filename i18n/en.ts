@@ -356,6 +356,10 @@ const en = {
     noDealsSub: 'Partners add offers regularly — check back soon.',
   },
   card: {
+    durationOptionsFew: '{count} duration options',
+    durationOptionsOne: '{count} duration option',
+    reviewCountFew: '{count} reviews',
+    reviewCountOne: '{count} review',
     unavailable: 'Unavailable',
     popular: 'Popular',
     deal: 'Deal',
@@ -523,6 +527,7 @@ const en = {
     perKm: '{amount}/km',
   },
   serviceDetail: {
+    reviewFew: 'reviews',
     unavailableCta: 'Currently unavailable',
     unavailableNote:
       "This service has no working hours yet, so it can't be booked. You can still message the provider.",
@@ -674,6 +679,8 @@ const en = {
     lockedGeneric: 'You cannot send messages in this conversation right now.',
   },
   myBookings: {
+    bookingsCountFew: '{count} bookings',
+    bookingsCountOne: '{count} booking',
     title: 'My Bookings',
     upcoming: 'Upcoming',
     pastBookings: 'Past Bookings',
@@ -858,6 +865,7 @@ const en = {
     egPlaceholder: 'e.g. {value}',
   },
   requests: {
+    pendingFew: '{count} pending requests',
     expiredNotStartedBadge: 'Expired — accepted but never started',
     expiredBadge: 'Expired — not answered before its start time',
     title: 'Requests',
@@ -962,6 +970,9 @@ const en = {
     yesterday: 'Yesterday',
   },
   myServices: {
+    activeFew: '{count} active services',
+    bookingsCountFew: '{count} bookings',
+    bookingsCountOne: '{count} booking',
     emptyTitle: 'No services yet',
     emptyBody:
       'Customers find and book you through your services. Add one with its price and working hours.',
@@ -1021,6 +1032,8 @@ const en = {
     getStarted: 'Get Started',
   },
   promotions: {
+    usesFew: '{n} uses',
+    usesOne: '{n} use',
     resumePromotion: 'Resume Promotion',
     editNamed: 'Edit {name}',
     title: 'Promotions',
@@ -1402,6 +1415,9 @@ const en = {
     selectDuration: 'Select Duration',
   },
   admin: {
+    yearsValueFew: '{n} years',
+    yearsValueOne: '{n} year',
+    nServicesFew: '{n} services',
     startingPrice: 'Starting price',
     recentBookings: 'Recent bookings',
     noBookingsYet: 'No bookings yet.',
@@ -1522,7 +1538,7 @@ const en = {
     statusBanned: 'Banned',
     noPartnersFound: 'No partners found',
     nServices: '{n} services',
-    nServicesOne: '1 service',
+    nServicesOne: '{n} service',
     joined: 'Joined {date}',
     partnerDetails: 'Partner Details',
     partnerNotFound: 'Partner not found.',
@@ -1923,6 +1939,8 @@ const en = {
     declineFailed: "Couldn't decline this request.",
   },
   shared: {
+    yearsOfExperienceFew: '{n} years of experience',
+    yearsOfExperienceOne: '{n} year of experience',
     yearsOfExperience: '{n} years of experience',
     amountOff: '{amount} OFF',
     selectCountry: 'Select country',

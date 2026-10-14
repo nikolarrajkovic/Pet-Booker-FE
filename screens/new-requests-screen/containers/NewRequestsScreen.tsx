@@ -159,7 +159,7 @@ export default function NewRequestsScreen() {
     placeholderColor,
   } = useThemeColors();
   const { showError, showSuccess } = useToast();
-  const { t } = useLocale();
+  const { t, tPlural } = useLocale();
   const [activeTab, setActiveTab] = useState<FilterTab>('new');
   const [busyId, setBusyId] = useState<number | null>(null);
   // Decline-reason modal: the request being declined + the partner's reason text.
@@ -312,11 +312,11 @@ export default function NewRequestsScreen() {
       headerVariant="standard"
       showBackButton
       headerTitle={t('requests.title')}
-      headerSubtitle={
-        newCount === 1
-          ? t('requests.pendingOne', { count: newCount })
-          : t('requests.pendingMany', { count: newCount })
-      }
+      headerSubtitle={tPlural(newCount, {
+        one: 'requests.pendingOne',
+        few: 'requests.pendingFew',
+        many: 'requests.pendingMany',
+      })}
       contentBg={contentBg}
       showNotificationButton
       width="wide">

@@ -99,7 +99,7 @@ export function PartnerApplicationCard({
   onReject,
 }: Props) {
   const navigation = useNavigation<any>();
-  const { t, tEnum } = useLocale();
+  const { t, tPlural, tEnum } = useLocale();
   const [expanded, setExpanded] = useState(false);
   const cfg = STATUS_CONFIG[application.status];
   // Service tags are English enum labels — localize display via the enum value.
@@ -277,7 +277,11 @@ export function PartnerApplicationCard({
               {t('admin.experienceLine', {
                 text:
                   application.yearsOfExperience != null
-                    ? t('admin.yearsValue', { n: application.yearsOfExperience })
+                    ? tPlural(application.yearsOfExperience, {
+                        one: 'admin.yearsValueOne',
+                        few: 'admin.yearsValueFew',
+                        many: 'admin.yearsValue',
+                      })
                     : '—',
               })}
             </Text>
