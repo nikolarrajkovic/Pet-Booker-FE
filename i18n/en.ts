@@ -219,7 +219,7 @@ const en = {
     sendCode: 'Send code',
     backToSignIn: 'Back to sign in',
     title: 'Verify Your Email',
-    subtitle: "We've sent a 6-digit code to",
+    subtitle: "We've sent you a 6-digit code",
     codeSentTo: 'Code sent to',
     enterCode: 'Enter verification code',
     verify: 'Verify Email',
@@ -230,7 +230,7 @@ const en = {
     resendSuccess: 'A new code has been sent to your email.',
     resendFailed: 'Failed to resend code. Please try again.',
     tipLabel: 'Tip: ',
-    tipBody: "Check your spam folder if you don't see the email. The code expires in 10 minutes.",
+    tipBody: "Check your spam folder if you don't see the email. The code expires in 15 minutes.",
   },
   forgotPassword: {
     resetSubtitleLinked: 'Choose a new password for your account.',

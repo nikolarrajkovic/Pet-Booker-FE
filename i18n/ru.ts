@@ -213,7 +213,7 @@ const ru: TranslationDict = {
     sendCode: 'Отправить код',
     backToSignIn: 'Вернуться ко входу',
     title: 'Подтвердите email',
-    subtitle: 'Мы отправили 6-значный код на',
+    subtitle: 'Мы отправили вам 6-значный код',
     codeSentTo: 'Код отправлен на',
     enterCode: 'Введите код подтверждения',
     verify: 'Подтвердить email',
@@ -224,7 +224,7 @@ const ru: TranslationDict = {
     resendSuccess: 'Новый код отправлен на ваш email.',
     resendFailed: 'Не удалось отправить код. Попробуйте снова.',
     tipLabel: 'Совет: ',
-    tipBody: 'Проверьте папку «Спам», если не видите письмо. Код действует 10 минут.',
+    tipBody: 'Проверьте папку «Спам», если не видите письмо. Код действует 15 минут.',
   },
   forgotPassword: {
     resetSubtitleLinked: 'Выберите новый пароль для своей учётной записи.',

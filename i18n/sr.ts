@@ -212,7 +212,7 @@ const sr: TranslationDict = {
     sendCode: 'Pošalji kod',
     backToSignIn: 'Nazad na prijavu',
     title: 'Potvrdite email',
-    subtitle: 'Poslali smo šestocifreni kod na',
+    subtitle: 'Poslali smo vam šestocifreni kod',
     codeSentTo: 'Kod poslat na',
     enterCode: 'Unesite verifikacioni kod',
     verify: 'Potvrdi email',
@@ -223,7 +223,7 @@ const sr: TranslationDict = {
     resendSuccess: 'Novi kod je poslat na vaš email.',
     resendFailed: 'Slanje koda nije uspelo. Pokušajte ponovo.',
     tipLabel: 'Savet: ',
-    tipBody: 'Proverite spam folder ako ne vidite email. Kod ističe za 10 minuta.',
+    tipBody: 'Proverite spam folder ako ne vidite email. Kod ističe za 15 minuta.',
   },
   forgotPassword: {
     resetSubtitleLinked: 'Izaberite novu lozinku za svoj nalog.',
