@@ -49,6 +49,12 @@ const listeners = new Map<string, Set<Listener>>();
  * effect meeting a focus effect on the very first focus — make ONE request and share its result.
  */
 const inFlight = new Map<string, Promise<unknown>>();
+/**
+ * Bumped by `clearCache` (sign-out). A fetch started before it must not store its result: it was
+ * made with the previous account's token, and writing it back after the clear would hand that
+ * account's rows to whoever signs in next on this device.
+ */
+let generation = 0;
 
 /**
  * Deterministic serialization: object keys are sorted, so `{ a, b }` and `{ b, a }` are the same
@@ -172,15 +178,16 @@ export function fetchInto<T>(key: string, fetcher: () => Promise<T>): Promise<T>
   const existing = inFlight.get(key);
   if (existing) return existing as Promise<T>;
 
-  const request = (async () => {
-    try {
-      const data = await fetcher();
-      put(key, data);
-      return data;
-    } finally {
-      inFlight.delete(key);
-    }
-  })();
+  const startedIn = generation;
+  const request: Promise<T> = fetcher().then((data) => {
+    if (startedIn === generation) put(key, data);
+    return data;
+  });
+  // Only our own entry: after a clear, a newer fetch may hold this key.
+  const release = () => {
+    if (inFlight.get(key) === request) inFlight.delete(key);
+  };
+  request.then(release, release);
 
   inFlight.set(key, request);
   return request;
@@ -250,6 +257,7 @@ export function invalidate(resources: string | string[]): void {
  * bookings, pets or messages out of a cache that outlives the session.
  */
 export function clearCache(): void {
+  generation += 1;
   store.clear();
   inFlight.clear();
   for (const key of listeners.keys()) notify(key, 'invalidated');
