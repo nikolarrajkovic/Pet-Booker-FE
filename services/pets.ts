@@ -1,12 +1,6 @@
 import { apiJson, apiList, apiVoid, getApiBaseUrl } from './http';
 import { uploadFilesBulk } from './files';
-
-function formatDateOnly(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
+import { formatDateOnly } from './date-only';
 
 function toKg(value: string, unit: string): number {
   const n = parseFloat(value) || 0;
@@ -30,6 +24,17 @@ export const PetSpecies = {
   Snake: 32,
   All: 63,
 } as const;
+
+/**
+ * Species the app does not offer for now: hidden from Add Pet, from a service's "pets this
+ * service is for", from the search filter and from the species a service lists (product decision
+ * 2026-10-15, app review G11). The API keeps the value, so nothing stored breaks; remove an entry
+ * here to bring it back.
+ */
+const HIDDEN_SPECIES: readonly number[] = [PetSpecies.Fish];
+
+/** Whether a species is offered in the app (see HIDDEN_SPECIES). */
+export const isOfferedSpecies = (value: number): boolean => !HIDDEN_SPECIES.includes(value);
 
 /**
  * Whether a service that takes `accepted` (FLAGS) can be booked for a pet of `petType`. Mirrors the

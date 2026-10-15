@@ -13,7 +13,7 @@ import {
 } from '../../services/services';
 import { DiscountType } from '../../services/service-discounts';
 import { getEnabledServiceAddons } from '../../services/service-addons';
-import { PetSpecies } from '../../services/pets';
+import { PetSpecies, isOfferedSpecies } from '../../services/pets';
 
 /**
  * One search result, as a full-width row. **Web design only** — see the note below.
@@ -55,7 +55,7 @@ const SPECIES_FLAGS = [
   PetSpecies.Turtle,
   PetSpecies.Fish,
   PetSpecies.Snake,
-];
+].filter(isOfferedSpecies);
 
 /**
  * The word beside the score, the way a review score is normally read ("8.9 Fabulous").
@@ -79,7 +79,7 @@ export default function ServiceResultRow({
   onPress,
 }: ServiceResultRowProps) {
   const { isDarkMode, cardBg, textColor, subtextColor } = useThemeColors();
-  const { t, tEnum } = useLocale();
+  const { t, tPlural, tEnum } = useLocale();
 
   /**
    * A lighter rule than the app's default `borderColor`.
@@ -295,7 +295,11 @@ export default function ServiceResultRow({
                 <View className="flex-row items-center">
                   <Ionicons name="time-outline" size={12} color="#16A34A" />
                   <Text className="ml-1 text-[11px] font-medium text-green-600">
-                    {t('card.durationOptions', { count: pricingOptions.length })}
+                    {tPlural(pricingOptions.length, {
+                      one: 'card.durationOptionsOne',
+                      few: 'card.durationOptionsFew',
+                      many: 'card.durationOptions',
+                    })}
                   </Text>
                 </View>
               )}
@@ -324,7 +328,11 @@ export default function ServiceResultRow({
                   {t(ratingWordKey(rating) as any)}
                 </Text>
                 <Text className={`text-[11px] ${subtextColor}`}>
-                  {t('card.reviewCount', { count: reviews })}
+                  {tPlural(reviews, {
+                    one: 'card.reviewCountOne',
+                    few: 'card.reviewCountFew',
+                    many: 'card.reviewCount',
+                  })}
                 </Text>
               </View>
               <View className="h-9 w-10 items-center justify-center rounded-xl bg-brand-600">

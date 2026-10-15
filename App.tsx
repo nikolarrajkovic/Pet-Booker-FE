@@ -12,6 +12,7 @@ import {
   DarkTheme,
   getStateFromPath,
   getActionFromState,
+  getPathFromState,
 } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -85,6 +86,7 @@ import { navigationRef } from './navigation/navigationRef';
 import {
   captureInitialDeepLink,
   clearPendingDeepLink,
+  hasPendingDeepLink,
   rememberDeepLink,
   takePendingDeepLink,
 } from './navigation/pendingDeepLink';
@@ -169,11 +171,22 @@ function AppContent() {
     if (!navReady || !isLoggedIn) return;
     const path = takePendingDeepLink();
     if (!path || !linking.config) return;
+    // Signing in from a guest page keeps that page in the history, so the user is already back
+    // on it; pushing the link again would stack a second copy.
+    const root = navigationRef.getRootState();
+    const here = root ? getPathFromState(root as any, linking.config) : '';
+    if (here.replace(/^\/+/, '') === path.replace(/^\/+/, '')) return;
     const state = getStateFromPath(path, linking.config);
     const action = state ? getActionFromState(state, linking.config) : undefined;
     // Pushed on top of the signed-in home, so Back from the linked screen still has somewhere
     // to go.
     if (action) navigationRef.dispatch(action);
+  }, [navReady, isLoggedIn]);
+  // A guest opened a link to something that needs an account (a booking, a chat): the guest
+  // navigator can't show it, so it is held and they are asked to sign in.
+  useEffect(() => {
+    if (!navReady || isLoggedIn || !hasPendingDeepLink()) return;
+    (navigationRef as any).navigate('Login');
   }, [navReady, isLoggedIn]);
 
   // Sign-in goes to Home (or Partner Hub for a managed provider account — see `MainTabs`),
@@ -271,7 +284,7 @@ function AppContent() {
             `children` untouched on the phone design and for signed-out users, whose screens are
             full-page and have no navigation to offer. See components/layout/AppShell.tsx.
           */}
-          <AppShell enabled={isLoggedIn}>
+          <AppShell signedIn={isLoggedIn}>
             <Stack.Navigator
               screenOptions={{
                 headerShown: false,
@@ -365,6 +378,15 @@ function AppContent() {
                 </>
               ) : (
                 <>
+                  {/* A guest browses Home, Search and the service and partner pages (app review
+                      G7); booking, messaging and the rest ask them to sign in first. */}
+                  <Stack.Screen
+                    name="MainTabs"
+                    component={MainTabs}
+                    options={{ animation: 'fade' }}
+                  />
+                  <Stack.Screen name="ServiceDetail" component={ServiceDetailScreen} />
+                  <Stack.Screen name="ProviderDetail" component={ProviderDetailScreen} />
                   <Stack.Screen
                     name="Login"
                     component={LoginScreen}

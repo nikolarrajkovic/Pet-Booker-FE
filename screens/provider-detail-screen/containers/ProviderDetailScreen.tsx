@@ -2,6 +2,7 @@ import { addressLabel } from '../../../services/geocoding';
 import React from 'react';
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useAuth } from '../../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useResource } from '../../../hooks/useResource';
@@ -25,6 +26,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { useTopInset } from '../../../hooks/useSafeAreaSpacing';
 import type { ProviderViewModel } from '../../../services/service-providers';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { YEARS_OF_EXPERIENCE } from '../../../i18n/plural';
 
 type ProviderDetailRouteParams = {
   /** The provider to show. Enough on its own: a link or a reload carries only this. */
@@ -44,6 +46,7 @@ const EMPTY_REVIEWS: ReviewDto[] = [];
 export default function ProviderDetailScreen() {
   const gutter = usePageGutter();
   const navigation = useNavigation();
+  const { isLoggedIn } = useAuth();
   const route = useRoute<RouteProp<{ params: ProviderDetailRouteParams }, 'params'>>();
   // The id is what the URL (`/providers/:providerId`) carries; the view model is optional. Nothing
   // linked here before — the screen existed but no button opened it — and it needed the whole
@@ -51,7 +54,7 @@ export default function ProviderDetailScreen() {
   const providerId = Number(route.params?.providerId ?? route.params?.provider?.id ?? 0);
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const topInset = useTopInset();
-  const { t } = useLocale();
+  const { t, tPlural } = useLocale();
 
   // Both lists come from the shared cache, so this profile reflects a service the provider just
   // edited or a review that was just approved — it used to hold whatever it fetched the first
@@ -158,9 +161,11 @@ export default function ProviderDetailScreen() {
                 </View>
                 <Text className={subtextColor}>
                   {reviewCount}{' '}
-                  {reviewCount === 1
-                    ? t('serviceDetail.reviewSingular')
-                    : t('serviceDetail.reviewPlural')}
+                  {tPlural(reviewCount, {
+                    one: 'serviceDetail.reviewSingular',
+                    few: 'serviceDetail.reviewFew',
+                    many: 'serviceDetail.reviewPlural',
+                  })}
                 </Text>
               </>
             )}
@@ -186,10 +191,10 @@ export default function ProviderDetailScreen() {
           <Text className={`text-lg font-semibold ${textColor} mb-1`}>{t('shared.pricing')}</Text>
           {startingPrice > 0 ? (
             <View className="flex-row items-baseline">
+              <Text className={`${subtextColor} mr-2`}>{t('shared.startingFrom')}</Text>
               <Text className="text-3xl font-bold text-brand-600">
                 {formatMoney(startingPrice, providerCurrency)}
               </Text>
-              <Text className={`${subtextColor} ml-2`}>{t('shared.startingFrom')}</Text>
             </View>
           ) : (
             <Text className={subtextColor}>{t('providerDetail.contactForPricing')}</Text>
@@ -216,7 +221,7 @@ export default function ProviderDetailScreen() {
               <View className="mb-2 flex-row items-center">
                 <Ionicons name="briefcase-outline" size={16} color={BRAND_GREEN} />
                 <Text className={`${subtextColor} ml-2`}>
-                  {t('shared.yearsOfExperience', { n: yearsOfExperience })}
+                  {tPlural(yearsOfExperience, YEARS_OF_EXPERIENCE)}
                 </Text>
               </View>
             ) : null}
@@ -266,7 +271,8 @@ export default function ProviderDetailScreen() {
                       accessibilityRole="button"
                       key={svc.id ?? idx}
                       onPress={() =>
-                        unavailable
+                        // A guest reads the service first; booking it asks them to sign in (G7).
+                        unavailable || !isLoggedIn
                           ? (navigation as any).navigate('ServiceDetail', serviceDetailParams(svc))
                           : (navigation as any).navigate('BookService', {
                               serviceId: svc.id,

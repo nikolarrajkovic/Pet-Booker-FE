@@ -6,7 +6,7 @@ import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
 import { subscribeResource } from '../../../services/cache';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ListState from '../../../components/shared/ListState';
 import { RequestCard } from '../components';
@@ -146,6 +146,7 @@ const TABS: { key: FilterTab; labelKey: string }[] = [
 
 export default function NewRequestsScreen() {
   const gutter = usePageGutter();
+  const navigation = useNavigation();
   const { currentUser } = useAuth();
   const {
     isDarkMode,
@@ -158,7 +159,7 @@ export default function NewRequestsScreen() {
     placeholderColor,
   } = useThemeColors();
   const { showError, showSuccess } = useToast();
-  const { t } = useLocale();
+  const { t, tPlural } = useLocale();
   const [activeTab, setActiveTab] = useState<FilterTab>('new');
   const [busyId, setBusyId] = useState<number | null>(null);
   // Decline-reason modal: the request being declined + the partner's reason text.
@@ -311,11 +312,11 @@ export default function NewRequestsScreen() {
       headerVariant="standard"
       showBackButton
       headerTitle={t('requests.title')}
-      headerSubtitle={
-        newCount === 1
-          ? t('requests.pendingOne', { count: newCount })
-          : t('requests.pendingMany', { count: newCount })
-      }
+      headerSubtitle={tPlural(newCount, {
+        one: 'requests.pendingOne',
+        few: 'requests.pendingFew',
+        many: 'requests.pendingMany',
+      })}
       contentBg={contentBg}
       showNotificationButton
       width="wide">
@@ -396,6 +397,14 @@ export default function NewRequestsScreen() {
                 onAccept={handleAccept}
                 onDecline={handleDecline}
                 onAdjustPrice={handleAdjustPrice}
+                // The partner's way to reach a customer: the booking names them, so the thread
+                // opens from it (the chat API's provider entry point, unused until now).
+                onMessage={(bookingId) =>
+                  (navigation as any).navigate('Chat', {
+                    bookingId,
+                    subtitle: request.serviceName,
+                  })
+                }
               />
             ))}
           </ResponsiveGrid>

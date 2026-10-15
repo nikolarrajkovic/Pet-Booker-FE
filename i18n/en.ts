@@ -121,6 +121,7 @@ const en = {
     termsPrivacy: 'Terms & Privacy Policy',
   },
   login: {
+    continueBrowsing: 'Continue browsing without an account',
     appName: 'PetBooker',
     welcomeBack: 'Welcome back!',
     emailOrUsername: 'Email or Username',
@@ -219,7 +220,7 @@ const en = {
     sendCode: 'Send code',
     backToSignIn: 'Back to sign in',
     title: 'Verify Your Email',
-    subtitle: "We've sent a 6-digit code to",
+    subtitle: "We've sent you a 6-digit code",
     codeSentTo: 'Code sent to',
     enterCode: 'Enter verification code',
     verify: 'Verify Email',
@@ -230,7 +231,7 @@ const en = {
     resendSuccess: 'A new code has been sent to your email.',
     resendFailed: 'Failed to resend code. Please try again.',
     tipLabel: 'Tip: ',
-    tipBody: "Check your spam folder if you don't see the email. The code expires in 10 minutes.",
+    tipBody: "Check your spam folder if you don't see the email. The code expires in 15 minutes.",
   },
   forgotPassword: {
     resetSubtitleLinked: 'Choose a new password for your account.',
@@ -304,6 +305,9 @@ const en = {
     changedBody: 'Your password has been updated.',
   },
   profile: {
+    createAccount: 'Create an account',
+    guestBody: 'Book services, message partners and keep track of your bookings and pets.',
+    guestTitle: 'Sign in to PetBooker',
     title: 'Profile',
     yourProfile: 'Your Profile',
     account: 'Account',
@@ -356,6 +360,10 @@ const en = {
     noDealsSub: 'Partners add offers regularly — check back soon.',
   },
   card: {
+    durationOptionsFew: '{count} duration options',
+    durationOptionsOne: '{count} duration option',
+    reviewCountFew: '{count} reviews',
+    reviewCountOne: '{count} review',
     unavailable: 'Unavailable',
     popular: 'Popular',
     deal: 'Deal',
@@ -523,6 +531,7 @@ const en = {
     perKm: '{amount}/km',
   },
   serviceDetail: {
+    reviewFew: 'reviews',
     unavailableCta: 'Currently unavailable',
     unavailableNote:
       "This service has no working hours yet, so it can't be booked. You can still message the provider.",
@@ -602,7 +611,7 @@ const en = {
     noWorkingHours:
       "This service hasn't set any working hours yet, so it can't be booked. Try another service, or check back later.",
     priceFrom: 'from',
-    selectPetHint: 'Select one or more pets',
+    selectPetHint: 'One per appointment',
     availableTimes: 'Available Times',
     checkingAvailability: 'Checking availability…',
     noWindowsForDay: "The provider isn't available on this day — please pick another day.",
@@ -613,6 +622,10 @@ const en = {
     totalColon: 'Total:',
   },
   reviewBooking: {
+    cashNote: 'You pay the provider in cash at the service; nothing is charged in the app.',
+    depositNote: 'The provider needs the deposit before the service can start.',
+    cancellationPolicyDeposit:
+      "Cancelling is free until you pay the deposit. Once it's paid, the deposit stays with the provider if you cancel, and anything paid beyond it comes back. If the provider calls the booking off, you get everything back.",
     title: 'Review Booking',
     bookingDetails: 'Booking Details',
     discount: 'Discount',
@@ -655,12 +668,14 @@ const en = {
     composerKeysHint: 'Enter to send, Shift+Enter for a new line',
     send: 'Send',
     emptyInbox: 'No messages yet',
+    emptyInboxHint: 'Start a conversation from a service page or one of your bookings.',
     emptyThread: 'No messages yet — say hello!',
     loadFailed: 'Could not load this conversation.',
     inboxLoadFailed: 'Could not load your messages.',
     sendFailed: 'Message not sent. Please try again.',
     threadUnavailable: 'This conversation is unavailable.',
     messageProvider: 'Message provider',
+    messageCustomer: 'Message customer',
     typing: 'typing…',
     // Shown while the enquiry allowance is counting down, so the limit is never a surprise.
     enquiryAllowance: '{count} more before they reply',
@@ -672,11 +687,15 @@ const en = {
     lockedGeneric: 'You cannot send messages in this conversation right now.',
   },
   myBookings: {
+    bookingsCountFew: '{count} bookings',
+    bookingsCountOne: '{count} booking',
     title: 'My Bookings',
     upcoming: 'Upcoming',
     pastBookings: 'Past Bookings',
     loadFailed: 'Failed to load bookings.',
     noUpcoming: 'No upcoming bookings',
+    noUpcomingHint: 'Book a walk, a sitter or a groomer and it shows up here.',
+    findService: 'Find a service',
     noPast: 'No past bookings',
     bookingsCount: '{count} bookings',
     review: 'Review',
@@ -700,6 +719,27 @@ const en = {
     submitFailed: 'Could not submit your review. Please try again.',
   },
   bookingDetails: {
+    noShowNoticeProvider: "You recorded that the customer didn't show up.",
+    noShowNotice:
+      "The provider recorded that you didn't show up. The deposit was kept; anything paid beyond it was refunded.",
+    noShowBadge: 'No-show',
+    noShowFailed: "Couldn't record the no-show.",
+    noShowSuccess: 'No-show recorded. The customer has been told.',
+    noShowConfirm: 'Record no-show',
+    noShowPlaceholder: 'e.g. Nobody answered the door at 10:00.',
+    noShowSubtitle:
+      'The deposit stays with you and anything paid beyond it goes back to the customer. Add a note for them.',
+    noShowTitle: 'Record a no-show?',
+    noShow: "Customer didn't show",
+    callOffFailed: "Couldn't cancel the booking.",
+    callOffSuccess: 'Booking cancelled. The customer has been told and refunded.',
+    callOffPlaceholder: "e.g. I'm unwell and can't make it that day.",
+    callOffSubtitle: 'Tell the customer why. They get back everything they paid.',
+    callOffTitle: 'Cancel this booking?',
+    cancelKeepsDeposit:
+      'Your deposit of {amount} stays with the provider; anything you paid beyond it is refunded.',
+    openInMaps: 'Open in maps',
+    where: 'Where',
     cancelReasonTitle: 'Why are you cancelling?',
     cancelReasonSubtitle: 'The provider is notified and sees your reason.',
     cancelReasonPlaceholder: 'e.g. My dog is unwell, I need to reschedule',
@@ -854,6 +894,7 @@ const en = {
     egPlaceholder: 'e.g. {value}',
   },
   requests: {
+    pendingFew: '{count} pending requests',
     expiredNotStartedBadge: 'Expired — accepted but never started',
     expiredBadge: 'Expired — not answered before its start time',
     title: 'Requests',
@@ -904,6 +945,14 @@ const en = {
     declinedBadge: '✕ Declined',
   },
   partnerHub: {
+    setupFirstTitle: 'Add your first service',
+    setupFirstBody:
+      'Customers find and book you through your services. Add one with its price and working hours.',
+    setupFirstCta: 'Add a service',
+    setupBookableTitle: 'No service can be booked yet',
+    setupBookableBody:
+      'Customers see your services as Unavailable until one is active and has working hours.',
+    setupBookableCta: 'Open My Services',
     title: 'Partner Hub',
     welcomeBack: 'Welcome back, {name}!',
     partner: 'Partner',
@@ -950,6 +999,13 @@ const en = {
     yesterday: 'Yesterday',
   },
   myServices: {
+    activeFew: '{count} active services',
+    bookingsCountFew: '{count} bookings',
+    bookingsCountOne: '{count} booking',
+    emptyTitle: 'No services yet',
+    emptyBody:
+      'Customers find and book you through your services. Add one with its price and working hours.',
+    emptyCta: 'Add a service',
     notBookableWarning: "Customers can't book this yet — add working hours.",
     editA11y: 'Edit {name}',
     deleteA11y: 'Delete {name}',
@@ -966,7 +1022,6 @@ const en = {
     delete: 'Delete',
     deleteFailed: 'Could not delete the service. Please try again.',
     noProvider: 'No provider profile found for your account yet.',
-    noServices: 'No services yet. Tap “Add New” to create your first one.',
     bookingsCount: '{count} bookings',
     pricingOptions: 'Pricing Options',
     additionalServices: 'Additional Services',
@@ -1006,6 +1061,8 @@ const en = {
     getStarted: 'Get Started',
   },
   promotions: {
+    usesFew: '{n} uses',
+    usesOne: '{n} use',
     resumePromotion: 'Resume Promotion',
     editNamed: 'Edit {name}',
     title: 'Promotions',
@@ -1099,6 +1156,7 @@ const en = {
       "We don't measure views, bookings or revenue for offers yet, so there are no numbers to show here. They will appear on this screen once tracking is live.",
   },
   partnerWelcome: {
+    addFirstService: 'Add your first service',
     // Text inside the illustrated tour scenes.
     sceneLive: 'LIVE',
     sceneKmAway: '{km} km away',
@@ -1146,6 +1204,10 @@ const en = {
       'When it’s time, start a Live Session to track the service from start to finish — right down to pickup and drop-off.',
   },
   partnerApplication: {
+    noExpiry: 'No expiry',
+    expiresDate: 'Expires on',
+    fieldRequired: 'This field is required',
+    fixHighlighted: 'Please fill in the highlighted fields.',
     businessName: 'Business name',
     businessNamePlaceholder: 'e.g. Happy Paws Walking',
     businessNameHint:
@@ -1175,9 +1237,10 @@ const en = {
     zipCode: 'ZIP Code',
     serviceInfo: 'Service Information',
     whatServices: 'What services do you offer?',
-    serviceTypesLabel: 'Service Type',
-    pickServiceType: 'Choose the type of care you provide',
-    serviceTypeRequired: 'Please choose the type of care you provide.',
+    serviceTypesLabel: 'Kinds of service',
+    pickServiceType:
+      'Pick every kind of care you provide. Each service you add later is one of them, priced on its own.',
+    serviceTypeRequired: 'Choose at least one kind of care you provide.',
     yearsOfExperience: 'Years of Experience',
     yearsPlaceholder: '5 years',
     aboutMe: 'About Me',
@@ -1298,6 +1361,10 @@ const en = {
     specialNeedsWarning: 'Has special needs — please take extra care',
   },
   addEditService: {
+    typeFromOffered: 'Only the kinds you offer are listed. Add more on your Business profile.',
+    firstServiceBody:
+      "Pick one of the kinds of service you offer. Each kind is priced on its own, so add a separate service for each. We've filled in weekday hours (9:00–17:00): change them to when you actually work.",
+    firstServiceTitle: 'Your first service',
     hoursRequiredTitle: 'Add your working hours',
     hoursRequiredMsg: 'Switch on at least one day so customers can book this service.',
     titleAdd: 'Add New Service',
@@ -1385,6 +1452,13 @@ const en = {
     selectDuration: 'Select Duration',
   },
   admin: {
+    govIdCount: 'Government ID ({n})',
+    certExpired: 'Expired {date}',
+    certExpires: 'Expires {date}',
+    certIssued: 'Issued {date}',
+    yearsValueFew: '{n} years',
+    yearsValueOne: '{n} year',
+    nServicesFew: '{n} services',
     startingPrice: 'Starting price',
     recentBookings: 'Recent bookings',
     noBookingsYet: 'No bookings yet.',
@@ -1461,8 +1535,6 @@ const en = {
     certificationsColon: 'Certifications:',
     availabilityColon: 'Availability:',
     documents: 'Documents',
-    govIdFront: 'Government ID — Front',
-    govIdBack: 'Government ID — Back',
     petPhotosCount: 'Pet Photos ({n})',
     certificatesCount: 'Certificates ({n})',
     applicationReview: 'Application Review',
@@ -1505,7 +1577,7 @@ const en = {
     statusBanned: 'Banned',
     noPartnersFound: 'No partners found',
     nServices: '{n} services',
-    nServicesOne: '1 service',
+    nServicesOne: '{n} service',
     joined: 'Joined {date}',
     partnerDetails: 'Partner Details',
     partnerNotFound: 'Partner not found.',
@@ -1610,8 +1682,9 @@ const en = {
     name: 'Name customers see',
     nameHint: 'Your business name, or your own name.',
     nameRequired: 'Enter the name customers should see.',
-    type: 'Service type',
-    typeHint: 'Every service you list is of this type.',
+    type: 'Kinds of service you offer',
+    typeHint:
+      "Each service you add is one of these. A kind you still have services of can't be removed.",
     contactEmail: 'Business email',
     contactEmailHint:
       'Booking and PetBooker emails go here. Leave empty to use your account email.',
@@ -1647,6 +1720,18 @@ const en = {
     loadFailed: 'Could not load provider details. Please try again.',
   },
   payments: {
+    keptByProvider: 'Kept by the provider',
+    statusPaidCash: 'Paid in cash',
+    cashFailed: "Couldn't record the cash payment.",
+    cashRecorded: 'Cash payment recorded.',
+    cashConfirm: 'Yes, received',
+    cashConfirmBody: 'The customer gets a receipt and nothing more is owed on this booking.',
+    cashConfirmTitle: 'Received {amount} in cash?',
+    markCashPaid: 'Mark as paid in cash · {amount}',
+    cashNoteProvider: "Paid in cash. Record it here once you've received it.",
+    cashNote: 'You pay {amount} in cash to the provider at the service.',
+    awaitingDeposit: "Waiting for the customer's deposit. The service can start once it's paid.",
+    depositBeforeStart: "The service can't start until the deposit is paid.",
     deposit: 'Deposit',
     paid: 'Paid',
     refunded: 'Refunded',
@@ -1713,7 +1798,7 @@ const en = {
       'A booking is a request until the partner confirms it. The price, any deposit and the extras you choose are shown before you book and fixed on the booking. A partner can adjust the price only before confirming, and you are told when they do. A request the partner has not answered by its start time expires.',
     termsS4Title: '4. Payments and refunds',
     termsS4Body:
-      "Payments go through PetBooker's payment provider. A deposit may be due once the partner confirms, and the rest after the service. You can cancel free of charge until the service starts, and anything you paid goes back to the card you used. If the partner cancels, you get a full refund.",
+      "Payments go through PetBooker's payment provider, or in cash to the partner at the service. A deposit may be due once the partner confirms, and a card booking that asks for one can't start until it is paid; the rest is paid after the service. Cancelling is free until you pay the deposit. After that the partner keeps the deposit if you cancel or don't show up, and anything you paid beyond it goes back to the card you used. If the partner cancels, you get a full refund.",
     termsS5Title: '5. Partners',
     termsS5Body:
       'Partners are independent professionals, not PetBooker employees. A partner must give accurate information, a valid government ID and any certificates they claim, keep their working hours up to date and treat every pet with care. PetBooker reviews each application and may pause or remove a partner who breaks these terms; the partner is told why.',
@@ -1906,6 +1991,8 @@ const en = {
     declineFailed: "Couldn't decline this request.",
   },
   shared: {
+    yearsOfExperienceFew: '{n} years of experience',
+    yearsOfExperienceOne: '{n} year of experience',
     yearsOfExperience: '{n} years of experience',
     amountOff: '{amount} OFF',
     selectCountry: 'Select country',
@@ -1987,6 +2074,7 @@ const en = {
       5: 'Post-Payment',
       6: 'Declined',
       7: 'Cancelled',
+      8: 'No-show',
     },
     paymentType: {
       0: 'Cash',

@@ -385,23 +385,28 @@ export async function apiAuthFetch(url: string, init?: RequestInit): Promise<Res
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const session: typeof import('./session') = require('./session');
 
-  // Throws SessionEndedError (and has already signed the user out) when the session is over.
-  const token = await session.getValidAccessToken();
-
   // Do not set Content-Type for FormData — the runtime must set it automatically
   // so that the multipart boundary is included correctly.
   const isFormData = init?.body instanceof FormData;
 
-  const send = (bearer: string) =>
+  const send = (bearer: string | null) =>
     apiFetch(url, {
       ...init,
       headers: {
         ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         Accept: 'application/json',
         ...(init?.headers as Record<string, string>),
-        Authorization: `Bearer ${bearer}`,
+        ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
       },
     });
+
+  // A guest browsing (app review G7) has no session at all: the request goes without a token.
+  // The catalogue answers it; anything that needs an account answers 401 as usual — without
+  // "ending a session" (and showing "Session expired") for someone who never signed in.
+  if (!(await session.hasSession())) return send(null);
+
+  // Throws SessionEndedError (and has already signed the user out) when the session is over.
+  const token = await session.getValidAccessToken();
 
   const response = await send(token);
   if (response.status !== 401 || session.tokenAgeMs(token) < STALE_TOKEN_AGE_MS) {

@@ -86,6 +86,15 @@ export const NotificationType = {
   ProviderUnbanned: 30,
   /** A paid booking was called off and its payments went back. Customer-facing; { bookingId }. */
   PaymentRefunded: 31,
+  /** A paid booking expired without taking place and its payments went back. Customer-facing;
+   *  { bookingId }. Its own type because "was cancelled" is untrue of it. */
+  ExpiredBookingRefunded: 32,
+  /** The customer cancelled after paying the deposit, so the provider keeps it (anything paid
+   *  beyond it went back). Customer-facing; { bookingId }. App review G5. */
+  DepositRetained: 33,
+  /** The provider recorded that the customer did not turn up; the deposit is kept. Customer-facing;
+   *  { bookingId }. App review G6. */
+  CustomerNoShow: 34,
 } as const;
 
 /**

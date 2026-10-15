@@ -16,7 +16,7 @@ import { PriceBreakdown, PaymentMethodSelector, AddonLine } from '../components'
 import type { BookingAdditionalServiceReadDto } from '../../../services/bookings';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
-import { ServiceDto, serviceCurrency } from '../../../services/services';
+import { ServiceDto, serviceCurrency, serviceAsksDeposit } from '../../../services/services';
 import { DiscountType } from '../../../services/service-discounts';
 import { createBookings, parseBookingDate, PaymentType } from '../../../services/bookings';
 import { showAlert } from '../../../services/alert';
@@ -93,6 +93,10 @@ export default function ReviewBookingScreen() {
     borderColor,
   } = useThemeColors();
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('online');
+  // What the customer is signing up to: a cash booking is settled in person; a card booking with
+  // a deposit can't start until it is paid, and cancelling after paying it keeps it (G3, G5).
+  const payingCash = selectedPaymentMethod === 'cash';
+  const asksDeposit = !payingCash && serviceAsksDeposit(service);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // `a.service.price` is the effective (already-discounted) per-appointment
@@ -281,6 +285,12 @@ export default function ReviewBookingScreen() {
             </Text>
             {appointments.map((apt, i) => {
               const start = parseBookingDate(apt.bookingFrom);
+              const clock = (d: Date) =>
+                d.toLocaleTimeString(undefined, {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  hour12: false,
+                });
               return (
                 <View key={apt.id} className={i > 0 ? `mt-4 border-t pt-4 ${borderColor}` : ''}>
                   <Text className={`text-base font-semibold ${textColor}`}>
@@ -306,11 +316,8 @@ export default function ReviewBookingScreen() {
                       style={{ marginRight: 6 }}
                     />
                     <Text className={`text-sm ${subtextColor}`}>
-                      {start.toLocaleTimeString(undefined, {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: false,
-                      })}
+                      {/* The window, not just its start: "10:00 – 11:00", as Booking Details reads. */}
+                      {`${clock(start)} – ${clock(parseBookingDate(apt.bookingTo))}`}
                     </Text>
                   </View>
                   {apt.pricingOptionName && (
@@ -382,7 +389,8 @@ export default function ReviewBookingScreen() {
               provider has confirmed. Without this the next screen's "sent to the provider" read
               as if a payment had gone missing. */}
           <Text className={`${gutter.px} -mt-2 pb-4 text-xs ${subtextColor}`}>
-            {t('reviewBooking.payLaterNote')}
+            {payingCash ? t('reviewBooking.cashNote') : t('reviewBooking.payLaterNote')}
+            {asksDeposit ? ` ${t('reviewBooking.depositNote')}` : ''}
           </Text>
 
           {/* Cancellation Policy */}
@@ -391,7 +399,9 @@ export default function ReviewBookingScreen() {
               {t('reviewBooking.cancellationPolicy')}
             </Text>
             <Text className={`text-sm ${subtextColor} leading-6`}>
-              {t('reviewBooking.cancellationPolicyText')}
+              {asksDeposit
+                ? t('reviewBooking.cancellationPolicyDeposit')
+                : t('reviewBooking.cancellationPolicyText')}
             </Text>
             <TouchableOpacity
               accessibilityRole="link"

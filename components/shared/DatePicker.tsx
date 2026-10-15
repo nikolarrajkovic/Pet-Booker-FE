@@ -59,7 +59,17 @@ export default function DatePicker({
   const today = new Date();
   const [viewMonth, setViewMonth] = useState(value.getMonth());
   const [viewYear, setViewYear] = useState(value.getFullYear());
-  const [selected, setSelected] = useState(startOfDay(value));
+  // A day the caller rules out (past, outside min/max, unbookable) is never the starting selection.
+  // The booking form opens on today when nothing is picked yet; for a service closed today, today
+  // used to start selected and Done committed it, leaving a date with no times to choose.
+  const isDateDisabled = (d: Date) =>
+    (!!minDate && d < startOfDay(minDate)) ||
+    (!!maxDate && d > startOfDay(maxDate)) ||
+    (!!isDateEnabled && !isDateEnabled(d));
+  const [selected, setSelected] = useState<Date | null>(() => {
+    const initial = startOfDay(value);
+    return isDateDisabled(initial) ? null : initial;
+  });
   const [pane, setPane] = useState<Pane>('days');
 
   const minYear = minDate ? minDate.getFullYear() : 1900;
@@ -96,13 +106,7 @@ export default function DatePicker({
   // Pad to full rows
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const isDisabled = (day: number) => {
-    const cellDate = new Date(viewYear, viewMonth, day);
-    if (minDate && cellDate < startOfDay(minDate)) return true;
-    if (maxDate && cellDate > startOfDay(maxDate)) return true;
-    if (isDateEnabled && !isDateEnabled(cellDate)) return true;
-    return false;
-  };
+  const isDisabled = (day: number) => isDateDisabled(new Date(viewYear, viewMonth, day));
 
   // A month is out of reach only when EVERY day in it is — a partially allowed month stays
   // tappable and its own days are gated by isDisabled above.
@@ -114,7 +118,8 @@ export default function DatePicker({
     return false;
   };
 
-  const isSelected = (day: number) => isSameDay(selected, new Date(viewYear, viewMonth, day));
+  const isSelected = (day: number) =>
+    selected != null && isSameDay(selected, new Date(viewYear, viewMonth, day));
   const isToday = (day: number) => isSameDay(today, new Date(viewYear, viewMonth, day));
 
   const handleSelect = (day: number) => {
@@ -123,6 +128,7 @@ export default function DatePicker({
   };
 
   const handleDone = () => {
+    if (!selected) return;
     onChange(selected);
     onClose();
   };
@@ -404,12 +410,15 @@ export default function DatePicker({
         <TouchableOpacity
           accessibilityRole="button"
           onPress={handleDone}
+          disabled={!selected}
+          aria-disabled={!selected}
           style={{
             flex: 2,
             paddingVertical: 12,
             borderRadius: 12,
             alignItems: 'center',
             backgroundColor: BRAND_GREEN,
+            opacity: selected ? 1 : 0.5,
           }}>
           <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>
             {t('shared.done')}

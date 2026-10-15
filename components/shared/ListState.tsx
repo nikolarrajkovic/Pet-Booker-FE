@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import PetLoader from './PetLoader';
@@ -44,13 +44,19 @@ export function MessageState({
   icon,
   message,
   tone = 'empty',
+  hint,
+  action,
 }: {
   icon: IoniconName;
   message: string;
   /** `error` tints the badge red — an empty list and a failed one must not look alike. */
   tone?: 'empty' | 'error';
+  /** One line on what fills this list, for a state a new account will meet. */
+  hint?: string;
+  /** The way forward from an empty list ("Find a service"). */
+  action?: { label: string; onPress: () => void };
 }) {
-  const { textColor, cardBg, isDarkMode } = useThemeColors();
+  const { textColor, subtextColor, cardBg, isDarkMode } = useThemeColors();
   const gutter = usePageGutter();
   const isError = tone === 'error';
   const badgeBg = isError
@@ -73,6 +79,17 @@ export function MessageState({
           <Ionicons name={icon} size={36} color={isError ? '#EF4444' : BRAND_GREEN} />
         </View>
         <Text className={`${textColor} text-center text-base font-semibold`}>{message}</Text>
+        {hint ? (
+          <Text className={`${subtextColor} mt-2 max-w-md text-center text-sm`}>{hint}</Text>
+        ) : null}
+        {action ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={action.onPress}
+            className="mt-5 rounded-full bg-brand-500 px-6 py-3">
+            <Text className="text-sm font-semibold text-white">{action.label}</Text>
+          </Pressable>
+        ) : null}
       </View>
     </StatePad>
   );
@@ -89,6 +106,10 @@ export interface ListStateProps {
   emptyIcon?: IoniconName;
   /** What to say when there is nothing to show — usually tab-specific. */
   emptyMessage?: string;
+  /** A line under the empty message: what fills this list. */
+  emptyHint?: string;
+  /** A button under the empty message: the way forward. */
+  emptyAction?: { label: string; onPress: () => void };
   /** Caption under the loading animation. Optional — most lists need no words. */
   loadingLabel?: string;
   /** Rendered only once loading, error and empty are all ruled out. */
@@ -121,11 +142,16 @@ export default function ListState({
   isEmpty,
   emptyIcon = 'clipboard-outline',
   emptyMessage,
+  emptyHint,
+  emptyAction,
   loadingLabel,
   children,
 }: ListStateProps) {
   if (isLoading) return <LoadingState label={loadingLabel} />;
   if (error) return <MessageState icon="alert-circle-outline" message={error} tone="error" />;
-  if (isEmpty && emptyMessage) return <MessageState icon={emptyIcon} message={emptyMessage} />;
+  if (isEmpty && emptyMessage)
+    return (
+      <MessageState icon={emptyIcon} message={emptyMessage} hint={emptyHint} action={emptyAction} />
+    );
   return <>{children}</>;
 }

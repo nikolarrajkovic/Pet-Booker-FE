@@ -22,12 +22,16 @@ import {
   getBooking,
   startBookingService,
   endBookingService,
+  markNoShow,
+  awaitingDeposit,
+  canMarkNoShow,
   parseBookingDate,
   formatBookingDate,
   BookingDto,
   BookingState,
   BookingStatusType,
 } from '../../../services/bookings';
+import ReasonPromptModal from '../../../components/shared/ReasonPromptModal';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import { getPet, PetResponse } from '../../../services/pets';
 import { getService, ServiceDto } from '../../../services/services';
@@ -52,6 +56,7 @@ import {
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { googleDirectionsUrl } from '../../../services/route-path';
 import { formatWeekdayDayMonth } from '../../../i18n/dates';
+import { formatKm } from '../../../i18n/numbers';
 
 type RouteParams = { mode?: 'partner' | 'user' };
 type Completion = { pickup: boolean; dropoff: boolean };
@@ -184,7 +189,7 @@ export default function LiveSessionScreen() {
   const mode = route.params?.mode ?? 'partner';
   const isPartner = mode === 'partner';
   const { currentUser } = useAuth();
-  const { showError, showInfo } = useToast();
+  const { showError, showInfo, showSuccess } = useToast();
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t, tEnum } = useLocale();
 
@@ -389,6 +394,13 @@ export default function LiveSessionScreen() {
   const startWindowMs = dto ? parseBookingDate(dto.bookingFrom).getTime() - START_LEAD_MS : 0;
   const canStart = !!dto && now >= startWindowMs;
   const startWindowIso = dto ? formatBookingDate(new Date(startWindowMs)) : '';
+  // A card booking's deposit gates the start (app review G3). Start re-checks before refusing,
+  // since the customer may have paid after this screen loaded.
+  const depositPending = !!dto && awaitingDeposit(dto);
+  // Once it was due, the partner can record that the customer never came (G6).
+  const canRecordNoShow = isPartner && !!dto && canMarkNoShow(dto, now);
+  const [noShowOpen, setNoShowOpen] = useState(false);
+  const [recordingNoShow, setRecordingNoShow] = useState(false);
 
   // Tick the clock only while waiting to start, so the Start gate stays current.
   useEffect(() => {
@@ -638,6 +650,16 @@ export default function LiveSessionScreen() {
     if (!dto || busy || !canStart) return;
     setBusy('start');
     try {
+      if (awaitingDeposit(dto)) {
+        const fresh = await getBooking(dto.id!);
+        setSessions((prev) =>
+          prev.map((s) => (s.id === dto.id ? { ...s, currentStatus: fresh.currentStatus } : s))
+        );
+        if (awaitingDeposit(fresh)) {
+          showInfo(t('payments.awaitingDeposit'));
+          return;
+        }
+      }
       await startBookingService(dto);
       // Patch the current session in place so the countdown/End UI appear without
       // a full reload (which would reset the carousel to the first session).
@@ -650,6 +672,22 @@ export default function LiveSessionScreen() {
       showError(getErrorMessage(e, t('liveSession.startFailed')));
     } finally {
       setBusy(null);
+    }
+  };
+
+  const confirmNoShow = async (note: string) => {
+    if (!dto?.id) return;
+    setRecordingNoShow(true);
+    try {
+      await markNoShow(dto.id, note);
+      setNoShowOpen(false);
+      showSuccess(t('bookingDetails.noShowSuccess'));
+      // The booking is over: reload, which drops it from the sessions.
+      await load();
+    } catch (e) {
+      showError(getErrorMessage(e, t('bookingDetails.noShowFailed')));
+    } finally {
+      setRecordingNoShow(false);
     }
   };
 
@@ -1120,11 +1158,11 @@ export default function LiveSessionScreen() {
                       <Text className={`text-xs ${subtextColor} ml-2`}>
                         {routeSummary.mins != null
                           ? t('liveSession.routeSummary', {
-                              km: routeSummary.km.toFixed(1),
+                              km: formatKm(routeSummary.km, 1),
                               mins: Math.max(1, Math.round(routeSummary.mins)),
                             })
                           : t('liveSession.routeDistanceOnly', {
-                              km: routeSummary.km.toFixed(1),
+                              km: formatKm(routeSummary.km, 1),
                             })}
                       </Text>
                     ) : null}
@@ -1170,6 +1208,10 @@ export default function LiveSessionScreen() {
                     time: formatTime(startWindowIso),
                   })}
                 </Text>
+              ) : depositPending ? (
+                <Text className="mb-2 text-center text-xs text-orange-500">
+                  {t('payments.awaitingDeposit')}
+                </Text>
               ) : null}
               <TouchableOpacity
                 accessibilityRole="button"
@@ -1194,6 +1236,19 @@ export default function LiveSessionScreen() {
                   </>
                 )}
               </TouchableOpacity>
+              {canRecordNoShow ? (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => setNoShowOpen(true)}
+                  disabled={busy !== null || recordingNoShow}
+                  activeOpacity={0.85}
+                  className="mt-3 flex-row items-center justify-center rounded-2xl border-2 border-amber-500 py-3">
+                  <Ionicons name="person-remove-outline" size={18} color="#F59E0B" />
+                  <Text className="ml-2 text-base font-semibold text-amber-600">
+                    {t('bookingDetails.noShow')}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
             </>
           ) : null}
 
@@ -1230,6 +1285,17 @@ export default function LiveSessionScreen() {
           ) : null}
         </ScrollView>
       )}
+      <ReasonPromptModal
+        visible={noShowOpen}
+        title={t('bookingDetails.noShowTitle')}
+        subtitle={t('bookingDetails.noShowSubtitle')}
+        placeholder={t('bookingDetails.noShowPlaceholder')}
+        tooShortMessage={t('bookingDetails.cancelReasonTooShort')}
+        confirmLabel={t('bookingDetails.noShowConfirm')}
+        submitting={recordingNoShow}
+        onClose={() => setNoShowOpen(false)}
+        onConfirm={confirmNoShow}
+      />
     </ScreenLayout>
   );
 }

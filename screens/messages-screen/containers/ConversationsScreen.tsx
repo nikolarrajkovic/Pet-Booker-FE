@@ -78,7 +78,8 @@ function InboxList() {
           error={loadError}
           isEmpty={conversations.length === 0}
           emptyIcon="chatbubbles-outline"
-          emptyMessage={t('messages.emptyInbox')}>
+          emptyMessage={t('messages.emptyInbox')}
+          emptyHint={t('messages.emptyInboxHint')}>
           {conversations.map((c) => (
             <ConversationRow
               key={c.id}

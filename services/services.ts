@@ -107,6 +107,18 @@ export type AdditionalServiceDto = {
   currency?: string | null;
 };
 
+/**
+ * Whether booking this service asks for a deposit. Mirrors `ServicePricing.CalculateDeposit`: a
+ * percent of the total when percent escrow is on, else the flat escrow amount.
+ */
+export function serviceAsksDeposit(service: Pick<ServiceDto, 'pricing'>): boolean {
+  const p = service.pricing;
+  if (!p) return false;
+  return p.isEscrowPercentEnabled && p.escrowPercent != null
+    ? p.escrowPercent > 0
+    : (p.escrowAmount ?? 0) > 0;
+}
+
 export type ServiceDto = {
   id?: number | null;
   serviceProviderId: number;

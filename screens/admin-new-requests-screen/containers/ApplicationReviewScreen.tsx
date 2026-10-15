@@ -31,6 +31,8 @@ import {
   approveCertificate,
 } from '../../../services/admin';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { certificateDates } from '../../../services/certificate-dates';
+import PrivateImage from '../../../components/shared/PrivateImage';
 
 function formatBytes(n: number): string {
   if (!n) return '';
@@ -81,7 +83,7 @@ export default function ApplicationReviewScreen() {
   const route = useRoute<any>();
   const { isDarkMode, hex } = useThemeColors();
   const { showError } = useToast();
-  const { t, tEnum } = useLocale();
+  const { t, tPlural, tEnum } = useLocale();
   const { isWebLayout } = useResponsive();
   const insets = useSafeAreaInsets();
 
@@ -404,7 +406,11 @@ export default function ApplicationReviewScreen() {
               </Text>
               <Text style={{ color: textColor, fontSize: 13 }}>
                 {application.yearsOfExperience != null
-                  ? t('admin.yearsValue', { n: application.yearsOfExperience })
+                  ? tPlural(application.yearsOfExperience, {
+                      one: 'admin.yearsValueOne',
+                      few: 'admin.yearsValueFew',
+                      many: 'admin.yearsValue',
+                    })
                   : '—'}
               </Text>
             </View>
@@ -577,12 +583,14 @@ export default function ApplicationReviewScreen() {
                       {c.name}
                     </Text>
                     {c.issuer ? (
-                      <Text style={{ color: subTextColor, fontSize: 11, marginBottom: 6 }}>
-                        {c.issuer}
+                      <Text style={{ color: subTextColor, fontSize: 11 }}>{c.issuer}</Text>
+                    ) : null}
+                    {certificateDates(t, c) ? (
+                      <Text style={{ color: subTextColor, fontSize: 11 }}>
+                        {certificateDates(t, c)}
                       </Text>
-                    ) : (
-                      <View style={{ height: 6 }} />
-                    )}
+                    ) : null}
+                    <View style={{ height: 6 }} />
                     {c.isImage ? (
                       <ViewableImage
                         uri={c.fileSrc}
@@ -781,8 +789,9 @@ export default function ApplicationReviewScreen() {
             padding: 16,
           }}>
           {viewerUri ? (
-            <Image
-              source={{ uri: viewerUri }}
+            // With the session: the viewer also opens the ID, which an anonymous request cannot read.
+            <PrivateImage
+              uri={viewerUri}
               style={{ width: '100%', height: '82%' }}
               resizeMode="contain"
             />
@@ -1016,8 +1025,9 @@ function IdSide({
           activeOpacity={0.9}
           onPress={() => (revealed ? onView(img.src) : onReveal())}
           style={{ position: 'relative' }}>
-          <Image
-            source={{ uri: img.src }}
+          {/* The ID is served to the owner or an admin only, so it loads with the session. */}
+          <PrivateImage
+            uri={img.src}
             style={{ width: '100%', height: 110, borderRadius: 10 }}
             resizeMode="cover"
             blurRadius={revealed ? 0 : 14}

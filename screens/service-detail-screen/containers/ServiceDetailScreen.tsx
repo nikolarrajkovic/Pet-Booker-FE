@@ -46,6 +46,8 @@ import {
 } from '../../my-services-screen/serviceModel';
 import { PetSpecies } from '../../../services/pets';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { YEARS_OF_EXPERIENCE } from '../../../i18n/plural';
+import { useRequireSignIn } from '../../../hooks/useRequireSignIn';
 
 // The booker reads everything about ONE specific service here, then taps
 // "Book Now" to proceed.
@@ -77,7 +79,6 @@ const speciesKeys = (flags?: number): string[] => {
   if (flags & PetSpecies.Cat) out.push('species.cats');
   if (flags & PetSpecies.Parrot) out.push('species.parrots');
   if (flags & PetSpecies.Turtle) out.push('species.turtles');
-  if (flags & PetSpecies.Fish) out.push('species.fish');
   if (flags & PetSpecies.Snake) out.push('species.snakes');
   return out;
 };
@@ -85,6 +86,9 @@ const speciesKeys = (flags?: number): string[] => {
 export default function ServiceDetailScreen() {
   const gutter = usePageGutter();
   const navigation = useNavigation();
+  // A guest reads everything here; booking and messaging ask them to sign in first and bring
+  // them back to this page (app review G7).
+  const requireSignIn = useRequireSignIn();
   const route = useRoute<RouteProp<{ params: ServiceDetailRouteParams }, 'params'>>();
   const { service, serviceId } = route.params ?? {};
   // The id is what identifies the screen; a passed `service` is just a head start on rendering.
@@ -107,7 +111,7 @@ export default function ServiceDetailScreen() {
     subtextColor,
     borderColor,
   } = useThemeColors();
-  const { t, tEnum } = useLocale();
+  const { t, tPlural, tEnum } = useLocale();
 
   const [selectedService, setSelectedService] = useState<ServiceDto | null>(service ?? null);
   const [provider, setProvider] = useState<ServiceProviderDto | null>(null);
@@ -179,6 +183,17 @@ export default function ServiceDetailScreen() {
   // No working hours (or paused): nothing can be booked, so "Book Now" would only dead-end on the
   // next screen. The message button stays — asking when they will be available is reasonable.
   const unavailable = svc.isBookable === false;
+  // Why it can't be booked: a provider paused by an admin, or no working hours. Theme-aware: it
+  // was a light grey box with dark text on the dark theme's page too.
+  const unavailableBox = (className: string) => (
+    <View
+      className={`flex-row items-center rounded-xl px-4 py-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'} ${className}`}>
+      <Ionicons name="time-outline" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+      <Text className={`ml-2 flex-1 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+        {svc.isProviderPaused ? t('moderation.providerPaused') : t('serviceDetail.unavailableNote')}
+      </Text>
+    </View>
+  );
   // Embedded reviews are service-level and carry every moderation status —
   // this is a public screen, so show only the approved ones.
   const reviews: ReviewDto[] = (svc.reviews ?? []).filter(
@@ -283,17 +298,21 @@ export default function ServiceDetailScreen() {
       label: t('serviceDetail.bookAhead', { hours: d.leadTimeHours }),
     });
 
-  const onBook = () => {
-    (navigation as any).navigate('BookService', {
-      serviceId: selectedService.id,
-      service: selectedService,
-    });
-  };
+  const onBook = () =>
+    requireSignIn(() =>
+      (navigation as any).navigate('BookService', {
+        serviceId: selectedService.id,
+        service: selectedService,
+      })
+    );
 
   // Opens (or reuses) the thread with this provider. The service is passed along so the
   // provider sees what the question is about; ChatScreen does the get-or-create.
   const onMessage = () => {
     if (!svc.serviceProviderId) return;
+    requireSignIn(() => openChat());
+  };
+  const openChat = () => {
     (navigation as any).navigate('Chat', {
       serviceProviderId: svc.serviceProviderId,
       serviceId: svc.id ?? null,
@@ -372,9 +391,11 @@ export default function ServiceDetailScreen() {
               </View>
               <Text className={`${subtextColor} ml-2`}>
                 {reviewCount}{' '}
-                {reviewCount === 1
-                  ? t('serviceDetail.reviewSingular')
-                  : t('serviceDetail.reviewPlural')}
+                {tPlural(reviewCount, {
+                  one: 'serviceDetail.reviewSingular',
+                  few: 'serviceDetail.reviewFew',
+                  many: 'serviceDetail.reviewPlural',
+                })}
               </Text>
             </View>
           )}
@@ -389,28 +410,19 @@ export default function ServiceDetailScreen() {
         </View>
 
         {!isWebLayout && (
+          // "starting from 1,200 RSD": the label leads, in every language. As a suffix it read
+          // "1,200 RSD starting from" (and "1 200 RSD от" in Russian).
           <View className="mt-4 flex-row items-baseline">
+            <Text className={`${subtextColor} mr-2`}>{t('serviceDetail.startingFrom')}</Text>
             <Text className="text-3xl font-bold text-brand-600">{money(effective)}</Text>
             {hasDiscount ? (
               <Text className={`${subtextColor} ml-2 line-through`}>{money(base)}</Text>
             ) : null}
-            <Text className={`${subtextColor} ml-2`}>{t('serviceDetail.startingFrom')}</Text>
           </View>
         )}
       </View>
 
-      {unavailable && !isWebLayout ? (
-        <View
-          className={`mb-4 flex-row items-center rounded-xl bg-gray-100 px-4 py-3 ${gutter.mx}`}>
-          <Ionicons name="time-outline" size={18} color="#6B7280" />
-          <Text className="ml-2 flex-1 text-sm text-gray-700">
-            {/* Why it can't be booked: a provider paused by an admin, or no working hours. */}
-            {svc.isProviderPaused
-              ? t('moderation.providerPaused')
-              : t('serviceDetail.unavailableNote')}
-          </Text>
-        </View>
-      ) : null}
+      {unavailable && !isWebLayout ? unavailableBox(`mb-4 ${gutter.mx}`) : null}
 
       {/* About */}
       {(svc.description || svc.about) &&
@@ -457,7 +469,7 @@ export default function ServiceDetailScreen() {
               ) : null}
               {provider.yearsOfExperience != null ? (
                 <Text className={`${subtextColor} mt-0.5 text-sm`}>
-                  {t('shared.yearsOfExperience', { n: provider.yearsOfExperience })}
+                  {tPlural(provider.yearsOfExperience, YEARS_OF_EXPERIENCE)}
                 </Text>
               ) : null}
             </View>
@@ -626,24 +638,17 @@ export default function ServiceDetailScreen() {
     </>
   );
 
-  const unavailableNote = (
-    <View className="mt-4 flex-row items-center rounded-xl bg-gray-100 px-4 py-3">
-      <Ionicons name="time-outline" size={18} color="#6B7280" />
-      <Text className="ml-2 flex-1 text-sm text-gray-700">
-        {svc.isProviderPaused ? t('moderation.providerPaused') : t('serviceDetail.unavailableNote')}
-      </Text>
-    </View>
-  );
+  const unavailableNote = unavailableBox('mt-4');
 
   const bookingPanel = (
     <View className={`${cardBg} rounded-2xl border ${borderColor} p-5`}>
+      <Text className={`${subtextColor} mb-1 text-sm`}>{t('serviceDetail.startingFrom')}</Text>
       <View className="flex-row flex-wrap items-baseline">
         <Text className="text-3xl font-bold text-brand-600">{money(effective)}</Text>
         {hasDiscount ? (
           <Text className={`${subtextColor} ml-2 line-through`}>{money(base)}</Text>
         ) : null}
       </View>
-      <Text className={`${subtextColor} mt-1 text-sm`}>{t('serviceDetail.startingFrom')}</Text>
       {unavailable ? unavailableNote : null}
       <TouchableOpacity
         accessibilityRole="button"

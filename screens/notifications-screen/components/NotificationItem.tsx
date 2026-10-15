@@ -48,6 +48,10 @@ const VISUAL_BY_NAME: Record<
   PaymentReceived: { icon: 'card-outline', accent: 'info' },
   PaymentDue: { icon: 'wallet-outline', accent: 'warning' },
   PaymentRefunded: { icon: 'return-down-back-outline', accent: 'info' },
+  ExpiredBookingRefunded: { icon: 'return-down-back-outline', accent: 'info' },
+  // Money the customer does not get back: worth their attention, not an alarm.
+  DepositRetained: { icon: 'wallet-outline', accent: 'warning' },
+  CustomerNoShow: { icon: 'person-remove-outline', accent: 'danger' },
   // Partner verification.
   ServiceProviderApproved: { icon: 'shield-checkmark-outline', accent: 'brand' },
   ServiceProviderDeclined: { icon: 'close-circle-outline', accent: 'danger' },

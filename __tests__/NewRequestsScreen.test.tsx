@@ -59,6 +59,7 @@ jest.mock('../context/LocaleContext', () => {
   const value = {
     t: (key: string, params?: Record<string, unknown>) =>
       params ? `${key}:${JSON.stringify(params)}` : key,
+    tPlural: (n: number, keys: { many: string }) => `${keys.many}:${n}`,
     tEnum: (_type: string, value: unknown) => String(value),
     language: 'en',
   };

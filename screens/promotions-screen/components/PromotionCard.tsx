@@ -117,7 +117,7 @@ export default function PromotionCard({
   onStart,
 }: PromotionCardProps) {
   const navigation = useNavigation();
-  const { t } = useLocale();
+  const { t, tPlural } = useLocale();
   const status = PROMOTION_STATUS_STYLES[promotion.status];
   const typeIcon = TYPE_ICON[promotion.type];
   const isActive = promotion.status === 'active';
@@ -226,7 +226,11 @@ export default function PromotionCard({
           {promotion.usageCount != null && (
             <View className="items-end">
               <Text className={`text-base font-bold ${textColor}`}>
-                {t('promotions.uses', { n: promotion.usageCount })}
+                {tPlural(promotion.usageCount, {
+                  one: 'promotions.usesOne',
+                  few: 'promotions.usesFew',
+                  many: 'promotions.uses',
+                })}
               </Text>
             </View>
           )}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { PetSpecies } from '../../../services/pets';
+import { PetSpecies, isOfferedSpecies } from '../../../services/pets';
 import { useLocale } from '../../../context/LocaleContext';
 import { useResponsive } from '../../../hooks/useResponsive';
 
@@ -12,7 +12,7 @@ const petTypes = [
   { value: PetSpecies.Turtle, emoji: '🐢', label: 'Turtle' },
   { value: PetSpecies.Fish, emoji: '🐠', label: 'Fish' },
   { value: PetSpecies.Snake, emoji: '🐍', label: 'Snake' },
-];
+].filter((type) => isOfferedSpecies(type.value));
 
 interface PetTypeSelectorProps {
   selectedType: number | null;

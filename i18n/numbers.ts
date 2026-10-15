@@ -8,6 +8,15 @@ import type { Language } from './types';
  * "12.5 €") and counts were pinned to en-US. Falls back to plain digits on a runtime without the
  * locale rather than printing another language's separators.
  */
+/** A distance figure with a fixed number of decimals, in the app language's style ("1,2" in sr/ru). */
+export function formatKm(km: number, decimals = 1, lang: Language = formatLanguage()): string {
+  return formatNumber(
+    km,
+    { minimumFractionDigits: decimals, maximumFractionDigits: decimals },
+    lang
+  );
+}
+
 export function formatNumber(
   value: number,
   options: Intl.NumberFormatOptions = {},

@@ -29,9 +29,10 @@ import {
   getServiceProvider,
   providerAddress,
   type AddressDto,
+  type ServiceProviderDto,
 } from '../../../services/service-providers';
 import { useEnums } from '../../../context/EnumsContext';
-import { PetSpecies } from '../../../services/pets';
+import { PetSpecies, isOfferedSpecies } from '../../../services/pets';
 import {
   createService,
   updateService,
@@ -93,6 +94,18 @@ type AddEditServiceParams = {
   mode?: 'add' | 'edit';
   serviceDto?: ServiceDto; // present in edit mode (the real record)
   serviceProviderId?: number; // the partner's provider id
+};
+
+// A partner's first service starts on weekdays 9–17 (app review G13): every day off meant the
+// first save always failed on "no working hours". Later services start blank, as before.
+const FIRST_SERVICE_HOURS: WorkingHours = {
+  Monday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+  Tuesday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+  Wednesday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+  Thursday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+  Friday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+  Saturday: { enabled: false, startTime: '09:00', endTime: '17:00' },
+  Sunday: { enabled: false, startTime: '09:00', endTime: '17:00' },
 };
 
 const DEFAULT_WORKING_HOURS: WorkingHours = {
@@ -193,7 +206,7 @@ export default function AddEditServiceScreen() {
   );
   const [showSpeciesError, setShowSpeciesError] = useState(false);
   const speciesOptions = (enums?.petSpeciesType ?? []).filter(
-    (e) => e.value > 0 && e.value !== PetSpecies.All
+    (e) => e.value > 0 && e.value !== PetSpecies.All && isOfferedSpecies(e.value)
   );
   const toggleSpecies = (flag: number) => setAcceptedSpecies((cur) => cur ^ flag);
   const speciesMissing = showSpeciesError && acceptedSpecies === 0;
@@ -215,18 +228,45 @@ export default function AddEditServiceScreen() {
   const currentAddress = ownAddress ?? providerLocation;
   const locationInherited = !ownAddress && !!providerLocation;
 
+  // The partner: where they are, which kinds of service they offer, and whether this is their
+  // first service (the first-setup help below applies only then).
+  const [provider, setProvider] = useState<ServiceProviderDto | null>(null);
   useEffect(() => {
     let cancelled = false;
     if (serviceProviderId == null) return;
     getServiceProvider(serviceProviderId)
       .then((sp) => {
-        if (!cancelled) setProviderLocation(providerAddress(sp));
+        if (cancelled) return;
+        setProvider(sp);
+        setProviderLocation(providerAddress(sp));
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [serviceProviderId]);
+
+  const isFirstService = !isEdit && provider?.serviceCount === 0;
+  // Weekday hours for the first service, unless the partner has already set some.
+  useEffect(() => {
+    if (!isFirstService) return;
+    setWorkingHours((cur) =>
+      Object.values(cur).some((d) => d.enabled) ? cur : FIRST_SERVICE_HOURS
+    );
+  }, [isFirstService]);
+
+  // Only the kinds the partner offers (G13), plus the service's own when editing one saved
+  // before they narrowed the list. Every kind until the provider has loaded.
+  const offeredTypes = provider?.offeredTypes?.length
+    ? provider.offeredTypes
+    : provider
+      ? [provider.type]
+      : null;
+  const typeOptions = SERVICE_TYPES.filter((label) => {
+    if (!offeredTypes) return true;
+    const value = providerTypeValue(label);
+    return (value != null && offeredTypes.includes(value)) || label === existingService?.type;
+  });
 
   const addAdditionalService = () =>
     setAdditionalServices((prev) => [...prev, newAdditionalServiceEntry()]);
@@ -535,8 +575,25 @@ export default function AddEditServiceScreen() {
       // away from the input it names.
       width="narrow">
       <ScrollView className={`flex-1 ${gutter.px} py-6`} showsVerticalScrollIndicator={false}>
+        {isFirstService ? (
+          <View
+            className={`mb-4 flex-row rounded-2xl border px-4 py-3 ${
+              isDarkMode ? 'border-brand-700 bg-[#12302a]' : 'border-brand-200 bg-brand-50'
+            }`}>
+            <Ionicons name="sparkles-outline" size={20} color={BRAND_GREEN} />
+            <View className="ml-3 flex-1">
+              <Text className={`text-sm font-bold ${textColor}`}>
+                {t('addEditService.firstServiceTitle')}
+              </Text>
+              <Text className={`mt-1 text-sm ${subtextColor}`}>
+                {t('addEditService.firstServiceBody')}
+              </Text>
+            </View>
+          </View>
+        ) : null}
         <FormCard>
-          {/* Service Type */}
+          {/* Service Type — one of the kinds the partner offers, never preselected: each kind is
+              priced on its own (G13). */}
           <View className="mb-4">
             <Text className={`text-sm font-semibold ${textColor} mb-2`}>
               {t('addEditService.serviceType')}
@@ -550,6 +607,11 @@ export default function AddEditServiceScreen() {
               </Text>
               <Ionicons name="chevron-down" size={20} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
             </TouchableOpacity>
+            {offeredTypes ? (
+              <Text className={`mt-1 text-xs ${subtextColor}`}>
+                {t('addEditService.typeFromOffered')}
+              </Text>
+            ) : null}
           </View>
 
           {/* Service Name */}
@@ -1123,6 +1185,8 @@ export default function AddEditServiceScreen() {
                   // time as a control that cannot be operated.
                   accessibilityRole="switch"
                   accessibilityState={{ checked: hours.enabled }}
+                  // react-native-web reads aria-*, not accessibilityState.
+                  aria-checked={hours.enabled}
                   onPress={() => toggleWorkingDay(day)}
                   className={`${cardBg} border ${borderColor} mb-2 flex-row items-center justify-between rounded-xl px-4 py-3`}>
                   <Text className={textColor}>{t(`days.${day.toLowerCase()}` as any)}</Text>
@@ -1232,7 +1296,7 @@ export default function AddEditServiceScreen() {
                 </TouchableOpacity>
               </View>
 
-              {SERVICE_TYPES.map((type) => (
+              {typeOptions.map((type) => (
                 <TouchableOpacity
                   accessibilityRole="button"
                   key={type}

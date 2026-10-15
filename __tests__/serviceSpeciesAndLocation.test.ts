@@ -3,7 +3,7 @@ import {
   uiToServiceDto,
   type WorkingHours,
 } from '../screens/my-services-screen/serviceModel';
-import { PetSpecies, speciesAccepted } from '../services/pets';
+import { PetSpecies, isOfferedSpecies, speciesAccepted } from '../services/pets';
 import type { AddressDto } from '../services/service-providers';
 
 /**
@@ -97,5 +97,22 @@ describe('where a service is', () => {
       address: resolveServiceAddressForSave(null, null, false),
     });
     expect(dto.address).toBeNull();
+  });
+});
+
+// Fish is not offered for now (app review G11): no pet, service or filter can pick it, while the
+// API keeps the value.
+describe('offered species', () => {
+  it('hides fish and offers every other species', () => {
+    expect(isOfferedSpecies(PetSpecies.Fish)).toBe(false);
+    for (const s of [
+      PetSpecies.Dog,
+      PetSpecies.Cat,
+      PetSpecies.Parrot,
+      PetSpecies.Turtle,
+      PetSpecies.Snake,
+    ]) {
+      expect(isOfferedSpecies(s)).toBe(true);
+    }
   });
 });

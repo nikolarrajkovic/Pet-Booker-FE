@@ -47,6 +47,7 @@ import { getBookingQuote, type BookingQuote } from '../../../services/booking-qu
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useResource } from '../../../hooks/useResource';
 import { LoadingState, MessageState } from '../../../components/shared/ListState';
+import { formatKm } from '../../../i18n/numbers';
 
 // The user books one specific service (chosen before entering this screen), not
 // a provider — the service comes in as a route param and carries serviceProviderId.
@@ -611,7 +612,7 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
   const quotedAddonLine = (addon: AdditionalServiceDto): BookingAdditionalServiceReadDto | null =>
     quote?.additionalServices.find((l) => l.additionalServiceId === addon.id) ?? null;
 
-  const km1 = (km: number) => (Math.round(km * 10) / 10).toFixed(1);
+  const km1 = (km: number) => formatKm(km, 1);
 
   /**
    * The "price check" line under a per-distance extra's address: the leg the server measured and

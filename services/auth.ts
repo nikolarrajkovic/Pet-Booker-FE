@@ -116,7 +116,7 @@ export type RegisterPayload = {
   lastName: string;
   userName: string;
   phone: string;
-  dateOfBirth: string; // ISO 8601, e.g. "1995-06-15T00:00:00.000Z"
+  dateOfBirth: string; // date only, "1995-06-15" (formatDateOnly; a UTC instant moved it a day early)
 };
 
 export function getMe(): Promise<CurrentUser> {

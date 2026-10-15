@@ -75,6 +75,9 @@ type HubData = {
   todayCount: number;
   newRequests: number;
   activePromos: number;
+  /** All of the partner's services, and how many a customer can book (null until loaded). */
+  serviceCount: number | null;
+  bookableServices: number | null;
   hasLiveSession: boolean;
   recent: ActivityItem[];
 };
@@ -89,6 +92,8 @@ const EMPTY_HUB: HubData = {
   todayCount: 0,
   newRequests: 0,
   activePromos: 0,
+  serviceCount: null,
+  bookableServices: null,
   hasLiveSession: false,
   recent: [],
 };
@@ -171,17 +176,26 @@ function toActivity(t: TFn, e: ActivityEntry, index: number): ActivityItem {
 }
 
 /**
- * Counts a partner's enabled discounts across all their services.
+ * Counts a partner's enabled discounts across all their services, and whether any service can be
+ * booked — the setup card's question.
  *
  * One request, not 1 + N: the service list already embeds each service's `discounts[]`, so the
  * per-service fetch this used to fan out was asking the server to repeat what it had just sent.
+ * The list ranks bookable services first, so "none bookable on the first page" means none at all.
  */
-async function countActivePromos(providerId: number): Promise<number> {
+async function loadServiceSummary(
+  providerId: number
+): Promise<{ activePromos: number; serviceCount: number | null; bookableServices: number | null }> {
   try {
     const services = await getServices({ serviceProviderId: providerId });
-    return services.flatMap((s) => s.discounts ?? []).filter((d) => d.isEnabled).length;
+    return {
+      activePromos: services.flatMap((s) => s.discounts ?? []).filter((d) => d.isEnabled).length,
+      serviceCount: services.length,
+      bookableServices: services.filter((s) => s.isActive !== false && s.isBookable !== false)
+        .length,
+    };
   } catch {
-    return 0;
+    return { activePromos: 0, serviceCount: null, bookableServices: null };
   }
 }
 
@@ -421,7 +435,7 @@ export default function PartnerHubScreen() {
           // (GET /api/stats/provider/*), which counts over ALL of the partner's
           // bookings — the old client-side roll-up summed only the first page.
           let statsError: unknown = null;
-          const [overview, earnings, activity, todayCount, pendingRequests, activePromos] =
+          const [overview, earnings, activity, todayCount, pendingRequests, serviceSummary] =
             await Promise.all([
               getProviderOverviewStats(providerId).catch((e) => {
                 statsError = e;
@@ -432,7 +446,7 @@ export default function PartnerHubScreen() {
               getProviderRecentActivity(providerId, 4).catch(() => [] as ActivityEntry[]),
               countToday(providerId),
               countPendingRequests(providerId),
-              countActivePromos(providerId),
+              loadServiceSummary(providerId),
             ]);
           if (!cancelled) {
             setHub({
@@ -445,7 +459,7 @@ export default function PartnerHubScreen() {
               rating: overview && overview.totalReviews > 0 ? overview.averageRating : null,
               todayCount,
               newRequests: pendingRequests,
-              activePromos,
+              ...serviceSummary,
               hasLiveSession: (overview?.inProgressAppointments ?? 0) > 0,
               recent: activity.map((e, i) => toActivity(t, e, i)),
             });
@@ -765,6 +779,48 @@ export default function PartnerHubScreen() {
                 </Text>
                 <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12, marginTop: 2 }}>
                   {t('partnerHub.tapToOpenLive')}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="white" />
+            </TouchableOpacity>
+          )}
+
+          {/* ── Setup: nothing a customer can book yet ──
+              A partner is invisible until one of their services is active and has working hours,
+              and the hub used to open on zeros and quick actions with no word about it: an approved
+              partner had to find My Services on their own. */}
+          {loaded && hub.bookableServices === 0 && (
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={0.85}
+              onPress={() =>
+                hub.serviceCount === 0
+                  ? (navigation as any).navigate('AddEditService', {
+                      mode: 'add',
+                      serviceProviderId: currentUser?.serviceProviderId,
+                    })
+                  : (navigation as any).navigate('MyServices')
+              }
+              className="flex-row items-center rounded-2xl bg-brand-500 p-4"
+              style={{ marginHorizontal: gutter.value, marginTop: 24, gap: 12 }}>
+              <View className="h-11 w-11 items-center justify-center rounded-xl bg-white/25">
+                <Ionicons name="paw" size={22} color="white" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-base font-bold text-white">
+                  {hub.serviceCount === 0
+                    ? t('partnerHub.setupFirstTitle')
+                    : t('partnerHub.setupBookableTitle')}
+                </Text>
+                <Text className="mt-0.5 text-xs text-white/90">
+                  {hub.serviceCount === 0
+                    ? t('partnerHub.setupFirstBody')
+                    : t('partnerHub.setupBookableBody')}
+                </Text>
+                <Text className="mt-2 text-sm font-semibold text-white">
+                  {hub.serviceCount === 0
+                    ? t('partnerHub.setupFirstCta')
+                    : t('partnerHub.setupBookableCta')}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="white" />

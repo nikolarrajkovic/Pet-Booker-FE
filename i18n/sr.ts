@@ -115,6 +115,7 @@ const sr: TranslationDict = {
     termsPrivacy: 'Uslovi i politika privatnosti',
   },
   login: {
+    continueBrowsing: 'Nastavite pregled bez naloga',
     appName: 'PetBooker',
     welcomeBack: 'Dobrodošli nazad!',
     emailOrUsername: 'Email ili korisničko ime',
@@ -212,7 +213,7 @@ const sr: TranslationDict = {
     sendCode: 'Pošalji kod',
     backToSignIn: 'Nazad na prijavu',
     title: 'Potvrdite email',
-    subtitle: 'Poslali smo šestocifreni kod na',
+    subtitle: 'Poslali smo vam šestocifreni kod',
     codeSentTo: 'Kod poslat na',
     enterCode: 'Unesite verifikacioni kod',
     verify: 'Potvrdi email',
@@ -223,7 +224,7 @@ const sr: TranslationDict = {
     resendSuccess: 'Novi kod je poslat na vaš email.',
     resendFailed: 'Slanje koda nije uspelo. Pokušajte ponovo.',
     tipLabel: 'Savet: ',
-    tipBody: 'Proverite spam folder ako ne vidite email. Kod ističe za 10 minuta.',
+    tipBody: 'Proverite spam folder ako ne vidite email. Kod ističe za 15 minuta.',
   },
   forgotPassword: {
     resetSubtitleLinked: 'Izaberite novu lozinku za svoj nalog.',
@@ -296,6 +297,10 @@ const sr: TranslationDict = {
     changedBody: 'Vaša lozinka je ažurirana.',
   },
   profile: {
+    createAccount: 'Napravite nalog',
+    guestBody:
+      'Rezervišite usluge, dopisujte se s partnerima i pratite svoje rezervacije i ljubimce.',
+    guestTitle: 'Prijavite se na PetBooker',
     title: 'Profil',
     yourProfile: 'Vaš profil',
     account: 'Nalog',
@@ -347,6 +352,10 @@ const sr: TranslationDict = {
     noDealsSub: 'Partneri redovno dodaju ponude — navratite uskoro.',
   },
   card: {
+    durationOptionsFew: '{count} opcije trajanja',
+    durationOptionsOne: '{count} opcija trajanja',
+    reviewCountFew: '{count} recenzije',
+    reviewCountOne: '{count} recenzija',
     unavailable: 'Nedostupno',
     popular: 'Popularno',
     deal: 'Popust',
@@ -505,6 +514,7 @@ const sr: TranslationDict = {
     perKm: '{amount}/km',
   },
   serviceDetail: {
+    reviewFew: 'recenzije',
     unavailableCta: 'Trenutno nedostupno',
     unavailableNote:
       'Ova usluga još nema radno vreme, pa ne može da se rezerviše. I dalje možete da pišete pružaocu.',
@@ -580,7 +590,7 @@ const sr: TranslationDict = {
     noWorkingHours:
       'Ova usluga još nema podešeno radno vreme, pa se ne može rezervisati. Probajte drugu uslugu ili pokušajte kasnije.',
     priceFrom: 'od',
-    selectPetHint: 'Izaberite jednog ili više ljubimaca',
+    selectPetHint: 'Jedan po terminu',
     availableTimes: 'Dostupni termini',
     checkingAvailability: 'Provera dostupnosti…',
     noWindowsForDay: 'Pružalac nije dostupan ovog dana — izaberite drugi dan.',
@@ -591,6 +601,10 @@ const sr: TranslationDict = {
     totalColon: 'Ukupno:',
   },
   reviewBooking: {
+    cashNote: 'Partneru plaćate gotovinom na usluzi; u aplikaciji se ništa ne naplaćuje.',
+    depositNote: 'Partneru je potreban depozit pre početka usluge.',
+    cancellationPolicyDeposit:
+      'Otkazivanje je besplatno dok ne platite depozit. Kada ga platite, depozit ostaje partneru ako otkažete, a sve plaćeno preko toga vraća se. Ako partner otkaže rezervaciju, dobijate nazad sve.',
     title: 'Pregled rezervacije',
     bookingDetails: 'Detalji rezervacije',
     discount: 'Popust',
@@ -630,12 +644,14 @@ const sr: TranslationDict = {
     composerKeysHint: 'Enter za slanje, Shift+Enter za novi red',
     send: 'Pošalji',
     emptyInbox: 'Još nema poruka',
+    emptyInboxHint: 'Započnite razgovor sa stranice usluge ili iz neke od svojih rezervacija.',
     emptyThread: 'Još nema poruka — pozdravite se!',
     loadFailed: 'Nije moguće učitati ovaj razgovor.',
     inboxLoadFailed: 'Nije moguće učitati vaše poruke.',
     sendFailed: 'Poruka nije poslata. Pokušajte ponovo.',
     threadUnavailable: 'Ovaj razgovor nije dostupan.',
     messageProvider: 'Pošaljite poruku pružaocu',
+    messageCustomer: 'Pošaljite poruku korisniku',
     typing: 'kuca…',
     enquiryAllowance: 'Još {count} pre nego što odgovori',
     lockedAwaitingReply:
@@ -646,11 +662,15 @@ const sr: TranslationDict = {
     lockedGeneric: 'Trenutno ne možete slati poruke u ovom razgovoru.',
   },
   myBookings: {
+    bookingsCountFew: '{count} rezervacije',
+    bookingsCountOne: '{count} rezervacija',
     title: 'Moje rezervacije',
     upcoming: 'Predstojeće',
     pastBookings: 'Prošle rezervacije',
     loadFailed: 'Učitavanje rezervacija nije uspelo.',
     noUpcoming: 'Nema predstojećih rezervacija',
+    noUpcomingHint: 'Rezervišite šetnju, čuvanje ili šišanje i pojaviće se ovde.',
+    findService: 'Pronađi uslugu',
     noPast: 'Nema prošlih rezervacija',
     bookingsCount: '{count} rezervacija',
     review: 'Oceni',
@@ -674,6 +694,27 @@ const sr: TranslationDict = {
     submitFailed: 'Slanje recenzije nije uspelo. Pokušajte ponovo.',
   },
   bookingDetails: {
+    noShowNoticeProvider: 'Evidentirali ste da se klijent nije pojavio.',
+    noShowNotice:
+      'Partner je evidentirao da se niste pojavili. Depozit je zadržan; sve plaćeno preko toga je vraćeno.',
+    noShowBadge: 'Nedolazak',
+    noShowFailed: 'Nedolazak nije evidentiran.',
+    noShowSuccess: 'Nedolazak je evidentiran. Klijent je obavešten.',
+    noShowConfirm: 'Evidentiraj nedolazak',
+    noShowPlaceholder: 'npr. Niko nije otvorio vrata u 10:00.',
+    noShowSubtitle:
+      'Depozit ostaje vama, a sve plaćeno preko toga vraća se klijentu. Dodajte poruku za klijenta.',
+    noShowTitle: 'Evidentirati nedolazak?',
+    noShow: 'Klijent se nije pojavio',
+    callOffFailed: 'Rezervacija nije otkazana.',
+    callOffSuccess: 'Rezervacija je otkazana. Klijent je obavešten i dobija povraćaj.',
+    callOffPlaceholder: 'npr. Bolestan sam i ne mogu taj dan.',
+    callOffSubtitle: 'Napišite klijentu zašto. Dobiće nazad sve što je platio.',
+    callOffTitle: 'Otkazati ovu rezervaciju?',
+    cancelKeepsDeposit:
+      'Depozit od {amount} ostaje partneru; sve što ste platili preko toga vraća se.',
+    openInMaps: 'Otvori u mapama',
+    where: 'Gde',
     cancelReasonTitle: 'Zašto otkazujete?',
     cancelReasonSubtitle: 'Pružalac dobija obaveštenje i vidi vaš razlog.',
     cancelReasonPlaceholder: 'npr. Pas mi je bolestan, moram da pomerim termin',
@@ -829,6 +870,7 @@ const sr: TranslationDict = {
     egPlaceholder: 'npr. {value}',
   },
   requests: {
+    pendingFew: '{count} zahteva na čekanju',
     expiredNotStartedBadge: 'Isteklo — prihvaćeno, ali nikad započeto',
     expiredBadge: 'Istekao — nije odgovoren pre vremena početka',
     title: 'Zahtevi',
@@ -879,6 +921,14 @@ const sr: TranslationDict = {
     declinedBadge: '✕ Odbijeno',
   },
   partnerHub: {
+    setupFirstTitle: 'Dodajte svoju prvu uslugu',
+    setupFirstBody:
+      'Korisnici vas pronalaze i rezervišu preko vaših usluga. Dodajte uslugu sa cenom i radnim vremenom.',
+    setupFirstCta: 'Dodaj uslugu',
+    setupBookableTitle: 'Nijedna usluga još nije dostupna za rezervaciju',
+    setupBookableBody:
+      'Korisnici vide vaše usluge kao nedostupne dok bar jedna nije aktivna i nema radno vreme.',
+    setupBookableCta: 'Otvori moje usluge',
     title: 'Partnerski centar',
     welcomeBack: 'Dobro došli nazad, {name}!',
     partner: 'Partneru',
@@ -898,8 +948,8 @@ const sr: TranslationDict = {
     ratingNew: 'Novo',
     live: 'UŽIVO',
     nToday: '{n} danas',
-    nNew: '{n} novih',
-    nActive: '{n} aktivnih',
+    nNew: 'novo: {n}',
+    nActive: 'aktivno: {n}',
     liveSession: 'Sesija uživo',
     liveSessionSub: 'Započnite i vodite uslugu',
     mySchedule: 'Moj raspored',
@@ -925,6 +975,13 @@ const sr: TranslationDict = {
     yesterday: 'Juče',
   },
   myServices: {
+    activeFew: '{count} aktivne usluge',
+    bookingsCountFew: '{count} rezervacije',
+    bookingsCountOne: '{count} rezervacija',
+    emptyTitle: 'Još nemate usluga',
+    emptyBody:
+      'Korisnici vas pronalaze i rezervišu preko vaših usluga. Dodajte uslugu sa cenom i radnim vremenom.',
+    emptyCta: 'Dodaj uslugu',
     notBookableWarning: 'Klijenti ovo još ne mogu da rezervišu — dodajte radno vreme.',
     editA11y: 'Izmeni {name}',
     deleteA11y: 'Obriši {name}',
@@ -942,7 +999,6 @@ const sr: TranslationDict = {
     delete: 'Obriši',
     deleteFailed: 'Brisanje usluge nije uspelo. Pokušajte ponovo.',
     noProvider: 'Za vaš nalog još nije pronađen profil pružaoca.',
-    noServices: 'Još nema usluga. Dodirnite „Dodaj novu“ da napravite prvu.',
     bookingsCount: '{count} rezervacija',
     pricingOptions: 'Opcije cena',
     additionalServices: 'Dodatne usluge',
@@ -982,6 +1038,8 @@ const sr: TranslationDict = {
     getStarted: 'Započnite',
   },
   promotions: {
+    usesFew: '{n} korišćenja',
+    usesOne: '{n} korišćenje',
     resumePromotion: 'Nastavi promociju',
     editNamed: 'Izmeni: {name}',
     title: 'Promocije',
@@ -1075,6 +1133,7 @@ const sr: TranslationDict = {
       'Još ne merimo preglede, rezervacije ni prihod od ponuda, pa ovde nema brojeva za prikaz. Pojaviće se na ovom ekranu čim praćenje bude aktivno.',
   },
   partnerWelcome: {
+    addFirstService: 'Dodajte prvu uslugu',
     // Text inside the illustrated tour scenes.
     sceneLive: 'UŽIVO',
     sceneKmAway: '{km} km od vas',
@@ -1122,6 +1181,10 @@ const sr: TranslationDict = {
       'Kada dođe vreme, pokrenite Sesiju uživo i pratite uslugu od početka do kraja — uključujući preuzimanje i dostavu.',
   },
   partnerApplication: {
+    noExpiry: 'Bez roka važenja',
+    expiresDate: 'Ističe',
+    fieldRequired: 'Ovo polje je obavezno',
+    fixHighlighted: 'Popunite označena polja.',
     businessName: 'Naziv firme',
     businessNamePlaceholder: 'npr. Srećne šape',
     businessNameHint:
@@ -1152,9 +1215,10 @@ const sr: TranslationDict = {
     zipCode: 'Poštanski broj',
     serviceInfo: 'Podaci o uslugama',
     whatServices: 'Koje usluge nudite?',
-    serviceTypesLabel: 'Vrsta usluge',
-    pickServiceType: 'Izaberite vrstu nege koju pružate',
-    serviceTypeRequired: 'Izaberite vrstu nege koju pružate.',
+    serviceTypesLabel: 'Vrste usluga',
+    pickServiceType:
+      'Izaberite sve vrste nege koje pružate. Svaka usluga koju kasnije dodate biće jedna od njih, sa svojom cenom.',
+    serviceTypeRequired: 'Izaberite bar jednu vrstu nege koju pružate.',
     yearsOfExperience: 'Godine iskustva',
     yearsPlaceholder: '5 godina',
     aboutMe: 'O meni',
@@ -1276,6 +1340,10 @@ const sr: TranslationDict = {
     specialNeedsWarning: 'Ima posebne potrebe — molimo za dodatnu pažnju',
   },
   addEditService: {
+    typeFromOffered: 'Prikazane su samo vrste koje nudite. Dodajte još u poslovnom profilu.',
+    firstServiceBody:
+      'Izaberite jednu od vrsta usluga koje nudite. Svaka vrsta ima svoju cenu, pa za svaku dodajte posebnu uslugu. Popunili smo radno vreme radnim danima (9:00–17:00): promenite ga na vreme kada zaista radite.',
+    firstServiceTitle: 'Vaša prva usluga',
     hoursRequiredTitle: 'Dodajte radno vreme',
     hoursRequiredMsg: 'Uključite bar jedan dan kako bi klijenti mogli da rezervišu ovu uslugu.',
     titleAdd: 'Dodaj novu uslugu',
@@ -1360,6 +1428,13 @@ const sr: TranslationDict = {
     selectDuration: 'Izaberite trajanje',
   },
   admin: {
+    govIdCount: 'Lični dokument ({n})',
+    certExpired: 'Istekao {date}',
+    certExpires: 'Ističe {date}',
+    certIssued: 'Izdat {date}',
+    yearsValueFew: '{n} god.',
+    yearsValueOne: '{n} god.',
+    nServicesFew: '{n} usluge',
     startingPrice: 'Početna cena',
     recentBookings: 'Nedavne rezervacije',
     noBookingsYet: 'Još nema rezervacija.',
@@ -1399,8 +1474,8 @@ const sr: TranslationDict = {
     addPartnerManually: 'Ručno dodajte partnera',
     reviews: 'Recenzije',
     moderateReviews: 'Moderirajte recenzije',
-    nNew: '{n} novih',
-    nActive: '{n} aktivnih',
+    nNew: 'novo: {n}',
+    nActive: 'aktivno: {n}',
     addPartnerTitle: 'Dodaj novog partnera',
     addPartnerSubtitle: 'Ručno unesite podatke partnera',
     partnerAddedTitle: 'Partner dodat',
@@ -1435,8 +1510,6 @@ const sr: TranslationDict = {
     certificationsColon: 'Sertifikati:',
     availabilityColon: 'Dostupnost:',
     documents: 'Dokumenti',
-    govIdFront: 'Lični dokument — prednja strana',
-    govIdBack: 'Lični dokument — zadnja strana',
     petPhotosCount: 'Fotografije sa ljubimcima ({n})',
     certificatesCount: 'Sertifikati ({n})',
     applicationReview: 'Pregled prijave',
@@ -1479,7 +1552,7 @@ const sr: TranslationDict = {
     statusBanned: 'Banovan',
     noPartnersFound: 'Nema pronađenih partnera',
     nServices: '{n} usluga',
-    nServicesOne: '1 usluga',
+    nServicesOne: '{n} usluga',
     joined: 'Pridružio se {date}',
     partnerDetails: 'Detalji partnera',
     partnerNotFound: 'Partner nije pronađen.',
@@ -1584,8 +1657,9 @@ const sr: TranslationDict = {
     name: 'Naziv koji korisnici vide',
     nameHint: 'Naziv vaše firme ili vaše ime.',
     nameRequired: 'Unesite naziv koji korisnici treba da vide.',
-    type: 'Vrsta usluge',
-    typeHint: 'Sve usluge koje nudite su ove vrste.',
+    type: 'Vrste usluga koje nudite',
+    typeHint:
+      'Svaka usluga koju dodate je jedna od ovih. Vrsta za koju još imate usluge ne može da se ukloni.',
     contactEmail: 'Poslovni imejl',
     contactEmailHint:
       'Ovde stižu imejlovi o rezervacijama i od PetBooker-a. Ostavite prazno da biste koristili imejl naloga.',
@@ -1621,6 +1695,18 @@ const sr: TranslationDict = {
     loadFailed: 'Podaci o pružaocu nisu učitani. Pokušajte ponovo.',
   },
   payments: {
+    keptByProvider: 'Zadržao partner',
+    statusPaidCash: 'Plaćeno gotovinom',
+    cashFailed: 'Uplata gotovinom nije evidentirana.',
+    cashRecorded: 'Uplata gotovinom je evidentirana.',
+    cashConfirm: 'Da, primljeno',
+    cashConfirmBody: 'Klijent dobija potvrdu i za ovu rezervaciju se više ništa ne duguje.',
+    cashConfirmTitle: 'Primili ste {amount} u gotovini?',
+    markCashPaid: 'Označi kao plaćeno gotovinom · {amount}',
+    cashNoteProvider: 'Plaća se gotovinom. Evidentirajte uplatu ovde kada je primite.',
+    cashNote: 'Plaćate {amount} gotovinom partneru na usluzi.',
+    awaitingDeposit: 'Čeka se depozit klijenta. Usluga može da počne kada bude plaćen.',
+    depositBeforeStart: 'Usluga ne može da počne dok se ne plati depozit.',
     deposit: 'Depozit',
     paid: 'Plaćeno',
     refunded: 'Vraćeno',
@@ -1688,7 +1774,7 @@ const sr: TranslationDict = {
       'Rezervacija je zahtev dok je partner ne potvrdi. Cena, eventualni depozit i dodatne usluge koje izaberete prikazuju se pre rezervacije i fiksiraju se na njoj. Partner može da promeni cenu samo pre potvrde, i o tome ćete biti obavešteni. Zahtev na koji partner ne odgovori do početka termina ističe.',
     termsS4Title: '4. Plaćanja i povraćaj novca',
     termsS4Body:
-      'Plaćanja idu preko PetBooker-ovog platnog provajdera. Depozit može dospeti kada partner potvrdi rezervaciju, a ostatak posle usluge. Možete besplatno otkazati do početka usluge, a sve što ste platili vraća se na karticu kojom ste platili. Ako partner otkaže, dobijate pun povraćaj novca.',
+      'Plaćanja idu preko PetBooker-ovog platnog provajdera, ili gotovinom partneru na usluzi. Depozit može dospeti kada partner potvrdi rezervaciju, a rezervacija plaćena karticom koja traži depozit ne može da počne dok on nije plaćen; ostatak se plaća posle usluge. Otkazivanje je besplatno dok ne platite depozit. Posle toga partner zadržava depozit ako otkažete ili se ne pojavite, a sve što ste platili preko toga vraća se na karticu kojom ste platili. Ako partner otkaže, dobijate pun povraćaj novca.',
     termsS5Title: '5. Partneri',
     termsS5Body:
       'Partneri su nezavisni profesionalci, a ne zaposleni u PetBooker-u. Partner mora da pruži tačne podatke, važeći lični dokument i sertifikate koje navodi, da ažurira radno vreme i da se prema svakom ljubimcu odnosi s pažnjom. PetBooker pregleda svaku prijavu i može da pauzira ili ukloni partnera koji krši ove uslove; partner dobija obrazloženje.',
@@ -1881,6 +1967,8 @@ const sr: TranslationDict = {
     declineFailed: 'Odbijanje zahteva nije uspelo.',
   },
   shared: {
+    yearsOfExperienceFew: '{n} god. iskustva',
+    yearsOfExperienceOne: '{n} god. iskustva',
     yearsOfExperience: '{n} god. iskustva',
     amountOff: '{amount} POPUSTA',
     selectCountry: 'Izaberite zemlju',
@@ -1962,6 +2050,7 @@ const sr: TranslationDict = {
       5: 'Nakon plaćanja',
       6: 'Odbijeno',
       7: 'Otkazano',
+      8: 'Nedolazak',
     },
     paymentType: {
       0: 'Gotovina',

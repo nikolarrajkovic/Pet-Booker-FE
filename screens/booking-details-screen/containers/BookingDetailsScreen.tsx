@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
-import { ScrollView, Text, View, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import {
+  ScrollView,
+  Text,
+  View,
+  Image,
+  ActivityIndicator,
+  TouchableOpacity,
+  Linking,
+} from 'react-native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
@@ -14,20 +22,25 @@ import {
   getBooking,
   bookingToViewModel,
   cancelBooking,
+  declineBooking,
+  markNoShow,
+  canMarkNoShow,
   BookingStatusType,
+  PaymentType,
   type BookingAdditionalServiceReadDto,
 } from '../../../services/bookings';
 import { useToast } from '../../../context/ToastContext';
 import { getErrorMessage } from '../../../services/http';
 import { formatMoney } from '../../../services/currency';
 import { resolveImageUrl } from '../../../services/service-providers';
-import { addressLabel } from '../../../services/geocoding';
+import { addressLabel, mapsSearchUrl } from '../../../services/geocoding';
 import { customerName } from '../../../services/users';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useAuth } from '../../../context/AuthContext';
 import BookingPaymentPanel from '../components/BookingPaymentPanel';
 import TwoColumn from '../../../components/shared/TwoColumn';
 import { useResponsive } from '../../../hooks/useResponsive';
+import { formatKm } from '../../../i18n/numbers';
 
 type RouteParams = { bookingId: number };
 
@@ -52,6 +65,7 @@ export default function BookingDetailsScreen() {
 
   const { showError, showSuccess } = useToast();
   const { currentUser } = useAuth();
+  const navigation = useNavigation();
 
   // Read through the shared cache rather than a private `useState` seeded once on mount. This
   // screen is pushed over the list and stays mounted while you go deeper (a live session, the
@@ -76,6 +90,9 @@ export default function BookingDetailsScreen() {
   const status = STATUS_STYLE[vm?.statusLabel ?? 'upcoming'] ?? STATUS_STYLE.upcoming;
   const pickup = dto?.pickupAddress;
   const dropoff = dto?.leaveOverAddress;
+  // Where the service happens (its own address, else the partner's). The page had no "where" at
+  // all unless a pickup or drop-off was booked (app review G8).
+  const serviceAddress = dto?.serviceAddress ?? null;
   // The booking's frozen bill lines. On READ these come back enriched (name / price / baseFee /
   // perKmFee / distanceKm); the id-only write shape has no `name`, so narrow to the read one
   // rather than rendering "undefined" for a booking that was just submitted.
@@ -83,11 +100,28 @@ export default function BookingDetailsScreen() {
     (line): line is BookingAdditionalServiceReadDto => 'name' in line
   );
   const reviewRating = dto?.review?.rating ?? null;
+  const isNoShow = dto?.currentStatus === BookingStatusType.CustomerNoShow;
   const isCompleted = vm?.statusLabel === 'completed';
   // The partner opens this screen too (accepting a group request lands here), and every action
   // on it is the customer's: a partner was offered "Cancel booking", which the API refuses them,
   // and "Leave a review" on their own work. The partner sees who the booking is for instead.
   const isCustomer = currentUser?.id != null && dto != null && currentUser.id === dto.userId;
+  const isProvider =
+    !!currentUser?.serviceProviderId &&
+    dto != null &&
+    currentUser.serviceProviderId === dto.serviceProviderId;
+  // Either side can open the booking's thread (the server decides whether it is still writable).
+  // A partner had no way at all to reach a customer; a customer only had the Upcoming card.
+  // Not for an admin reading someone else's booking, and not once it was called off.
+  const canMessage =
+    (isCustomer || isProvider) && vm != null && vm.statusLabel !== 'cancelled' && !dto?.isExpired;
+  const openChat = () => {
+    if (!dto) return;
+    (navigation as any).navigate('Chat', {
+      bookingId: dto.id ?? bookingId,
+      subtitle: vm?.serviceName,
+    });
+  };
 
   // The owner may call off a booking any time before the provider starts the service — the same
   // window CancelBookingCommand allows server-side. Once it is ServiceStarted or later the API
@@ -104,6 +138,48 @@ export default function BookingDetailsScreen() {
     !dto.isExpired &&
     CANCELLABLE_STATUSES.includes(dto.currentStatus ?? -1);
   const [isCancelPromptOpen, setIsCancelPromptOpen] = useState(false);
+  // Paid the deposit, so cancelling now keeps it (G5): said in the prompt, before they confirm.
+  const cancelKeepsDeposit =
+    dto != null &&
+    dto.currentStatus === BookingStatusType.PrePayment &&
+    dto.paymentType !== PaymentType.Cash &&
+    (dto.depositAmount ?? 0) > 0;
+
+  // The partner's own ways out of a booking they accepted (G4, G6): call it off before it starts,
+  // the customer refunded in full; or, once it was due, record that the customer never came.
+  const canCallOff =
+    isProvider &&
+    dto != null &&
+    !dto.isExpired &&
+    (dto.currentStatus === BookingStatusType.ServiceConfirmedByProvider ||
+      dto.currentStatus === BookingStatusType.PrePayment);
+  const canRecordNoShow = isProvider && dto != null && canMarkNoShow(dto);
+  const [providerPrompt, setProviderPrompt] = useState<'callOff' | 'noShow' | null>(null);
+  const [isProviderActing, setIsProviderActing] = useState(false);
+  const confirmProviderAction = async (reason: string) => {
+    if (!dto?.id || !providerPrompt) return;
+    const action = providerPrompt;
+    setIsProviderActing(true);
+    try {
+      if (action === 'callOff') await declineBooking(dto.id, reason);
+      else await markNoShow(dto.id, reason);
+      setProviderPrompt(null);
+      // Re-read rather than take the transition's response: it carries no pet, user or service.
+      refresh();
+      showSuccess(
+        t(action === 'callOff' ? 'bookingDetails.callOffSuccess' : 'bookingDetails.noShowSuccess')
+      );
+    } catch (e) {
+      showError(
+        getErrorMessage(
+          e,
+          t(action === 'callOff' ? 'bookingDetails.callOffFailed' : 'bookingDetails.noShowFailed')
+        )
+      );
+    } finally {
+      setIsProviderActing(false);
+    }
+  };
 
   // Asks why first: the reason is stored on the booking and shown to the provider. The app used to
   // send a fixed English sentence, so a provider never learned why a booking was called off.
@@ -177,17 +253,38 @@ export default function BookingDetailsScreen() {
             <Text className={`text-sm ${subtextColor} mt-0.5`}>{vm.providerName}</Text>
             <View className={`mt-2 self-start rounded-full px-2.5 py-1 ${status.bg}`}>
               <Text className={`text-xs font-semibold ${status.text}`}>
-                {tEnum('bookingState', status.state)}
+                {isNoShow ? t('bookingDetails.noShowBadge') : tEnum('bookingState', status.state)}
               </Text>
             </View>
           </View>
         </View>
 
+        {isNoShow ? (
+          <View className={`mt-4 ${gutter.px}`}>
+            <View
+              className={`flex-row items-center rounded-xl px-4 py-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
+              <Ionicons
+                name="person-remove-outline"
+                size={18}
+                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+              />
+              <Text
+                className={`ml-2 flex-1 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                {isCustomer
+                  ? t('bookingDetails.noShowNotice')
+                  : t('bookingDetails.noShowNoticeProvider')}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         {dto.isExpired ? (
           <View className={`mt-4 ${gutter.px}`}>
-            <View className="flex-row items-center rounded-xl bg-gray-100 px-4 py-3">
-              <Ionicons name="time-outline" size={18} color="#6B7280" />
-              <Text className="ml-2 flex-1 text-sm text-gray-700">
+            <View
+              className={`flex-row items-center rounded-xl px-4 py-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
+              <Ionicons name="time-outline" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+              <Text
+                className={`ml-2 flex-1 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 {t('bookingDetails.expiredNotice')}
               </Text>
             </View>
@@ -235,6 +332,18 @@ export default function BookingDetailsScreen() {
               value={customerName(dto.user, '—')}
             />
           )}
+          {canMessage ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={openChat}
+              activeOpacity={0.85}
+              className="mt-4 flex-row items-center justify-center rounded-2xl border-2 border-brand-500 py-3">
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color={BRAND_GREEN} />
+              <Text className="ml-2 text-base font-semibold text-brand-600">
+                {isCustomer ? t('messages.messageProvider') : t('messages.messageCustomer')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           {/* Why it was called off, as the person who did it wrote it. */}
           {vm.statusLabel === 'cancelled' && dto.cancelReason ? (
             <Row
@@ -250,11 +359,29 @@ export default function BookingDetailsScreen() {
     dto && vm ? (
       <>
         {/* Location */}
-        {(pickup || dropoff) && (
+        {(serviceAddress || pickup || dropoff) && (
           <View className={`mt-6 ${gutter.px}`}>
             <Text className={`text-base font-bold ${textColor} mb-1`}>
               {t('bookingDetails.location')}
             </Text>
+            {serviceAddress ? (
+              <>
+                <Row
+                  icon="location-outline"
+                  label={t('bookingDetails.where')}
+                  value={addressLabel(serviceAddress)}
+                />
+                <TouchableOpacity
+                  accessibilityRole="link"
+                  onPress={() => Linking.openURL(mapsSearchUrl(serviceAddress)).catch(() => {})}
+                  className="flex-row items-center self-end py-2">
+                  <Ionicons name="map-outline" size={16} color={BRAND_GREEN} />
+                  <Text className="ml-1.5 text-sm font-semibold text-brand-600">
+                    {t('bookingDetails.openInMaps')}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
             {pickup ? (
               <Row
                 icon="car-outline"
@@ -333,7 +460,7 @@ export default function BookingDetailsScreen() {
                       <View className="flex-row justify-between">
                         <Text className={`text-xs ${subtextColor} flex-1 pr-2`}>
                           {t('reviewBooking.addonDistance', {
-                            km: line.distanceKm.toFixed(2),
+                            km: formatKm(line.distanceKm, 2),
                             rate: formatMoney(line.perKmFee ?? 0, dto.priceCurrency),
                           })}
                         </Text>
@@ -360,7 +487,9 @@ export default function BookingDetailsScreen() {
             bookingId={dto.id ?? bookingId}
             currentStatus={dto.currentStatus ?? -1}
             isExpired={!!dto.isExpired}
+            paymentType={dto.paymentType}
             isCustomer={isCustomer}
+            isProvider={isProvider}
             userId={dto.userId}
             onPaid={refresh}
           />
@@ -439,6 +568,38 @@ export default function BookingDetailsScreen() {
             </TouchableOpacity>
           </View>
         ) : null}
+
+        {/* The partner's: record a no-show once it was due, or call off what they accepted. */}
+        {canRecordNoShow || canCallOff ? (
+          <View className={`mt-6 ${gutter.px}`} style={{ gap: 10 }}>
+            {canRecordNoShow ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                disabled={isProviderActing}
+                onPress={() => setProviderPrompt('noShow')}
+                activeOpacity={0.85}
+                className="flex-row items-center justify-center rounded-2xl border-2 border-amber-500 py-4">
+                <Ionicons name="person-remove-outline" size={18} color="#F59E0B" />
+                <Text className="ml-2 text-base font-bold text-amber-600">
+                  {t('bookingDetails.noShow')}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+            {canCallOff ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                disabled={isProviderActing}
+                onPress={() => setProviderPrompt('callOff')}
+                activeOpacity={0.85}
+                className="flex-row items-center justify-center rounded-2xl border-2 border-red-500 py-4">
+                <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
+                <Text className="ml-2 text-base font-bold text-red-500">
+                  {t('bookingDetails.cancelBooking')}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
       </>
     ) : null;
 
@@ -507,13 +668,50 @@ export default function BookingDetailsScreen() {
       <ReasonPromptModal
         visible={isCancelPromptOpen}
         title={t('bookingDetails.cancelReasonTitle')}
-        subtitle={t('bookingDetails.cancelReasonSubtitle')}
+        subtitle={
+          cancelKeepsDeposit && dto
+            ? `${t('bookingDetails.cancelReasonSubtitle')}\n\n${t(
+                'bookingDetails.cancelKeepsDeposit',
+                {
+                  amount: formatMoney(dto.depositAmount ?? 0, dto.priceCurrency),
+                }
+              )}`
+            : t('bookingDetails.cancelReasonSubtitle')
+        }
         placeholder={t('bookingDetails.cancelReasonPlaceholder')}
         tooShortMessage={t('bookingDetails.cancelReasonTooShort')}
         confirmLabel={t('bookingDetails.cancelConfirm')}
         submitting={isCancelling}
         onClose={() => setIsCancelPromptOpen(false)}
         onConfirm={confirmCancel}
+      />
+
+      <ReasonPromptModal
+        visible={providerPrompt !== null}
+        title={
+          providerPrompt === 'noShow'
+            ? t('bookingDetails.noShowTitle')
+            : t('bookingDetails.callOffTitle')
+        }
+        subtitle={
+          providerPrompt === 'noShow'
+            ? t('bookingDetails.noShowSubtitle')
+            : t('bookingDetails.callOffSubtitle')
+        }
+        placeholder={
+          providerPrompt === 'noShow'
+            ? t('bookingDetails.noShowPlaceholder')
+            : t('bookingDetails.callOffPlaceholder')
+        }
+        tooShortMessage={t('bookingDetails.cancelReasonTooShort')}
+        confirmLabel={
+          providerPrompt === 'noShow'
+            ? t('bookingDetails.noShowConfirm')
+            : t('bookingDetails.cancelBooking')
+        }
+        submitting={isProviderActing}
+        onClose={() => setProviderPrompt(null)}
+        onConfirm={confirmProviderAction}
       />
 
       <ReviewModal

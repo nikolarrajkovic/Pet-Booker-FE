@@ -10,6 +10,10 @@ import {
 } from '../i18n/dates';
 import { bookingToViewModel } from '../services/bookings';
 import { formatMoney } from '../services/currency';
+import { formatDateOnly, parseDateOnly } from '../services/date-only';
+import { certificateDates } from '../services/certificate-dates';
+import { translate } from '../i18n';
+import { formatKm } from '../i18n/numbers';
 
 // Dates follow the APP's language, not the device's: a Serbian session on an English-locale
 // phone used to read "Oct 3, 2026" and "Sat, Oct 3" beside Serbian labels.
@@ -74,5 +78,45 @@ describe('number formatting', () => {
     expect(formatMoney(1250000, 'RSD')).toBe('1.250.000 RSD');
     expect(formatMoney(12.5, 'EUR')).toBe('12,50 €');
     expect(formatMoney(30, 'EUR')).toBe('30 €');
+  });
+
+  // Trip legs and ETAs went out through toFixed(): "1.15 км" beside Russian text.
+  it("writes distances with the reader's decimal mark", () => {
+    expect(formatKm(1.149, 2)).toBe('1.15');
+    registerDateLanguage('sr');
+    expect(formatKm(1.149, 2)).toBe('1,15');
+    expect(formatKm(5, 1)).toBe('5,0');
+  });
+});
+
+// A picked calendar date goes to the API as the local "YYYY-MM-DD". Sign-up used toISOString(),
+// which is the previous day in UTC for anyone east of Greenwich: a birthday picked in Belgrade
+// (local midnight = 22:00 or 23:00 UTC the day before) was stored a day early.
+describe('formatDateOnly', () => {
+  it('keeps the local calendar day, where toISOString would roll back east of UTC', () => {
+    const picked = new Date(1995, 5, 16); // local midnight, 16 June 1995
+    expect(formatDateOnly(picked)).toBe('1995-06-16');
+    expect(formatDateOnly(new Date(2026, 0, 1, 0, 30))).toBe('2026-01-01');
+  });
+});
+
+// A certificate's dates in the admin view (app review G12): the expiry is optional, and one already
+// past reads "Expired".
+describe('certificate dates', () => {
+  const t = (key: string, params?: Record<string, string | number>) =>
+    translate('en', key as any, params);
+  const today = new Date(2026, 9, 15);
+
+  it('reads a date-only string as that local day', () => {
+    expect(parseDateOnly('2026-10-15')?.getDate()).toBe(15);
+    expect(parseDateOnly('')).toBeNull();
+  });
+
+  it('says issued and expires, or nothing', () => {
+    expect(certificateDates(t, { issuedOn: '2024-10-03', expiresOn: '2027-10-03' }, today)).toBe(
+      'Issued Oct 3, 2024 · Expires Oct 3, 2027'
+    );
+    expect(certificateDates(t, { expiresOn: '2026-01-01' }, today)).toBe('Expired Jan 1, 2026');
+    expect(certificateDates(t, {}, today)).toBe('');
   });
 });

@@ -15,6 +15,7 @@ import { LEGAL_VERSION } from '../../../services/legal';
 import { ApiError } from '../../../services/http';
 import AuthLayout from '../../../components/layout/AuthLayout';
 import { formatBirthDate } from '../../../i18n/dates';
+import { formatDateOnly } from '../../../services/date-only';
 
 type RootStackParamList = {
   Login: undefined;
@@ -177,7 +178,7 @@ export default function RegisterScreen() {
         lastName: lastName.trim(),
         userName: username.trim(),
         phone: phone.trim(),
-        dateOfBirth: dateOfBirth!.toISOString(),
+        dateOfBirth: formatDateOnly(dateOfBirth!),
       });
       navigation.navigate('VerifyEmail', { email: email.trim() });
     } catch (error) {

@@ -21,6 +21,7 @@ import { AdditionalServiceChargeType } from '../../../services/service-addons';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import { showAlert } from '../../../services/alert';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import IllustratedEmptyState from '../../../components/shared/IllustratedEmptyState';
 
 // Extras are provider-named free text now, so there's no fixed name→icon table to key off.
 // A per-distance extra is a trip, everything else is a generic service.
@@ -35,7 +36,7 @@ export default function MyServicesScreen() {
   const { currentUser } = useAuth();
   const { isDarkMode, hex } = useThemeColors();
   const { showError } = useToast();
-  const { t } = useLocale();
+  const { t, tPlural } = useLocale();
   // The partner's own provider id comes straight from /auth/me (0 → none).
   const providerId = currentUser?.serviceProviderId || null;
   const [services, setServices] = useState<ServiceDto[]>([]);
@@ -140,9 +141,11 @@ export default function MyServicesScreen() {
 
   const subtitle = isLoading
     ? t('myServices.loading')
-    : services.length === 1
-      ? t('myServices.activeOne', { count: services.length })
-      : t('myServices.activeMany', { count: services.length });
+    : tPlural(services.length, {
+        one: 'myServices.activeOne',
+        few: 'myServices.activeFew',
+        many: 'myServices.activeMany',
+      });
 
   return (
     <ScreenLayout
@@ -182,12 +185,20 @@ export default function MyServicesScreen() {
               </Text>
             </View>
           ) : services.length === 0 ? (
-            <View style={{ alignItems: 'center', paddingVertical: 48 }}>
-              <Ionicons name="paw-outline" size={56} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
-              <Text style={{ color: hex.subtext, textAlign: 'center', marginTop: 12 }}>
-                {t('myServices.noServices')}
-              </Text>
-            </View>
+            // A new partner's first stop: an invitation with the one button that matters, as My
+            // Pets has. It was a grey line on the pattern pointing at a header button.
+            <IllustratedEmptyState
+              image={require('../../../assets/empty-pets.png')}
+              title={t('myServices.emptyTitle')}
+              body={t('myServices.emptyBody')}
+              actionLabel={t('myServices.emptyCta')}
+              onAction={() =>
+                (navigation as any).navigate('AddEditService', {
+                  mode: 'add',
+                  serviceProviderId: providerId,
+                })
+              }
+            />
           ) : (
             // These cards have no bottom margin of their own — the wrapping View's `gap` supplies
             // the spacing — so the grid owns both axes here, unlike the moderation lists.
@@ -232,7 +243,7 @@ function ServiceListCard({
   onDelete: () => void;
 }) {
   const { cardBg, textColor, subtextColor, inputBg: pricingBg } = themeColors(isDarkMode);
-  const { t, tEnum } = useLocale();
+  const { t, tPlural, tEnum } = useLocale();
 
   const enabledAdditional = service.additionalServices.filter((s) => s.enabled);
   // `service.type` is the English enum label (a form data key) — localize display only.
@@ -328,7 +339,11 @@ function ServiceListCard({
           <Text className={`text-sm ${subtextColor} ml-0.5`}>({service.reviews})</Text>
           <View className="mx-2 h-1 w-1 rounded-full bg-gray-400" />
           <Text className={`text-sm ${subtextColor}`}>
-            {t('myServices.bookingsCount', { count: service.bookings })}
+            {tPlural(service.bookings, {
+              one: 'myServices.bookingsCountOne',
+              few: 'myServices.bookingsCountFew',
+              many: 'myServices.bookingsCount',
+            })}
           </Text>
         </View>
 

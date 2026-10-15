@@ -10,11 +10,14 @@ import TopBar from './TopBar';
 type AppShellProps = {
   children: ReactNode;
   /**
-   * Whether to draw the shell at all. The auth screens (Login/Register/…) are full-page and have
-   * no navigation to offer, so they render bare on every width.
+   * Whether someone is signed in. A guest browsing (app review G7) gets the shell too, with the
+   * guest navigation; the sign-in screens themselves stay full-page and bare.
    */
-  enabled: boolean;
+  signedIn: boolean;
 };
+
+/** The sign-in screens: full-page, no navigation around them. */
+const AUTH_ROUTES = new Set(['Login', 'Register', 'VerifyEmail', 'ForgotPassword', 'AcceptInvite']);
 
 /**
  * Routes that take the whole window on the web design, chrome included.
@@ -53,14 +56,17 @@ const FULL_BLEED_ROUTES = new Set(['PartnerWelcome']);
  * is no navigator above them — which is why both go through the container ref
  * (`navigation/navigateToNavItem.ts`).
  */
-export default function AppShell({ children, enabled }: AppShellProps) {
+export default function AppShell({ children, signedIn }: AppShellProps) {
   const { isWebLayout } = useResponsive();
   const { hex } = useThemeColors();
   // Subscribed to unconditionally: hooks cannot be called behind a branch, and the listener is a
   // single subscription on a ref the app already keeps.
   const activeRoute = useCurrentRouteName();
 
-  if (!enabled || !isWebLayout) return <>{children}</>;
+  if (!isWebLayout) return <>{children}</>;
+  // Signed out, bare until the route is known (a cold start on /login must not flash the shell)
+  // and on the sign-in screens themselves.
+  if (!signedIn && (!activeRoute || AUTH_ROUTES.has(activeRoute))) return <>{children}</>;
   // Same bare render as a signed-out screen: the route on screen wants the whole window.
   if (activeRoute && FULL_BLEED_ROUTES.has(activeRoute)) return <>{children}</>;
 

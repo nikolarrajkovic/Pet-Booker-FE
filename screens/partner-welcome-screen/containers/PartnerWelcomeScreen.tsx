@@ -23,6 +23,7 @@ import ServicesScene from '../components/scenes/ServicesScene';
 import PromotionsScene from '../components/scenes/PromotionsScene';
 import LiveSessionScene from '../components/scenes/LiveSessionScene';
 import { useResponsive } from '../../../hooks/useResponsive';
+import { getServiceProvider } from '../../../services/service-providers';
 
 const GREEN = '#22C55E';
 
@@ -169,7 +170,7 @@ function PulsingRing({ size }: { size: number }) {
  */
 export default function PartnerWelcomeScreen() {
   const { isWebLayout } = useResponsive();
-  const { resetToTab } = useAppNavigation();
+  const { resetToTab, resetToScreen } = useAppNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocale();
   const insets = useSafeAreaInsets();
@@ -181,6 +182,32 @@ export default function PartnerWelcomeScreen() {
 
   const firstName = currentUser?.firstName?.trim() || t('partnerHub.partner');
   const goToHub = () => resetToTab('PartnerHub');
+
+  // A partner with no services yet ends the tour on adding the first one, with Partner Hub behind
+  // it for Back (app review G13). Once they have one, the tour ends on the hub as before.
+  const providerId = currentUser?.serviceProviderId || null;
+  const [hasNoServices, setHasNoServices] = useState(false);
+  useEffect(() => {
+    let live = true;
+    if (!providerId) return;
+    getServiceProvider(providerId)
+      .then((sp) => live && setHasNoServices(sp.serviceCount === 0))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [providerId]);
+  const finish = () =>
+    hasNoServices && providerId
+      ? resetToScreen(
+          'AddEditService',
+          { mode: 'add', serviceProviderId: providerId },
+          'PartnerHub'
+        )
+      : goToHub();
+  const finishLabel = hasNoServices
+    ? t('partnerWelcome.addFirstService')
+    : t('partnerWelcome.exploreHub');
 
   useEffect(() => {
     hapticSuccess();
@@ -209,7 +236,7 @@ export default function PartnerWelcomeScreen() {
   const isHero = index === 0;
   const isLast = index === TOTAL - 1;
   const slide = isHero ? null : SLIDES[index - 1];
-  const next = () => (isLast ? goToHub() : goTo(index + 1));
+  const next = () => (isLast ? finish() : goTo(index + 1));
 
   const renderDots = () => (
     <View
@@ -360,9 +387,7 @@ export default function PartnerWelcomeScreen() {
                   onPress={next}
                   activeOpacity={0.85}
                   accessibilityRole="button"
-                  accessibilityLabel={
-                    isLast ? t('partnerWelcome.exploreHub') : t('partnerWelcome.nextStep')
-                  }
+                  accessibilityLabel={isLast ? finishLabel : t('partnerWelcome.nextStep')}
                   style={{
                     flex: 1,
                     backgroundColor: GREEN,
@@ -374,7 +399,7 @@ export default function PartnerWelcomeScreen() {
                     gap: 8,
                   }}>
                   <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
-                    {isLast ? t('partnerWelcome.exploreHub') : t('partnerWelcome.next')}
+                    {isLast ? finishLabel : t('partnerWelcome.next')}
                   </Text>
                   <Ionicons name="chevron-forward" size={18} color="#fff" />
                 </TouchableOpacity>

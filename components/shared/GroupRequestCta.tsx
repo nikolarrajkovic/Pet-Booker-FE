@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import type { CreateGroupRequestParams } from '../../screens/group-requests-screen/containers/CreateGroupRequestScreen';
+import { useRequireSignIn } from '../../hooks/useRequireSignIn';
 
 type Props = {
   /** `bar` — a slim row above search results. `banner` — a card on Home. */
@@ -23,7 +24,9 @@ export default function GroupRequestCta({ variant = 'bar', params }: Props) {
   const navigation = useNavigation<any>();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
-  const open = () => navigation.navigate('CreateGroupRequest', params);
+  // A guest is asked to sign in first and comes back to the page they were on (app review G7).
+  const requireSignIn = useRequireSignIn();
+  const open = () => requireSignIn(() => navigation.navigate('CreateGroupRequest', params));
 
   if (variant === 'banner') {
     return (

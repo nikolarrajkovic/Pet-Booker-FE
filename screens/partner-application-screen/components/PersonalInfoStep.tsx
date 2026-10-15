@@ -6,6 +6,7 @@ import { useFormChain } from '../../../hooks/useFormChain';
 import { useLocale } from '../../../context/LocaleContext';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
+import type { ApplicationErrors, ApplicationField } from '../applicationValidation';
 interface FormData {
   fullName: string;
   /** Optional: the name customers see. Empty means the partner is listed under their own name. */
@@ -16,8 +17,8 @@ interface FormData {
   streetAddress: string;
   city: string;
   zipCode: string;
-  /** ServiceProviderType value — picked in step 2, declared here so the shared form shape matches. */
-  serviceType: number | null;
+  /** ServiceProviderType values — picked in step 2, declared here so the shared form shape matches. */
+  serviceTypes: number[];
   yearsOfExperience: string;
   aboutYou: string;
   motivation: string;
@@ -45,6 +46,8 @@ interface PersonalInfoStepProps {
    * someone through the whole application without reaching for the Continue button.
    */
   onContinue?: () => void;
+  /** What Continue found missing: those fields get a red outline and the reason under them. */
+  errors?: ApplicationErrors;
   isDarkMode: boolean;
   textColor: string;
   subtextColor: string;
@@ -63,6 +66,7 @@ export default function PersonalInfoStep({
   accountAddressLabel,
   businessNameError,
   onContinue,
+  errors,
   isDarkMode,
   textColor,
   subtextColor,
@@ -73,6 +77,11 @@ export default function PersonalInfoStep({
   cardBg,
 }: PersonalInfoStepProps) {
   const { t } = useLocale();
+  const border = (field: ApplicationField) => (errors?.[field] ? 'border-red-500' : borderColor);
+  const fieldError = (field: ApplicationField) =>
+    errors?.[field] ? (
+      <Text className="mt-1 text-xs text-red-500">{t(errors[field] as any)}</Text>
+    ) : null;
   // Without an account address to fall back on, the business address is what places the partner.
   const addressRequired = !accountAddressLabel;
   const requiredMark = addressRequired ? <Text className="text-red-500">*</Text> : null;
@@ -112,7 +121,7 @@ export default function PersonalInfoStep({
           {t('partnerApplication.fullName')} <Text className="text-red-500">*</Text>
         </Text>
         <View
-          className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
+          className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${border('fullName')}`}>
           <Ionicons
             name="person-outline"
             size={20}
@@ -128,6 +137,7 @@ export default function PersonalInfoStep({
             onChangeText={(text) => setFormData({ ...formData, fullName: text })}
           />
         </View>
+        {fieldError('fullName')}
       </View>
 
       {/* Business name — optional; what customers see. Without it the partner is listed under
@@ -167,7 +177,7 @@ export default function PersonalInfoStep({
           {t('partnerApplication.emailAddress')} <Text className="text-red-500">*</Text>
         </Text>
         <View
-          className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
+          className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${border('email')}`}>
           <Ionicons
             name="mail-outline"
             size={20}
@@ -185,6 +195,7 @@ export default function PersonalInfoStep({
             onChangeText={(text) => setFormData({ ...formData, email: text })}
           />
         </View>
+        {fieldError('email')}
       </View>
 
       {/* Phone Number */}
@@ -201,10 +212,11 @@ export default function PersonalInfoStep({
           subtextColor={subtextColor}
           inputBg={inputBg}
           inputText={inputText}
-          borderColor={borderColor}
+          borderColor={border('phone')}
           placeholderColor={placeholderColor}
           cardBg={cardBg}
         />
+        {fieldError('phone')}
       </View>
 
       {/* Street Address — always TYPEABLE, with the map as a shortcut beside it.
@@ -218,7 +230,7 @@ export default function PersonalInfoStep({
           {t('partnerApplication.streetAddress')} {requiredMark}
         </Text>
         <View
-          className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
+          className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-3 ${border('streetAddress')}`}>
           <Ionicons
             name="location-outline"
             size={20}
@@ -244,6 +256,7 @@ export default function PersonalInfoStep({
             </TouchableOpacity>
           ) : null}
         </View>
+        {fieldError('streetAddress')}
         {onOpenAddressMap && (
           <Text className={`text-xs ${subtextColor} mt-1`}>{t('partnerApplication.mapHint')}</Text>
         )}
@@ -259,7 +272,7 @@ export default function PersonalInfoStep({
         <Text className={`text-sm font-semibold ${textColor} mb-2`}>
           {t('partnerApplication.city')} {requiredMark}
         </Text>
-        <View className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
+        <View className={`${inputBg} rounded-xl border px-4 py-3 ${border('city')}`}>
           <TextInput
             className={inputText}
             placeholder={t('partnerApplication.cityPlaceholder')}
@@ -269,6 +282,7 @@ export default function PersonalInfoStep({
             onChangeText={(text) => setFormData({ ...formData, city: text })}
           />
         </View>
+        {fieldError('city')}
       </View>
 
       {/* ZIP Code */}
@@ -276,7 +290,7 @@ export default function PersonalInfoStep({
         <Text className={`text-sm font-semibold ${textColor} mb-2`}>
           {t('partnerApplication.zipCode')} {requiredMark}
         </Text>
-        <View className={`${inputBg} rounded-xl border px-4 py-3 ${borderColor}`}>
+        <View className={`${inputBg} rounded-xl border px-4 py-3 ${border('zipCode')}`}>
           <TextInput
             className={inputText}
             placeholder="11000"
@@ -288,6 +302,7 @@ export default function PersonalInfoStep({
             onChangeText={(text) => setFormData({ ...formData, zipCode: text })}
           />
         </View>
+        {fieldError('zipCode')}
       </View>
     </View>
   );

@@ -57,7 +57,8 @@ export default function TimeSlotPicker({
               onPress={() => slot.available && onSelectSlot(slot)}
               disabled={!slot.available}
               // Uniform width (3 per row) so columns stay aligned regardless of label length
-              style={{ flexBasis: '30%', flexGrow: 1 }}
+              // Fixed columns: growing let a short last row stretch two slots across three columns.
+              style={{ flexBasis: '31%', flexGrow: 0 }}
               className={`items-center rounded-xl py-3 ${
                 selectedSlotId === slot.id
                   ? 'bg-brand-500'

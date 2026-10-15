@@ -74,7 +74,7 @@ export default function TopBar() {
     placeholderColor,
     hex,
   } = useThemeColors();
-  const { currentUser, signOut, isProviderProfile } = useAuth();
+  const { currentUser, signOut, isProviderProfile, isLoggedIn } = useAuth();
   const { t } = useLocale();
   const { unreadCount } = useNotifications();
   const { unreadCount: unreadMessages } = useMessages();
@@ -173,55 +173,83 @@ export default function TopBar() {
         />
       </View>
 
-      <View className="flex-row items-center gap-1">
-        <IconAction
-          icon="chatbubbles-outline"
-          label={t('messages.title')}
-          badge={unreadMessages}
-          onPress={() => go('Messages')}
-        />
-        <IconAction
-          icon="notifications-outline"
-          label={t('profile.notifications')}
-          badge={unreadCount}
-          onPress={() => go('Notifications')}
-        />
+      {!isLoggedIn ? (
+        // A guest browsing (app review G7): one way in, where the account controls would be.
+        <View className="flex-row items-center gap-2">
+          <Pressable
+            onPress={() => navigateFromOutside('Register')}
+            accessibilityRole="button"
+            accessibilityLabel={t('login.signUp')}
+            style={{ paddingHorizontal: 12, paddingVertical: 8, cursor: 'pointer' } as any}>
+            <Text className="text-sm font-semibold text-brand-600">{t('login.signUp')}</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => navigateFromOutside('Login')}
+            accessibilityRole="button"
+            accessibilityLabel={t('login.signIn')}
+            style={
+              {
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 999,
+                backgroundColor: BRAND_GREEN,
+                cursor: 'pointer',
+              } as any
+            }>
+            <Text className="text-sm font-bold text-white">{t('login.signIn')}</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View className="flex-row items-center gap-1">
+          <IconAction
+            icon="chatbubbles-outline"
+            label={t('messages.title')}
+            badge={unreadMessages}
+            onPress={() => go('Messages')}
+          />
+          <IconAction
+            icon="notifications-outline"
+            label={t('profile.notifications')}
+            badge={unreadCount}
+            onPress={() => go('Notifications')}
+          />
 
-        <Pressable
-          onPress={() => setMenuOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel={t('nav.account')}
-          accessibilityState={{ expanded: menuOpen }}
-          style={({ hovered }: any) => ({
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginLeft: 8,
-            paddingLeft: 4,
-            paddingRight: 10,
-            paddingVertical: 4,
-            borderRadius: 999,
-            backgroundColor: hovered
-              ? isDarkMode
-                ? 'rgba(255,255,255,0.06)'
-                : '#F3F4F6'
-              : 'transparent',
-            cursor: 'pointer',
-          })}>
-          <View
-            className="items-center justify-center rounded-full"
-            style={{ width: 32, height: 32, backgroundColor: BRAND_GREEN }}>
-            <Text className="text-xs font-bold text-white">{initials}</Text>
-          </View>
-          {!!displayName && (
-            <Text
-              numberOfLines={1}
-              className={`ml-2 max-w-[140px] text-sm font-medium ${textColor}`}>
-              {displayName}
-            </Text>
-          )}
-          <Ionicons name="chevron-down" size={14} color={hex.subtext} style={{ marginLeft: 4 }} />
-        </Pressable>
-      </View>
+          <Pressable
+            onPress={() => setMenuOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={t('nav.account')}
+            accessibilityState={{ expanded: menuOpen }}
+            style={({ hovered }: any) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginLeft: 8,
+              paddingLeft: 4,
+              paddingRight: 10,
+              paddingVertical: 4,
+              borderRadius: 999,
+              backgroundColor: hovered
+                ? isDarkMode
+                  ? 'rgba(255,255,255,0.06)'
+                  : '#F3F4F6'
+                : 'transparent',
+              cursor: 'pointer',
+            })}>
+            <View
+              className="items-center justify-center rounded-full"
+              style={{ width: 32, height: 32, backgroundColor: BRAND_GREEN }}>
+              <Text className="text-xs font-bold text-white">{initials}</Text>
+            </View>
+            {!!displayName && (
+              <Text
+                numberOfLines={1}
+                className={`ml-2 max-w-[140px] text-sm font-medium ${textColor}`}>
+                {displayName}
+              </Text>
+            )}
+            <Ionicons name="chevron-down" size={14} color={hex.subtext} style={{ marginLeft: 4 }} />
+          </Pressable>
+        </View>
+      )}
 
       {/* A Modal rather than an absolutely-positioned View: the bar is inside the shell's layout,
           so a plain dropdown would be clipped by the content region's overflow. The transparent

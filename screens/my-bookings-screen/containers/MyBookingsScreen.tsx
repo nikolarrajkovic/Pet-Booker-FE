@@ -45,7 +45,7 @@ export default function MyBookingsScreen() {
   const navigation = useNavigation();
   const { currentUser } = useAuth();
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
-  const { t } = useLocale();
+  const { t, tPlural } = useLocale();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const userId = currentUser?.id;
 
@@ -81,11 +81,25 @@ export default function MyBookingsScreen() {
       error={error}
       isEmpty={visible.length === 0}
       emptyIcon="calendar-outline"
-      emptyMessage={activeTab === 'upcoming' ? t('myBookings.noUpcoming') : t('myBookings.noPast')}>
+      emptyMessage={activeTab === 'upcoming' ? t('myBookings.noUpcoming') : t('myBookings.noPast')}
+      // An empty Upcoming tab is where a new account starts: say what fills it and open Search.
+      emptyHint={activeTab === 'upcoming' ? t('myBookings.noUpcomingHint') : undefined}
+      emptyAction={
+        activeTab === 'upcoming'
+          ? {
+              label: t('myBookings.findService'),
+              onPress: () => (navigation as any).navigate('MainTabs', { screen: 'Search' }),
+            }
+          : undefined
+      }>
       <>
         {activeTab === 'past' && (
           <Text className={`text-sm ${subtextColor} mb-3`}>
-            {t('myBookings.bookingsCount', { count: past.totalItems })}
+            {tPlural(past.totalItems, {
+              one: 'myBookings.bookingsCountOne',
+              few: 'myBookings.bookingsCountFew',
+              many: 'myBookings.bookingsCount',
+            })}
           </Text>
         )}
         {/*

@@ -17,6 +17,19 @@ export function addressLabel(a: AddressDto): string {
 }
 
 /**
+ * A Google Maps link that shows an address: by its stored coordinates when it has them, else by
+ * the address text. Opens the maps app on a phone and the site on the web.
+ */
+export function mapsSearchUrl(a: AddressDto): string {
+  const point = a.location;
+  const query =
+    point?.latitude != null && point?.longitude != null
+      ? `${point.latitude},${point.longitude}`
+      : [a.line1, a.postalCode, a.city, a.country].filter(Boolean).join(', ');
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+/**
  * Reverse-geocodes a map pin into the `AddressDto` the booking endpoint needs
  * (line1 / city / state / postalCode / country). Native uses the OS geocoder via
  * expo-location; web uses OpenStreetMap Nominatim (expo-location's reverse

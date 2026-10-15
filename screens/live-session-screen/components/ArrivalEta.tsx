@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
+import { formatKm } from '../../../i18n/numbers';
 export type ArrivalEtaProps = {
   /** Driving distance of the current route, km. Null while it resolves. */
   km: number | null;
@@ -66,14 +67,14 @@ export default function ArrivalEta({
   const headline = measuring
     ? t('liveSession.etaMeasuring')
     : remaining == null
-      ? t('liveSession.etaDistance', { km: km!.toFixed(1) })
+      ? t('liveSession.etaDistance', { km: formatKm(km!, 1) })
       : remaining <= ARRIVING_MINS
         ? t('liveSession.etaArrivingNow')
         : t('liveSession.etaMinutes', { mins: Math.round(remaining) });
 
   const details: string[] = [];
   if (!measuring && remaining != null)
-    details.push(t('liveSession.etaDistance', { km: km!.toFixed(1) }));
+    details.push(t('liveSession.etaDistance', { km: formatKm(km!, 1) }));
   if (arriveAt)
     details.push(
       t('liveSession.etaClock', {

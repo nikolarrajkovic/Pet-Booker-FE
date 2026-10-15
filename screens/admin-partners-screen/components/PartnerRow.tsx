@@ -53,7 +53,7 @@ const STATUS_CHIP: Record<PartnerStatus, { labelKey: string; bg: string; text: s
 export function PartnerRow({ partner, onPress }: { partner: Partner; onPress: () => void }) {
   const { isDesktop } = useResponsive();
   const { isDarkMode, textColor, subtextColor, hex } = useThemeColors();
-  const { t, tEnum } = useLocale();
+  const { t, tPlural, tEnum } = useLocale();
   const c = PARTNER_COLUMNS;
   const chip = STATUS_CHIP[partner.status];
 
@@ -127,9 +127,11 @@ export function PartnerRow({ partner, onPress }: { partner: Partner; onPress: ()
 
   const total = (
     <Text className={`text-[13px] ${textColor}`}>
-      {partner.totalServices === 1
-        ? t('admin.nServicesOne')
-        : t('admin.nServices', { n: partner.totalServices })}
+      {tPlural(partner.totalServices, {
+        one: 'admin.nServicesOne',
+        few: 'admin.nServicesFew',
+        many: 'admin.nServices',
+      })}
     </Text>
   );
 

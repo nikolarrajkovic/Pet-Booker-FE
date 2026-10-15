@@ -11,8 +11,19 @@ import { translate, tEnumLabel, type Language, type TranslationKey, type EnumNam
 import { getLanguage, saveLanguage } from '../services/locale-storage';
 import { registerApiLanguage } from '../services/http';
 import { registerDateLanguage } from '../i18n/dates';
+import { pluralForm } from '../i18n/plural';
 
 type TFn = (key: TranslationKey, params?: Record<string, string | number>) => string;
+/**
+ * A counted phrase in the form the number takes ("1 review", "2 recenzije", "5 отзывов"). The
+ * keys name the one / few / many forms (English repeats its plural as `few`); the count is
+ * passed as both `{n}` and `{count}`.
+ */
+type TPluralFn = (
+  n: number,
+  keys: { one: TranslationKey; few: TranslationKey; many: TranslationKey },
+  params?: Record<string, string | number>
+) => string;
 type TEnumFn = (enumName: EnumName, value: number | null | undefined, fallback?: string) => string;
 
 type LocaleContextType = {
@@ -23,6 +34,7 @@ type LocaleContextType = {
   isLoading: boolean;
   setLanguage: (lang: Language) => void;
   t: TFn;
+  tPlural: TPluralFn;
   tEnum: TEnumFn;
 };
 
@@ -69,14 +81,19 @@ export const LocaleProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const t = useCallback<TFn>((key, params) => translate(language, key, params), [language]);
+  const tPlural = useCallback<TPluralFn>(
+    (n, keys, params) =>
+      translate(language, keys[pluralForm(language, n)], { n, count: n, ...params }),
+    [language]
+  );
   const tEnum = useCallback<TEnumFn>(
     (enumName, value, fallback) => tEnumLabel(language, enumName, value, fallback),
     [language]
   );
 
   const value = useMemo(
-    () => ({ language, hasChosen, isLoading, setLanguage, t, tEnum }),
-    [language, hasChosen, isLoading, setLanguage, t, tEnum]
+    () => ({ language, hasChosen, isLoading, setLanguage, t, tPlural, tEnum }),
+    [language, hasChosen, isLoading, setLanguage, t, tPlural, tEnum]
   );
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
