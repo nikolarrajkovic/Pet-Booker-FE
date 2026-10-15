@@ -1,26 +1,10 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
-import { useEnums } from '../../../context/EnumsContext';
-import type { EnumEntry } from '../../../services/enums';
-import { PROVIDER_TYPE_LABELS } from '../../../services/service-providers';
+import ServiceTypePicker from '../../../components/shared/ServiceTypePicker';
 import { useFormChain } from '../../../hooks/useFormChain';
 import type { ApplicationErrors, ApplicationField } from '../applicationValidation';
-
-// The provider's type is the ServiceProviderType enum — the same value every other screen
-// filters and labels by. It used to be a local list of six invented ids
-// ('dog-walking', 'training', 'veterinary'), which matched no enum member, left
-// Transporter/PetHotel unreachable, and was dropped on submit in favour of a hardcoded
-// type: 0 — so every application was filed as a Sitter.
-//
-// Fallback for the brief window before /enums resolves (and if it fails outright): the
-// static labels, so the applicant is never shown an empty required field. tEnum still
-// localizes whichever list we render.
-const FALLBACK_TYPE_ENTRIES: EnumEntry[] = Object.keys(PROVIDER_TYPE_LABELS).map((value) => ({
-  value: Number(value),
-  name: PROVIDER_TYPE_LABELS[Number(value)],
-}));
 
 interface FormData {
   fullName: string;
@@ -31,8 +15,8 @@ interface FormData {
   streetAddress: string;
   city: string;
   zipCode: string;
-  /** ServiceProviderType value — null until the applicant picks one. */
-  serviceType: number | null;
+  /** ServiceProviderType values — every kind of service they offer, none picked to begin with. */
+  serviceTypes: number[];
   yearsOfExperience: string;
   aboutYou: string;
   motivation: string;
@@ -70,16 +54,12 @@ export default function ServiceInfoStep({
   showMotivation = true,
   errors,
 }: ServiceInfoStepProps) {
-  const { t, tEnum } = useLocale();
+  const { t } = useLocale();
   const border = (field: ApplicationField) => (errors?.[field] ? 'border-red-500' : borderColor);
   const fieldError = (field: ApplicationField) =>
     errors?.[field] ? (
       <Text className="mt-1 text-xs text-red-500">{t(errors[field] as any)}</Text>
     ) : null;
-  const { enums } = useEnums();
-  const typeEntries = enums?.serviceProviderType?.length
-    ? enums.serviceProviderType
-    : FALLBACK_TYPE_ENTRIES;
 
   // "About you" and "Motivation" are text areas, so Enter must make a paragraph break in them
   // rather than jumping the user to the next step mid-sentence. Only the years-of-experience
@@ -100,7 +80,8 @@ export default function ServiceInfoStep({
       </Text>
       <Text className={`text-sm ${subtextColor} mb-6`}>{t('partnerApplication.whatServices')}</Text>
 
-      {/* Service Type — one per provider, so this is a single choice, not a multi-select */}
+      {/* The kinds of service offered — several, since each service they add later picks one
+          and prices it on its own (app review G13). */}
       <View className="mb-6">
         <Text className={`text-sm font-semibold ${textColor} mb-2`}>
           {t('partnerApplication.serviceTypesLabel')} <Text className="text-red-500">*</Text>
@@ -109,26 +90,12 @@ export default function ServiceInfoStep({
           {t('partnerApplication.pickServiceType')}
         </Text>
 
-        <View className="flex-row flex-wrap" style={{ gap: 12 }}>
-          {typeEntries.map((entry) => {
-            const isSelected = formData.serviceType === entry.value;
-            return (
-              <TouchableOpacity
-                accessibilityRole="button"
-                key={entry.value}
-                onPress={() => setFormData({ ...formData, serviceType: entry.value })}
-                className={`rounded-xl border-2 px-6 py-3 ${
-                  isSelected ? 'border-brand-500 bg-brand-500' : `${inputBg} ${borderColor}`
-                }`}>
-                <Text
-                  className={`font-medium ${isSelected ? 'text-white' : isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  {tEnum('serviceProviderType', entry.value, entry.displayName ?? entry.name)}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-        {fieldError('serviceType')}
+        <ServiceTypePicker
+          selected={formData.serviceTypes}
+          onChange={(serviceTypes) => setFormData({ ...formData, serviceTypes })}
+          invalid={!!errors?.serviceTypes}
+        />
+        {fieldError('serviceTypes')}
       </View>
 
       {/* Years of Experience */}

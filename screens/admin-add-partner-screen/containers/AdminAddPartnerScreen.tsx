@@ -52,8 +52,8 @@ export default function AdminAddPartnerScreen() {
     streetAddress: '',
     city: '',
     zipCode: '',
-    // ServiceProviderType value from /enums (shared shape with the partner application).
-    serviceType: null as number | null,
+    // ServiceProviderType values from /enums (shared shape with the partner application).
+    serviceTypes: [] as number[],
     yearsOfExperience: '',
     aboutYou: '',
     motivation: '',
@@ -92,7 +92,7 @@ export default function AdminAddPartnerScreen() {
   const handleSubmit = async () => {
     const name = formData.businessName.trim() || formData.fullName.trim();
     const email = formData.email.trim();
-    if (!name || !email.includes('@') || formData.serviceType == null) {
+    if (!name || !email.includes('@') || formData.serviceTypes.length === 0) {
       setSubmitError(t('admin.invitePartnerMissing'));
       if (!name || !email.includes('@')) setStep(1);
       return;
@@ -105,7 +105,8 @@ export default function AdminAddPartnerScreen() {
         name,
         email,
         phone: formData.phone || null,
-        type: formData.serviceType,
+        type: formData.serviceTypes[0],
+        offeredTypes: formData.serviceTypes,
         yearsOfExperience: years ? Math.min(80, Number(years)) : null,
         about: formData.aboutYou.trim() || null,
         address: formData.streetAddress.trim()

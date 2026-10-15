@@ -13,7 +13,7 @@ const empty: ApplicationForm = {
   streetAddress: '',
   city: '',
   zipCode: '',
-  serviceType: null,
+  serviceTypes: [],
   yearsOfExperience: '',
   aboutYou: '',
   motivation: '',
@@ -25,7 +25,7 @@ const complete: ApplicationForm = {
   streetAddress: 'Nemanjina 4',
   city: 'Belgrade',
   zipCode: '11000',
-  serviceType: 1,
+  serviceTypes: [1, 4],
   yearsOfExperience: '4 years',
   aboutYou: 'I walk dogs.',
   motivation: 'I love dogs.',
@@ -38,7 +38,7 @@ describe('partner application validation', () => {
       ['city', 'email', 'fullName', 'phone', 'streetAddress', 'zipCode'].sort()
     );
     expect(Object.keys(applicationStepErrors(2, empty, docs)).sort()).toEqual(
-      ['aboutYou', 'motivation', 'serviceType', 'yearsOfExperience'].sort()
+      ['aboutYou', 'motivation', 'serviceTypes', 'yearsOfExperience'].sort()
     );
     expect(
       Object.keys(

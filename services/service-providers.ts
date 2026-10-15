@@ -133,6 +133,8 @@ export type ServiceProviderDto = {
   ratingAvg?: number | null; // server-computed average rating (null until reviews exist)
   reviewCount?: number; // number of reviews backing ratingAvg (exposed at list level now)
   serviceCount?: number; // services the provider lists — filled on find/search in one batched query
+  /** Every kind of service the partner offers (ServiceProviderType); `type` is one of them. */
+  offeredTypes?: number[];
   /**
    * Government-ID images on file — owner/admin only (null otherwise). Set on list rows too, which
    * never carry the images themselves: only find-by-id does.
@@ -444,6 +446,11 @@ export function getServiceProvider(id: number): Promise<ServiceProviderDto> {
 /** The fields a partner edits on their business profile. */
 export type BusinessProfileUpdate = {
   name: string;
+  /**
+   * The kinds of service offered (ServiceProviderType), replacing the set; omitted leaves them.
+   * The server refuses to drop a kind the partner still has services of.
+   */
+  offeredTypes?: number[];
   contactEmail: string | null;
   contactPhone: string | null;
   yearsOfExperience: number | null;
@@ -477,6 +484,8 @@ export function updateBusinessProfile(
     body: {
       id: current.id,
       type: current.type,
+      // Null leaves them as they are.
+      offeredTypes: changes.offeredTypes ?? null,
       currency: current.currency || 'RSD',
       userId: current.userId ?? null,
       providerProfileId: current.providerProfileId ?? null,
@@ -535,11 +544,11 @@ export type CreateServiceProviderPayload = {
   country?: string;
   zipCode: string;
   /**
-   * ServiceProviderType the provider record is created as. Required — the application
-   * form used to collect a list of invented service ids that this payload never read,
-   * sending a hardcoded Sitter (0) for every applicant instead.
+   * The kinds of service offered (ServiceProviderType values, at least one); the first is the
+   * main type. The application form used to collect a list of invented service ids that this
+   * payload never read, sending a hardcoded Sitter (0) for every applicant instead.
    */
-  serviceType: number;
+  serviceTypes: number[];
   yearsOfExperience: string;
   aboutYou: string;
   motivation: string;
@@ -636,8 +645,10 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
   const body = {
     id: 0,
     name: payload.businessName?.trim() || payload.fullName.trim(),
-    // The type the applicant picked in step 2 (ServiceProviderType, from /enums).
-    type: payload.serviceType,
+    // The kinds the applicant picked in step 2 (ServiceProviderType, from /enums). Each service
+    // they add once approved picks one of these (app review G13).
+    type: payload.serviceTypes[0],
+    offeredTypes: payload.serviceTypes,
     // Approval is server-controlled: new applications start Pending — an admin
     // approves/declines later via the /admin endpoints.
     contactEmail: payload.email,

@@ -76,8 +76,10 @@ export type InvitePartnerPayload = {
   name: string;
   email: string;
   phone?: string | null;
-  /** ServiceProviderType (from /enums). */
+  /** ServiceProviderType (from /enums): the main type, the first of `offeredTypes`. */
   type: number;
+  /** Every kind of service the partner offers; each service they add picks one. */
+  offeredTypes: number[];
   yearsOfExperience?: number | null;
   about?: string | null;
   address?: AddressDto | null;

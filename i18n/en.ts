@@ -1152,6 +1152,7 @@ const en = {
       "We don't measure views, bookings or revenue for offers yet, so there are no numbers to show here. They will appear on this screen once tracking is live.",
   },
   partnerWelcome: {
+    addFirstService: 'Add your first service',
     // Text inside the illustrated tour scenes.
     sceneLive: 'LIVE',
     sceneKmAway: '{km} km away',
@@ -1232,9 +1233,10 @@ const en = {
     zipCode: 'ZIP Code',
     serviceInfo: 'Service Information',
     whatServices: 'What services do you offer?',
-    serviceTypesLabel: 'Service Type',
-    pickServiceType: 'Choose the type of care you provide',
-    serviceTypeRequired: 'Please choose the type of care you provide.',
+    serviceTypesLabel: 'Kinds of service',
+    pickServiceType:
+      'Pick every kind of care you provide. Each service you add later is one of them, priced on its own.',
+    serviceTypeRequired: 'Choose at least one kind of care you provide.',
     yearsOfExperience: 'Years of Experience',
     yearsPlaceholder: '5 years',
     aboutMe: 'About Me',
@@ -1355,6 +1357,10 @@ const en = {
     specialNeedsWarning: 'Has special needs — please take extra care',
   },
   addEditService: {
+    typeFromOffered: 'Only the kinds you offer are listed. Add more on your Business profile.',
+    firstServiceBody:
+      "Pick one of the kinds of service you offer. Each kind is priced on its own, so add a separate service for each. We've filled in weekday hours (9:00–17:00): change them to when you actually work.",
+    firstServiceTitle: 'Your first service',
     hoursRequiredTitle: 'Add your working hours',
     hoursRequiredMsg: 'Switch on at least one day so customers can book this service.',
     titleAdd: 'Add New Service',
@@ -1672,8 +1678,9 @@ const en = {
     name: 'Name customers see',
     nameHint: 'Your business name, or your own name.',
     nameRequired: 'Enter the name customers should see.',
-    type: 'Service type',
-    typeHint: 'Every service you list is of this type.',
+    type: 'Kinds of service you offer',
+    typeHint:
+      "Each service you add is one of these. A kind you still have services of can't be removed.",
     contactEmail: 'Business email',
     contactEmailHint:
       'Booking and PetBooker emails go here. Leave empty to use your account email.',

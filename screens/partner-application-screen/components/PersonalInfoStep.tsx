@@ -17,8 +17,8 @@ interface FormData {
   streetAddress: string;
   city: string;
   zipCode: string;
-  /** ServiceProviderType value — picked in step 2, declared here so the shared form shape matches. */
-  serviceType: number | null;
+  /** ServiceProviderType values — picked in step 2, declared here so the shared form shape matches. */
+  serviceTypes: number[];
   yearsOfExperience: string;
   aboutYou: string;
   motivation: string;

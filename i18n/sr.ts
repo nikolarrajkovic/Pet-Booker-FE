@@ -1128,6 +1128,7 @@ const sr: TranslationDict = {
       'Još ne merimo preglede, rezervacije ni prihod od ponuda, pa ovde nema brojeva za prikaz. Pojaviće se na ovom ekranu čim praćenje bude aktivno.',
   },
   partnerWelcome: {
+    addFirstService: 'Dodajte prvu uslugu',
     // Text inside the illustrated tour scenes.
     sceneLive: 'UŽIVO',
     sceneKmAway: '{km} km od vas',
@@ -1209,9 +1210,10 @@ const sr: TranslationDict = {
     zipCode: 'Poštanski broj',
     serviceInfo: 'Podaci o uslugama',
     whatServices: 'Koje usluge nudite?',
-    serviceTypesLabel: 'Vrsta usluge',
-    pickServiceType: 'Izaberite vrstu nege koju pružate',
-    serviceTypeRequired: 'Izaberite vrstu nege koju pružate.',
+    serviceTypesLabel: 'Vrste usluga',
+    pickServiceType:
+      'Izaberite sve vrste nege koje pružate. Svaka usluga koju kasnije dodate biće jedna od njih, sa svojom cenom.',
+    serviceTypeRequired: 'Izaberite bar jednu vrstu nege koju pružate.',
     yearsOfExperience: 'Godine iskustva',
     yearsPlaceholder: '5 godina',
     aboutMe: 'O meni',
@@ -1333,6 +1335,10 @@ const sr: TranslationDict = {
     specialNeedsWarning: 'Ima posebne potrebe — molimo za dodatnu pažnju',
   },
   addEditService: {
+    typeFromOffered: 'Prikazane su samo vrste koje nudite. Dodajte još u poslovnom profilu.',
+    firstServiceBody:
+      'Izaberite jednu od vrsta usluga koje nudite. Svaka vrsta ima svoju cenu, pa za svaku dodajte posebnu uslugu. Popunili smo radno vreme radnim danima (9:00–17:00): promenite ga na vreme kada zaista radite.',
+    firstServiceTitle: 'Vaša prva usluga',
     hoursRequiredTitle: 'Dodajte radno vreme',
     hoursRequiredMsg: 'Uključite bar jedan dan kako bi klijenti mogli da rezervišu ovu uslugu.',
     titleAdd: 'Dodaj novu uslugu',
@@ -1646,8 +1652,9 @@ const sr: TranslationDict = {
     name: 'Naziv koji korisnici vide',
     nameHint: 'Naziv vaše firme ili vaše ime.',
     nameRequired: 'Unesite naziv koji korisnici treba da vide.',
-    type: 'Vrsta usluge',
-    typeHint: 'Sve usluge koje nudite su ove vrste.',
+    type: 'Vrste usluga koje nudite',
+    typeHint:
+      'Svaka usluga koju dodate je jedna od ovih. Vrsta za koju još imate usluge ne može da se ukloni.',
     contactEmail: 'Poslovni imejl',
     contactEmailHint:
       'Ovde stižu imejlovi o rezervacijama i od PetBooker-a. Ostavite prazno da biste koristili imejl naloga.',

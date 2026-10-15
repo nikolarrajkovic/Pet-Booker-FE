@@ -21,9 +21,9 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import FormCard from '../../../components/shared/FormCard';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import PhoneInput from '../../../components/shared/PhoneInput';
+import ServiceTypePicker from '../../../components/shared/ServiceTypePicker';
 import {
   getServiceProvider,
-  providerTypeLabel,
   resolveImageUrl,
   type PhotoDto,
   PROVIDER_NAME_TAKEN,
@@ -42,7 +42,8 @@ import { DEFAULT_LOCATION } from '../../../hooks/useLocation';
  * their About text, and where they are based. Everything here was asked once by the partner
  * application and could never be changed afterwards — a typo in About stayed on the public page.
  *
- * The service type is shown, not edited: every service the partner lists is of that type.
+ * The kinds of service offered are edited here too: each service the partner adds picks one of
+ * them (app review G13), and a kind can't be dropped while services of it remain.
  *
  * The business address is optional and is the provider's own row: without one, customers see the
  * partner's account address, and setting or removing it never changes the account address.
@@ -62,10 +63,12 @@ export default function BusinessProfileScreen() {
     placeholderColor,
   } = useThemeColors();
   const { showError, showSuccess } = useToast();
-  const { t, tEnum } = useLocale();
+  const { t } = useLocale();
 
   const providerId = currentUser?.serviceProviderId ?? null;
   const [original, setOriginal] = useState<ServiceProviderDto | null>(null);
+  const [offeredTypes, setOfferedTypes] = useState<number[]>([]);
+  const [typesError, setTypesError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -104,6 +107,7 @@ export default function BusinessProfileScreen() {
         const dto = await getServiceProvider(providerId);
         if (cancelled) return;
         setOriginal(dto);
+        setOfferedTypes(dto.offeredTypes?.length ? dto.offeredTypes : [dto.type]);
         setName(dto.name ?? '');
         setContactEmail(dto.contactEmail ?? '');
         setPhone(dto.contactPhone ?? '');
@@ -141,6 +145,11 @@ export default function BusinessProfileScreen() {
       return;
     }
     setNameError('');
+    if (offeredTypes.length === 0) {
+      setTypesError(t('partnerApplication.serviceTypeRequired'));
+      return;
+    }
+    setTypesError('');
     setIsSaving(true);
     try {
       const digits = /\d+/.exec(years)?.[0];
@@ -164,6 +173,7 @@ export default function BusinessProfileScreen() {
       const updated = await updateBusinessProfile(original, {
         photos,
         name,
+        offeredTypes,
         contactEmail,
         contactPhone: phone,
         yearsOfExperience: digits ? Math.min(Number(digits), 80) : null,
@@ -313,18 +323,22 @@ export default function BusinessProfileScreen() {
             </Text>
           </View>
 
-          {/* Service type — read-only */}
+          {/* The kinds of service offered: each service picks one (G13). */}
           <View className="mb-4">
             <Text className={`text-sm font-semibold ${textColor} mb-2`}>
               {t('businessProfile.type')}
             </Text>
-            <View className={`${inputClass} flex-row items-center`} style={{ opacity: 0.7 }}>
-              <Ionicons name="paw-outline" size={18} color={BRAND_GREEN} />
-              <Text className={`ml-2 ${inputText}`}>
-                {tEnum('serviceProviderType', original.type, providerTypeLabel(original.type))}
-              </Text>
-            </View>
-            <Text className={`mt-1 text-xs ${subtextColor}`}>{t('businessProfile.typeHint')}</Text>
+            <ServiceTypePicker
+              selected={offeredTypes}
+              onChange={(next) => {
+                setOfferedTypes(next);
+                if (typesError) setTypesError('');
+              }}
+              invalid={!!typesError}
+            />
+            <Text className={`mt-2 text-xs ${typesError ? 'text-red-500' : subtextColor}`}>
+              {typesError || t('businessProfile.typeHint')}
+            </Text>
           </View>
 
           {/* Business email */}

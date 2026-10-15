@@ -16,7 +16,7 @@ export type ApplicationField =
   | 'streetAddress'
   | 'city'
   | 'zipCode'
-  | 'serviceType'
+  | 'serviceTypes'
   | 'yearsOfExperience'
   | 'aboutYou'
   | 'motivation'
@@ -32,7 +32,8 @@ export type ApplicationForm = {
   streetAddress: string;
   city: string;
   zipCode: string;
-  serviceType: number | null;
+  /** The kinds of service offered (ServiceProviderType values); at least one. */
+  serviceTypes: number[];
   yearsOfExperience: string;
   aboutYou: string;
   motivation: string;
@@ -75,7 +76,8 @@ export function applicationStepErrors(
       if (blank(form.zipCode)) errors.zipCode = REQUIRED;
     }
   } else if (step === 2) {
-    if (form.serviceType === null) errors.serviceType = 'partnerApplication.serviceTypeRequired';
+    if (form.serviceTypes.length === 0)
+      errors.serviceTypes = 'partnerApplication.serviceTypeRequired';
     if (!/\d/.test(form.yearsOfExperience)) errors.yearsOfExperience = REQUIRED;
     if (blank(form.aboutYou)) errors.aboutYou = REQUIRED;
     if (blank(form.motivation)) errors.motivation = REQUIRED;

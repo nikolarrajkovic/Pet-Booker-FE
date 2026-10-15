@@ -100,9 +100,9 @@ export default function PartnerApplicationScreen() {
     streetAddress: '',
     city: '',
     zipCode: '',
-    // ServiceProviderType value from /enums — null until picked, so an unanswered
+    // ServiceProviderType values from /enums — none until picked, so an unanswered
     // required field can't silently submit as Sitter (0).
-    serviceType: null as number | null,
+    serviceTypes: [] as number[],
     yearsOfExperience: '',
     aboutYou: '',
     motivation: '',
@@ -329,8 +329,7 @@ export default function PartnerApplicationScreen() {
     // Safety net for a step left incomplete (Back after an edit): never submit a half-filled
     // application, and never fall back to a default service type.
     const incomplete = firstIncompleteStep(formData, validationExtras);
-    const serviceType = formData.serviceType;
-    if (incomplete !== null || serviceType === null) {
+    if (incomplete !== null || formData.serviceTypes.length === 0) {
       blockStep(incomplete ?? 2);
       return;
     }
@@ -370,7 +369,6 @@ export default function PartnerApplicationScreen() {
         .filter(Boolean) as { uri: string; fileName?: string }[];
       await createServiceProvider({
         ...formData,
-        serviceType,
         profilePhoto: profilePhoto ? { uri: profilePhoto, fileName: profilePhotoFileName } : null,
         petPhotoFiles,
         governmentIdFiles,
