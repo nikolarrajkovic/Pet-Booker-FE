@@ -685,6 +685,8 @@ const sr: TranslationDict = {
     submitFailed: 'Slanje recenzije nije uspelo. Pokušajte ponovo.',
   },
   bookingDetails: {
+    openInMaps: 'Otvori u mapama',
+    where: 'Gde',
     cancelReasonTitle: 'Zašto otkazujete?',
     cancelReasonSubtitle: 'Pružalac dobija obaveštenje i vidi vaš razlog.',
     cancelReasonPlaceholder: 'npr. Pas mi je bolestan, moram da pomerim termin',
@@ -1150,6 +1152,8 @@ const sr: TranslationDict = {
       'Kada dođe vreme, pokrenite Sesiju uživo i pratite uslugu od početka do kraja — uključujući preuzimanje i dostavu.',
   },
   partnerApplication: {
+    noExpiry: 'Bez roka važenja',
+    expiresDate: 'Ističe',
     fieldRequired: 'Ovo polje je obavezno',
     fixHighlighted: 'Popunite označena polja.',
     businessName: 'Naziv firme',
@@ -1390,6 +1394,10 @@ const sr: TranslationDict = {
     selectDuration: 'Izaberite trajanje',
   },
   admin: {
+    govIdCount: 'Lični dokument ({n})',
+    certExpired: 'Istekao {date}',
+    certExpires: 'Ističe {date}',
+    certIssued: 'Izdat {date}',
     yearsValueFew: '{n} god.',
     yearsValueOne: '{n} god.',
     nServicesFew: '{n} usluge',
@@ -1468,8 +1476,6 @@ const sr: TranslationDict = {
     certificationsColon: 'Sertifikati:',
     availabilityColon: 'Dostupnost:',
     documents: 'Dokumenti',
-    govIdFront: 'Lični dokument — prednja strana',
-    govIdBack: 'Lični dokument — zadnja strana',
     petPhotosCount: 'Fotografije sa ljubimcima ({n})',
     certificatesCount: 'Sertifikati ({n})',
     applicationReview: 'Pregled prijave',

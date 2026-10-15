@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { ScrollView, Text, View, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
+import {
+  ScrollView,
+  Text,
+  View,
+  Image,
+  ActivityIndicator,
+  TouchableOpacity,
+  Linking,
+} from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -21,7 +29,7 @@ import { useToast } from '../../../context/ToastContext';
 import { getErrorMessage } from '../../../services/http';
 import { formatMoney } from '../../../services/currency';
 import { resolveImageUrl } from '../../../services/service-providers';
-import { addressLabel } from '../../../services/geocoding';
+import { addressLabel, mapsSearchUrl } from '../../../services/geocoding';
 import { customerName } from '../../../services/users';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useAuth } from '../../../context/AuthContext';
@@ -78,6 +86,9 @@ export default function BookingDetailsScreen() {
   const status = STATUS_STYLE[vm?.statusLabel ?? 'upcoming'] ?? STATUS_STYLE.upcoming;
   const pickup = dto?.pickupAddress;
   const dropoff = dto?.leaveOverAddress;
+  // Where the service happens (its own address, else the partner's). The page had no "where" at
+  // all unless a pickup or drop-off was booked (app review G8).
+  const serviceAddress = dto?.serviceAddress ?? null;
   // The booking's frozen bill lines. On READ these come back enriched (name / price / baseFee /
   // perKmFee / distanceKm); the id-only write shape has no `name`, so narrow to the read one
   // rather than rendering "undefined" for a booking that was just submitted.
@@ -282,11 +293,29 @@ export default function BookingDetailsScreen() {
     dto && vm ? (
       <>
         {/* Location */}
-        {(pickup || dropoff) && (
+        {(serviceAddress || pickup || dropoff) && (
           <View className={`mt-6 ${gutter.px}`}>
             <Text className={`text-base font-bold ${textColor} mb-1`}>
               {t('bookingDetails.location')}
             </Text>
+            {serviceAddress ? (
+              <>
+                <Row
+                  icon="location-outline"
+                  label={t('bookingDetails.where')}
+                  value={addressLabel(serviceAddress)}
+                />
+                <TouchableOpacity
+                  accessibilityRole="link"
+                  onPress={() => Linking.openURL(mapsSearchUrl(serviceAddress)).catch(() => {})}
+                  className="flex-row items-center self-end py-2">
+                  <Ionicons name="map-outline" size={16} color={BRAND_GREEN} />
+                  <Text className="ml-1.5 text-sm font-semibold text-brand-600">
+                    {t('bookingDetails.openInMaps')}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
             {pickup ? (
               <Row
                 icon="car-outline"

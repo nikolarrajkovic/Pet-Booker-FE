@@ -115,6 +115,11 @@ export type BookingDto = {
   pickupAddress?: AddressDto | null;
   leaveOverAddress?: AddressDto | null;
   location?: BookingLocationDto | null;
+  /**
+   * Where the service happens — its own address, else the partner's business address, else the
+   * partner's account address (the address its page shows). On `getBooking` (find) only.
+   */
+  serviceAddress?: AddressDto | null;
   createdAt?: string;
   updatedAt?: string;
 };

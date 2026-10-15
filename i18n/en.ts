@@ -711,6 +711,8 @@ const en = {
     submitFailed: 'Could not submit your review. Please try again.',
   },
   bookingDetails: {
+    openInMaps: 'Open in maps',
+    where: 'Where',
     cancelReasonTitle: 'Why are you cancelling?',
     cancelReasonSubtitle: 'The provider is notified and sees your reason.',
     cancelReasonPlaceholder: 'e.g. My dog is unwell, I need to reschedule',
@@ -1174,6 +1176,8 @@ const en = {
       'When it’s time, start a Live Session to track the service from start to finish — right down to pickup and drop-off.',
   },
   partnerApplication: {
+    noExpiry: 'No expiry',
+    expiresDate: 'Expires on',
     fieldRequired: 'This field is required',
     fixHighlighted: 'Please fill in the highlighted fields.',
     businessName: 'Business name',
@@ -1415,6 +1419,10 @@ const en = {
     selectDuration: 'Select Duration',
   },
   admin: {
+    govIdCount: 'Government ID ({n})',
+    certExpired: 'Expired {date}',
+    certExpires: 'Expires {date}',
+    certIssued: 'Issued {date}',
     yearsValueFew: '{n} years',
     yearsValueOne: '{n} year',
     nServicesFew: '{n} services',
@@ -1494,8 +1502,6 @@ const en = {
     certificationsColon: 'Certifications:',
     availabilityColon: 'Availability:',
     documents: 'Documents',
-    govIdFront: 'Government ID — Front',
-    govIdBack: 'Government ID — Back',
     petPhotosCount: 'Pet Photos ({n})',
     certificatesCount: 'Certificates ({n})',
     applicationReview: 'Application Review',

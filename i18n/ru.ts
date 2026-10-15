@@ -689,6 +689,8 @@ const ru: TranslationDict = {
     submitFailed: 'Не удалось отправить отзыв. Попробуйте снова.',
   },
   bookingDetails: {
+    openInMaps: 'Открыть на карте',
+    where: 'Где',
     cancelReasonTitle: 'Почему вы отменяете?',
     cancelReasonSubtitle: 'Исполнитель получит уведомление и увидит вашу причину.',
     cancelReasonPlaceholder: 'например: собака заболела, нужно перенести',
@@ -1154,6 +1156,8 @@ const ru: TranslationDict = {
       'Когда придёт время, запустите Живую сессию и отслеживайте услугу от начала до конца — включая забор и возврат питомца.',
   },
   partnerApplication: {
+    noExpiry: 'Бессрочно',
+    expiresDate: 'Действует до',
     fieldRequired: 'Это поле обязательно',
     fixHighlighted: 'Заполните выделенные поля.',
     businessName: 'Название компании',
@@ -1394,6 +1398,10 @@ const ru: TranslationDict = {
     selectDuration: 'Выберите длительность',
   },
   admin: {
+    govIdCount: 'Удостоверение ({n})',
+    certExpired: 'Истёк {date}',
+    certExpires: 'Действует до {date}',
+    certIssued: 'Выдан {date}',
     yearsValueFew: '{n} года',
     yearsValueOne: '{n} год',
     nServicesFew: '{n} услуги',
@@ -1472,8 +1480,6 @@ const ru: TranslationDict = {
     certificationsColon: 'Сертификаты:',
     availabilityColon: 'Доступность:',
     documents: 'Документы',
-    govIdFront: 'Удостоверение — лицевая сторона',
-    govIdBack: 'Удостоверение — обратная сторона',
     petPhotosCount: 'Фото с питомцами ({n})',
     certificatesCount: 'Сертификаты ({n})',
     applicationReview: 'Просмотр заявки',
