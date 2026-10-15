@@ -45,10 +45,55 @@ export const BookingStatusType = {
   PostPayment: 5,
   DeclinedByProvider: 6,
   CancelledByUser: 7,
+  /** The provider recorded that the customer did not turn up; the deposit is kept (G6). */
+  CustomerNoShow: 8,
 } as const;
 
 // PaymentType enum (verified /enums): 0=Cash, 1=Card, 2=BankTransfer, 3=Wallet
 export const PaymentType = { Cash: 0, Card: 1, BankTransfer: 2, Wallet: 3 } as const;
+
+/** Mirrors `BookingWorkflow.NoShowWindow`: a no-show can be recorded until a day after the end. */
+export const NO_SHOW_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+type LifecycleFields = {
+  currentStatus?: number | null;
+  paymentType?: number | null;
+  depositAmount?: number | null;
+  bookingFrom: string;
+  bookingTo: string;
+};
+
+/**
+ * A card booking whose deposit is still unpaid. Paying the deposit moves a confirmed booking to
+ * PrePayment, so "confirmed and asks for a deposit" is exactly "waiting for it". The server refuses
+ * to start such a booking (StartServiceCommandValidator, app review G3); cash bookings settle with
+ * the provider and are exempt.
+ */
+export function awaitingDeposit(
+  b: Pick<LifecycleFields, 'currentStatus' | 'paymentType' | 'depositAmount'>
+): boolean {
+  return (
+    b.currentStatus === BookingStatusType.ServiceConfirmedByProvider &&
+    b.paymentType !== PaymentType.Cash &&
+    (b.depositAmount ?? 0) > 0
+  );
+}
+
+/**
+ * Mirrors `BookingWorkflow.CanMarkNoShow`: a confirmed booking (deposit paid or not), from its
+ * start until a day after its end (app review G6).
+ */
+export function canMarkNoShow(b: LifecycleFields, now: number = Date.now()): boolean {
+  if (
+    b.currentStatus !== BookingStatusType.ServiceConfirmedByProvider &&
+    b.currentStatus !== BookingStatusType.PrePayment
+  ) {
+    return false;
+  }
+  const from = parseBookingDate(b.bookingFrom).getTime();
+  const to = parseBookingDate(b.bookingTo).getTime();
+  return now >= from && now <= to + NO_SHOW_WINDOW_MS;
+}
 
 type NestedPhoto = { src?: string | null; isSelected?: boolean };
 type NestedEntity = { name?: string | null; photos?: NestedPhoto[]; id?: number | null };
@@ -734,11 +779,10 @@ export function confirmBooking(id: number): Promise<BookingDto> {
 }
 
 /**
- * Provider declines a pending booking request via POST /bookings/{id}/decline.
- * Sets state = Cancelled, currentStatus = DeclinedByProvider and stores the
- * reason as cancelReason (verified live). Same guard as confirmBooking — only
- * ServiceRequestedByUser bookings can be declined; use cancelBooking() to
- * cancel an already-accepted booking.
+ * Provider declines a booking via POST /bookings/{id}/decline: a request, or one they already
+ * confirmed (deposit paid or not) until it starts, which is how a partner calls off a booking
+ * (app review G4). Sets state = Cancelled, currentStatus = DeclinedByProvider, stores the reason
+ * as cancelReason, and the customer gets back everything they paid.
  */
 export function declineBooking(id: number, reason?: string): Promise<BookingDto> {
   return bookingTransition(
@@ -766,6 +810,21 @@ export function cancelBooking(booking: BookingDto, reason: string): Promise<Book
     'Failed to cancel booking.',
     'cancelBooking',
     ensureCancelReason(reason, 'Cancelled by the user.')
+  );
+}
+
+/**
+ * The provider records that the customer did not turn up (POST /bookings/{id}/no-show), from the
+ * booking's start until a day after its end. The deposit stays with the provider, anything paid
+ * beyond it goes back, and the customer is told with the note (app review G6).
+ */
+export function markNoShow(id: number, note: string): Promise<BookingDto> {
+  return bookingTransition(
+    id,
+    'no-show',
+    'Failed to record the no-show.',
+    'markNoShow',
+    ensureCancelReason(note, 'The customer did not show up.')
   );
 }
 

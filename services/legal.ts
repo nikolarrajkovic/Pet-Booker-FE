@@ -5,10 +5,10 @@
  * `LEGAL_VERSION` when the text changes: sign-up records the version agreed to
  * (`AcceptedTermsVersion` on the account), so a later change can tell who has seen which.
  */
-export const LEGAL_VERSION = '2026-10-draft';
+export const LEGAL_VERSION = '2026-10-15-draft';
 
 /** When the current text was last changed (ISO date). */
-export const LEGAL_UPDATED = '2026-10-06';
+export const LEGAL_UPDATED = '2026-10-15';
 
 export type LegalDoc = 'terms' | 'privacy';
 

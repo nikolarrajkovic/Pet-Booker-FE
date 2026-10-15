@@ -596,6 +596,10 @@ const sr: TranslationDict = {
     totalColon: 'Ukupno:',
   },
   reviewBooking: {
+    cashNote: 'Partneru plaćate gotovinom na usluzi; u aplikaciji se ništa ne naplaćuje.',
+    depositNote: 'Partneru je potreban depozit pre početka usluge.',
+    cancellationPolicyDeposit:
+      'Otkazivanje je besplatno dok ne platite depozit. Kada ga platite, depozit ostaje partneru ako otkažete, a sve plaćeno preko toga vraća se. Ako partner otkaže rezervaciju, dobijate nazad sve.',
     title: 'Pregled rezervacije',
     bookingDetails: 'Detalji rezervacije',
     discount: 'Popust',
@@ -685,6 +689,25 @@ const sr: TranslationDict = {
     submitFailed: 'Slanje recenzije nije uspelo. Pokušajte ponovo.',
   },
   bookingDetails: {
+    noShowNoticeProvider: 'Evidentirali ste da se klijent nije pojavio.',
+    noShowNotice:
+      'Partner je evidentirao da se niste pojavili. Depozit je zadržan; sve plaćeno preko toga je vraćeno.',
+    noShowBadge: 'Nedolazak',
+    noShowFailed: 'Nedolazak nije evidentiran.',
+    noShowSuccess: 'Nedolazak je evidentiran. Klijent je obavešten.',
+    noShowConfirm: 'Evidentiraj nedolazak',
+    noShowPlaceholder: 'npr. Niko nije otvorio vrata u 10:00.',
+    noShowSubtitle:
+      'Depozit ostaje vama, a sve plaćeno preko toga vraća se klijentu. Dodajte poruku za klijenta.',
+    noShowTitle: 'Evidentirati nedolazak?',
+    noShow: 'Klijent se nije pojavio',
+    callOffFailed: 'Rezervacija nije otkazana.',
+    callOffSuccess: 'Rezervacija je otkazana. Klijent je obavešten i dobija povraćaj.',
+    callOffPlaceholder: 'npr. Bolestan sam i ne mogu taj dan.',
+    callOffSubtitle: 'Napišite klijentu zašto. Dobiće nazad sve što je platio.',
+    callOffTitle: 'Otkazati ovu rezervaciju?',
+    cancelKeepsDeposit:
+      'Depozit od {amount} ostaje partneru; sve što ste platili preko toga vraća se.',
     openInMaps: 'Otvori u mapama',
     where: 'Gde',
     cancelReasonTitle: 'Zašto otkazujete?',
@@ -1660,6 +1683,18 @@ const sr: TranslationDict = {
     loadFailed: 'Podaci o pružaocu nisu učitani. Pokušajte ponovo.',
   },
   payments: {
+    keptByProvider: 'Zadržao partner',
+    statusPaidCash: 'Plaćeno gotovinom',
+    cashFailed: 'Uplata gotovinom nije evidentirana.',
+    cashRecorded: 'Uplata gotovinom je evidentirana.',
+    cashConfirm: 'Da, primljeno',
+    cashConfirmBody: 'Klijent dobija potvrdu i za ovu rezervaciju se više ništa ne duguje.',
+    cashConfirmTitle: 'Primili ste {amount} u gotovini?',
+    markCashPaid: 'Označi kao plaćeno gotovinom · {amount}',
+    cashNoteProvider: 'Plaća se gotovinom. Evidentirajte uplatu ovde kada je primite.',
+    cashNote: 'Plaćate {amount} gotovinom partneru na usluzi.',
+    awaitingDeposit: 'Čeka se depozit klijenta. Usluga može da počne kada bude plaćen.',
+    depositBeforeStart: 'Usluga ne može da počne dok se ne plati depozit.',
     deposit: 'Depozit',
     paid: 'Plaćeno',
     refunded: 'Vraćeno',
@@ -1727,7 +1762,7 @@ const sr: TranslationDict = {
       'Rezervacija je zahtev dok je partner ne potvrdi. Cena, eventualni depozit i dodatne usluge koje izaberete prikazuju se pre rezervacije i fiksiraju se na njoj. Partner može da promeni cenu samo pre potvrde, i o tome ćete biti obavešteni. Zahtev na koji partner ne odgovori do početka termina ističe.',
     termsS4Title: '4. Plaćanja i povraćaj novca',
     termsS4Body:
-      'Plaćanja idu preko PetBooker-ovog platnog provajdera. Depozit može dospeti kada partner potvrdi rezervaciju, a ostatak posle usluge. Možete besplatno otkazati do početka usluge, a sve što ste platili vraća se na karticu kojom ste platili. Ako partner otkaže, dobijate pun povraćaj novca.',
+      'Plaćanja idu preko PetBooker-ovog platnog provajdera, ili gotovinom partneru na usluzi. Depozit može dospeti kada partner potvrdi rezervaciju, a rezervacija plaćena karticom koja traži depozit ne može da počne dok on nije plaćen; ostatak se plaća posle usluge. Otkazivanje je besplatno dok ne platite depozit. Posle toga partner zadržava depozit ako otkažete ili se ne pojavite, a sve što ste platili preko toga vraća se na karticu kojom ste platili. Ako partner otkaže, dobijate pun povraćaj novca.',
     termsS5Title: '5. Partneri',
     termsS5Body:
       'Partneri su nezavisni profesionalci, a ne zaposleni u PetBooker-u. Partner mora da pruži tačne podatke, važeći lični dokument i sertifikate koje navodi, da ažurira radno vreme i da se prema svakom ljubimcu odnosi s pažnjom. PetBooker pregleda svaku prijavu i može da pauzira ili ukloni partnera koji krši ove uslove; partner dobija obrazloženje.',
@@ -2003,6 +2038,7 @@ const sr: TranslationDict = {
       5: 'Nakon plaćanja',
       6: 'Odbijeno',
       7: 'Otkazano',
+      8: 'Nedolazak',
     },
     paymentType: {
       0: 'Gotovina',

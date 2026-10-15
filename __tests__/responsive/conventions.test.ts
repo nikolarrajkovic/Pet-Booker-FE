@@ -140,6 +140,9 @@ describe('Platform.OS is not used for layout', () => {
     'screens/messages-screen/components/MessageComposer.tsx':
       'a hardware keyboard: in a browser Enter sends and Shift+Enter adds a line, which a ' +
       "multiline field's onSubmitEditing never does there; a phone's return key keeps adding a line",
+    'components/shared/PrivateImage.tsx':
+      'an <img> in a browser cannot send an Authorization header, so web fetches the bytes and ' +
+      'shows a blob URL; native Image takes the header directly',
   };
 
   it('only appears where a capability genuinely differs', () => {

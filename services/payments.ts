@@ -24,6 +24,8 @@ export type BookingPaymentDto = {
   id: number;
   bookingId: number;
   paymentMethodId?: number | null;
+  /** PaymentType: 0 = cash (recorded by the provider), 1 = card. */
+  paymentType?: number;
   amount: number;
   currency: string;
   status: number;
@@ -47,6 +49,19 @@ export function getPaymentSummary(bookingId: number): Promise<BookingPaymentSumm
   return apiJson<BookingPaymentSummary>(`/payments/bookings/${bookingId}/summary`, {
     fallback: 'Failed to load the payment summary.',
     context: 'getPaymentSummary',
+  });
+}
+
+/**
+ * The provider records that a cash booking was paid in cash, once the service has started: the
+ * whole amount still owed, with a receipt to the customer (app review G1). The provider (or an
+ * admin) only, and only on a cash booking.
+ */
+export function recordCashPayment(bookingId: number): Promise<BookingPaymentDto> {
+  return apiJson<BookingPaymentDto>(`/payments/bookings/${bookingId}/cash-received`, {
+    method: 'POST',
+    fallback: "Couldn't record the cash payment.",
+    context: 'recordCashPayment',
   });
 }
 

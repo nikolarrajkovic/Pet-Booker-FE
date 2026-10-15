@@ -9,11 +9,13 @@ import ResponsiveModal from '../../../components/shared/ResponsiveModal';
 import AddCardForm from '../../../components/shared/AddCardForm';
 import { formatMoney } from '../../../services/currency';
 import { getErrorMessage } from '../../../services/http';
+import { showAlert } from '../../../services/alert';
 import { formatShortDate } from '../../../i18n/dates';
-import { BookingStatusType } from '../../../services/bookings';
+import { BookingStatusType, PaymentType } from '../../../services/bookings';
 import {
   getPaymentSummary,
   payBooking,
+  recordCashPayment,
   PaymentPhase,
   PaymentStatus,
   cardLabel,
@@ -30,12 +32,28 @@ const PAYABLE_STATUSES: number[] = [
   BookingStatusType.PostPayment,
 ];
 
+/** Cash changes hands at the service, so the provider records it once it has started (G1). */
+const CASH_RECORDABLE_STATUSES: number[] = [
+  BookingStatusType.ServiceStarted,
+  BookingStatusType.ServiceEnded,
+];
+
+/** Called off by the customer, or a no-show: what was paid and not refunded is the kept deposit. */
+const DEPOSIT_KEPT_STATUSES: number[] = [
+  BookingStatusType.CancelledByUser,
+  BookingStatusType.CustomerNoShow,
+];
+
 type Props = {
   bookingId: number;
   currentStatus: number;
   isExpired: boolean;
+  /** PaymentType: a cash booking is paid to the provider, who records it; a card one in the app. */
+  paymentType: number;
   /** Only the customer pays; the provider (and an admin) see the same ledger read-only. */
   isCustomer: boolean;
+  /** The booking's provider records a cash payment. */
+  isProvider: boolean;
   /** The booking's owner — whose saved cards the pay sheet offers. */
   userId: number;
   /** Re-read the booking after a payment, which can move its status (deposit paid, settled). */
@@ -53,12 +71,16 @@ export default function BookingPaymentPanel({
   bookingId,
   currentStatus,
   isExpired,
+  paymentType,
   isCustomer,
+  isProvider,
   userId,
   onPaid,
 }: Props) {
   const { textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
+  const { showSuccess, showError } = useToast();
+  const [recordingCash, setRecordingCash] = useState(false);
   const {
     data: summary,
     isLoading,
@@ -76,18 +98,49 @@ export default function BookingPaymentPanel({
   if (!summary) return null;
 
   const { currency } = summary;
+  const isCash = paymentType === PaymentType.Cash;
   const depositOutstanding = Math.max(0, summary.depositAmount - summary.amountPaid);
   const payable = !isExpired && PAYABLE_STATUSES.includes(currentStatus);
-  // The deposit is what the provider waits on before the appointment; offer it on its own while
-  // it is still outstanding, and the full rest alongside it.
-  const canPayDeposit =
-    isCustomer &&
+  // A card booking with a deposit can't start until it is paid (G3); a cash one settles with the
+  // provider at the service and is exempt.
+  const depositDue =
+    !isCash &&
     payable &&
     currentStatus === BookingStatusType.ServiceConfirmedByProvider &&
     depositOutstanding > 0;
-  const canPayBalance = isCustomer && payable && summary.balanceDue > 0;
+  // The deposit is what the provider waits on before the appointment; offer it on its own while
+  // it is still outstanding, and the full rest alongside it. A cash booking has no Pay buttons:
+  // it is paid in person and the provider records it.
+  const canPayDeposit = isCustomer && depositDue;
+  const canPayBalance = isCustomer && !isCash && payable && summary.balanceDue > 0;
+  const cashOwed = isCash && payable && summary.balanceDue > 0;
+  const canRecordCash = isProvider && cashOwed && CASH_RECORDABLE_STATUSES.includes(currentStatus);
   const awaitingConfirmation =
     isCustomer && !isExpired && currentStatus === BookingStatusType.ServiceRequestedByUser;
+  const depositKept = DEPOSIT_KEPT_STATUSES.includes(currentStatus) && summary.amountPaid > 0;
+
+  const confirmCash = () => {
+    const amount = formatMoney(summary.balanceDue, currency);
+    showAlert(t('payments.cashConfirmTitle', { amount }), t('payments.cashConfirmBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('payments.cashConfirm'),
+        onPress: async () => {
+          setRecordingCash(true);
+          try {
+            await recordCashPayment(bookingId);
+            showSuccess(t('payments.cashRecorded'));
+            refresh();
+            onPaid();
+          } catch (e) {
+            showError(getErrorMessage(e, t('payments.cashFailed')));
+          } finally {
+            setRecordingCash(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const amountFor = (phase: PaymentPhaseValue) =>
     phase === PaymentPhase.Deposit ? depositOutstanding : summary.balanceDue;
@@ -101,11 +154,12 @@ export default function BookingPaymentPanel({
 
   return (
     <View className="mt-2">
-      {summary.depositAmount > 0 ? (
+      {/* A cash booking takes no deposit: it is paid in person and can start without one. */}
+      {summary.depositAmount > 0 && !isCash ? (
         <Line label={t('payments.deposit')} value={formatMoney(summary.depositAmount, currency)} />
       ) : null}
       <Line
-        label={t('payments.paid')}
+        label={depositKept ? t('payments.keptByProvider') : t('payments.paid')}
         value={formatMoney(summary.amountPaid, currency)}
         accent={summary.amountPaid > 0 ? 'text-brand-600' : undefined}
       />
@@ -137,7 +191,11 @@ export default function BookingPaymentPanel({
                   color={refunded ? '#2563EB' : BRAND_GREEN}
                 />
                 <Text className={`ml-2 flex-1 text-sm ${textColor}`}>
-                  {refunded ? t('payments.statusRefunded') : t('payments.statusPaid')}
+                  {refunded
+                    ? t('payments.statusRefunded')
+                    : p.paymentType === PaymentType.Cash
+                      ? t('payments.statusPaidCash')
+                      : t('payments.statusPaid')}
                   <Text className={subtextColor}>
                     {' · '}
                     {formatShortDate(new Date(refunded && p.refundedAt ? p.refundedAt : p.paidAt))}
@@ -153,8 +211,27 @@ export default function BookingPaymentPanel({
         </View>
       ) : null}
 
-      {awaitingConfirmation ? (
+      {awaitingConfirmation && !isCash ? (
         <Text className={`mt-3 text-sm ${subtextColor}`}>{t('payments.payAfterConfirm')}</Text>
+      ) : null}
+
+      {/* Cash: the customer pays in person, the provider says it arrived. */}
+      {cashOwed && !isProvider ? (
+        <Notice icon="cash-outline">
+          {t('payments.cashNote', { amount: formatMoney(summary.balanceDue, currency) })}
+        </Notice>
+      ) : null}
+      {cashOwed && isProvider ? (
+        <Notice icon="cash-outline">{t('payments.cashNoteProvider')}</Notice>
+      ) : null}
+
+      {/* The deposit gates the start: the customer is told before paying, the provider why the
+          Start button waits. */}
+      {depositDue && isCustomer ? (
+        <Notice icon="information-circle-outline">{t('payments.depositBeforeStart')}</Notice>
+      ) : null}
+      {depositDue && !isCustomer ? (
+        <Notice icon="hourglass-outline">{t('payments.awaitingDeposit')}</Notice>
       ) : null}
 
       {canPayDeposit || canPayBalance ? (
@@ -197,6 +274,30 @@ export default function BookingPaymentPanel({
         </View>
       ) : null}
 
+      {canRecordCash ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={confirmCash}
+          disabled={recordingCash}
+          activeOpacity={0.85}
+          className={`mt-4 flex-row items-center justify-center rounded-2xl bg-brand-500 py-4 ${
+            recordingCash ? 'opacity-60' : ''
+          }`}>
+          {recordingCash ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <>
+              <Ionicons name="cash-outline" size={18} color="white" />
+              <Text className="ml-2 text-base font-bold text-white">
+                {t('payments.markCashPaid', {
+                  amount: formatMoney(summary.balanceDue, currency),
+                })}
+              </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      ) : null}
+
       <PaySheet
         visible={payPhase !== null}
         bookingId={bookingId}
@@ -210,6 +311,26 @@ export default function BookingPaymentPanel({
           onPaid();
         }}
       />
+    </View>
+  );
+}
+
+/** One line of guidance under the ledger: an icon and a sentence. */
+function Notice({
+  icon,
+  children,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  children: React.ReactNode;
+}) {
+  const { isDarkMode, subtextColor } = useThemeColors();
+  return (
+    <View
+      className={`mt-3 flex-row items-start rounded-xl px-3 py-2.5 ${
+        isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'
+      }`}>
+      <Ionicons name={icon} size={16} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+      <Text className={`ml-2 flex-1 text-sm ${subtextColor}`}>{children}</Text>
     </View>
   );
 }

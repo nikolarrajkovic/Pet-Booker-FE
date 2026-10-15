@@ -618,6 +618,10 @@ const en = {
     totalColon: 'Total:',
   },
   reviewBooking: {
+    cashNote: 'You pay the provider in cash at the service; nothing is charged in the app.',
+    depositNote: 'The provider needs the deposit before the service can start.',
+    cancellationPolicyDeposit:
+      "Cancelling is free until you pay the deposit. Once it's paid, the deposit stays with the provider if you cancel, and anything paid beyond it comes back. If the provider calls the booking off, you get everything back.",
     title: 'Review Booking',
     bookingDetails: 'Booking Details',
     discount: 'Discount',
@@ -711,6 +715,25 @@ const en = {
     submitFailed: 'Could not submit your review. Please try again.',
   },
   bookingDetails: {
+    noShowNoticeProvider: "You recorded that the customer didn't show up.",
+    noShowNotice:
+      "The provider recorded that you didn't show up. The deposit was kept; anything paid beyond it was refunded.",
+    noShowBadge: 'No-show',
+    noShowFailed: "Couldn't record the no-show.",
+    noShowSuccess: 'No-show recorded. The customer has been told.',
+    noShowConfirm: 'Record no-show',
+    noShowPlaceholder: 'e.g. Nobody answered the door at 10:00.',
+    noShowSubtitle:
+      'The deposit stays with you and anything paid beyond it goes back to the customer. Add a note for them.',
+    noShowTitle: 'Record a no-show?',
+    noShow: "Customer didn't show",
+    callOffFailed: "Couldn't cancel the booking.",
+    callOffSuccess: 'Booking cancelled. The customer has been told and refunded.',
+    callOffPlaceholder: "e.g. I'm unwell and can't make it that day.",
+    callOffSubtitle: 'Tell the customer why. They get back everything they paid.',
+    callOffTitle: 'Cancel this booking?',
+    cancelKeepsDeposit:
+      'Your deposit of {amount} stays with the provider; anything you paid beyond it is refunded.',
     openInMaps: 'Open in maps',
     where: 'Where',
     cancelReasonTitle: 'Why are you cancelling?',
@@ -1686,6 +1709,18 @@ const en = {
     loadFailed: 'Could not load provider details. Please try again.',
   },
   payments: {
+    keptByProvider: 'Kept by the provider',
+    statusPaidCash: 'Paid in cash',
+    cashFailed: "Couldn't record the cash payment.",
+    cashRecorded: 'Cash payment recorded.',
+    cashConfirm: 'Yes, received',
+    cashConfirmBody: 'The customer gets a receipt and nothing more is owed on this booking.',
+    cashConfirmTitle: 'Received {amount} in cash?',
+    markCashPaid: 'Mark as paid in cash · {amount}',
+    cashNoteProvider: "Paid in cash. Record it here once you've received it.",
+    cashNote: 'You pay {amount} in cash to the provider at the service.',
+    awaitingDeposit: "Waiting for the customer's deposit. The service can start once it's paid.",
+    depositBeforeStart: "The service can't start until the deposit is paid.",
     deposit: 'Deposit',
     paid: 'Paid',
     refunded: 'Refunded',
@@ -1752,7 +1787,7 @@ const en = {
       'A booking is a request until the partner confirms it. The price, any deposit and the extras you choose are shown before you book and fixed on the booking. A partner can adjust the price only before confirming, and you are told when they do. A request the partner has not answered by its start time expires.',
     termsS4Title: '4. Payments and refunds',
     termsS4Body:
-      "Payments go through PetBooker's payment provider. A deposit may be due once the partner confirms, and the rest after the service. You can cancel free of charge until the service starts, and anything you paid goes back to the card you used. If the partner cancels, you get a full refund.",
+      "Payments go through PetBooker's payment provider, or in cash to the partner at the service. A deposit may be due once the partner confirms, and a card booking that asks for one can't start until it is paid; the rest is paid after the service. Cancelling is free until you pay the deposit. After that the partner keeps the deposit if you cancel or don't show up, and anything you paid beyond it goes back to the card you used. If the partner cancels, you get a full refund.",
     termsS5Title: '5. Partners',
     termsS5Body:
       'Partners are independent professionals, not PetBooker employees. A partner must give accurate information, a valid government ID and any certificates they claim, keep their working hours up to date and treat every pet with care. PetBooker reviews each application and may pause or remove a partner who breaks these terms; the partner is told why.',
@@ -2028,6 +2063,7 @@ const en = {
       5: 'Post-Payment',
       6: 'Declined',
       7: 'Cancelled',
+      8: 'No-show',
     },
     paymentType: {
       0: 'Cash',
