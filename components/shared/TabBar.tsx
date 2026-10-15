@@ -53,7 +53,7 @@ export default function TabBar({
   const { isDarkMode, cardBg: bgColor, borderColor } = useThemeColors();
   const { isMobile } = useResponsive();
   const bottomInset = useBottomInset();
-  const { isPartner, isAdmin, isProviderProfile } = useAuth();
+  const { isPartner, isAdmin, isProviderProfile, isLoggedIn } = useAuth();
   const { t } = useLocale();
 
   // From the navigator we are handed the tab state; rendered bare (tests, and any screen that
@@ -65,7 +65,7 @@ export default function TabBar({
 
   if (!isMobile) return null;
 
-  const tabs = primaryNavItems({ isPartner, isAdmin, isProviderProfile });
+  const tabs = primaryNavItems({ isPartner, isAdmin, isProviderProfile, isGuest: !isLoggedIn });
 
   return (
     <View

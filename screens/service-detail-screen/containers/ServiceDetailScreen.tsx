@@ -47,6 +47,7 @@ import {
 import { PetSpecies } from '../../../services/pets';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { YEARS_OF_EXPERIENCE } from '../../../i18n/plural';
+import { useRequireSignIn } from '../../../hooks/useRequireSignIn';
 
 // The booker reads everything about ONE specific service here, then taps
 // "Book Now" to proceed.
@@ -85,6 +86,9 @@ const speciesKeys = (flags?: number): string[] => {
 export default function ServiceDetailScreen() {
   const gutter = usePageGutter();
   const navigation = useNavigation();
+  // A guest reads everything here; booking and messaging ask them to sign in first and bring
+  // them back to this page (app review G7).
+  const requireSignIn = useRequireSignIn();
   const route = useRoute<RouteProp<{ params: ServiceDetailRouteParams }, 'params'>>();
   const { service, serviceId } = route.params ?? {};
   // The id is what identifies the screen; a passed `service` is just a head start on rendering.
@@ -294,17 +298,21 @@ export default function ServiceDetailScreen() {
       label: t('serviceDetail.bookAhead', { hours: d.leadTimeHours }),
     });
 
-  const onBook = () => {
-    (navigation as any).navigate('BookService', {
-      serviceId: selectedService.id,
-      service: selectedService,
-    });
-  };
+  const onBook = () =>
+    requireSignIn(() =>
+      (navigation as any).navigate('BookService', {
+        serviceId: selectedService.id,
+        service: selectedService,
+      })
+    );
 
   // Opens (or reuses) the thread with this provider. The service is passed along so the
   // provider sees what the question is about; ChatScreen does the get-or-create.
   const onMessage = () => {
     if (!svc.serviceProviderId) return;
+    requireSignIn(() => openChat());
+  };
+  const openChat = () => {
     (navigation as any).navigate('Chat', {
       serviceProviderId: svc.serviceProviderId,
       serviceId: svc.id ?? null,

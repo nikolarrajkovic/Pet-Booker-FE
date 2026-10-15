@@ -116,6 +116,7 @@ const ru: TranslationDict = {
     termsPrivacy: 'Условия и политика конфиденциальности',
   },
   login: {
+    continueBrowsing: 'Продолжить просмотр без аккаунта',
     appName: 'PetBooker',
     welcomeBack: 'С возвращением!',
     emailOrUsername: 'Email или имя пользователя',
@@ -298,6 +299,10 @@ const ru: TranslationDict = {
     changedBody: 'Ваш пароль обновлён.',
   },
   profile: {
+    createAccount: 'Создать аккаунт',
+    guestBody:
+      'Бронируйте услуги, переписывайтесь с партнёрами и следите за своими бронированиями и питомцами.',
+    guestTitle: 'Войдите в PetBooker',
     title: 'Профиль',
     yourProfile: 'Ваш профиль',
     account: 'Аккаунт',

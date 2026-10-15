@@ -2,6 +2,7 @@ import { addressLabel } from '../../../services/geocoding';
 import React from 'react';
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useAuth } from '../../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useResource } from '../../../hooks/useResource';
@@ -45,6 +46,7 @@ const EMPTY_REVIEWS: ReviewDto[] = [];
 export default function ProviderDetailScreen() {
   const gutter = usePageGutter();
   const navigation = useNavigation();
+  const { isLoggedIn } = useAuth();
   const route = useRoute<RouteProp<{ params: ProviderDetailRouteParams }, 'params'>>();
   // The id is what the URL (`/providers/:providerId`) carries; the view model is optional. Nothing
   // linked here before — the screen existed but no button opened it — and it needed the whole
@@ -269,7 +271,8 @@ export default function ProviderDetailScreen() {
                       accessibilityRole="button"
                       key={svc.id ?? idx}
                       onPress={() =>
-                        unavailable
+                        // A guest reads the service first; booking it asks them to sign in (G7).
+                        unavailable || !isLoggedIn
                           ? (navigation as any).navigate('ServiceDetail', serviceDetailParams(svc))
                           : (navigation as any).navigate('BookService', {
                               serviceId: svc.id,

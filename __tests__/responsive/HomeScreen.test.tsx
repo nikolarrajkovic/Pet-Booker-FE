@@ -48,11 +48,13 @@ jest.mock('../../hooks/useLocation', () => ({
   }),
 }));
 
+let mockLoggedIn = true;
 jest.mock('../../context/AuthContext', () => ({
   useAuth: () => ({
     isPartner: false,
     isAdmin: false,
-    currentUser: { id: 1, firstName: 'Ana', lastName: 'Petrović' },
+    isLoggedIn: mockLoggedIn,
+    currentUser: mockLoggedIn ? { id: 1, firstName: 'Ana', lastName: 'Petrović' } : null,
   }),
 }));
 
@@ -101,6 +103,7 @@ import HomeScreen from '../../screens/home-screen/containers/HomeScreen';
 afterEach(() => {
   jest.clearAllMocks();
   setPlatform('web');
+  mockLoggedIn = true;
 });
 
 describeBothLayouts('HomeScreen', ({ renderScreen, isWeb }) => {
@@ -140,6 +143,18 @@ describeBothLayouts('HomeScreen', ({ renderScreen, isWeb }) => {
       expect(screen.getByLabelText('Notifications, 2 unread')).toBeTruthy();
       expect(screen.getByLabelText('Messages, 1 unread')).toBeTruthy();
     }
+  });
+
+  it('lets a guest browse, with a way to sign in and nothing personal (G7)', async () => {
+    mockLoggedIn = false;
+    renderScreen(<HomeScreen />);
+    await waitFor(() => expect(screen.getByText('Sunny Sitters')).toBeTruthy());
+
+    // A guest has booked nothing: the rail is not asked for, and not drawn.
+    expect(screen.queryByText('Repeat Groomers')).toBeNull();
+    expect(screen.queryByText('Recently Booked')).toBeNull();
+    expect(screen.queryByLabelText('Notifications, 2 unread')).toBeNull();
+    if (!isWeb) expect(screen.getByText('Sign In')).toBeTruthy();
   });
 
   it('offers a way into each full list, however the rail is laid out', async () => {

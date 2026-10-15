@@ -2,7 +2,6 @@ import React, { createContext, useState, useContext, useEffect, useRef, ReactNod
 import { fetchEnums, EnumsData } from '../services/enums';
 import { getErrorMessage } from '../services/http';
 import { registerServiceProviderTypeLabels } from '../services/service-providers';
-import { useAuth } from './AuthContext';
 import { useLocale } from './LocaleContext';
 import { useToast } from './ToastContext';
 
@@ -14,7 +13,6 @@ type EnumsContextType = {
 const EnumsContext = createContext<EnumsContextType | undefined>(undefined);
 
 export const EnumsProvider = ({ children }: { children: ReactNode }) => {
-  const { isLoggedIn } = useAuth();
   const { language } = useLocale();
   const { showError } = useToast();
   const [enums, setEnums] = useState<EnumsData | null>(null);
@@ -24,14 +22,8 @@ export const EnumsProvider = ({ children }: { children: ReactNode }) => {
   const loadedForLanguage = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      // Clear cache on logout so a fresh fetch happens on next login
-      setEnums(null);
-      loadedForLanguage.current = null;
-      registerServiceProviderTypeLabels(null);
-      return;
-    }
-
+    // Loaded signed in or not: /enums is public (guests browse the catalogue, app review G7), and
+    // its labels do not depend on who is asking.
     // Cached *for this language* — no need to fetch again. The cache used to be keyed on
     // nothing but "have we fetched yet?", and /enums is localized by Accept-Language, so
     // every label it feeds (service types, booking states, species…) stayed frozen in
@@ -66,7 +58,7 @@ export const EnumsProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, [isLoggedIn, language, showError]);
+  }, [language, showError]);
 
   return <EnumsContext.Provider value={{ enums, isLoading }}>{children}</EnumsContext.Provider>;
 };

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, within } from '@testing-library/react-native';
 import { withProviders, setViewport, setPlatform } from '../test-utils';
 
 /**
@@ -27,7 +27,11 @@ jest.mock('../../navigation/navigationRef', () => ({
   resetFromOutside: (...args: unknown[]) => mockReset(...args),
 }));
 
-let mockRoles = { isPartner: false, isAdmin: false };
+let mockRoles: { isPartner: boolean; isAdmin: boolean; isLoggedIn?: boolean } = {
+  isPartner: false,
+  isAdmin: false,
+  isLoggedIn: true,
+};
 jest.mock('../../context/AuthContext', () => ({
   useAuth: () => ({
     ...mockRoles,
@@ -72,7 +76,7 @@ const Body = () => <Text>screen body</Text>;
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockRoles = { isPartner: false, isAdmin: false };
+  mockRoles = { isPartner: false, isAdmin: false, isLoggedIn: true };
   mockCurrentRoute = 'Home';
   mockTabRoute = 'Home';
 });
@@ -87,7 +91,7 @@ describe('AppShell', () => {
     setViewport('desktop');
     render(
       withProviders(
-        <AppShell enabled>
+        <AppShell signedIn>
           <Body />
         </AppShell>
       )
@@ -102,7 +106,7 @@ describe('AppShell', () => {
     setViewport('mobile');
     render(
       withProviders(
-        <AppShell enabled>
+        <AppShell signedIn>
           <Body />
         </AppShell>
       )
@@ -122,7 +126,7 @@ describe('AppShell', () => {
     setViewport('desktop');
     render(
       withProviders(
-        <AppShell enabled>
+        <AppShell signedIn>
           <Body />
         </AppShell>
       )
@@ -133,13 +137,14 @@ describe('AppShell', () => {
     expect(screen.getByText('screen body')).toBeTruthy();
   });
 
-  it('draws no chrome for a signed-out user, however wide the window', () => {
-    // The auth screens are full-page and have no navigation to offer; a sidebar with every
-    // destination behind a login is worse than useless, it is a list of dead links.
+  it('draws no chrome on the sign-in screens, however wide the window', () => {
+    // The auth screens are full-page; a sidebar around a sign-in form only distracts from it.
+    mockRoles = { isPartner: false, isAdmin: false, isLoggedIn: false };
+    mockCurrentRoute = 'Login';
     setViewport('desktop');
     render(
       withProviders(
-        <AppShell enabled={false}>
+        <AppShell signedIn={false}>
           <Body />
         </AppShell>
       )
@@ -148,13 +153,33 @@ describe('AppShell', () => {
     expect(screen.queryByLabelText('Main navigation')).toBeNull();
     expect(screen.getByText('screen body')).toBeTruthy();
   });
+
+  it('gives a guest browsing the guest navigation and a way to sign in (G7)', () => {
+    mockRoles = { isPartner: false, isAdmin: false, isLoggedIn: false };
+    mockCurrentRoute = 'Home';
+    setViewport('desktop');
+    render(
+      withProviders(
+        <AppShell signedIn={false}>
+          <Body />
+        </AppShell>
+      )
+    );
+
+    const nav = screen.getByLabelText('Main navigation');
+    expect(within(nav).getByText('Home')).toBeTruthy();
+    expect(within(nav).getByText('Search')).toBeTruthy();
+    expect(within(nav).queryByText('My Bookings')).toBeNull();
+    expect(screen.queryByLabelText('Account')).toBeNull();
+    expect(screen.getByLabelText('Sign In')).toBeTruthy();
+  });
 });
 
 describe('SideNav — role gating', () => {
   const renderShell = () =>
     render(
       withProviders(
-        <AppShell enabled>
+        <AppShell signedIn>
           <Body />
         </AppShell>
       )
@@ -173,7 +198,7 @@ describe('SideNav — role gating', () => {
   });
 
   it('adds the partner group for a partner', () => {
-    mockRoles = { isPartner: true, isAdmin: false };
+    mockRoles = { isPartner: true, isAdmin: false, isLoggedIn: true };
     setViewport('desktop');
     renderShell();
 
@@ -183,7 +208,7 @@ describe('SideNav — role gating', () => {
   });
 
   it('adds the admin group for an admin', () => {
-    mockRoles = { isPartner: false, isAdmin: true };
+    mockRoles = { isPartner: false, isAdmin: true, isLoggedIn: true };
     setViewport('desktop');
     renderShell();
 
@@ -273,7 +298,7 @@ describe('TabBar', () => {
   it('gates the same routes the sidebar does', () => {
     // Both read navItems.ts. Asserting the gating twice is what would catch the two drifting
     // apart if one of them ever grew its own list.
-    mockRoles = { isPartner: true, isAdmin: false };
+    mockRoles = { isPartner: true, isAdmin: false, isLoggedIn: true };
     setViewport('mobile');
     render(withProviders(<TabBar />));
 

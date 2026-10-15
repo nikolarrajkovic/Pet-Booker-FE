@@ -121,6 +121,7 @@ const en = {
     termsPrivacy: 'Terms & Privacy Policy',
   },
   login: {
+    continueBrowsing: 'Continue browsing without an account',
     appName: 'PetBooker',
     welcomeBack: 'Welcome back!',
     emailOrUsername: 'Email or Username',
@@ -304,6 +305,9 @@ const en = {
     changedBody: 'Your password has been updated.',
   },
   profile: {
+    createAccount: 'Create an account',
+    guestBody: 'Book services, message partners and keep track of your bookings and pets.',
+    guestTitle: 'Sign in to PetBooker',
     title: 'Profile',
     yourProfile: 'Your Profile',
     account: 'Account',

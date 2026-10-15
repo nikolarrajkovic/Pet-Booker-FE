@@ -35,6 +35,14 @@ export class SessionEndedError extends Error {
 
 let inFlight: Promise<string> | null = null;
 
+/**
+ * Whether anyone is signed in on this device: a stored access token, or a refresh token to renew
+ * one with. A guest browsing (app review G7) has neither.
+ */
+export async function hasSession(): Promise<boolean> {
+  return !!(await getAccessToken()) || !!(await getRefreshToken());
+}
+
 /** A usable access token: the stored one while it is valid, else a renewed one. */
 export async function getValidAccessToken(): Promise<string> {
   const token = await getAccessToken();

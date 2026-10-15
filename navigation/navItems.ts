@@ -203,6 +203,11 @@ export type NavRoles = {
    * tests) keep their previous behaviour.
    */
   isProviderProfile?: boolean;
+  /**
+   * Signed out (app review G7): a guest browses Home and Search, and Profile is where they sign
+   * in. Everything else needs an account.
+   */
+  isGuest?: boolean;
 };
 
 /** The items a given account may see, in list order. */
@@ -210,7 +215,14 @@ export function visibleNavItems({
   isPartner,
   isAdmin,
   isProviderProfile = false,
+  isGuest = false,
 }: NavRoles): NavItem[] {
+  if (isGuest) {
+    return NAV_ITEMS.filter(
+      (item) =>
+        item.group === 'primary' && (item.requires === undefined || item.requires === 'consumer')
+    );
+  }
   // A managed ProviderProfile has no user row, so both user-scoped destinations and the consumer
   // browse surface are unusable for it — every one of those endpoints answers 401. Admins keep
   // everything: the seeded admin is a real user and uses those screens.

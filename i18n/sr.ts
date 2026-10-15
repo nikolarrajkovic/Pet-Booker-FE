@@ -115,6 +115,7 @@ const sr: TranslationDict = {
     termsPrivacy: 'Uslovi i politika privatnosti',
   },
   login: {
+    continueBrowsing: 'Nastavite pregled bez naloga',
     appName: 'PetBooker',
     welcomeBack: 'Dobrodošli nazad!',
     emailOrUsername: 'Email ili korisničko ime',
@@ -296,6 +297,10 @@ const sr: TranslationDict = {
     changedBody: 'Vaša lozinka je ažurirana.',
   },
   profile: {
+    createAccount: 'Napravite nalog',
+    guestBody:
+      'Rezervišite usluge, dopisujte se s partnerima i pratite svoje rezervacije i ljubimce.',
+    guestTitle: 'Prijavite se na PetBooker',
     title: 'Profil',
     yourProfile: 'Vaš profil',
     account: 'Nalog',

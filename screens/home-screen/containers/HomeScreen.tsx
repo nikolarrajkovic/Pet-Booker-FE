@@ -19,6 +19,7 @@ import { getErrorMessage } from '../../../services/http';
 import { ServiceDto, serviceCurrency, serviceFromPrice } from '../../../services/services';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
 import { useNotifications } from '../../../context/NotificationsContext';
+import { useAuth } from '../../../context/AuthContext';
 import { useMessages } from '../../../context/MessagesContext';
 import { DiscountType } from '../../../services/service-discounts';
 import { formatOfferAmount } from '../../../screens/promotions-screen/components';
@@ -150,6 +151,7 @@ export default function HomeScreen() {
   const { isWebLayout } = useResponsive();
   const tabBarSpacing = useTabBarSpacing();
   const { t, tEnum } = useLocale();
+  const { isLoggedIn } = useAuth();
 
   const [nearYou, setNearYou] = useState<ServiceItem[]>([]);
   const [mostPopular, setMostPopular] = useState<ServiceItem[]>([]);
@@ -195,10 +197,11 @@ export default function HomeScreen() {
         // discount, rating, image and post-discount price, so there is nothing else to fetch.
         const val = <T,>(r: PromiseSettledResult<T[]>): T[] =>
           r.status === 'fulfilled' ? r.value : [];
+        // A guest has booked nothing, and the rail needs a session (app review G7).
         const results = await Promise.allSettled([
           getMostPopular(),
           getOnSale(),
-          getRecentlyBooked(),
+          isLoggedIn ? getRecentlyBooked() : Promise.resolve([]),
         ]);
         if (cancelled) return;
         const [popularR, saleR, recentR] = results;
@@ -271,9 +274,10 @@ export default function HomeScreen() {
   // refresh re-seeds both from REST (covers rows read while this screen was blurred).
   useFocusEffect(
     useCallback(() => {
+      if (!isLoggedIn) return;
       refreshUnreadCount();
       refreshUnreadMessages();
-    }, [refreshUnreadCount, refreshUnreadMessages])
+    }, [isLoggedIn, refreshUnreadCount, refreshUnreadMessages])
   );
 
   const handleServicePress = (item: ServiceItem) => {
@@ -456,49 +460,62 @@ export default function HomeScreen() {
                   </Text>
                 )}
               </View>
+              {!isLoggedIn ? (
+                // A guest browsing (app review G7): the way in, where the inbox icons would be.
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => (navigation as any).navigate('Login')}
+                  className="rounded-full bg-white px-4 py-2">
+                  <Text className="text-sm font-bold text-brand-600">{t('login.signIn')}</Text>
+                </TouchableOpacity>
+              ) : null}
               {/* Messages sits beside notifications: a chat message is only pushed to the feed
                 once per thread (the rest is carried by this badge), so without an entry point
                 here an ongoing conversation would be invisible from the home screen. */}
-              <TouchableOpacity
-                className="p-2"
-                accessibilityRole="button"
-                accessibilityLabel={
-                  unreadMessages > 0
-                    ? t('home.a11yMessagesUnread', { count: unreadMessages })
-                    : t('home.a11yMessages')
-                }
-                accessible
-                onPress={() => (navigation as any).navigate('Messages')}>
-                <Ionicons name="chatbubble-ellipses-outline" size={22} color="white" />
-                {unreadMessages > 0 && (
-                  <View className="absolute right-0.5 top-0.5 h-[18px] min-w-[18px] items-center justify-center rounded-full border border-brand-500 bg-red-500 px-1">
-                    <Text className="text-[10px] font-bold text-white">
-                      {unreadMessages > 99 ? '99+' : unreadMessages}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                className="p-2"
-                // Icon-only, and the unread count is rendered as a bare badge — without this the
-                // control announces as an unnamed button and the count is never read at all.
-                accessibilityRole="button"
-                accessibilityLabel={
-                  unreadCount > 0
-                    ? t('home.a11yNotificationsUnread', { count: unreadCount })
-                    : t('home.a11yNotifications')
-                }
-                accessible
-                onPress={() => (navigation as any).navigate('Notifications')}>
-                <Ionicons name="notifications-outline" size={22} color="white" />
-                {unreadCount > 0 && (
-                  <View className="absolute right-0.5 top-0.5 h-[18px] min-w-[18px] items-center justify-center rounded-full border border-brand-500 bg-red-500 px-1">
-                    <Text className="text-[10px] font-bold text-white">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
+              {isLoggedIn ? (
+                <>
+                  <TouchableOpacity
+                    className="p-2"
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      unreadMessages > 0
+                        ? t('home.a11yMessagesUnread', { count: unreadMessages })
+                        : t('home.a11yMessages')
+                    }
+                    accessible
+                    onPress={() => (navigation as any).navigate('Messages')}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={22} color="white" />
+                    {unreadMessages > 0 && (
+                      <View className="absolute right-0.5 top-0.5 h-[18px] min-w-[18px] items-center justify-center rounded-full border border-brand-500 bg-red-500 px-1">
+                        <Text className="text-[10px] font-bold text-white">
+                          {unreadMessages > 99 ? '99+' : unreadMessages}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    className="p-2"
+                    // Icon-only, and the unread count is rendered as a bare badge — without this the
+                    // control announces as an unnamed button and the count is never read at all.
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      unreadCount > 0
+                        ? t('home.a11yNotificationsUnread', { count: unreadCount })
+                        : t('home.a11yNotifications')
+                    }
+                    accessible
+                    onPress={() => (navigation as any).navigate('Notifications')}>
+                    <Ionicons name="notifications-outline" size={22} color="white" />
+                    {unreadCount > 0 && (
+                      <View className="absolute right-0.5 top-0.5 h-[18px] min-w-[18px] items-center justify-center rounded-full border border-brand-500 bg-red-500 px-1">
+                        <Text className="text-[10px] font-bold text-white">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </>
+              ) : null}
             </View>
 
             <View className="mb-2 flex-row items-center">
@@ -574,20 +591,23 @@ export default function HomeScreen() {
           <GroupRequestCta variant="banner" />
         </View>
 
-        {renderSection(
-          titles.recent,
-          'time-outline',
-          recentlyBooked,
-          'recently-booked',
-          undefined,
-          emptyFor(
-            titles.recent,
-            failed.recent,
-            'time-outline',
-            t('home.noRecentBookings'),
-            t('home.noRecentBookingsSub')
-          )
-        )}
+        {/* A guest has no bookings to show (app review G7). */}
+        {isLoggedIn
+          ? renderSection(
+              titles.recent,
+              'time-outline',
+              recentlyBooked,
+              'recently-booked',
+              undefined,
+              emptyFor(
+                titles.recent,
+                failed.recent,
+                'time-outline',
+                t('home.noRecentBookings'),
+                t('home.noRecentBookingsSub')
+              )
+            )
+          : null}
         {renderSection(
           titles.nearYou,
           'location-outline',

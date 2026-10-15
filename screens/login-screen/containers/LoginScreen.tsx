@@ -251,6 +251,17 @@ export default function LoginScreen() {
           <Text className="text-sm font-semibold text-brand-600">{t('login.signUp')}</Text>
         </TouchableOpacity>
       </View>
+      {/* Guests can browse without an account (app review G7). */}
+      <TouchableOpacity
+        accessibilityRole="button"
+        onPress={() =>
+          navigation.canGoBack()
+            ? navigation.goBack()
+            : (navigation as any).navigate('MainTabs', { screen: 'Home' })
+        }
+        className="mt-4 items-center py-2">
+        <Text className={`text-sm ${subtextColor}`}>{t('login.continueBrowsing')}</Text>
+      </TouchableOpacity>
     </AuthLayout>
   );
 }

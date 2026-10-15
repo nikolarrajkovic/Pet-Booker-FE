@@ -12,6 +12,7 @@ import { useResponsive } from '../../../hooks/useResponsive';
 import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
+import GuestProfile from '../components/GuestProfile';
 import { countBookings, BookingState } from '../../../services/bookings';
 import { MenuItem } from '../components';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -131,7 +132,7 @@ export default function ProfileScreen() {
     subtextColor,
     borderColor,
   } = useThemeColors();
-  const { signOut, isPartner, isProviderProfile, currentUser } = useAuth();
+  const { signOut, isPartner, isProviderProfile, currentUser, isLoggedIn } = useAuth();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
   const tabBarSpacing = useTabBarSpacing();
@@ -222,6 +223,9 @@ export default function ProfileScreen() {
     else if (id === 'notification-settings') (navigation as any).navigate('NotificationSettings');
     else if (id === 'settings') (navigation as any).navigate('Settings');
   };
+
+  // A guest browsing signed out (app review G7): the Profile tab is where they sign in.
+  if (!isLoggedIn) return <GuestProfile />;
 
   return (
     <ScreenLayout
