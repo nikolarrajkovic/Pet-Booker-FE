@@ -210,7 +210,10 @@ export default function PartnerApplicationScreen() {
         if (webFile) uri = await fileToDataUri(webFile);
       }
 
-      setCertificates((prev) => [...prev, { uri, fileName, issuer: '', issuedDate: '' }]);
+      setCertificates((prev) => [
+        ...prev,
+        { uri, fileName, issuer: '', issuedDate: '', expiresDate: '' },
+      ]);
       return;
     }
 
@@ -270,7 +273,11 @@ export default function PartnerApplicationScreen() {
     }
   };
 
-  const onUpdateCertificate = (index: number, field: 'issuer' | 'issuedDate', value: string) => {
+  const onUpdateCertificate = (
+    index: number,
+    field: 'issuer' | 'issuedDate' | 'expiresDate',
+    value: string
+  ) => {
     setCertificates((prev) => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
   };
 
@@ -349,12 +356,14 @@ export default function PartnerApplicationScreen() {
         certName?: string;
         issuer?: string;
         issuedDate?: string;
+        expiresDate?: string;
       }[] = certificates.map((c) => ({
         uri: c.uri,
         fileName: c.fileName,
         certName: c.fileName ?? t('partnerApplication.certificate'),
         issuer: c.issuer,
         issuedDate: c.issuedDate,
+        expiresDate: c.expiresDate,
       }));
       const petPhotoFiles = petPhotos
         .map((uri, i) => (uri ? { uri, fileName: petPhotoFileNames[i] } : null))

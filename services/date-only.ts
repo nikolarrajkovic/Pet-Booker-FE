@@ -12,3 +12,14 @@ export function formatDateOnly(date: Date): string {
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
+
+/**
+ * "YYYY-MM-DD" → that calendar day at LOCAL midnight, or null. `new Date("2026-10-15")` reads the
+ * string as UTC midnight, which is the previous day anywhere west of Greenwich.
+ */
+export function parseDateOnly(value?: string | null): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value ?? '');
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return isNaN(d.getTime()) ? null : d;
+}

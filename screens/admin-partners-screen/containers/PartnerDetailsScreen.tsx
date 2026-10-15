@@ -51,6 +51,8 @@ import ModerationModal, { type ModerationMode } from '../components/ModerationMo
 import ModerationPanel from '../components/ModerationPanel';
 import { partnerStatusOf } from '../providerToPartner';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { certificateDates } from '../../../services/certificate-dates';
+import PrivateImage from '../../../components/shared/PrivateImage';
 
 // Labels are translation keys, resolved with t() at render.
 const STATUS_CFG: Record<
@@ -774,12 +776,14 @@ export default function PartnerDetailsScreen() {
                           {c.name}
                         </Text>
                         {c.issuer ? (
-                          <Text style={{ color: subTextColor, fontSize: 11, marginBottom: 6 }}>
-                            {c.issuer}
+                          <Text style={{ color: subTextColor, fontSize: 11 }}>{c.issuer}</Text>
+                        ) : null}
+                        {certificateDates(t, c) ? (
+                          <Text style={{ color: subTextColor, fontSize: 11 }}>
+                            {certificateDates(t, c)}
                           </Text>
-                        ) : (
-                          <View style={{ height: 6 }} />
-                        )}
+                        ) : null}
+                        <View style={{ height: 6 }} />
                         {c.isImage ? (
                           <ViewableImage
                             uri={c.fileSrc}
@@ -923,8 +927,9 @@ export default function PartnerDetailsScreen() {
             padding: 16,
           }}>
           {viewerUri ? (
-            <Image
-              source={{ uri: viewerUri }}
+            // With the session: the viewer also opens the ID, which an anonymous request cannot read.
+            <PrivateImage
+              uri={viewerUri}
               style={{ width: '100%', height: '82%' }}
               resizeMode="contain"
             />
@@ -1106,8 +1111,9 @@ function IdSide({
           activeOpacity={0.9}
           onPress={() => (revealed ? onView(img.src) : onReveal())}
           style={{ position: 'relative' }}>
-          <Image
-            source={{ uri: img.src }}
+          {/* The ID is served to the owner or an admin only, so it loads with the session. */}
+          <PrivateImage
+            uri={img.src}
             style={{ width: '100%', height: 110, borderRadius: 10 }}
             resizeMode="cover"
             blurRadius={revealed ? 0 : 14}

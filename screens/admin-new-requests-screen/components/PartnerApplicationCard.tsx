@@ -20,6 +20,9 @@ export type ApplicationCertificate = {
   sizeBytes: number;
   mimeType: string;
   isImage: boolean;
+  /** "YYYY-MM-DD", when given. */
+  issuedOn?: string | null;
+  expiresOn?: string | null;
 };
 
 export type PartnerApplication = {
@@ -323,15 +326,12 @@ export function PartnerApplicationCard({
             subTextColor={subTextColor}
             textColor={textColor}
           />
+          {/* From the server's count: a list row never carries the ID images (they are private,
+              loaded only by View Details), so reading them here showed every applicant's ID as
+              missing. */}
           <DocStatus
-            label={t('admin.govIdFront')}
-            uploaded={!!application.documents.governmentIdFront}
-            subTextColor={subTextColor}
-            textColor={textColor}
-          />
-          <DocStatus
-            label={t('admin.govIdBack')}
-            uploaded={!!application.documents.governmentIdBack}
+            label={t('admin.govIdCount', { n: application.governmentIdCount })}
+            uploaded={application.governmentIdCount > 0}
             subTextColor={subTextColor}
             textColor={textColor}
           />

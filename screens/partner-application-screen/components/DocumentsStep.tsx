@@ -6,12 +6,16 @@ import { useLocale } from '../../../context/LocaleContext';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 import type { ApplicationErrors, ApplicationField } from '../applicationValidation';
+import { formatShortDate } from '../../../i18n/dates';
+import { parseDateOnly } from '../../../services/date-only';
 export type DocumentFile = { uri: string; fileName?: string };
 export type CertificateEntry = {
   uri: string;
   fileName?: string;
   issuer: string;
   issuedDate: string;
+  /** Optional. With it the partner is warned before the certificate lapses (app review G12). */
+  expiresDate: string;
 };
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -37,7 +41,11 @@ interface DocumentsStepProps {
   pickPetPhoto: (slotIndex: number) => void;
   pickDocument: (type: 'governmentIdFront' | 'governmentIdBack' | 'certificate') => void;
   onRemoveCertificate: (index: number) => void;
-  onUpdateCertificate: (index: number, field: 'issuer' | 'issuedDate', value: string) => void;
+  onUpdateCertificate: (
+    index: number,
+    field: 'issuer' | 'issuedDate' | 'expiresDate',
+    value: string
+  ) => void;
   isDarkMode: boolean;
   textColor: string;
   subtextColor: string;
@@ -94,7 +102,19 @@ export default function DocumentsStep({
     errors?.[field] ? (
       <Text className="mt-2 text-xs text-red-500">{t(errors[field] as any)}</Text>
     ) : null;
-  const [openDateIndex, setOpenDateIndex] = useState<number | null>(null);
+  // Which certificate date picker is open: one at a time, issued or expiry.
+  const [openDate, setOpenDate] = useState<{
+    index: number;
+    field: 'issuedDate' | 'expiresDate';
+  } | null>(null);
+  const isOpen = (index: number, field: 'issuedDate' | 'expiresDate') =>
+    openDate?.index === index && openDate.field === field;
+  const toggle = (index: number, field: 'issuedDate' | 'expiresDate') =>
+    setOpenDate((cur) => (cur?.index === index && cur.field === field ? null : { index, field }));
+  const shown = (iso: string) => {
+    const d = parseDateOnly(iso);
+    return d ? formatShortDate(d) : '';
+  };
   const today = new Date();
 
   const uploadBtn = (label: string, onPress: () => void) => (
@@ -276,26 +296,57 @@ export default function DocumentsStep({
           </Text>
           <TouchableOpacity
             accessibilityRole="button"
-            onPress={() => setOpenDateIndex((i) => (i === index ? null : index))}
+            onPress={() => toggle(index, 'issuedDate')}
             activeOpacity={0.75}
             className={`${inputBg} flex-row items-center justify-between rounded-xl px-3 py-2`}>
             <Text
               className={`text-sm ${cert.issuedDate ? inputText : ''}`}
               style={cert.issuedDate ? undefined : { color: placeholderColor }}>
-              {cert.issuedDate || t('partnerApplication.selectDate')}
+              {shown(cert.issuedDate) || t('partnerApplication.selectDate')}
             </Text>
             <Ionicons name="calendar-outline" size={18} color={placeholderColor} />
           </TouchableOpacity>
-          {openDateIndex === index && (
+          {isOpen(index, 'issuedDate') && (
             <DatePicker
               value={parseISO(cert.issuedDate)}
               maxDate={today}
               isDarkMode={isDarkMode}
               onChange={(date) => {
                 onUpdateCertificate(index, 'issuedDate', date ? fmtISO(date) : '');
-                setOpenDateIndex(null);
+                setOpenDate(null);
               }}
-              onClose={() => setOpenDateIndex(null)}
+              onClose={() => setOpenDate(null)}
+            />
+          )}
+
+          {/* Expiry: optional; with it the partner is reminded before the certificate lapses. */}
+          <Text className={`text-xs font-semibold ${subtextColor} mb-1 mt-3`}>
+            {t('partnerApplication.expiresDate')}{' '}
+            <Text className="font-normal">{t('common.optional')}</Text>
+          </Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t('partnerApplication.expiresDate')}
+            onPress={() => toggle(index, 'expiresDate')}
+            activeOpacity={0.75}
+            className={`${inputBg} flex-row items-center justify-between rounded-xl px-3 py-2`}>
+            <Text
+              className={`text-sm ${cert.expiresDate ? inputText : ''}`}
+              style={cert.expiresDate ? undefined : { color: placeholderColor }}>
+              {shown(cert.expiresDate) || t('partnerApplication.noExpiry')}
+            </Text>
+            <Ionicons name="calendar-outline" size={18} color={placeholderColor} />
+          </TouchableOpacity>
+          {isOpen(index, 'expiresDate') && (
+            <DatePicker
+              value={parseDateOnly(cert.expiresDate) ?? today}
+              minDate={today}
+              isDarkMode={isDarkMode}
+              onChange={(date) => {
+                onUpdateCertificate(index, 'expiresDate', date ? fmtISO(date) : '');
+                setOpenDate(null);
+              }}
+              onClose={() => setOpenDate(null)}
             />
           )}
         </View>

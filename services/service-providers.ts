@@ -295,6 +295,9 @@ export type ProviderDocumentCertificate = {
   sizeBytes: number;
   mimeType: string;
   isImage: boolean;
+  /** "YYYY-MM-DD", when given. */
+  issuedOn?: string | null;
+  expiresOn?: string | null;
 };
 
 /** The full set of documents a provider/applicant uploads, with resolved URLs. */
@@ -335,6 +338,8 @@ export function extractProviderDocuments(dto: ServiceProviderDto): ProviderDocum
         sizeBytes: f.sizeBytes ?? 0,
         mimeType: f.mimeType ?? '',
         isImage: (f.mimeType ?? '').startsWith('image/'),
+        issuedOn: cert.issuedOn ?? null,
+        expiresOn: cert.expiresOn ?? null,
       }))
   );
 
@@ -548,6 +553,7 @@ export type CreateServiceProviderPayload = {
     certName?: string;
     issuer?: string;
     issuedDate?: string;
+    expiresDate?: string;
   }[];
   userId: number;
 };
@@ -600,9 +606,9 @@ export async function createServiceProvider(payload: CreateServiceProviderPayloa
       issuer: originalFile.issuer ?? '',
       url: '',
       issuedOn: originalFile.issuedDate || today,
-      // The application doesn't ask for an expiry, so none is known. It used to send today,
-      // which recorded every submitted certificate as expiring the day it was sent.
-      expiresOn: null,
+      // Optional: given, the partner is warned before it lapses (app review G12). It used to be
+      // stamped with today, which recorded every certificate as expiring the day it was sent.
+      expiresOn: originalFile.expiresDate || null,
       fileIds: [Number(f.id)],
     };
   });
