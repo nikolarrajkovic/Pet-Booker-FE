@@ -13,7 +13,7 @@ import {
 } from '../../services/services';
 import { DiscountType } from '../../services/service-discounts';
 import { getEnabledServiceAddons } from '../../services/service-addons';
-import { PetSpecies } from '../../services/pets';
+import { PetSpecies, isOfferedSpecies } from '../../services/pets';
 
 /**
  * One search result, as a full-width row. **Web design only** — see the note below.
@@ -55,7 +55,7 @@ const SPECIES_FLAGS = [
   PetSpecies.Turtle,
   PetSpecies.Fish,
   PetSpecies.Snake,
-];
+].filter(isOfferedSpecies);
 
 /**
  * The word beside the score, the way a review score is normally read ("8.9 Fabulous").

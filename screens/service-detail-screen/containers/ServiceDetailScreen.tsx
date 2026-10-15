@@ -78,7 +78,6 @@ const speciesKeys = (flags?: number): string[] => {
   if (flags & PetSpecies.Cat) out.push('species.cats');
   if (flags & PetSpecies.Parrot) out.push('species.parrots');
   if (flags & PetSpecies.Turtle) out.push('species.turtles');
-  if (flags & PetSpecies.Fish) out.push('species.fish');
   if (flags & PetSpecies.Snake) out.push('species.snakes');
   return out;
 };

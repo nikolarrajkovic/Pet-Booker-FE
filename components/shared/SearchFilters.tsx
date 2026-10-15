@@ -6,7 +6,7 @@ import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useEnums } from '../../context/EnumsContext';
 import { useLocale } from '../../context/LocaleContext';
-import { PetSpecies } from '../../services/pets';
+import { PetSpecies, isOfferedSpecies } from '../../services/pets';
 
 /**
  * What the user has narrowed the catalogue to.
@@ -98,7 +98,7 @@ export default function SearchFilters({
   // None (0) and All (63): neither is a selectable filter.
   const serviceTypeOptions = enums?.serviceProviderType ?? [];
   const petTypeOptions = (enums?.petSpeciesType ?? []).filter(
-    (e) => e.value > 0 && e.value !== PetSpecies.All
+    (e) => e.value > 0 && e.value !== PetSpecies.All && isOfferedSpecies(e.value)
   );
 
   const toggleValue = (key: 'serviceTypes' | 'petTypes', option: number) => {

@@ -31,7 +31,7 @@ import {
   type AddressDto,
 } from '../../../services/service-providers';
 import { useEnums } from '../../../context/EnumsContext';
-import { PetSpecies } from '../../../services/pets';
+import { PetSpecies, isOfferedSpecies } from '../../../services/pets';
 import {
   createService,
   updateService,
@@ -193,7 +193,7 @@ export default function AddEditServiceScreen() {
   );
   const [showSpeciesError, setShowSpeciesError] = useState(false);
   const speciesOptions = (enums?.petSpeciesType ?? []).filter(
-    (e) => e.value > 0 && e.value !== PetSpecies.All
+    (e) => e.value > 0 && e.value !== PetSpecies.All && isOfferedSpecies(e.value)
   );
   const toggleSpecies = (flag: number) => setAcceptedSpecies((cur) => cur ^ flag);
   const speciesMissing = showSpeciesError && acceptedSpecies === 0;
