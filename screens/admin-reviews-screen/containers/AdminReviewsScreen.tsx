@@ -150,8 +150,7 @@ export default function AdminReviewsScreen() {
       onBackPress={() => goUp('AdminDashboard')}
       headerTitle={t('admin.reviewsTitle')}
       headerSubtitle={t('admin.reviewsSubtitle')}
-      contentBg={isWebLayout ? undefined : isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]'}
-      width="wide">
+      contentBg={isWebLayout ? undefined : isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]'}>
       {/* On the phone the tabs stay put above the scrolling queue, as they always have. */}
       {!isWebLayout && tabs}
 

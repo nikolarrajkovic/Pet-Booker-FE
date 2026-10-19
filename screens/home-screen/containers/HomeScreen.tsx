@@ -456,7 +456,6 @@ export default function HomeScreen() {
     <ScreenLayout
       headerVariant="large"
       contentBg={contentBg}
-      width="wide"
       // The greeting, tagline and location now live in the WelcomeBanner card inside the content,
       // rather than as a page title, a subtitle and a stray row beneath them.
       headerChildren={

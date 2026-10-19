@@ -7,7 +7,7 @@ import { BottomInsetReservedContext, useBottomInset } from '../../hooks/useSafeA
 import { useResponsive } from '../../hooks/useResponsive';
 import AppHeader from './AppHeader';
 import PageHeader from './PageHeader';
-import ContentContainer, { type ContentWidth } from './ContentContainer';
+import ContentContainer from './ContentContainer';
 import { useRoute } from '@react-navigation/native';
 import { NAV_ITEMS } from '../../navigation/navItems';
 
@@ -38,15 +38,13 @@ type ScreenLayoutProps = {
   avoidKeyboard?: boolean;
 
   // ── Web design only. All of these are inert on the phone design. ───────────────────────────
-  /** How wide the content column may grow on web. See `CONTENT_WIDTHS`. */
-  width?: ContentWidth;
   /**
    * Actions for the web page-title row. Falls back to `rightAction`, which on the phone design
    * sits in the coloured header bar — usually the same buttons in a different place.
    */
   webHeaderRight?: ReactNode;
   /**
-   * Skip the page header and the width cap — for a screen that owns its whole viewport on web
+   * Skip the page header and the content column — for a screen that owns its whole viewport on web
    * (a full-bleed map, a chat thread).
    */
   webBare?: boolean;
@@ -62,10 +60,10 @@ type ScreenLayoutProps = {
  *   bottom inset belongs to whatever sits at the bottom — the `TabBar` (mounted on the tab
  *   navigator, so it is below every tab screen without being passed in), a `StickyFooter`, or,
  *   when a screen has neither, the content sheet itself.
- * - **Web** — a page: `PageHeader` (plain title + back link) above the body, both centred in a
- *   width-capped column, with no safe-area padding, no coloured slab and no rounded sheet. The
- *   chrome that used to live in the header — the notification bell, the account menu — is in the
- *   persistent `TopBar`, so `showNotificationButton` is deliberately **ignored** on this design;
+ * - **Web** — a page: `PageHeader` (plain title + back link) above the body, both in one
+ *   full-width column inset by the page gutter, with no safe-area padding, no coloured slab and
+ *   no rounded sheet. The chrome that used to live in the header — the notification bell, the
+ *   account menu — is in the persistent `TopBar`, so `showNotificationButton` is deliberately **ignored** on this design;
  *   two bells on one page is worse than none.
  *
  * Which design you get is decided by window width (`hooks/useResponsive.ts`), so a phone browser
@@ -94,7 +92,6 @@ export default function ScreenLayout({
   safeAreaBg,
   contentBg,
   avoidKeyboard = true,
-  width = 'default',
   webHeaderRight,
   webBare = false,
 }: ScreenLayoutProps) {
@@ -158,9 +155,8 @@ export default function ScreenLayout({
       //
       // `flexBasis: 'auto'` so the screen sizes to its content: the page is what scrolls now, and
       // a zero basis would cap it at the viewport with the overflow hidden below the fold.
-      // The page's one scroller, and deliberately full width: its scrollbar then lands on the
-      // window edge, where a page scrollbar belongs. Capping this instead (as the column below
-      // is capped) is what used to leave a scrollbar floating in the middle of the page.
+      // The page's one scroller, and full width like the column inside it: its scrollbar then
+      // lands on the window edge, where a page scrollbar belongs.
       // Screens' own ScrollViews are flattened on web so this is the only scroll pane —
       // see styles/document-scroll.web.ts.
       <View
@@ -170,10 +166,10 @@ export default function ScreenLayout({
           Two containers, not one: the header needs the column's horizontal gutters, but the body
           does not — screens already pad their own ScrollViews (with `usePageGutter`), and nesting a padded
           container around that would double every gutter on every screen at once. So the body
-          gets the width cap and centring without the padding, and screens keep owning their own.
+          gets the column without the padding, and screens keep owning their own.
 
         */}
-        <ContentContainer width={width}>
+        <ContentContainer>
           <PageHeader
             title={headerTitle}
             subtitle={headerSubtitle}
@@ -184,9 +180,7 @@ export default function ScreenLayout({
           </PageHeader>
         </ContentContainer>
 
-        <ContentContainer width={width} noPadding>
-          {children}
-        </ContentContainer>
+        <ContentContainer noPadding>{children}</ContentContainer>
 
         {/* A footer here is a CTA bar, not the TabBar (which renders nothing off the phone
             design). In the flow at the end of the column rather than pinned across the window —

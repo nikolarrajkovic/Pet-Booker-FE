@@ -590,10 +590,7 @@ export default function AddEditServiceScreen() {
       headerTitle={isEdit ? t('addEditService.titleEdit') : t('addEditService.titleAdd')}
       headerSubtitle={isEdit ? t('addEditService.subtitleEdit') : t('addEditService.subtitleAdd')}
       rightAction={previewButton}
-      contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-white'}
-      // A form: one column of fields. Capped narrow so a label never sits a screen-width
-      // away from the input it names.
-      width="narrow">
+      contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-white'}>
       <ScrollView className={`flex-1 ${gutter.px} py-6`} showsVerticalScrollIndicator={false}>
         {isFirstService ? (
           <View

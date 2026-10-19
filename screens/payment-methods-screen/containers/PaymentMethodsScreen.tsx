@@ -69,8 +69,7 @@ export default function PaymentMethodsScreen() {
       headerVariant="standard"
       showBackButton
       headerTitle={t('payments.methodsTitle')}
-      contentBg={bgColor}
-      width="narrow">
+      contentBg={bgColor}>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
         <FormCard>
           <View className={`${gutter.px} py-6`}>

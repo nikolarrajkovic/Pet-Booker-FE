@@ -20,7 +20,6 @@ import TwoColumn from '../../../components/shared/TwoColumn';
 import ServicePhoto from '../../../components/shared/ServicePhoto';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import StickyFooter from '../../../components/shared/StickyFooter';
-import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 import { useResponsive } from '../../../hooks/useResponsive';
 import {
   getService,
@@ -99,13 +98,9 @@ export default function ServiceDetailScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const { isWebLayout } = useResponsive();
 
-  // The paged gallery sizes each photo to one "page". That page is the WINDOW on a phone, where
-  // the screen is the container — but on the web design the container is the capped content
-  // column beside the sidebar, so using the window width would render each photo wider than the
-  // column and leave the paging maths one photo behind every swipe.
-  const screenWidth = isWebLayout
-    ? Math.min(windowWidth, CONTENT_WIDTHS.default ?? windowWidth)
-    : windowWidth;
+  // The paged gallery sizes each photo to one "page": the window on a phone. On the web design the
+  // gallery measures its own card (onLayout → galleryWidth) — this is only the first frame's guess.
+  const screenWidth = windowWidth;
   const {
     isDarkMode,
     bgColor: contentBg,
@@ -689,7 +684,6 @@ export default function ServiceDetailScreen() {
       headerVariant="standard"
       showBackButton
       contentBg={contentBg}
-      width="default"
       headerTitle={isWebLayout ? t('serviceDetail.title') : undefined}
       headerSubtitle={isWebLayout ? t('serviceDetail.subtitle') : undefined}
       headerChildren={

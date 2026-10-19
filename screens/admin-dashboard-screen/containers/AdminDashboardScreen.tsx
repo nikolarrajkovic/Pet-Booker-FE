@@ -187,8 +187,7 @@ export default function AdminDashboardScreen() {
             </Text>
           </View>
         )
-      }
-      width="wide">
+      }>
       <View style={{ flex: 1, overflow: 'hidden' }}>
         {/* Padding only — ScreenLayout caps and centres the column, and its body container is
             deliberately unpadded so screens keep owning their own gutters. */}

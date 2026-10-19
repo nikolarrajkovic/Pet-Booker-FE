@@ -192,10 +192,7 @@ export default function AccountScreen() {
         headerVariant="standard"
         showBackButton
         headerTitle={t('account.title')}
-        contentBg={bgColor}
-        // A form: one column of fields. Capped narrow so a label never sits a screen-width
-        // away from the input it names.
-        width="narrow">
+        contentBg={bgColor}>
         <View className="flex-1 items-center justify-center py-20">
           <ActivityIndicator size="large" color={BRAND_GREEN} />
         </View>

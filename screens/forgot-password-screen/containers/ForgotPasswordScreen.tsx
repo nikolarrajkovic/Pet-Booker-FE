@@ -102,10 +102,7 @@ export default function ForgotPasswordScreen() {
       headerVariant="standard"
       showBackButton
       headerTitle={t('forgotPassword.title')}
-      contentBg={bgColor}
-      // A form: one column of fields. Capped narrow so a label never sits a screen-width
-      // away from the input it names.
-      width="narrow">
+      contentBg={bgColor}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingVertical: 24, paddingHorizontal: gutter.value }}

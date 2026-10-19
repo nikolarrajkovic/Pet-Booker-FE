@@ -242,8 +242,7 @@ export default function ReviewBookingScreen() {
       headerVariant="standard"
       showBackButton
       headerTitle={t('reviewBooking.title')}
-      contentBg={contentBg}
-      width="wide">
+      contentBg={contentBg}>
       {/*
         The checkout shape. On a phone the total and the confirm button are at the bottom of a
         long scroll, with the button pinned so it is reachable at any offset. On a desktop that

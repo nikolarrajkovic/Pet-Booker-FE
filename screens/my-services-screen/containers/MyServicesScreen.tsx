@@ -155,8 +155,7 @@ export default function MyServicesScreen() {
       headerSubtitle={subtitle}
       rightAction={addNewButton}
       webHeaderRight={addNewButtonWeb}
-      contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50'}
-      width="wide">
+      contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50'}>
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className={`${gutter.px} py-4`} style={{ gap: 16 }}>
           {isLoading ? (

@@ -966,8 +966,7 @@ export default function CreateGroupRequestScreen() {
         headerVariant="standard"
         showBackButton
         headerTitle={t('groupRequest.title')}
-        headerSubtitle={t('groupRequest.subtitle')}
-        width="wide">
+        headerSubtitle={t('groupRequest.subtitle')}>
         {/* No ScrollView of its own on web: ScreenLayout owns the page scroller, and a scroll
             container between the aside and it is what stops `position: sticky` from holding the
             summary (and its Send button) in view. Paging the candidate list rides on

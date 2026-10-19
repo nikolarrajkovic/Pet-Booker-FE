@@ -21,8 +21,8 @@ npx tsc --noEmit
 npm run lint
 ```
 
-`ScreenLayout`'s new props are typed as a union (`width: 'narrow' | 'default' | 'wide' | 'full'`),
-so a typo is a compile error rather than a screen that silently renders full-bleed.
+`ScreenLayout`'s web props are typed, so a typo is a compile error rather than a prop the
+screen silently ignores.
 
 ---
 
@@ -64,7 +64,7 @@ plus the handful of screens whose two designs differ structurally.
 | `AppShell.test.tsx` | Sidebar + top bar render on desktop and not on mobile; children render in both; nothing renders for a signed-out user. |
 | `SideNav.test.tsx` | Role gating matches `TabBar` — `PartnerHub` only for `isPartner`, `AdminDashboard` only for `isAdmin` — driven from the same `navItems` fixture, so the two bars cannot drift. |
 | `TabBar.test.tsx` | Renders on mobile, renders **nothing** on desktop (the regression that would put two navigations on screen at once). |
-| `ScreenLayout.test.tsx` | Mobile renders `AppHeader`; web renders `PageHeader` and no green header; `width` caps; `aside` renders after main content on mobile and beside it on web. |
+| `ScreenLayout.test.tsx` | Mobile renders `AppHeader`; web renders `PageHeader` and no green header; the body fills the width inside the page gutter; `aside` renders after main content on mobile and beside it on web. |
 | `ResponsiveGrid.test.tsx` | Column counts per breakpoint; every child renders at every width (a grid that drops the last item is the classic bug). |
 | `ResponsiveModal.test.tsx` | Full-screen on mobile; dialog + scrim on web; Esc closes on web only; `onClose` fires exactly once per dismissal route. |
 | `useFormChain.test.tsx` | The keyboard chain: advance vs. submit, `returnKeyType`/`blurOnSubmit`, the multiline opt-out, a re-ordered field list (multi-step forms), no stale submit handler, and that an unknown field name does **not** submit. |
@@ -116,7 +116,7 @@ Jest renders to a tree, not a browser: it cannot tell you that the sidebar overl
 | 390 × 844 | Phone browser (Chrome device toolbar, iPhone 14) | Mobile |
 | 820 × 1180 | Tablet portrait | Tablet — icon rail |
 | 1280 × 800 | Laptop | Desktop |
-| 1920 × 1080 | Monitor | Desktop, content capped and centred |
+| 1920 × 1080 | Monitor | Desktop, content full width, 32px from the sidebar like every page |
 
 > **Trap — a scripted viewport change does not re-lay-out.** `useWindowDimensions` is backed by
 > react-native-web's `Dimensions`, which listens on **`window.visualViewport`'s** resize event, not

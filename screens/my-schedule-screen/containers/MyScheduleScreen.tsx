@@ -129,8 +129,6 @@ export default function MyScheduleScreen() {
       // the phone showed two back buttons stacked on top of each other.
       headerVariant="standard"
       contentBg={contentBg}
-      // A calendar wants width — a week view squeezed into 720px is why the day view exists.
-      width="wide"
       headerTitle={title}
       showBackButton>
       <View className="flex-1">

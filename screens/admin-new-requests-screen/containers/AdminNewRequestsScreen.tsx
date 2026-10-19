@@ -167,8 +167,7 @@ export default function AdminNewRequestsScreen() {
       onBackPress={() => goUp('AdminDashboard')}
       headerTitle={t('admin.requestsTitle')}
       headerSubtitle={t('admin.requestsSubtitle')}
-      contentBg={isWebLayout ? undefined : isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]'}
-      width="wide">
+      contentBg={isWebLayout ? undefined : isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]'}>
       {/* On the phone the tabs stay put above the scrolling queue, as they always have. */}
       {!isWebLayout && tabs}
 

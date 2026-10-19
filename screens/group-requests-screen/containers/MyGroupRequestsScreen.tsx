@@ -230,8 +230,7 @@ export default function MyGroupRequestsScreen() {
       headerTitle={t('groupRequest.myTitle')}
       headerSubtitle={t('groupRequest.mySubtitle')}
       contentBg={isWebLayout ? undefined : isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]'}
-      webHeaderRight={newButton}
-      width="wide">
+      webHeaderRight={newButton}>
       <FilterTabs tabs={TABS} activeKey={tab} onChange={setTab} counts={counts} />
       <ScrollView
         className="flex-1"

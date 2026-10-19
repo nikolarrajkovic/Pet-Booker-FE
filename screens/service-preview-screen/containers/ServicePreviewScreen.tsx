@@ -55,8 +55,7 @@ export default function ServicePreviewScreen() {
         <TouchableOpacity accessibilityRole="button" onPress={() => navigation.goBack()}>
           <Text className="font-semibold text-brand-600">{t('myServices.edit')}</Text>
         </TouchableOpacity>
-      }
-      width="default">
+      }>
       {/* Stands in for the photo a real service carries; the preview has no upload of its own. */}
       <View className="items-center justify-center bg-gray-200" style={{ height: 220 }}>
         <View className="h-20 w-20 items-center justify-center rounded-full bg-gray-300">

@@ -16,7 +16,6 @@ import { getErrorMessage } from '../../../services/http';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { useTopInset, useBottomInset } from '../../../hooks/useSafeAreaSpacing';
-import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 import { TOPBAR_HEIGHT } from '../../../components/layout/topBarMetrics';
 import {
   ChatAccessReason,
@@ -114,6 +113,10 @@ function needsSeparator(current: MessageDto, previous?: MessageDto): boolean {
  * inbox split view on a wide one. Everything about a thread is the same in both; only the frame
  * differs, which is what `embedded` selects.
  */
+
+/** A thread's reading width on its own page (not in the split view): bubbles, not a dashboard. */
+const THREAD_READING_WIDTH = 720;
+
 export default function ChatThread({
   embedded = false,
   onConversationResolved,
@@ -419,7 +422,7 @@ export default function ChatThread({
   // of a panel that is itself only part of the page.
   const column =
     isWebLayout && !embedded
-      ? { width: '100%' as const, maxWidth: CONTENT_WIDTHS.narrow, alignSelf: 'center' as const }
+      ? { width: '100%' as const, maxWidth: THREAD_READING_WIDTH, alignSelf: 'center' as const }
       : undefined;
 
   /**

@@ -775,9 +775,7 @@ export default function LiveSessionScreen() {
       showBackButton
       headerTitle={t('liveSession.title')}
       headerSubtitle={isPartner ? t('liveSession.partnerSubtitle') : t('liveSession.userSubtitle')}
-      contentBg={bgColor}
-      // A live map plus a status panel — the one screen here that genuinely wants the width.
-      width="wide">
+      contentBg={bgColor}>
       {isLoading ? (
         <View className="flex-1 items-center justify-center py-20">
           <ActivityIndicator size="large" color={BRAND_GREEN} />

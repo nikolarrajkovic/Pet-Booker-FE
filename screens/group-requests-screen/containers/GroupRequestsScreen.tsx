@@ -177,8 +177,7 @@ export default function GroupRequestsScreen() {
       headerTitle={t('groupRequest.inboxTitle')}
       headerSubtitle={t('groupRequest.inboxSubtitle')}
       contentBg={isWebLayout ? undefined : isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]'}
-      showNotificationButton
-      width="wide">
+      showNotificationButton>
       <FilterTabs tabs={TABS} activeKey={tab} onChange={setTab} counts={counts} />
       <ScrollView
         className="flex-1"

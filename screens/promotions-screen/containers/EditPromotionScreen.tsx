@@ -297,10 +297,7 @@ function EditPromotionForm({ promotion }: { promotion: Promotion }) {
           className="h-10 w-10 items-center justify-center rounded-full bg-brand-50">
           <Ionicons name="bar-chart-outline" size={18} color={BRAND_GREEN} />
         </TouchableOpacity>
-      }
-      // A form: one column of fields. Capped narrow so a label never sits a screen-width
-      // away from the input it names.
-      width="narrow">
+      }>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{

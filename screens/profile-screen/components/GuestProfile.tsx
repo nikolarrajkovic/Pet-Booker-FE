@@ -40,7 +40,6 @@ export default function GuestProfile() {
     <ScreenLayout
       headerVariant="large"
       contentBg={bgColor}
-      width="narrow"
       headerTitle={isWebLayout ? t('profile.title') : undefined}
       headerChildren={
         isWebLayout ? undefined : (

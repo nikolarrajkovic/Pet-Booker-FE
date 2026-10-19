@@ -267,10 +267,7 @@ export default function AddPetScreen() {
       headerVariant="standard"
       showBackButton
       headerTitle={existingPet ? t('addPet.titleEdit') : t('addPet.titleAdd')}
-      contentBg={contentBg}
-      // A form: one column of fields. Capped narrow so a label never sits a screen-width
-      // away from the input it names.
-      width="narrow">
+      contentBg={contentBg}>
       <ScrollView
         ref={scrollRef}
         className="flex-1"

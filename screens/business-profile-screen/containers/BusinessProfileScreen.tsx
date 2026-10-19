@@ -243,8 +243,7 @@ export default function BusinessProfileScreen() {
       headerVariant="standard"
       showBackButton
       headerTitle={t('businessProfile.title')}
-      contentBg={bgColor}
-      width="narrow">
+      contentBg={bgColor}>
       {children}
     </ScreenLayout>
   );

@@ -822,14 +822,6 @@ export default function SearchScreen() {
               : t('search.allServices')
       }
       contentBg={contentBg}
-      // Uncapped, unlike every other screen. `ContentContainer` centres a capped column, and that
-      // centring margin STACKS on top of the gutter — so past ~1750px the space outside the
-      // results grew with the window (43px at 1800, 243px at 2200) while the gap between the
-      // results and the filter rail stayed at its fixed 32. The page then read as a narrow strip
-      // adrift in the window. A browse list has no reading-measure problem to solve — its rows are
-      // built from fixed-width blocks and one flexible middle — so it takes the width it is given
-      // and every gutter stays the same size.
-      width="full"
       // Back is a phone affordance here — on the web design Search is a sidebar destination, not
       // somewhere you drilled into, so there is nothing above it to go back to.
       showBackButton
