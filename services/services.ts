@@ -308,6 +308,14 @@ export function serviceCurrency(svc?: ServiceDto | null): string | undefined {
  * `Default` is the historical id order — every sort is total (each ends on the service id), which
  * is what keeps a list that pages as you scroll from repeating or skipping rows.
  */
+/**
+ * Parts of the day, as the search's `TimesOfDay` FLAGS (backend `DayPeriods`): morning is before
+ * 12:00, afternoon 12:00–17:00, evening from 17:00, night = hours past 22:00 or running past
+ * midnight (overnight windows, counted on the day they start).
+ */
+export const DayPeriod = { Morning: 1, Afternoon: 2, Evening: 4, Night: 8 } as const;
+export type DayPeriodValue = (typeof DayPeriod)[keyof typeof DayPeriod];
+
 export const ServiceSortBy = {
   Default: 0,
   PriceAsc: 1,
@@ -364,6 +372,13 @@ export type GetServicesParams = {
   onSaleOnly?: boolean;
   /** Row order. See `ServiceSortBy`. */
   sortBy?: ServiceSortByValue;
+  /**
+   * A day ("YYYY-MM-DD", from `formatDateOnly`): services whose working hours include that
+   * weekday. A schedule match, not a capacity check — the booking calendar shows what is free.
+   */
+  availableOn?: string;
+  /** `DayPeriod` FLAGS OR-ed: services with working hours overlapping any of those parts of the day. */
+  timesOfDay?: number;
 
   /**
    * Add-on filters. These replaced the fixed `IsProvidingPickup`/`IsProvidingReturn`/
@@ -403,6 +418,9 @@ function servicesRequest(params?: GetServicesParams): ApiRequestOptions {
         : undefined,
       OnSaleOnly: params?.onSaleOnly,
       SortBy: params?.sortBy,
+      AvailableOn: params?.availableOn,
+      // 0 = no part of the day chosen: leave the filter off rather than ask for "None".
+      TimesOfDay: params?.timesOfDay || undefined,
       Page: params?.page ?? 1,
       PerPage: params?.perPage ?? 50,
     },

@@ -15,8 +15,9 @@ interface Pet {
 }
 
 interface PetSelectorProps {
-  selectedPet: number | null;
-  onSelectPet: (petId: number) => void;
+  /** Several pets may be picked: each becomes its own booking at the same time. */
+  selectedPets: number[];
+  onTogglePet: (petId: number) => void;
   pets: Pet[];
   isDarkMode: boolean;
   textColor: string;
@@ -26,8 +27,8 @@ interface PetSelectorProps {
 }
 
 export default function PetSelector({
-  selectedPet,
-  onSelectPet,
+  selectedPets,
+  onTogglePet,
   pets,
   isDarkMode,
   textColor,
@@ -38,12 +39,13 @@ export default function PetSelector({
   const gutter = usePageGutter();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
+  const anySelected = selectedPets.length > 0;
   return (
     <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
       <View className="mb-4 flex-row items-center">
         <View
-          className={`h-6 w-6 items-center justify-center rounded-full ${selectedPet ? 'bg-brand-500' : 'bg-gray-300'}`}>
-          {selectedPet ? (
+          className={`h-6 w-6 items-center justify-center rounded-full ${anySelected ? 'bg-brand-500' : 'bg-gray-300'}`}>
+          {anySelected ? (
             <Ionicons name="checkmark" size={16} color="white" />
           ) : (
             <Text className="text-xs font-bold text-white">4</Text>
@@ -52,8 +54,9 @@ export default function PetSelector({
         <Text className={`text-base font-semibold ${textColor} ml-3`}>
           {t('bookService.selectPet')}
         </Text>
-        <Text className={`text-sm ${subtextColor} ml-2`}>{t('bookService.selectPetHint')}</Text>
       </View>
+      {/* Its own line: "one or more — each pet gets its own booking" no longer fits beside it. */}
+      <Text className={`-mt-2 mb-4 text-sm ${subtextColor}`}>{t('bookService.selectPetHint')}</Text>
 
       {pets.every((pet) => pet.accepted === false) ? (
         <Text className={`mb-3 text-sm ${subtextColor}`}>{t('bookService.noPetsAccepted')}</Text>
@@ -63,49 +66,63 @@ export default function PetSelector({
           columns squeezed four pets into strips ~80px wide, and every further pet narrowed them
           again. */}
       <View className="flex-row flex-wrap gap-3">
-        {pets.map((pet) => (
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityState={{
-              disabled: pet.accepted === false,
-              selected: selectedPet === pet.id,
-            }}
-            // react-native-web reads aria-*, not accessibilityState.
-            aria-disabled={pet.accepted === false}
-            aria-selected={selectedPet === pet.id}
-            key={pet.id}
-            disabled={pet.accepted === false}
-            onPress={() => onSelectPet(pet.id)}
-            style={[
-              { flexBasis: isWebLayout ? '31%' : '47%', flexGrow: pets.length === 1 ? 1 : 0 },
-              pet.accepted === false ? { opacity: 0.5 } : null,
-            ]}
-            className={`rounded-2xl border-2 p-4 ${
-              selectedPet === pet.id
-                ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
-                : `${borderColor} ${cardBg}`
-            }`}>
-            {pet.image ? (
-              <Image
-                source={{ uri: pet.image }}
-                className="mb-3 h-32 w-full rounded-xl"
-                resizeMode="cover"
-              />
-            ) : (
-              <View
-                className={`mb-3 h-32 w-full rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
-                <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+        {pets.map((pet) => {
+          const selected = selectedPets.includes(pet.id);
+          return (
+            <TouchableOpacity
+              accessibilityRole="checkbox"
+              accessibilityState={{
+                disabled: pet.accepted === false,
+                checked: selected,
+              }}
+              // react-native-web reads aria-*, not accessibilityState.
+              aria-disabled={pet.accepted === false}
+              aria-checked={selected}
+              key={pet.id}
+              disabled={pet.accepted === false}
+              onPress={() => onTogglePet(pet.id)}
+              style={[
+                { flexBasis: isWebLayout ? '31%' : '47%', flexGrow: pets.length === 1 ? 1 : 0 },
+                pet.accepted === false ? { opacity: 0.5 } : null,
+              ]}
+              className={`rounded-2xl border-2 p-4 ${
+                selected
+                  ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                  : `${borderColor} ${cardBg}`
+              }`}>
+              {pet.image ? (
+                <Image
+                  source={{ uri: pet.image }}
+                  className="mb-3 h-32 w-full rounded-xl"
+                  resizeMode="cover"
+                />
+              ) : (
+                <View
+                  className={`mb-3 h-32 w-full rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
+                  <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+                </View>
+              )}
+              <View className="flex-row items-center justify-between">
+                <Text className={`flex-1 text-base font-semibold ${textColor}`} numberOfLines={1}>
+                  {pet.name}
+                </Text>
+                {pet.accepted !== false ? (
+                  <Ionicons
+                    name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                    size={20}
+                    color={selected ? '#22C55E' : isDarkMode ? '#4B5563' : '#D1D5DB'}
+                  />
+                ) : null}
               </View>
-            )}
-            <Text className={`text-base font-semibold ${textColor}`}>{pet.name}</Text>
-            <Text className={`text-sm ${subtextColor}`}>{pet.breed}</Text>
-            {pet.accepted === false ? (
-              <Text className={`mt-1 text-xs ${subtextColor}`}>
-                {t('bookService.petNotAccepted')}
-              </Text>
-            ) : null}
-          </TouchableOpacity>
-        ))}
+              <Text className={`text-sm ${subtextColor}`}>{pet.breed}</Text>
+              {pet.accepted === false ? (
+                <Text className={`mt-1 text-xs ${subtextColor}`}>
+                  {t('bookService.petNotAccepted')}
+                </Text>
+              ) : null}
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );

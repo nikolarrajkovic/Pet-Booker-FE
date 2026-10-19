@@ -58,6 +58,7 @@ import {
   resolveServiceAddressForSave,
   DURATION_OPTION_LABELS,
   PricingTier,
+  isOvernightHours,
 } from '../serviceModel';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 
@@ -323,6 +324,25 @@ export default function AddEditServiceScreen() {
       [day]: { ...prev[day], enabled: !prev[day].enabled },
     }));
   };
+
+  // One tap for late hours (feedback 2026-10-18): an end before the start runs into the next
+  // morning, which the time picker alone never suggested. Applied to the days switched on, or to
+  // every day when none is yet.
+  const applyLatePreset = (kind: 'late' | 'overnight') =>
+    setWorkingHours((prev) => {
+      const anyOn = Object.values(prev).some((d) => d.enabled);
+      return Object.fromEntries(
+        Object.entries(prev).map(([day, h]) => {
+          if (anyOn && !h.enabled) return [day, h];
+          return [
+            day,
+            kind === 'late'
+              ? { enabled: true, startTime: h.startTime, endTime: '02:00' }
+              : { enabled: true, startTime: '20:00', endTime: '08:00' },
+          ];
+        })
+      );
+    });
 
   const openTimePicker = (day: string, type: 'start' | 'end') => {
     setTimePickerDay(day);
@@ -1157,6 +1177,31 @@ export default function AddEditServiceScreen() {
               {t('addEditService.workingHoursHint')}
             </Text>
 
+            {/* Late and overnight hours in one tap. */}
+            <View className="mb-1 flex-row flex-wrap items-center gap-2">
+              <View className="flex-row items-center">
+                <Ionicons name="moon-outline" size={16} color={BRAND_GREEN} />
+                <Text className={`ml-1.5 text-sm font-medium ${textColor}`}>
+                  {t('addEditService.lateHours')}
+                </Text>
+              </View>
+              {(
+                [
+                  ['late', 'addEditService.presetLate'],
+                  ['overnight', 'addEditService.presetOvernight'],
+                ] as const
+              ).map(([kind, labelKey]) => (
+                <TouchableOpacity
+                  key={kind}
+                  accessibilityRole="button"
+                  onPress={() => applyLatePreset(kind)}
+                  className={`${cardBg} rounded-full border border-brand-300 px-3 py-1.5`}>
+                  <Text className="text-sm font-medium text-brand-600">{t(labelKey)}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text className={`${subtextColor} mb-3 text-xs`}>{t('addEditService.lateHint')}</Text>
+
             {!anyDayEnabled && (
               <View
                 className={`${hoursMissing ? 'border border-red-400 bg-red-50' : inputBg} mb-3 flex-row items-center rounded-xl p-4`}>
@@ -1226,7 +1271,16 @@ export default function AddEditServiceScreen() {
                           accessibilityRole="button"
                           onPress={() => openTimePicker(day, 'end')}
                           className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
-                          <Text className={textColor}>{hours.endTime}</Text>
+                          <Text className={textColor}>
+                            {hours.endTime}
+                            {/* Runs past midnight: say so where the time is read. */}
+                            {isOvernightHours(hours.startTime, hours.endTime) ? (
+                              <Text className="text-xs text-brand-600">
+                                {' '}
+                                ({t('addEditService.nextDay')})
+                              </Text>
+                            ) : null}
+                          </Text>
                           <Ionicons name="time-outline" size={20} color="#6B7280" />
                         </TouchableOpacity>
                       </View>

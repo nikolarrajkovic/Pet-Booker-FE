@@ -140,10 +140,40 @@ describe('GroupRequestsScreen', () => {
     fireEvent.press(screen.getAllByText('requests.accept')[0]);
     fireEvent.press(await screen.findByText('groupRequest.acceptConfirm'));
 
-    await waitFor(() => expect(mockAccept).toHaveBeenCalledWith(11, 5, null));
+    // A scheduled request: no "how soon" — that is an ASAP request's question only.
+    await waitFor(() => expect(mockAccept).toHaveBeenCalledWith(11, 5, null, null));
     await flush();
     expect(mockNavigate).toHaveBeenCalledWith('BookingDetails', { bookingId: 501 });
     expect(screen.queryByText(/Rex/)).toBeNull();
+  });
+
+  it('takes an ASAP request with how soon the provider can start, only by its deadline', async () => {
+    // Open for another 40 minutes: 0/15/30 are offers that fit, 45 and later do not.
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const until = new Date(Date.now() + 40 * 60000);
+    const wall = `${until.getFullYear()}-${pad(until.getMonth() + 1)}-${pad(until.getDate())}T${pad(
+      until.getHours()
+    )}:${pad(until.getMinutes())}:00+00:00`;
+    mockGetPage.mockResolvedValue(
+      page([{ ...request(21, 'Bolt'), isAsap: true, activeUntil: wall }])
+    );
+    mockAccept.mockResolvedValue({
+      ...request(21, 'Bolt'),
+      status: GroupBookingStatus.Fulfilled,
+      bookingId: 777,
+    });
+    render(withProviders(<GroupRequestsScreen />));
+    await screen.findByText(/Bolt/);
+    expect(screen.getByText('groupRequest.asapBadge')).toBeTruthy();
+
+    fireEvent.press(screen.getAllByText('requests.accept')[0]);
+    await screen.findByText('groupRequest.startInTitle');
+    expect(screen.getByText('groupRequest.startInMin:{"n":30}')).toBeTruthy();
+    expect(screen.queryByText('groupRequest.startInMin:{"n":45}')).toBeNull();
+
+    fireEvent.press(screen.getByText('groupRequest.startInMin:{"n":15}'));
+    fireEvent.press(screen.getByText('groupRequest.acceptConfirm'));
+    await waitFor(() => expect(mockAccept).toHaveBeenCalledWith(21, 5, null, 15));
   });
 
   it('surfaces a lost race and re-reads the list', async () => {

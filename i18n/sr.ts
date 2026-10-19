@@ -350,6 +350,12 @@ const sr: TranslationDict = {
     noPopularSub: 'Kako budu stizale rezervacije, najtraženije usluge pojaviće se ovde.',
     noDeals: 'Trenutno nema popusta',
     noDealsSub: 'Partneri redovno dodaju ponude — navratite uskoro.',
+    browseByService: 'Pretraži po usluzi',
+    petPromptTitle: 'Dobro došli! Recite nam nešto o ljubimcu',
+    petPromptBody:
+      'Dodajte ljubimca jednom i svaka rezervacija će znati o kome se pružalac brine — rasa, uzrast, ishrana i sve što treba da zna.',
+    petPromptAdd: 'Dodaj ljubimca',
+    petPromptLater: 'Ne sada',
   },
   card: {
     durationOptionsFew: '{count} opcije trajanja',
@@ -500,6 +506,7 @@ const sr: TranslationDict = {
     fullDay: 'Ceo dan',
     overnight: 'Preko noći',
     nMin: '{n} min',
+    nHours: '{n} h',
   },
   species: {
     dogs: 'Psi',
@@ -546,6 +553,8 @@ const sr: TranslationDict = {
     bookNow: 'Rezerviši',
   },
   bookService: {
+    night: 'Noć',
+    afterMidnight: 'Posle ponoći',
     title: 'Rezerviši uslugu',
     step1: 'Usluga',
     chooseDuration: 'Izaberite trajanje i cenu *',
@@ -590,7 +599,7 @@ const sr: TranslationDict = {
     noWorkingHours:
       'Ova usluga još nema podešeno radno vreme, pa se ne može rezervisati. Probajte drugu uslugu ili pokušajte kasnije.',
     priceFrom: 'od',
-    selectPetHint: 'Jedan po terminu',
+    selectPetHint: 'Jedan ili više — svaki ljubimac dobija svoju rezervaciju',
     availableTimes: 'Dostupni termini',
     checkingAvailability: 'Provera dostupnosti…',
     noWindowsForDay: 'Pružalac nije dostupan ovog dana — izaberite drugi dan.',
@@ -599,8 +608,35 @@ const sr: TranslationDict = {
     appointmentN: 'Termin {n}:',
     addonsLabel: 'Dodaci',
     totalColon: 'Ukupno:',
+    morning: 'Jutro',
+    afternoon: 'Popodne',
+    evening: 'Veče',
+    slotRange: 'Izabrali ste {from} – {to}',
+    roomForPets: 'Prikazani termini imaju mesta za svih {count} ljubimaca.',
+    repeatTitle: 'Ponovi i drugih dana',
+    repeatHint: 'Isto vreme, ljubimci i dodaci. Dodirnite dane koje želite.',
+    repeatNone: 'Nijedan drugi dan u naredne dve nedelje nije slobodan u ovo vreme.',
+    addNAppointments: 'Dodaj {count} termina',
+    totalForN: 'Ukupno za {count} termina',
+    goodToKnow: 'Dobro je znati',
+    infoConfirm: 'Pružalac prvo potvrđuje vaš zahtev — dobićete obaveštenje kada to uradi.',
+    infoPayLater:
+      'Sada se ništa ne naplaćuje. Plaćate iz rezervacije kada bude potvrđena, ili gotovinom na usluzi.',
+    infoDeposit:
+      'Ova usluga traži depozit pre početka. Otkazivanje je besplatno dok ga ne platite.',
+    infoFreeCancel: 'Možete besplatno otkazati pre početka usluge.',
+    infoLeadTime: 'Rezervišite najmanje {hours} h unapred.',
+    infoDuration: 'Svaki termin traje {duration}.',
   },
   reviewBooking: {
+    nextStepsTitle: 'Šta sledi',
+    nextStep1:
+      'Pružalac dobija vaš zahtev i potvrđuje ga ili odbija — obavestićemo vas u oba slučaja.',
+    nextStep2Card:
+      'Kada bude potvrđena, platite iz rezervacije (prvo depozit, ako ga usluga traži).',
+    nextStep2Cash: 'Kada bude potvrđena, pružaocu plaćate gotovinom na usluzi.',
+    nextStep3:
+      'Pružaocu možete pisati iz rezervacije u bilo kom trenutku. Šetnje i prevoz se tog dana mogu pratiti uživo.',
     cashNote: 'Partneru plaćate gotovinom na usluzi; u aplikaciji se ništa ne naplaćuje.',
     depositNote: 'Partneru je potreban depozit pre početka usluge.',
     cancellationPolicyDeposit:
@@ -1340,6 +1376,11 @@ const sr: TranslationDict = {
     specialNeedsWarning: 'Ima posebne potrebe — molimo za dodatnu pažnju',
   },
   addEditService: {
+    lateHours: 'Kasno i preko noći',
+    presetLate: 'Do 02:00',
+    presetOvernight: 'Preko noći 20:00 → 08:00',
+    nextDay: 'sledećeg dana',
+    lateHint: 'Kraj pre početka znači da traje do sledećeg jutra — za večernje i noćno čuvanje.',
     typeFromOffered: 'Prikazane su samo vrste koje nudite. Dodajte još u poslovnom profilu.',
     firstServiceBody:
       'Izaberite jednu od vrsta usluga koje nudite. Svaka vrsta ima svoju cenu, pa za svaku dodajte posebnu uslugu. Popunili smo radno vreme radnim danima (9:00–17:00): promenite ga na vreme kada zaista radite.',
@@ -1842,6 +1883,20 @@ const sr: TranslationDict = {
     legal: 'Pravne informacije',
   },
   groupRequest: {
+    when: 'Kada',
+    modeScheduled: 'Izaberi vreme',
+    modeAsap: 'Što pre',
+    asapLength: 'Koliko dugo',
+    asapOpenFor: 'Zahtev ostaje otvoren',
+    asapHint:
+      'Šalje se odmah pružaocima koji rade do tada. Prvi koji prihvati kaže koliko brzo može da stigne.',
+    asapSummary: 'Što pre · {length} · otvoren do {until}',
+    asapBadge: 'HITNO',
+    startInTitle: 'Kada možete da počnete?',
+    startNow: 'Odmah',
+    startInMin: 'Za {n} min',
+    startsAt: 'Počinje u {time}',
+    ctaNow: 'Treba vam neko odmah?',
     searchByName: 'Pretraži pružaoce po nazivu',
     navMine: 'Moji grupni zahtevi',
     navInbox: 'Grupni zahtevi',
@@ -1967,6 +2022,12 @@ const sr: TranslationDict = {
     declineFailed: 'Odbijanje zahteva nije uspelo.',
   },
   shared: {
+    when: 'Kada',
+    anyDay: 'Bilo koji dan',
+    today: 'Danas',
+    tomorrow: 'Sutra',
+    pickDate: 'Izaberi datum',
+    whenHint: 'Pružaoci čije radno vreme to obuhvata. Slobodni termini se vide pri rezervaciji.',
     yearsOfExperienceFew: '{n} god. iskustva',
     yearsOfExperienceOne: '{n} god. iskustva',
     yearsOfExperience: '{n} god. iskustva',

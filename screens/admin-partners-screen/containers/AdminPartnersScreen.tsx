@@ -14,7 +14,7 @@ import { SUBMISSION_ORDER_OPTIONS } from '../../../hooks/useModerationQueue';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ListState from '../../../components/shared/ListState';
 import FilterTabs, { type FilterTab } from '../../../components/shared/FilterTabs';
-import SortMenu from '../../../components/shared/SortMenu';
+import SortMenu, { DROPDOWN_ANCHOR } from '../../../components/shared/SortMenu';
 import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import {
   ApprovalStatus,
@@ -242,7 +242,10 @@ export default function AdminPartnersScreen() {
         {/* The order control out-ranks the rows in paint order, so its panel opens over them. */}
         {isWebLayout ? (
           <View
-            style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 16, zIndex: 20 }}>
+            style={[
+              { flexDirection: 'row', alignItems: 'center', paddingRight: 16 },
+              DROPDOWN_ANCHOR,
+            ]}>
             <View style={{ flex: 1 }}>
               <FilterTabs
                 tabs={TABS}
@@ -255,7 +258,11 @@ export default function AdminPartnersScreen() {
           </View>
         ) : (
           sort && (
-            <View style={{ alignItems: 'flex-end', paddingHorizontal: gutter.value, zIndex: 20 }}>
+            <View
+              style={[
+                { alignItems: 'flex-end', paddingHorizontal: gutter.value },
+                DROPDOWN_ANCHOR,
+              ]}>
               {sort}
             </View>
           )

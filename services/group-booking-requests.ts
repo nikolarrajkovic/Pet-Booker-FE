@@ -81,6 +81,13 @@ export type GroupBookingRequestDto = {
   serviceType: number;
   bookingFrom: string;
   bookingTo: string;
+  /**
+   * "As soon as possible": `bookingFrom` is when it was asked, `bookingTo − bookingFrom` the length
+   * wanted, and it stays open until `activeUntil` (naive wall-clock). It starts when a provider
+   * accepts — they say how soon they can be there.
+   */
+  isAsap?: boolean;
+  activeUntil?: string | null;
   addressId?: number | null;
   /** Owner / admin / the accepting provider only. Everyone else gets `city`. */
   address?: AddressDto | null;
@@ -118,9 +125,13 @@ export type GroupBookingRequestDto = {
 export type CreateGroupBookingRequestInput = {
   petId: number;
   serviceType: number;
-  /** Naive wall-clock (`formatBookingDate`). */
+  /** Naive wall-clock (`formatBookingDate`). For ASAP: now and now + the length wanted. */
   bookingFrom: string;
   bookingTo: string;
+  /** "As soon as possible": the server starts it at its own now and keeps it open until `activeUntil`. */
+  isAsap?: boolean;
+  /** ASAP only: the latest start the owner will take (15 minutes to 12 hours ahead). Wall-clock. */
+  activeUntil?: string | null;
   addressId?: number | null;
   note?: string | null;
   paymentType: number;
@@ -205,15 +216,23 @@ export function getGroupBookingRequest(id: number): Promise<GroupBookingRequestD
   });
 }
 
-/** Provider: take it with one of their services. First come, first served — a late accept 400s. */
+/**
+ * Provider: take it with one of their services. First come, first served — a late accept 400s.
+ * An ASAP request also needs `startInMinutes` (how soon they can start, 0–180, by its deadline).
+ */
 export function acceptGroupBookingRequest(
   id: number,
   serviceId: number,
-  pricingOptionId?: number | null
+  pricingOptionId?: number | null,
+  startInMinutes?: number | null
 ): Promise<GroupBookingRequestDto> {
   return apiJson<GroupBookingRequestDto>(`${PATH}/${id}/accept`, {
     method: 'POST',
-    body: { serviceId, pricingOptionId: pricingOptionId ?? null },
+    body: {
+      serviceId,
+      pricingOptionId: pricingOptionId ?? null,
+      startInMinutes: startInMinutes ?? null,
+    },
     fallback: 'Could not accept this request.',
     context: 'acceptGroupBookingRequest',
   });

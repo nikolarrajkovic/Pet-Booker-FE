@@ -26,47 +26,78 @@ export default function GroupRequestCta({ variant = 'bar', params }: Props) {
   const { t } = useLocale();
   // A guest is asked to sign in first and comes back to the page they were on (app review G7).
   const requireSignIn = useRequireSignIn();
-  const open = () => requireSignIn(() => navigation.navigate('CreateGroupRequest', params));
+  const open = (asap = false) =>
+    requireSignIn(() =>
+      navigation.navigate('CreateGroupRequest', asap ? { ...params, asap: true } : params)
+    );
+
+  // "Need someone now?" — the same request, opened on "As soon as possible": sent at once to the
+  // providers working before a deadline, and the first to accept says how soon they can come.
+  const nowButton = (onGreen: boolean) => (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={t('groupRequest.ctaNow')}
+      onPress={() => open(true)}
+      className={`flex-row items-center rounded-full px-3 py-1.5 ${
+        onGreen ? 'bg-white' : 'bg-amber-500'
+      }`}>
+      <Ionicons name="flash" size={13} color={onGreen ? '#D97706' : 'white'} />
+      <Text className={`ml-1 text-xs font-bold ${onGreen ? 'text-amber-700' : 'text-white'}`}>
+        {t('groupRequest.ctaNow')}
+      </Text>
+    </TouchableOpacity>
+  );
 
   if (variant === 'banner') {
     return (
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityLabel={t('groupRequest.ctaTitle')}
-        activeOpacity={0.85}
-        onPress={open}
-        className="flex-row items-center rounded-2xl bg-brand-500 p-4">
-        <View className="h-12 w-12 items-center justify-center rounded-full bg-white/20">
-          <Ionicons name="people" size={24} color="white" />
-        </View>
-        <View className="ml-3 flex-1">
-          <Text className="text-base font-bold text-white">{t('groupRequest.ctaTitle')}</Text>
-          <Text className="mt-0.5 text-xs text-white/90">{t('groupRequest.ctaBody')}</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color="white" />
-      </TouchableOpacity>
+      <View className="rounded-2xl bg-brand-500 p-4">
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={t('groupRequest.ctaTitle')}
+          activeOpacity={0.85}
+          onPress={() => open()}
+          className="flex-row items-center">
+          <View className="h-12 w-12 items-center justify-center rounded-full bg-white/20">
+            <Ionicons name="people" size={24} color="white" />
+          </View>
+          <View className="ml-3 flex-1">
+            <Text className="text-base font-bold text-white">{t('groupRequest.ctaTitle')}</Text>
+            <Text className="mt-0.5 text-xs text-white/90">{t('groupRequest.ctaBody')}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="white" />
+        </TouchableOpacity>
+        <View className="ml-[60px] mt-3 flex-row">{nowButton(true)}</View>
+      </View>
     );
   }
 
+  // The "now" button sits on its own line under the text: beside it, at 390px, it squeezed the
+  // title to "provider s at once".
   return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      accessibilityLabel={t('groupRequest.ctaTitle')}
-      activeOpacity={0.8}
-      onPress={open}
-      className={`mb-4 flex-row items-center rounded-2xl border border-dashed border-brand-500 px-4 py-3 ${
+    <View
+      className={`mb-4 rounded-2xl border border-dashed border-brand-500 px-4 py-3 ${
         isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'
       }`}>
-      <Ionicons name="people-outline" size={20} color={BRAND_GREEN} />
-      <View className="ml-3 flex-1">
-        <Text className={`text-sm font-semibold ${textColor}`}>{t('groupRequest.ctaTitle')}</Text>
-        <Text className={`text-xs ${subtextColor}`} numberOfLines={2}>
-          {t('groupRequest.ctaShort')}
-        </Text>
-      </View>
-      <View className={`ml-2 rounded-full border px-3 py-1.5 ${borderColor} ${cardBg}`}>
-        <Text className="text-xs font-semibold text-brand-600">{t('groupRequest.ctaAction')}</Text>
-      </View>
-    </TouchableOpacity>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={t('groupRequest.ctaTitle')}
+        activeOpacity={0.8}
+        onPress={() => open()}
+        className="flex-row items-center">
+        <Ionicons name="people-outline" size={20} color={BRAND_GREEN} />
+        <View className="ml-3 flex-1">
+          <Text className={`text-sm font-semibold ${textColor}`}>{t('groupRequest.ctaTitle')}</Text>
+          <Text className={`text-xs ${subtextColor}`} numberOfLines={2}>
+            {t('groupRequest.ctaShort')}
+          </Text>
+        </View>
+        <View className={`ml-2 rounded-full border px-3 py-1.5 ${borderColor} ${cardBg}`}>
+          <Text className="text-xs font-semibold text-brand-600">
+            {t('groupRequest.ctaAction')}
+          </Text>
+        </View>
+      </TouchableOpacity>
+      <View className="ml-8 mt-2 flex-row">{nowButton(false)}</View>
+    </View>
   );
 }

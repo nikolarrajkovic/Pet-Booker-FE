@@ -6,13 +6,22 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
 import type { GroupBookingRequestDto } from '../../../services/group-booking-requests';
-import { formatRequestWindow } from '../groupRequestFormat';
+import { parseBookingDate } from '../../../services/bookings';
+import { formatRequestWhen } from '../groupRequestFormat';
 
 type Props = {
   request: GroupBookingRequestDto | null;
   onClose: () => void;
-  onConfirm: (serviceId: number, pricingOptionId: number | null) => void;
+  /** `startInMinutes` only for an ASAP request: how soon the provider can be there. */
+  onConfirm: (
+    serviceId: number,
+    pricingOptionId: number | null,
+    startInMinutes: number | null
+  ) => void;
 };
+
+/** "I can be there in…" — the offers an ASAP request's accept takes (the server allows 0–180). */
+const START_IN_CHOICES = [0, 15, 30, 45, 60, 90, 120, 180];
 
 /**
  * "Accept with which service?" — the provider's own services that fit the request (the server
@@ -26,17 +35,35 @@ export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }
   const services = request?.myEligibleServices ?? [];
   const [serviceId, setServiceId] = useState<number | null>(null);
   const [optionId, setOptionId] = useState<number | null>(null);
+  const [startIn, setStartIn] = useState<number | null>(null);
 
   useEffect(() => {
     const preselected = services.find((s) => s.isPreselected) ?? services[0];
     setServiceId(preselected?.serviceId ?? null);
     setOptionId(null);
+    setStartIn(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request?.id]);
 
   const chosen = services.find((s) => s.serviceId === serviceId);
   const needsOption = (chosen?.pricingOptions.length ?? 0) > 0;
-  const ready = chosen != null && (!needsOption || optionId != null);
+  // The server starts it at the next whole minute plus the offer (AcceptedWindow) — say the same.
+  const startAt = (minutes: number) => {
+    const next = new Date();
+    if (next.getSeconds() > 0 || next.getMilliseconds() > 0) {
+      next.setSeconds(0, 0);
+      next.setMinutes(next.getMinutes() + 1);
+    }
+    return new Date(next.getTime() + minutes * 60000);
+  };
+  // An ASAP request has no start yet: the provider says how soon they can be there, no later than
+  // the owner's deadline (which is the request's own "open until").
+  const asap = !!request?.isAsap && !!request.activeUntil;
+  const deadline = asap ? parseBookingDate(request!.activeUntil!).getTime() : 0;
+  const startChoices = asap ? START_IN_CHOICES.filter((m) => startAt(m).getTime() <= deadline) : [];
+  const clock = (d: Date) =>
+    d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+  const ready = chosen != null && (!needsOption || optionId != null) && (!asap || startIn != null);
 
   const choice = (
     active: boolean,
@@ -80,11 +107,46 @@ export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }
           {t('groupRequest.acceptTitle')}
         </Text>
         {request && (
-          <Text className={`mb-4 text-sm ${subtextColor}`}>
-            {formatRequestWindow(t, request.bookingFrom, request.bookingTo)}
-          </Text>
+          <Text className={`mb-4 text-sm ${subtextColor}`}>{formatRequestWhen(t, request)}</Text>
         )}
         <ScrollView style={{ maxHeight: 380 }}>
+          {asap ? (
+            <View className="mb-4">
+              <Text className={`mb-2 text-sm font-semibold ${textColor}`}>
+                {t('groupRequest.startInTitle')}
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {startChoices.map((m) => {
+                  const active = startIn === m;
+                  return (
+                    <TouchableOpacity
+                      key={m}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: active }}
+                      aria-checked={active}
+                      onPress={() => setStartIn(m)}
+                      className={`rounded-full border px-3 py-2 ${
+                        active
+                          ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                          : `${borderColor} ${cardBg}`
+                      }`}>
+                      <Text
+                        className={`text-sm ${active ? 'font-semibold text-brand-600' : subtextColor}`}>
+                        {m === 0
+                          ? t('groupRequest.startNow')
+                          : t('groupRequest.startInMin', { n: m })}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {startIn != null ? (
+                <Text className="mt-2 text-xs font-medium text-brand-600">
+                  {t('groupRequest.startsAt', { time: clock(startAt(startIn)) })}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
           <Text className={`mb-2 text-sm font-semibold ${textColor}`}>
             {t('groupRequest.withService')}
           </Text>
@@ -128,7 +190,10 @@ export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }
           <TouchableOpacity
             accessibilityRole="button"
             disabled={!ready}
-            onPress={() => chosen && onConfirm(chosen.serviceId, needsOption ? optionId : null)}
+            onPress={() =>
+              chosen &&
+              onConfirm(chosen.serviceId, needsOption ? optionId : null, asap ? startIn : null)
+            }
             className={`flex-1 items-center rounded-xl py-3 ${ready ? 'bg-brand-500' : 'bg-gray-300'}`}>
             <Text className="font-semibold text-white">{t('groupRequest.acceptConfirm')}</Text>
           </TouchableOpacity>

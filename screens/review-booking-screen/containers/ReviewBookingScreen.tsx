@@ -410,6 +410,27 @@ export default function ReviewBookingScreen() {
               <Text className="text-sm font-semibold text-brand-600">{t('legal.fullTerms')}</Text>
             </TouchableOpacity>
           </View>
+
+          {/* What happens after Confirm. "Request sent" used to be the last thing the checkout
+              said, and nothing told the customer that the provider still has to accept, when they
+              pay, or where to talk to them. */}
+          <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
+            <Text className={`text-base font-semibold ${textColor} mb-3`}>
+              {t('reviewBooking.nextStepsTitle')}
+            </Text>
+            {[
+              t('reviewBooking.nextStep1'),
+              payingCash ? t('reviewBooking.nextStep2Cash') : t('reviewBooking.nextStep2Card'),
+              t('reviewBooking.nextStep3'),
+            ].map((step, i) => (
+              <View key={i} className="mb-3 flex-row items-start">
+                <View className="mr-3 h-6 w-6 items-center justify-center rounded-full bg-brand-500">
+                  <Text className="text-xs font-bold text-white">{i + 1}</Text>
+                </View>
+                <Text className={`flex-1 text-sm leading-5 ${subtextColor}`}>{step}</Text>
+              </View>
+            ))}
+          </View>
         </ScrollView>
 
         {isWebLayout && (

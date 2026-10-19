@@ -1,13 +1,5 @@
 import React, { useState } from 'react';
-import {
-  ScrollView,
-  Text,
-  View,
-  Image,
-  ActivityIndicator,
-  TouchableOpacity,
-  Linking,
-} from 'react-native';
+import { ScrollView, Text, View, ActivityIndicator, TouchableOpacity, Linking } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -236,18 +228,7 @@ export default function BookingDetailsScreen() {
       <>
         {/* Service / provider header */}
         <View className={`flex-row items-center ${gutter.px} pt-5`}>
-          {heroImage ? (
-            <Image
-              source={{ uri: heroImage }}
-              className="mr-4 h-20 w-20 rounded-2xl"
-              resizeMode="cover"
-            />
-          ) : (
-            <View
-              className={`mr-4 h-20 w-20 rounded-2xl ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
-              <Ionicons name="paw" size={30} color="#9CA3AF" />
-            </View>
-          )}
+          <ServicePhoto uri={heroImage} iconSize={30} className="mr-4 h-20 w-20" />
           <View className="flex-1">
             <Text className={`text-lg font-bold ${textColor}`}>{vm.serviceName}</Text>
             <Text className={`text-sm ${subtextColor} mt-0.5`}>{vm.providerName}</Text>
@@ -314,6 +295,7 @@ export default function BookingDetailsScreen() {
                   uri={petImage}
                   radiusClass="rounded-lg"
                   iconSize={14}
+                  fit="cover"
                   className="mr-2 h-8 w-8"
                 />
               ) : null

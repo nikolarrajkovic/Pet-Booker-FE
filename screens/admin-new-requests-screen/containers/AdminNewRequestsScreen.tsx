@@ -11,7 +11,7 @@ import { showAlert } from '../../../services/alert';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ListState from '../../../components/shared/ListState';
 import FilterTabs, { moderationTabs } from '../../../components/shared/FilterTabs';
-import SortMenu from '../../../components/shared/SortMenu';
+import SortMenu, { DROPDOWN_ANCHOR } from '../../../components/shared/SortMenu';
 import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import { useNearBottomLoader } from '../../../hooks/useNearBottomLoader';
 import {
@@ -183,12 +183,16 @@ export default function AdminNewRequestsScreen() {
             already full, so the order sits alone above the cards, as it does on Search. */}
         {isWebLayout ? (
           <View
-            style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 16, zIndex: 20 }}>
+            style={[
+              { flexDirection: 'row', alignItems: 'center', paddingRight: 16 },
+              DROPDOWN_ANCHOR,
+            ]}>
             <View style={{ flex: 1 }}>{tabs}</View>
             {sort}
           </View>
         ) : (
-          <View style={{ alignItems: 'flex-end', paddingHorizontal: gutter.value, zIndex: 20 }}>
+          <View
+            style={[{ alignItems: 'flex-end', paddingHorizontal: gutter.value }, DROPDOWN_ANCHOR]}>
             {sort}
           </View>
         )}

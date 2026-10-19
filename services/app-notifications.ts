@@ -95,6 +95,9 @@ export const NotificationType = {
   /** The provider recorded that the customer did not turn up; the deposit is kept. Customer-facing;
    *  { bookingId }. App review G6. */
   CustomerNoShow: 34,
+  /** GroupBookingRequested for an "as soon as possible" request: needed now, open until a
+   *  deadline. Provider-facing; same data, same inbox. In-app + push, no email. */
+  GroupBookingRequestedAsap: 35,
 } as const;
 
 /**

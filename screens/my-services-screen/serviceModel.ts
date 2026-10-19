@@ -411,6 +411,20 @@ function hmsToUiTime(hms: string): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+/**
+ * Whether a day's hours run past midnight into the next day ("20:00" → "02:00"), in the form's
+ * 24h "HH:mm" strings. The backend reads an end at or before the start that way (Domain.WorkingHours,
+ * feedback 2026-10-18) — late and overnight sitting. "24:00" is the end of the same day.
+ */
+export function isOvernightHours(startTime: string, endTime: string): boolean {
+  if (endTime.startsWith('24:')) return false;
+  const minutes = (t: string) => {
+    const [h, m] = t.split(':').map((n) => parseInt(n, 10) || 0);
+    return h * 60 + m;
+  };
+  return minutes(endTime) <= minutes(startTime);
+}
+
 /** Service schedules (embedded on the service GET) → the form's WorkingHours. */
 export function schedulesToWorkingHours(schedules?: ServiceScheduleDto[] | null): WorkingHours {
   const hours: WorkingHours = {};

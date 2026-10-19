@@ -358,6 +358,12 @@ const en = {
     noPopularSub: 'As bookings come in, the most-booked services land here.',
     noDeals: 'No deals right now',
     noDealsSub: 'Partners add offers regularly — check back soon.',
+    browseByService: 'Browse by service',
+    petPromptTitle: 'Welcome! Tell us about your pet',
+    petPromptBody:
+      'Add your pet once and every booking knows who the provider is caring for — breed, age, food and anything they should know.',
+    petPromptAdd: 'Add my pet',
+    petPromptLater: 'Not now',
   },
   card: {
     durationOptionsFew: '{count} duration options',
@@ -514,6 +520,7 @@ const en = {
     fullDay: 'Full day',
     overnight: 'Overnight',
     nMin: '{n} min',
+    nHours: '{n} h',
   },
   species: {
     dogs: 'Dogs',
@@ -565,6 +572,8 @@ const en = {
     bookNow: 'Book Now',
   },
   bookService: {
+    night: 'Night',
+    afterMidnight: 'After midnight',
     title: 'Book Service',
     step1: 'Service',
     chooseDuration: 'Choose Duration & Price *',
@@ -611,7 +620,7 @@ const en = {
     noWorkingHours:
       "This service hasn't set any working hours yet, so it can't be booked. Try another service, or check back later.",
     priceFrom: 'from',
-    selectPetHint: 'One per appointment',
+    selectPetHint: 'One or more — each pet gets its own booking',
     availableTimes: 'Available Times',
     checkingAvailability: 'Checking availability…',
     noWindowsForDay: "The provider isn't available on this day — please pick another day.",
@@ -620,8 +629,35 @@ const en = {
     appointmentN: 'Appointment {n}:',
     addonsLabel: 'Add-ons',
     totalColon: 'Total:',
+    morning: 'Morning',
+    afternoon: 'Afternoon',
+    evening: 'Evening',
+    slotRange: 'You picked {from} – {to}',
+    roomForPets: 'Times shown have room for all {count} pets.',
+    repeatTitle: 'Repeat on other days',
+    repeatHint: 'Same time, pets and extras. Tap the days to add them.',
+    repeatNone: 'No other day in the next two weeks is free at this time.',
+    addNAppointments: 'Add {count} appointments',
+    totalForN: 'Total for {count} appointments',
+    goodToKnow: 'Good to know',
+    infoConfirm: 'The provider confirms your request first — you get a notification when they do.',
+    infoPayLater:
+      'Nothing is charged now. You pay from the booking once it is confirmed, or in cash at the service.',
+    infoDeposit:
+      'This service asks a deposit before it starts. Cancelling is free until you pay it.',
+    infoFreeCancel: 'You can cancel free of charge before the service starts.',
+    infoLeadTime: 'Book at least {hours} h ahead.',
+    infoDuration: 'Each appointment lasts {duration}.',
   },
   reviewBooking: {
+    nextStepsTitle: 'What happens next',
+    nextStep1:
+      'The provider gets your request and confirms or declines it — we notify you either way.',
+    nextStep2Card:
+      'Once it is confirmed, pay from the booking (the deposit first, if the service asks one).',
+    nextStep2Cash: 'Once it is confirmed, you pay the provider in cash at the service.',
+    nextStep3:
+      'Message the provider from the booking at any time. Walks and transport can be followed live on the day.',
     cashNote: 'You pay the provider in cash at the service; nothing is charged in the app.',
     depositNote: 'The provider needs the deposit before the service can start.',
     cancellationPolicyDeposit:
@@ -1361,6 +1397,12 @@ const en = {
     specialNeedsWarning: 'Has special needs — please take extra care',
   },
   addEditService: {
+    lateHours: 'Late & overnight',
+    presetLate: 'Until 02:00',
+    presetOvernight: 'Overnight 20:00 → 08:00',
+    nextDay: 'next day',
+    lateHint:
+      'An end time before the start runs into the next morning — for evening and overnight sitting.',
     typeFromOffered: 'Only the kinds you offer are listed. Add more on your Business profile.',
     firstServiceBody:
       "Pick one of the kinds of service you offer. Each kind is priced on its own, so add a separate service for each. We've filled in weekday hours (9:00–17:00): change them to when you actually work.",
@@ -1866,6 +1908,20 @@ const en = {
     legal: 'Legal',
   },
   groupRequest: {
+    when: 'When',
+    modeScheduled: 'Pick a time',
+    modeAsap: 'As soon as possible',
+    asapLength: 'For how long',
+    asapOpenFor: 'Keep the request open for',
+    asapHint:
+      'Sent now to providers working before then. The first to accept says how soon they can be there.',
+    asapSummary: 'As soon as possible · {length} · open until {until}',
+    asapBadge: 'ASAP',
+    startInTitle: 'When can you start?',
+    startNow: 'Right away',
+    startInMin: 'In {n} min',
+    startsAt: 'Starts at {time}',
+    ctaNow: 'Need someone now?',
     searchByName: 'Search providers by name',
     navMine: 'My group requests',
     navInbox: 'Group requests',
@@ -1991,6 +2047,12 @@ const en = {
     declineFailed: "Couldn't decline this request.",
   },
   shared: {
+    when: 'When',
+    anyDay: 'Any day',
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+    pickDate: 'Pick a date',
+    whenHint: 'Providers whose working hours cover it. Free times are shown when you book.',
     yearsOfExperienceFew: '{n} years of experience',
     yearsOfExperienceOne: '{n} year of experience',
     yearsOfExperience: '{n} years of experience',

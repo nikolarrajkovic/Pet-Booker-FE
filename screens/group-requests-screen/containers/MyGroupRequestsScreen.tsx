@@ -28,7 +28,7 @@ import {
   GroupBookingStatus,
   type GroupBookingRequestDto,
 } from '../../../services/group-booking-requests';
-import { formatRequestWindow, statusStyle } from '../groupRequestFormat';
+import { formatRequestWhen, statusStyle } from '../groupRequestFormat';
 
 type Tab = 'active' | 'past';
 
@@ -142,9 +142,7 @@ export default function MyGroupRequestsScreen() {
                 </Text>
               ) : null}
             </Text>
-            <Text className={`mt-1 text-sm ${subtextColor}`}>
-              {formatRequestWindow(t, r.bookingFrom, r.bookingTo)}
-            </Text>
+            <Text className={`mt-1 text-sm ${subtextColor}`}>{formatRequestWhen(t, r)}</Text>
           </View>
           <View className="rounded-full px-3 py-1" style={{ backgroundColor: status.bg }}>
             <Text className="text-xs font-semibold" style={{ color: status.fg }}>

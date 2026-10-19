@@ -50,6 +50,7 @@ export default function PetCard({
         uri={pet.image}
         radiusClass="rounded-xl"
         iconSize={32}
+        fit="cover"
         className="mr-4 h-20 w-20"
       />
       <View className="flex-1">

@@ -181,4 +181,13 @@ linking.getPathFromState = (state, options) =>
  * service itself lets the screen render before its fetch lands. Every list used to pass only the
  * service, so the address bar read `/services/undefined` and a reload or a shared link broke.
  */
-export const serviceDetailParams = (service: ServiceDto) => ({ serviceId: service.id, service });
+/**
+ * `date` ("YYYY-MM-DD") is the day a search was filtered to. It rides along to the booking form,
+ * which opens on it — searching "tomorrow" and then picking tomorrow again in the calendar was the
+ * booking flow asking for something it had already been told.
+ */
+export const serviceDetailParams = (service: ServiceDto, date?: string | null) => ({
+  serviceId: service.id,
+  service,
+  ...(date ? { date } : {}),
+});

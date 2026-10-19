@@ -97,6 +97,7 @@ export function routeForPayload(
     // Same reasoning for a group request — and more urgent, since the first provider to accept
     // gets it: straight to the inbox with the Accept button.
     case NotificationType.GroupBookingRequested:
+    case NotificationType.GroupBookingRequestedAsap:
       return [PARTNER_TAB, { name: 'GroupRequests' }];
 
     // The terms changed under a provider who had already agreed to them, or the slot came back.

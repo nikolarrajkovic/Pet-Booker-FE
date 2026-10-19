@@ -119,13 +119,22 @@ export default function GroupRequestsScreen() {
 
   const dropRow = (id: number) => list.setItems((rows) => rows.filter((r) => r.id !== id));
 
-  const accept = async (serviceId: number, pricingOptionId: number | null) => {
+  const accept = async (
+    serviceId: number,
+    pricingOptionId: number | null,
+    startInMinutes: number | null
+  ) => {
     const target = acceptTarget;
     if (!target) return;
     setAcceptTarget(null);
     setBusyId(target.id);
     try {
-      const result = await acceptGroupBookingRequest(target.id, serviceId, pricingOptionId);
+      const result = await acceptGroupBookingRequest(
+        target.id,
+        serviceId,
+        pricingOptionId,
+        startInMinutes
+      );
       dropRow(target.id);
       showSuccess(t('groupRequest.accepted'));
       if (result.bookingId) navigation.navigate('BookingDetails', { bookingId: result.bookingId });
