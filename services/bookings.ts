@@ -629,6 +629,9 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
   );
 }
 
+/** The most appointments one checkout may hold — the server's CreateBookingsBatchCommandValidator. */
+export const MAX_BATCH_APPOINTMENTS = 60;
+
 /**
  * Several appointments in one checkout, created all or nothing (`POST /api/bookings/batch`). If any
  * one is refused — a slot just taken, a lead time missed — none is kept, so a retry cannot

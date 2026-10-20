@@ -35,6 +35,7 @@ import {
 import { getPets, PetResponse, speciesAccepted } from '../../../services/pets';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import {
+  MAX_BATCH_APPOINTMENTS,
   parseBookingDate,
   formatBookingDate,
   type BookingAdditionalServiceReadDto,
@@ -115,6 +116,11 @@ const SLOT_STEP_MINUTES = 30;
 
 // How far ahead "Repeat on other days" offers the same time (bulk booking: a walk every weekday).
 const REPEAT_HORIZON_DAYS = 14;
+
+/** "Every week": how many weeks the pattern may run (feedback 2026-10-21). */
+const WEEKLY_WEEKS = [2, 4, 8];
+/** Monday first, as the calendar shows the week; JS getDay() numbers. */
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 const DAY_MINUTES = 24 * 60;
 
@@ -290,6 +296,11 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
   const selectedPet = selectedPets[0] ?? null;
   // Extra days ("YYYY-MM-DD") the same start time is repeated on.
   const [extraDates, setExtraDates] = useState<string[]>([]);
+  // "Repeat on other days": tick days in the next two weeks, or a weekly pattern — the same time on
+  // chosen weekdays for a number of weeks ("Mon, Wed, Fri for 4 weeks").
+  const [repeatMode, setRepeatMode] = useState<'days' | 'weekly'>('days');
+  const [weeklyDays, setWeeklyDays] = useState<number[]>([]);
+  const [weeklyWeeks, setWeeklyWeeks] = useState(4);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   // Server-derived bookable windows (with remaining capacity), keyed by "YYYY-MM-DD".
@@ -415,10 +426,16 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
   // fourteen days are free at the chosen time. One month at a time: the effect re-runs as each lands.
   const monthsToLoad = useMemo(() => {
     const base = selectedDate ?? new Date();
-    const later = new Date(base);
-    later.setDate(later.getDate() + REPEAT_HORIZON_DAYS);
-    return Array.from(new Set([monthKeyOf(base), monthKeyOf(later)]));
-  }, [selectedDate]);
+    // A weekly pattern reaches further: every month its weeks touch.
+    const horizon = repeatMode === 'weekly' ? weeklyWeeks * 7 : REPEAT_HORIZON_DAYS;
+    const months = [monthKeyOf(base)];
+    for (let d = 7; d <= horizon + 7; d += 7) {
+      const later = new Date(base);
+      later.setDate(later.getDate() + Math.min(d, horizon));
+      months.push(monthKeyOf(later));
+    }
+    return Array.from(new Set(months));
+  }, [selectedDate, repeatMode, weeklyWeeks]);
   const monthToLoad = monthsToLoad.find((m) => !loadedMonths[m]);
 
   useEffect(() => {
@@ -603,10 +620,51 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
     }
     return out;
   }, [selectedDate, startMinOfDay, loadedMonths, availByDate, slotOn, isStay]);
+  // The weekly pattern: every chosen weekday in the next `weeklyWeeks` weeks, at the same time.
+  // A day that is full at that time, or that the provider doesn't work, is skipped and counted.
+  const weeklyPlan = useMemo(() => {
+    const plan = { dates: [] as string[], skipped: 0, pending: false };
+    if (repeatMode !== 'weekly' || !selectedDate || startMinOfDay == null || isStay) return plan;
+    for (let i = 1; i < weeklyWeeks * 7; i++) {
+      const day = new Date(selectedDate);
+      day.setDate(day.getDate() + i);
+      if (!weeklyDays.includes(day.getDay())) continue;
+      if (!loadedMonths[monthKeyOf(day)]) {
+        plan.pending = true;
+        continue;
+      }
+      const works = (availByDate[dateKey(day)] ?? []).length > 0;
+      if (works && slotOn(day, startMinOfDay).available) plan.dates.push(dateKey(day));
+      else plan.skipped++;
+    }
+    return plan;
+  }, [
+    repeatMode,
+    selectedDate,
+    startMinOfDay,
+    isStay,
+    weeklyWeeks,
+    weeklyDays,
+    loadedMonths,
+    availByDate,
+    slotOn,
+  ]);
+  const chooseRepeatMode = (mode: 'days' | 'weekly') => {
+    setRepeatMode(mode);
+    // The weekday picked is the obvious first one to repeat.
+    if (mode === 'weekly' && weeklyDays.length === 0 && selectedDate) {
+      setWeeklyDays([selectedDate.getDay()]);
+    }
+  };
+  const toggleWeeklyDay = (day: number) =>
+    setWeeklyDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
   // A day picked earlier that no longer fits (another time, more pets) simply drops out.
   const validExtraDates = useMemo(
-    () => extraDates.filter((k) => repeatDays.some((d) => d.key === k && d.available)),
-    [extraDates, repeatDays]
+    () =>
+      repeatMode === 'weekly'
+        ? weeklyPlan.dates
+        : extraDates.filter((k) => repeatDays.some((d) => d.key === k && d.available)),
+    [repeatMode, weeklyPlan, extraDates, repeatDays]
   );
   const toggleExtraDate = (key: string) =>
     setExtraDates((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
@@ -947,21 +1005,26 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
         : t('durations.nMin', { n: slotMinutes })
     : null;
 
-  const canContinue = selectionComplete || appointments.length > 0;
+  // One checkout takes at most MAX_BATCH_APPOINTMENTS (the server refuses more, all or nothing).
+  const tooMany =
+    appointments.length + (selectionComplete ? selectionCount : 0) > MAX_BATCH_APPOINTMENTS;
+  const canContinue = (selectionComplete || appointments.length > 0) && !tooMany;
 
   // Why Continue is greyed out, in the order the form asks. A disabled button with no reason
   // left people re-checking every section to find the one step they had not done.
   const missingStep = canContinue
     ? null
-    : !optionChosen
-      ? t('bookService.needDuration')
-      : !startDateTime
-        ? t('bookService.needTime')
-        : selectedPets.length === 0
-          ? t('bookService.needPet')
-          : !addressesProvided
-            ? t('bookService.needAddress')
-            : null;
+    : tooMany
+      ? t('bookService.tooManyAppointments', { max: MAX_BATCH_APPOINTMENTS })
+      : !optionChosen
+        ? t('bookService.needDuration')
+        : !startDateTime
+          ? t('bookService.needTime')
+          : selectedPets.length === 0
+            ? t('bookService.needPet')
+            : !addressesProvided
+              ? t('bookService.needAddress')
+              : null;
   // Before the quote, the figure is the service alone: extras are priced by the server once the
   // time and pet are known. It used to read as the final total with an extra already picked.
   const extrasPending = !quote && selectedAddonDefs.length > 0;
@@ -1358,7 +1421,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
             ) : null}
 
             {/* Bulk booking: the same time on other days, without rebuilding each appointment. */}
-            {startDateTime && repeatDays.length > 0 ? (
+            {startDateTime && !isStay && (repeatDays.length > 0 || repeatMode === 'weekly') ? (
               <View className="mt-5">
                 <View className="mb-1 flex-row items-center">
                   <Ionicons name="repeat" size={16} color={BRAND_GREEN} />
@@ -1366,41 +1429,131 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
                     {t('bookService.repeatTitle')}
                   </Text>
                 </View>
-                <Text className={`mb-3 text-xs ${subtextColor}`}>
-                  {repeatDays.some((d) => d.available)
-                    ? t('bookService.repeatHint')
-                    : t('bookService.repeatNone')}
-                </Text>
-                <View className="flex-row flex-wrap gap-2">
-                  {repeatDays.map((d) => {
-                    const on = validExtraDates.includes(d.key);
+                <View className="mb-3 mt-2 flex-row gap-2">
+                  {(['days', 'weekly'] as const).map((mode) => {
+                    const active = repeatMode === mode;
                     return (
                       <TouchableOpacity
-                        key={d.key}
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked: on, disabled: !d.available }}
-                        aria-checked={on}
-                        aria-disabled={!d.available}
-                        disabled={!d.available}
-                        onPress={() => toggleExtraDate(d.key)}
-                        style={{ minWidth: 58 }}
-                        className={`items-center rounded-xl border px-2 py-1.5 ${
-                          on
-                            ? 'border-brand-500 bg-brand-500'
-                            : d.available
-                              ? `${borderColor} ${cardBg}`
-                              : `${borderColor} opacity-40`
+                        key={mode}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: active }}
+                        aria-checked={active}
+                        onPress={() => chooseRepeatMode(mode)}
+                        className={`rounded-full border px-3 py-1.5 ${
+                          active ? 'border-brand-500 bg-brand-500' : `${borderColor} ${cardBg}`
                         }`}>
-                        <Text className={`text-[11px] ${on ? 'text-white' : subtextColor}`}>
-                          {t(DAY_SHORT_KEYS[d.date.getDay()])}
-                        </Text>
-                        <Text className={`text-sm font-semibold ${on ? 'text-white' : textColor}`}>
-                          {d.date.getDate()} {t(MONTH_SHORT_KEYS[d.date.getMonth()])}
+                        <Text
+                          className={`text-xs font-medium ${active ? 'text-white' : subtextColor}`}>
+                          {mode === 'days'
+                            ? t('bookService.repeatModeDays')
+                            : t('bookService.repeatModeWeekly')}
                         </Text>
                       </TouchableOpacity>
                     );
                   })}
                 </View>
+                {repeatMode === 'weekly' ? (
+                  <View>
+                    <Text className={`mb-2 text-xs ${subtextColor}`}>
+                      {t('bookService.weeklyHint')}
+                    </Text>
+                    <View className="mb-3 flex-row flex-wrap gap-2">
+                      {WEEK_ORDER.map((d) => {
+                        const on = weeklyDays.includes(d);
+                        return (
+                          <TouchableOpacity
+                            key={d}
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: on }}
+                            aria-checked={on}
+                            onPress={() => toggleWeeklyDay(d)}
+                            style={{ minWidth: 44 }}
+                            className={`items-center rounded-xl border px-2 py-2 ${
+                              on ? 'border-brand-500 bg-brand-500' : `${borderColor} ${cardBg}`
+                            }`}>
+                            <Text
+                              className={`text-xs font-semibold ${on ? 'text-white' : textColor}`}>
+                              {t(DAY_SHORT_KEYS[d])}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    <View className="mb-2 flex-row flex-wrap items-center gap-2">
+                      {WEEKLY_WEEKS.map((n) => {
+                        const on = weeklyWeeks === n;
+                        return (
+                          <TouchableOpacity
+                            key={n}
+                            accessibilityRole="radio"
+                            accessibilityState={{ checked: on }}
+                            aria-checked={on}
+                            onPress={() => setWeeklyWeeks(n)}
+                            className={`rounded-full border px-3 py-1.5 ${
+                              on ? 'border-brand-500' : borderColor
+                            } ${cardBg}`}>
+                            <Text
+                              className={`text-xs ${on ? 'font-semibold text-brand-600' : subtextColor}`}>
+                              {tPlural(n, {
+                                one: 'durations.nWeeksOne',
+                                few: 'durations.nWeeksFew',
+                                many: 'durations.nWeeks',
+                              })}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    <Text className={`text-xs ${subtextColor}`}>
+                      {weeklyPlan.pending
+                        ? t('bookService.weeklyLoading')
+                        : t('bookService.weeklySummary', { count: weeklyPlan.dates.length })}
+                      {weeklyPlan.skipped > 0
+                        ? ` · ${t('bookService.weeklySkipped', { count: weeklyPlan.skipped })}`
+                        : ''}
+                    </Text>
+                  </View>
+                ) : null}
+                {repeatMode === 'days' ? (
+                  <Text className={`mb-3 text-xs ${subtextColor}`}>
+                    {repeatDays.some((d) => d.available)
+                      ? t('bookService.repeatHint')
+                      : t('bookService.repeatNone')}
+                  </Text>
+                ) : null}
+                {repeatMode === 'days' ? (
+                  <View className="flex-row flex-wrap gap-2">
+                    {repeatDays.map((d) => {
+                      const on = validExtraDates.includes(d.key);
+                      return (
+                        <TouchableOpacity
+                          key={d.key}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: on, disabled: !d.available }}
+                          aria-checked={on}
+                          aria-disabled={!d.available}
+                          disabled={!d.available}
+                          onPress={() => toggleExtraDate(d.key)}
+                          style={{ minWidth: 58 }}
+                          className={`items-center rounded-xl border px-2 py-1.5 ${
+                            on
+                              ? 'border-brand-500 bg-brand-500'
+                              : d.available
+                                ? `${borderColor} ${cardBg}`
+                                : `${borderColor} opacity-40`
+                          }`}>
+                          <Text className={`text-[11px] ${on ? 'text-white' : subtextColor}`}>
+                            {t(DAY_SHORT_KEYS[d.date.getDay()])}
+                          </Text>
+                          <Text
+                            className={`text-sm font-semibold ${on ? 'text-white' : textColor}`}>
+                            {d.date.getDate()} {t(MONTH_SHORT_KEYS[d.date.getMonth()])}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ) : null}
               </View>
             ) : null}
           </View>
