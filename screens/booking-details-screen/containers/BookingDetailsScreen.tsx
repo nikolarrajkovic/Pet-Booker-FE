@@ -228,7 +228,7 @@ export default function BookingDetailsScreen() {
       <>
         {/* Service / provider header */}
         <View className={`flex-row items-center ${gutter.px} pt-5`}>
-          <ServicePhoto uri={heroImage} iconSize={30} className="mr-4 h-20 w-20" />
+          <ServicePhoto uri={heroImage} thumbWidth={240} iconSize={30} className="mr-4 h-20 w-20" />
           <View className="flex-1">
             <Text className={`text-lg font-bold ${textColor}`}>{vm.serviceName}</Text>
             <Text className={`text-sm ${subtextColor} mt-0.5`}>{vm.providerName}</Text>

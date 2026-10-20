@@ -88,6 +88,7 @@ export default function ServiceCard({
           rather than a blank rectangle — see ServicePhoto. */}
       <ServicePhoto
         uri={image}
+        thumbWidth={fill ? 960 : 480}
         radiusClass="rounded-none"
         iconSize={fill ? 34 : 26}
         className={`w-full ${fill ? 'h-44' : 'h-32'}`}>

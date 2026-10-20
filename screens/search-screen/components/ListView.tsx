@@ -146,7 +146,12 @@ export default function ListView({ services, badge, paging, sort, header, date }
       {/* Service image + category banner (Popular / Deal) */}
       {/* ServicePhoto layers the paw placeholder behind the photo, so a service with no photo (or
           a dead URL) reads as "no photo yet" instead of a blank white hole in the card. */}
-      <ServicePhoto uri={item.image} radiusClass="rounded-xl" iconSize={26} className="h-20 w-20">
+      <ServicePhoto
+        uri={item.image}
+        thumbWidth={240}
+        radiusClass="rounded-xl"
+        iconSize={26}
+        className="h-20 w-20">
         {badge === 'popular' && (
           <View className="absolute left-1 top-1 flex-row items-center rounded-full bg-amber-500 px-1.5 py-0.5">
             <Ionicons name="flame" size={10} color="white" />

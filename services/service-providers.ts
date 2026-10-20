@@ -249,6 +249,18 @@ export function resolveImageUrl(src: string | null | undefined): string {
 }
 
 /**
+ * A smaller copy of one of our own uploaded images, `width` pixels wide (rounded up by the server
+ * to 240/480/960; an image already that narrow comes back as it is). A list card 200–340px wide
+ * used to load the full 1920px upload (feedback 2026-10-21). Anything that isn't one of our files
+ * (an external URL, an empty src) is returned untouched.
+ */
+export function thumbnailUrl(uri: string | null | undefined, width: number): string {
+  if (!uri) return '';
+  if (!/\/files\/[^/?#]+$/.test(uri)) return uri;
+  return `${uri}?w=${Math.round(width)}`;
+}
+
+/**
  * Where a provider is, for display: their business address, else their account address (the
  * server resolves it as `effectiveAddress`). Falls back to `address` for a response from an API
  * older than that field.

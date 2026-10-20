@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Image, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../hooks/useThemeColors';
+import { thumbnailUrl } from '../../services/service-providers';
 
 type ServicePhotoProps = {
   /** Already-resolved absolute URL, or null/empty when there is no photo. */
@@ -24,6 +25,11 @@ type ServicePhotoProps = {
    * where the face is the point and the frame is square.
    */
   fit?: 'contain' | 'cover';
+  /**
+   * Load a smaller copy, this many pixels wide — for a card or a row, never a hero. Twice the
+   * frame's width keeps it sharp on a high-density screen (feedback 2026-10-21).
+   */
+  thumbWidth?: number;
   className?: string;
   style?: ViewStyle;
   /** Badges and ribbons positioned over the photo. */
@@ -52,11 +58,13 @@ export default function ServicePhoto({
   radiusClass = 'rounded-2xl',
   iconSize = 34,
   fit = 'contain',
+  thumbWidth,
   className = '',
   style,
   children,
 }: ServicePhotoProps) {
   const { isDarkMode } = useThemeColors();
+  const src = thumbWidth ? thumbnailUrl(uri, thumbWidth) : uri;
 
   return (
     <View
@@ -66,11 +74,11 @@ export default function ServicePhoto({
       style={style}>
       <Ionicons name="paw" size={iconSize} color={isDarkMode ? '#374151' : '#D1D5DB'} />
       {/* Decorative: the card that owns this photo already carries the service's name. */}
-      {uri && fit === 'contain' ? (
+      {src && fit === 'contain' ? (
         <>
           {/* Enlarged so the blur's soft edge falls outside the frame (overflow is hidden). */}
           <Image
-            source={{ uri }}
+            source={{ uri: src }}
             accessibilityRole="none"
             alt=""
             blurRadius={18}
@@ -83,16 +91,16 @@ export default function ServicePhoto({
             className={`absolute inset-0 ${isDarkMode ? 'bg-black/30' : 'bg-black/10'}`}
           />
           <Image
-            source={{ uri }}
+            source={{ uri: src }}
             accessibilityRole="none"
             alt=""
             className="absolute inset-0 h-full w-full"
             resizeMode="contain"
           />
         </>
-      ) : uri ? (
+      ) : src ? (
         <Image
-          source={{ uri }}
+          source={{ uri: src }}
           accessibilityRole="none"
           alt=""
           className="absolute inset-0 h-full w-full"

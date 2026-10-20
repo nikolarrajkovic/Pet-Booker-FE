@@ -48,6 +48,7 @@ export default function PetCard({
           pushed the pet's name off to the right of dead space. */}
       <ServicePhoto
         uri={pet.image}
+        thumbWidth={240}
         radiusClass="rounded-xl"
         iconSize={32}
         fit="cover"

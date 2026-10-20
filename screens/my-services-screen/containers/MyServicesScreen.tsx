@@ -268,6 +268,7 @@ function ServiceListCard({
       {/* The partner sees the photo the way customers do: whole, not its middle band. */}
       <ServicePhoto
         uri={service.images[0]}
+        thumbWidth={960}
         radiusClass="rounded-none"
         iconSize={52}
         style={{ height: 180, width: '100%' }}>
