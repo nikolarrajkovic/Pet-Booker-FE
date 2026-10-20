@@ -10,6 +10,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useResource } from '../../../hooks/useResource';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { useResponsive } from '../../../hooks/useResponsive';
 import { showAlert } from '../../../services/alert';
 import { getErrorMessage } from '../../../services/http';
 import { deletePaymentMethod, getPaymentMethods } from '../../../services/payment-methods';
@@ -23,6 +24,7 @@ import { cardLabel } from '../../../services/payments';
  */
 export default function PaymentMethodsScreen() {
   const gutter = usePageGutter();
+  const { isWebLayout } = useResponsive();
   const { bgColor, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
   const { currentUser } = useAuth();
@@ -66,13 +68,20 @@ export default function PaymentMethodsScreen() {
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('payments.methodsTitle')}
       contentBg={bgColor}>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView
+        className="flex-1"
+        // On web the card sits inside the page gutter, so its edge lines up under the title.
+        contentContainerStyle={{
+          paddingBottom: 32,
+          paddingHorizontal: isWebLayout ? gutter.value : 0,
+        }}>
         <FormCard>
-          <View className={`${gutter.px} py-6`}>
+          <View className={`${isWebLayout ? '' : gutter.px} py-6`}>
             <Text className={`mb-5 text-sm ${subtextColor}`}>{t('payments.methodsIntro')}</Text>
 
             {isLoading && !methods ? (

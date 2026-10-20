@@ -101,6 +101,7 @@ function PromotionMissing() {
   const { t } = useLocale();
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('promotions.editTitle')}
@@ -258,6 +259,7 @@ function EditPromotionForm({ promotion }: { promotion: Promotion }) {
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('promotions.editTitle')}

@@ -132,6 +132,7 @@ export default function CreatePromotionScreen() {
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('promotions.createTitle')}

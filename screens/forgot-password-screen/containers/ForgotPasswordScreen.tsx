@@ -99,6 +99,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('forgotPassword.title')}

@@ -42,6 +42,7 @@ export default function HelpScreen() {
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('help.title')}

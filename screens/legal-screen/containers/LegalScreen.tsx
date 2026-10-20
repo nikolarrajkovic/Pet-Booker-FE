@@ -38,7 +38,12 @@ export default function LegalScreen() {
   const sections = Array.from({ length: LEGAL_SECTION_COUNT }, (_, i) => i + 1);
 
   return (
-    <ScreenLayout headerVariant="standard" showBackButton headerTitle={title} contentBg={bgColor}>
+    <ScreenLayout
+      narrow
+      headerVariant="standard"
+      showBackButton
+      headerTitle={title}
+      contentBg={bgColor}>
       {/* Web: the card sits inside the page gutter like every other page's, and pads itself.
           Phone: FormCard is a pass-through, so the text carries the gutter. */}
       <ScrollView

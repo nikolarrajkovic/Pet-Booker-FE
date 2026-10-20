@@ -14,7 +14,6 @@ import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import FormCard from '../../../components/shared/FormCard';
-import FormRow from '../../../components/shared/FormRow';
 import { changePassword } from '../../../services/auth';
 import { getErrorMessage } from '../../../services/http';
 import { showAlert } from '../../../services/alert';
@@ -76,6 +75,7 @@ export default function ChangePasswordScreen() {
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('changePassword.title')}
@@ -91,16 +91,13 @@ export default function ChangePasswordScreen() {
             currentPassword,
             setCurrentPassword
           )}
-          {/* The new password and its confirmation are one thought, and both are short. */}
-          <FormRow>
-            {field('new', t('changePassword.newPassword'), newPassword, setNewPassword)}
-            {field(
-              'confirm',
-              t('changePassword.confirmPassword'),
-              confirmPassword,
-              setConfirmPassword
-            )}
-          </FormRow>
+          {field('new', t('changePassword.newPassword'), newPassword, setNewPassword)}
+          {field(
+            'confirm',
+            t('changePassword.confirmPassword'),
+            confirmPassword,
+            setConfirmPassword
+          )}
 
           <TouchableOpacity
             accessibilityRole="button"

@@ -27,6 +27,7 @@ import { resolveImageUrl, AddressDto } from '../../../services/service-providers
 import { addressLabel } from '../../../services/geocoding';
 import { showAlert } from '../../../services/alert';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { useResponsive } from '../../../hooks/useResponsive';
 import { DEFAULT_LOCATION } from '../../../hooks/useLocation';
 
 type PickedPhoto = { uri: string; fileName?: string; mimeType?: string };
@@ -43,6 +44,7 @@ type PickedPhoto = { uri: string; fileName?: string; mimeType?: string };
 
 export default function AccountScreen() {
   const gutter = usePageGutter();
+  const { isWebLayout } = useResponsive();
   const { currentUser, refreshUser, isProviderProfile } = useAuth();
   const navigation = useNavigation<any>();
   const {
@@ -189,6 +191,7 @@ export default function AccountScreen() {
   if (isLoading) {
     return (
       <ScreenLayout
+        narrow
         headerVariant="standard"
         showBackButton
         headerTitle={t('account.title')}
@@ -203,6 +206,7 @@ export default function AccountScreen() {
   if (loadError) {
     return (
       <ScreenLayout
+        narrow
         headerVariant="standard"
         showBackButton
         headerTitle={t('account.title')}
@@ -221,11 +225,18 @@ export default function AccountScreen() {
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('account.title')}
       contentBg={bgColor}>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView
+        className="flex-1"
+        // On web the card sits inside the page gutter, so its edge lines up under the title.
+        contentContainerStyle={{
+          paddingBottom: 32,
+          paddingHorizontal: isWebLayout ? gutter.value : 0,
+        }}>
         <FormCard>
           {/* Profile Photo */}
           <View className="items-center py-8">
@@ -260,7 +271,7 @@ export default function AccountScreen() {
             </TouchableOpacity>
           </View>
 
-          <View className={`${gutter.px}`}>
+          <View className={isWebLayout ? '' : gutter.px}>
             <Text className={`text-lg font-bold ${textColor} mb-4`}>
               {t('account.personalInfo')}
             </Text>

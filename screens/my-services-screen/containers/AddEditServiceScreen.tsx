@@ -61,6 +61,7 @@ import {
   isOvernightHours,
 } from '../serviceModel';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 // serviceProviderType enum `displayName`s — the selected label maps back to a
 // real numeric `type` on save via providerTypeValue().
@@ -127,6 +128,7 @@ function getInitialAdditionalServices(existing?: ExistingService): AdditionalSer
 
 export default function AddEditServiceScreen() {
   const gutter = usePageGutter();
+  const { isWebLayout } = useResponsive();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: AddEditServiceParams }, 'params'>>();
   const params = route.params;
@@ -586,6 +588,7 @@ export default function AddEditServiceScreen() {
 
   return (
     <ScreenLayout
+      narrow
       showBackButton
       headerTitle={isEdit ? t('addEditService.titleEdit') : t('addEditService.titleAdd')}
       headerSubtitle={isEdit ? t('addEditService.subtitleEdit') : t('addEditService.subtitleAdd')}
@@ -1100,9 +1103,10 @@ export default function AddEditServiceScreen() {
                         }
                       />
 
-                      {/* Free distance + Max distance side by side */}
-                      <View className="flex-row gap-3">
-                        <View className="flex-1">
+                      {/* Free distance + Max distance: side by side on the phone, one per row
+                          in the web form (feedback 2026-10-20). */}
+                      <View className={isWebLayout ? 'gap-3' : 'flex-row gap-3'}>
+                        <View className={isWebLayout ? '' : 'flex-1'}>
                           <Text className={`${textColor} mb-1 text-sm font-medium`}>
                             {t('addEditService.freeDistance')}
                           </Text>
@@ -1126,7 +1130,7 @@ export default function AddEditServiceScreen() {
                             <Text className={`${subtextColor} ml-1`}>{t('addEditService.km')}</Text>
                           </View>
                         </View>
-                        <View className="flex-1">
+                        <View className={isWebLayout ? '' : 'flex-1'}>
                           <Text className={`${textColor} mb-1 text-sm font-medium`}>
                             {t('addEditService.maxDistance')}
                           </Text>

@@ -410,6 +410,7 @@ export default function PartnerApplicationScreen() {
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('partnerApplication.title')}

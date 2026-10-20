@@ -117,9 +117,10 @@ whole thing in a 440px card on web.
 - **Mobile** → today's markup, unchanged: `SafeAreaView` → `KeyboardAvoidingView` → green
   `AppHeader` → rounded content sheet → footer.
 - **Web** → `PageHeader` (title, subtitle, back link, right action) inside a
-  `ContentContainer` — the full width beside the sidebar, inset by the one 32px page gutter, the
-  same on every page (there is no per-screen width cap any more: a centred cap put each page's
-  content at a different distance from the sidebar; feedback 2026-10-19); no green block, no rounded sheet, no safe-area padding, and
+  `ContentContainer` — the full width beside the sidebar, inset by the one 32px page gutter (a
+  centred per-page cap put each page's content at a different distance from the sidebar;
+  feedback 2026-10-19). **Forms and text pages pass `narrow`**: one centred 720px column with
+  the title above it and one field per row (feedback 2026-10-20); no green block, no rounded sheet, no safe-area padding, and
   `showNotificationButton` is ignored because the bell lives in the `TopBar`.
 
 New `ScreenLayout` props, all optional and all mobile-inert:

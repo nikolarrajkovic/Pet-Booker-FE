@@ -39,6 +39,11 @@ type ScreenLayoutProps = {
 
   // ── Web design only. All of these are inert on the phone design. ───────────────────────────
   /**
+   * A form or a page of text: the title and the body in one centred column, `FORM_WIDTH` wide,
+   * instead of the full width. Fields in it go one per row.
+   */
+  narrow?: boolean;
+  /**
    * Actions for the web page-title row. Falls back to `rightAction`, which on the phone design
    * sits in the coloured header bar — usually the same buttons in a different place.
    */
@@ -61,7 +66,8 @@ type ScreenLayoutProps = {
  *   navigator, so it is below every tab screen without being passed in), a `StickyFooter`, or,
  *   when a screen has neither, the content sheet itself.
  * - **Web** — a page: `PageHeader` (plain title + back link) above the body, both in one
- *   full-width column inset by the page gutter, with no safe-area padding, no coloured slab and
+ *   column inset by the page gutter — the full width, or a centred `FORM_WIDTH` one for a
+ *   `narrow` form page — with no safe-area padding, no coloured slab and
  *   no rounded sheet. The chrome that used to live in the header — the notification bell, the
  *   account menu — is in the persistent `TopBar`, so `showNotificationButton` is deliberately **ignored** on this design;
  *   two bells on one page is worse than none.
@@ -94,6 +100,7 @@ export default function ScreenLayout({
   avoidKeyboard = true,
   webHeaderRight,
   webBare = false,
+  narrow = false,
 }: ScreenLayoutProps) {
   const { bgColor } = useThemeColors();
   const { isWebLayout } = useResponsive();
@@ -169,7 +176,7 @@ export default function ScreenLayout({
           gets the column without the padding, and screens keep owning their own.
 
         */}
-        <ContentContainer>
+        <ContentContainer narrow={narrow}>
           <PageHeader
             title={headerTitle}
             subtitle={headerSubtitle}
@@ -180,12 +187,20 @@ export default function ScreenLayout({
           </PageHeader>
         </ContentContainer>
 
-        <ContentContainer noPadding>{children}</ContentContainer>
+        <ContentContainer narrow={narrow} noPadding>
+          {children}
+        </ContentContainer>
 
         {/* A footer here is a CTA bar, not the TabBar (which renders nothing off the phone
             design). In the flow at the end of the column rather than pinned across the window —
             see the note in StickyFooter. */}
-        {footer}
+        {narrow && footer ? (
+          <ContentContainer narrow noPadding>
+            {footer}
+          </ContentContainer>
+        ) : (
+          footer
+        )}
       </View>
     );
   }

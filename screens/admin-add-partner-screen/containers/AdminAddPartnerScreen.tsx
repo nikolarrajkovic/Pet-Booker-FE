@@ -170,6 +170,7 @@ export default function AdminAddPartnerScreen() {
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('admin.addPartnerTitle')}

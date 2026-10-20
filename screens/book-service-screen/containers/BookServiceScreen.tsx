@@ -158,6 +158,7 @@ export default function BookServiceScreen() {
   if (service) return <BookServiceForm service={service} initialDate={route.params?.date} />;
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('bookService.title')}
@@ -884,6 +885,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       contentBg={contentBg}

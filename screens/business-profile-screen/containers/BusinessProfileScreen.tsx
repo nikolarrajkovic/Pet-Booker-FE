@@ -35,6 +35,7 @@ import { ApiError, getErrorMessage } from '../../../services/http';
 import { getUser } from '../../../services/users';
 import { addressLabel } from '../../../services/geocoding';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { useResponsive } from '../../../hooks/useResponsive';
 import { DEFAULT_LOCATION } from '../../../hooks/useLocation';
 
 /**
@@ -50,6 +51,7 @@ import { DEFAULT_LOCATION } from '../../../hooks/useLocation';
  */
 export default function BusinessProfileScreen() {
   const gutter = usePageGutter();
+  const { isWebLayout } = useResponsive();
   const { currentUser, isProviderProfile } = useAuth();
   const {
     isDarkMode,
@@ -240,6 +242,7 @@ export default function BusinessProfileScreen() {
 
   const layout = (children: React.ReactNode) => (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('businessProfile.title')}
@@ -270,9 +273,16 @@ export default function BusinessProfileScreen() {
   }
 
   return layout(
-    <ScrollView ref={scrollRef} className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
+    <ScrollView
+      ref={scrollRef}
+      className="flex-1"
+      // On web the card sits inside the page gutter, so its edge lines up under the title.
+      contentContainerStyle={{
+        paddingBottom: 32,
+        paddingHorizontal: isWebLayout ? gutter.value : 0,
+      }}>
       <FormCard>
-        <View className={`${gutter.px} py-6`}>
+        <View className={`${isWebLayout ? '' : gutter.px} py-6`}>
           <Text className={`text-sm ${subtextColor} mb-5`}>{t('businessProfile.intro')}</Text>
 
           {/* Profile photo — what customers see on the partner's page and cards */}
