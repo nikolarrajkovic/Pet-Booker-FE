@@ -184,8 +184,13 @@ export default function HomeScreen() {
       cancelled = true;
     };
   }, [petPromptEligible, userId]);
+  // Dismissed on the account (any device) or on this device.
   const showPetPrompt =
-    petPromptEligible && petPromptDismissed === false && myPets != null && myPets.length === 0;
+    petPromptEligible &&
+    !currentUser?.petPromptDismissed &&
+    petPromptDismissed === false &&
+    myPets != null &&
+    myPets.length === 0;
   // Live badge counts — kept current by the SignalR pushes in the two providers.
   const { unreadCount, refreshUnreadCount } = useNotifications();
   const { unreadCount: unreadMessages, refreshUnreadCount: refreshUnreadMessages } = useMessages();

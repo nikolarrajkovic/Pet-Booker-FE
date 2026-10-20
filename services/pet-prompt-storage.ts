@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { savePetPromptDismissed } from './notifications';
 
 // Mirrors services/theme-storage.ts: SecureStore on native, localStorage on web.
 const webStore = {
@@ -17,9 +18,8 @@ const keyFor = (userId: number) => `pet_prompt_dismissed_${userId}`;
 /**
  * Whether this account said "Not now" to the Home "add your pet" card on this device.
  *
- * Kept on the device on purpose: the card is a gentle, dismissible suggestion (unlike the partner
- * tour, which takes over the screen), and having a pet is the server-side fact that retires it for
- * good. A dismissal that has to be repeated once on a new phone is the cheaper mistake.
+ * The account's own answer arrives with the session (`currentUser.petPromptDismissed`, from the
+ * server); this copy on the device is what answers at once after the tap, before any request.
  */
 export async function isPetPromptDismissed(userId: number): Promise<boolean> {
   try {
@@ -29,10 +29,20 @@ export async function isPetPromptDismissed(userId: number): Promise<boolean> {
   }
 }
 
+/**
+ * "Not now": remembered on this device at once and on the account (feedback 2026-10-21), so the
+ * card stays away on every device. It used to be the device alone, and a second phone showed the
+ * card again. Either save failing is harmless: the card comes back once, which is the cheap mistake.
+ */
 export async function dismissPetPrompt(userId: number): Promise<void> {
   try {
     await store.setItemAsync(keyFor(userId), '1');
   } catch {
-    // Storage unavailable (private window): the card simply comes back next time.
+    // Storage unavailable (private window): the account still remembers.
+  }
+  try {
+    await savePetPromptDismissed(userId);
+  } catch {
+    // Offline: this device still remembers; the account learns next time it is dismissed.
   }
 }

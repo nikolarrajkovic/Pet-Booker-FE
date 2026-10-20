@@ -20,6 +20,8 @@ export type UserNotificationSettingsDto = {
   // Display-currency preference (server-validated against RSD/EUR/USD, default 'RSD').
   // Payments are always made and shown in RSD for now — no conversion happens yet.
   preferredCurrency?: string | null;
+  // "Not now" to the Home "add your pet" card. Omitted (or null) on a save leaves the stored value.
+  petPromptDismissed?: boolean | null;
 };
 
 /**
@@ -78,6 +80,18 @@ export async function savePreferredLanguage(
   return saveNotificationSettings({
     ...(existing ?? defaultNotificationSettings(userId)),
     preferredLanguage: language,
+  });
+}
+
+/**
+ * Remembers on the account that the person said "Not now" to the Home "add your pet" card, so the
+ * card stays away on every device. Round-trips the existing record, like the language.
+ */
+export async function savePetPromptDismissed(userId: number): Promise<void> {
+  const existing = await getNotificationSettings(userId);
+  await saveNotificationSettings({
+    ...(existing ?? defaultNotificationSettings(userId)),
+    petPromptDismissed: true,
   });
 }
 

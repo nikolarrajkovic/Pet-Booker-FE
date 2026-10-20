@@ -18,6 +18,8 @@ export type CurrentUser = {
   // display preference only — payments are always in RSD for now.
   preferredLanguage?: string | null;
   preferredCurrency?: string | null;
+  /** "Not now" to the Home "add your pet" card, kept on the account (so on every device). */
+  petPromptDismissed?: boolean;
 };
 
 type LoginPayload = {
