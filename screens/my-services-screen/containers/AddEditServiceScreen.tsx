@@ -374,8 +374,8 @@ export default function AddEditServiceScreen() {
         : type === 'end'
           ? h.endTime
           : type === 'start2'
-            ? (h.second?.startTime ?? '17:00')
-            : (h.second?.endTime ?? '21:00');
+            ? (h.second?.startTime ?? '19:00')
+            : (h.second?.endTime ?? '22:00');
     const [hours, minutesPart] = timeStr.split(':');
     const [minutes, period] = minutesPart.split(' ');
     // 24h "HH:mm" by default; legacy "h:mm AM/PM" still tolerated.
@@ -403,7 +403,7 @@ export default function AddEditServiceScreen() {
     setWorkingHours((prev) => {
       const day = prev[timePickerDay];
       if (timePickerType === 'start2' || timePickerType === 'end2') {
-        const second = day.second ?? { startTime: '17:00', endTime: '21:00' };
+        const second = day.second ?? { startTime: '19:00', endTime: '22:00' };
         return {
           ...prev,
           [timePickerDay]: {
@@ -425,12 +425,23 @@ export default function AddEditServiceScreen() {
     });
   };
 
-  /** A split day (feedback 2026-10-21): a second window, defaulting to the evening. */
+  /**
+   * A split day (feedback 2026-10-21): a second window, by default after a break once the first one
+   * ends — 16:00–20:00 after a morning, 19:00–22:00 after a day — or an early morning before late
+   * hours. The partner adjusts it; overlapping windows are refused on save.
+   */
   const setSecondWindow = (day: string, on: boolean) =>
-    setWorkingHours((prev) => ({
-      ...prev,
-      [day]: { ...prev[day], second: on ? { startTime: '17:00', endTime: '21:00' } : null },
-    }));
+    setWorkingHours((prev) => {
+      const h = prev[day];
+      const [eh] = h.endTime.split(':').map((n) => parseInt(n, 10) || 0);
+      const late = isOvernightHours(h.startTime, h.endTime) || eh > 18;
+      const second = late
+        ? { startTime: '07:00', endTime: '09:00' }
+        : eh <= 13
+          ? { startTime: '16:00', endTime: '20:00' }
+          : { startTime: '19:00', endTime: '22:00' };
+      return { ...prev, [day]: { ...h, second: on ? second : null } };
+    });
 
   const addPricingTier = () => {
     setPricingTiers([...pricingTiers, { duration: '', price: '' }]);
