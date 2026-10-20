@@ -2088,7 +2088,8 @@ const en = {
     today: 'Today',
     tomorrow: 'Tomorrow',
     pickDate: 'Pick a date',
-    whenHint: 'Providers whose working hours cover it. Free times are shown when you book.',
+    whenHint:
+      'With a day picked, only providers who still have free time then. Exact times are shown when you book.',
     yearsOfExperienceFew: '{n} years of experience',
     yearsOfExperienceOne: '{n} year of experience',
     yearsOfExperience: '{n} years of experience',

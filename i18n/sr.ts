@@ -2063,7 +2063,8 @@ const sr: TranslationDict = {
     today: 'Danas',
     tomorrow: 'Sutra',
     pickDate: 'Izaberi datum',
-    whenHint: 'Pružaoci čije radno vreme to obuhvata. Slobodni termini se vide pri rezervaciji.',
+    whenHint:
+      'Kada izaberete dan, samo pružaoci koji tada još imaju slobodnog vremena. Tačni termini se vide pri rezervaciji.',
     yearsOfExperienceFew: '{n} god. iskustva',
     yearsOfExperienceOne: '{n} god. iskustva',
     yearsOfExperience: '{n} god. iskustva',
