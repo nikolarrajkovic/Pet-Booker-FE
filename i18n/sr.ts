@@ -1440,6 +1440,8 @@ const sr: TranslationDict = {
     pricingDurationHint:
       'Dodajte trajanje uz svaku cenu da ponudite opcije za rezervaciju — klijenti moraju izabrati jednu. Jedna cena bez trajanja zadržava slobodnu rezervaciju.',
     duration: 'Trajanje',
+    addSecondTime: 'Dodaj drugo vreme (podeljen dan)',
+    removeSecondTime: 'Ukloni drugo vreme',
     priceUnit: 'Cena je',
     priceUnitHint:
       'Po satu, danu ili noći: klijenti biraju trajanje pri rezervaciji i plaćaju ovu cenu za svaki.',

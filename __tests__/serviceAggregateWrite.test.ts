@@ -68,6 +68,36 @@ describe('uiToServiceDto — the whole aggregate in one payload', () => {
     expect(schedulesToWorkingHours(dto.schedules).Saturday.endTime).toBe('24:00');
   });
 
+  it('keeps a split day: two windows out, and both back in on the next edit', () => {
+    // The editor used to keep only one window per day when it loaded a service, so saving a
+    // split day (08–12 and 17–21) silently dropped the morning (feedback 2026-10-21).
+    const dto = uiToServiceDto({
+      ...baseForm,
+      pricingTiers: [{ duration: '30 min', price: '10' }],
+      workingHours: hours({
+        Tuesday: {
+          enabled: true,
+          startTime: '08:00',
+          endTime: '12:00',
+          second: { startTime: '17:00', endTime: '21:00' },
+        },
+      }),
+    });
+    expect(dto.schedules).toEqual([
+      expect.objectContaining({ day: 2, from: '08:00:00', to: '12:00:00' }),
+      expect.objectContaining({ day: 2, from: '17:00:00', to: '21:00:00' }),
+    ]);
+
+    // Stored in any order, read back earliest first.
+    const back = schedulesToWorkingHours([...(dto.schedules ?? [])].reverse());
+    expect(back.Tuesday).toMatchObject({
+      enabled: true,
+      startTime: '08:00',
+      endTime: '12:00',
+      second: { startTime: '17:00', endTime: '21:00' },
+    });
+  });
+
   it('nests the duration tiers as pricing options', () => {
     const dto = uiToServiceDto({
       ...baseForm,

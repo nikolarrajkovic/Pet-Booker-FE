@@ -79,8 +79,16 @@ export function newAdditionalServiceEntry(): AdditionalServiceEntry {
   };
 }
 
+/** A second window the same day — a split day, 08:00–12:00 and 17:00–21:00. */
+export type SecondWindow = { startTime: string; endTime: string };
+
 export interface WorkingHours {
-  [day: string]: { enabled: boolean; startTime: string; endTime: string };
+  [day: string]: {
+    enabled: boolean;
+    startTime: string;
+    endTime: string;
+    second?: SecondWindow | null;
+  };
 }
 
 export interface UiService {
@@ -432,10 +440,19 @@ export function schedulesToWorkingHours(schedules?: ServiceScheduleDto[] | null)
   for (const day of UI_DAY_ORDER) {
     hours[day] = { enabled: false, startTime: '09:00', endTime: '17:00' };
   }
-  for (const s of schedules ?? []) {
+  // A day may have two windows (a split day). They used to overwrite each other here, so editing
+  // a service with a split day and saving it dropped all but the last window. Earliest first.
+  const sorted = [...(schedules ?? [])].sort(
+    (a, b) => a.day - b.day || a.from.localeCompare(b.from)
+  );
+  for (const s of sorted) {
     const name = DAY_NAMES[s.day];
-    if (name && hours[name]) {
-      hours[name] = { enabled: true, startTime: hmsToUiTime(s.from), endTime: hmsToUiTime(s.to) };
+    if (!name || !hours[name]) continue;
+    const window = { startTime: hmsToUiTime(s.from), endTime: hmsToUiTime(s.to) };
+    if (!hours[name].enabled) {
+      hours[name] = { enabled: true, ...window, second: null };
+    } else if (!hours[name].second) {
+      hours[name] = { ...hours[name], second: window };
     }
   }
   return hours;
@@ -452,6 +469,14 @@ export function workingHoursToSchedules(
     const day = DAY_NAMES.indexOf(name);
     if (day < 0) continue;
     out.push({ serviceId, day, from: uiTimeToHms(h.startTime), to: uiTimeToHms(h.endTime) });
+    if (h.second) {
+      out.push({
+        serviceId,
+        day,
+        from: uiTimeToHms(h.second.startTime),
+        to: uiTimeToHms(h.second.endTime),
+      });
+    }
   }
   return out;
 }

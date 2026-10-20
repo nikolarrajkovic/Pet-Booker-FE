@@ -1462,6 +1462,8 @@ const en = {
     pricingDurationHint:
       'Add a duration to each price to offer bookable options — customers must pick one when booking. A single price without a duration keeps free-range booking.',
     duration: 'Duration',
+    addSecondTime: 'Add a second time (split day)',
+    removeSecondTime: 'Remove the second time',
     priceUnit: 'The price is',
     priceUnitHint:
       'Per hour, day or night: customers choose how long when they book and pay this price for each one.',
