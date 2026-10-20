@@ -71,13 +71,62 @@ export function roomIn(segments: Segment[], startMin: number, endMin: number): n
  * 10:30. Aligned, so a segment starting at 10:45 offers 11:00, 11:30… not quarter-past times.
  */
 export function startCandidates(segments: Segment[], slotMinutes: number, step: number): number[] {
+  return startCandidatesWithin(segments, step, slotMinutes);
+}
+
+/**
+ * Room for a stay of `lengthMinutes` starting `startMin` minutes into the first of `days` (each
+ * day's availability windows, from the start day on), judged the way the server judges a booking
+ * across days (BookingValidators.IsWithinSchedule): the start inside the first day's hours, every
+ * date the stay touches a working day — one with any availability — and the room the tightest
+ * window it overlaps. Its nights are not working hours, and were never meant to be (boarding).
+ *
+ * Null when a date it touches has no availability: not a working day, booked out, or not loaded.
+ */
+export function stayRoom(
+  days: (AvailabilityWindowDto[] | undefined)[],
+  startMin: number,
+  lengthMinutes: number
+): number | null {
+  const endMin = startMin + lengthMinutes;
+  // The server checks every date from the start's to the end's, the end's included.
+  const lastDay = Math.floor(endMin / MINUTES_PER_DAY);
+  if (days.length <= lastDay) return null;
+  const opensAtStart = (days[0] ?? []).some(
+    (w) => hmsToMinutes(w.from) <= startMin && startMin < hmsToMinutes(w.to)
+  );
+  if (!opensAtStart) return null;
+  let room = Number.POSITIVE_INFINITY;
+  for (let d = 0; d <= lastDay; d++) {
+    const windows = days[d];
+    if (!windows || windows.length === 0) return null;
+    for (const w of windows) {
+      const from = hmsToMinutes(w.from) + d * MINUTES_PER_DAY;
+      const to = hmsToMinutes(w.to) + d * MINUTES_PER_DAY;
+      if (to > startMin && from < endMin) room = Math.min(room, w.remainingCapacity);
+    }
+  }
+  return Math.max(0, room);
+}
+
+/** Starts for a stay: every `step` minutes inside the first day's own hours (drop-off time). */
+export function stayStartCandidates(segments: Segment[], step: number): number[] {
+  return startCandidatesWithin(segments, step, null);
+}
+
+function startCandidatesWithin(
+  segments: Segment[],
+  step: number,
+  slotMinutes: number | null
+): number[] {
   const own = segments.filter((s) => s.from < MINUTES_PER_DAY);
   if (own.length === 0) return [];
   const lastEnd = Math.max(...segments.map((s) => s.to));
   const starts = new Set<number>();
   for (const seg of own) {
     const first = Math.ceil(seg.from / step) * step;
-    for (let m = first; m < MINUTES_PER_DAY && m + slotMinutes <= lastEnd; m += step) {
+    for (let m = first; m < MINUTES_PER_DAY; m += step) {
+      if (slotMinutes == null ? m >= seg.to : m + slotMinutes > lastEnd) break;
       starts.add(m);
     }
   }

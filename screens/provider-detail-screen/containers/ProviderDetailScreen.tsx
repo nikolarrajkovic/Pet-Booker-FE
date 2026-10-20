@@ -9,6 +9,7 @@ import { useResource } from '../../../hooks/useResource';
 import { serviceDetailParams } from '../../../navigation/linking';
 import ServicePhoto from '../../../components/shared/ServicePhoto';
 import {
+  priceSuffix,
   getServices,
   ServiceDto,
   serviceCurrency,
@@ -303,6 +304,7 @@ export default function ProviderDetailScreen() {
                         <View className="items-end">
                           <Text className="text-base font-bold text-brand-600">
                             {formatMoney(serviceFromPrice(svc), serviceCurrency(svc))}
+                            {priceSuffix(t, svc)}
                           </Text>
                           {unavailable ? (
                             <View className="mt-2 rounded-full bg-gray-100 px-4 py-1.5">

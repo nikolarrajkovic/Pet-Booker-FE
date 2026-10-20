@@ -116,6 +116,13 @@ export type GroupBookingRequestDto = {
   excluded?: GroupBookingRecipientReadDto[];
   invitedCount: number;
   declinedCount: number;
+  /** AnyEligible: only providers within this many km were asked. Null: any distance. */
+  maxDistanceKm?: number | null;
+  /**
+   * Owner/admin only: how many providers the request went to when it was sent ("Sent to 6
+   * walkers"); 0 means nobody could see it. Null on requests sent before this was recorded.
+   */
+  reachedProviderCount?: number | null;
   /** Provider reader only. */
   myResponse?: GroupBookingResponseValue | null;
   /** Provider reader only — empty means they have nothing to accept it with. */
@@ -148,9 +155,17 @@ export type CreateGroupBookingRequestInput = {
   acceptedSpecies?: number;
   onSaleOnly?: boolean;
   requiredAddOnNames?: string[];
+  /**
+   * AnyEligible: ask only providers within this many km (1–100) of the place, else of the
+   * owner's home address. Dropped by the server when neither is on the map.
+   */
+  maxDistanceKm?: number | null;
 };
 
 const PATH = '/api/group-booking-requests';
+
+/** The distances the request form offers, in km; `null` is "any distance". */
+export const REQUEST_DISTANCES_KM = [null, 2, 5, 10, 20] as const;
 
 /**
  * Sends the request. Price bounds are in the currency the user saw them in, so the body DECLARES
@@ -252,6 +267,26 @@ export function declineGroupBookingRequest(
 }
 
 /** Owner: withdraw an open request. */
+/**
+ * Sends an "as soon as possible" request that closed with nobody accepting it again: a new request
+ * with the same pet, length, place and providers, open for `openForMinutes` (else as long as
+ * before) and within `maxDistanceKm` (null: any distance).
+ */
+export function sendGroupBookingRequestAgain(
+  id: number,
+  options: { openForMinutes?: number | null; maxDistanceKm?: number | null }
+): Promise<GroupBookingRequestDto> {
+  return apiJson<GroupBookingRequestDto>(`${PATH}/${id}/send-again`, {
+    method: 'POST',
+    body: {
+      openForMinutes: options.openForMinutes ?? null,
+      maxDistanceKm: options.maxDistanceKm ?? null,
+    },
+    fallback: 'Could not send your request again.',
+    context: 'sendGroupBookingRequestAgain',
+  });
+}
+
 export function cancelGroupBookingRequest(
   id: number,
   reason?: string

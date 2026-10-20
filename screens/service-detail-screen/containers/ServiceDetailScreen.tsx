@@ -22,6 +22,7 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import StickyFooter from '../../../components/shared/StickyFooter';
 import { useResponsive } from '../../../hooks/useResponsive';
 import {
+  priceSuffix,
   getService,
   ServiceDto,
   effectiveOptionPrice,
@@ -419,6 +420,7 @@ export default function ServiceDetailScreen() {
           <View className="mt-4 flex-row items-baseline">
             <Text className={`${subtextColor} mr-2`}>{t('serviceDetail.startingFrom')}</Text>
             <Text className="text-3xl font-bold text-brand-600">{money(effective)}</Text>
+            <Text className={`${subtextColor} ml-1`}>{priceSuffix(t, svc)}</Text>
             {hasDiscount ? (
               <Text className={`${subtextColor} ml-2 line-through`}>{money(base)}</Text>
             ) : null}
@@ -651,6 +653,7 @@ export default function ServiceDetailScreen() {
       <Text className={`${subtextColor} mb-1 text-sm`}>{t('serviceDetail.startingFrom')}</Text>
       <View className="flex-row flex-wrap items-baseline">
         <Text className="text-3xl font-bold text-brand-600">{money(effective)}</Text>
+        <Text className={`${subtextColor} ml-1`}>{priceSuffix(t, svc)}</Text>
         {hasDiscount ? (
           <Text className={`${subtextColor} ml-2 line-through`}>{money(base)}</Text>
         ) : null}

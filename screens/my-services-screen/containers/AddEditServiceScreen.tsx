@@ -34,6 +34,7 @@ import {
 import { useEnums } from '../../../context/EnumsContext';
 import { PetSpecies, isOfferedSpecies } from '../../../services/pets';
 import {
+  PricingUnit,
   createService,
   updateService,
   deleteService,
@@ -47,6 +48,7 @@ import { clearServiceSchedules } from '../../../services/service-schedules';
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 import { showAlert } from '../../../services/alert';
 import {
+  hasDurationTiers,
   serviceDtoToUi,
   uiToServiceDto,
   buildServicePhotos,
@@ -183,6 +185,12 @@ export default function AddEditServiceScreen() {
   const [pricingTiers, setPricingTiers] = useState<PricingTier[]>(
     existingService?.pricingTiers || [{ duration: '', price: '' }]
   );
+  // What a single, duration-less price is per: a visit, an hour, a day or a night. Customers then
+  // choose how long when they book and pay it for each unit (feedback 2026-10-21).
+  const [pricingUnit, setPricingUnit] = useState<number>(
+    params?.serviceDto?.pricing?.unit ?? PricingUnit.PerVisit
+  );
+  const pricesByUnit = !hasDurationTiers(pricingTiers);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [timePickerDay, setTimePickerDay] = useState<string | null>(null);
   const [timePickerType, setTimePickerType] = useState<'start' | 'end'>('start');
@@ -515,6 +523,7 @@ export default function AddEditServiceScreen() {
           serviceName,
           description,
           pricingTiers,
+          pricingUnit,
           maxPetCapacity: parseInt(maxPetCapacity, 10) || 1,
           acceptedSpecies,
           additionalServices,
@@ -887,6 +896,51 @@ export default function AddEditServiceScreen() {
                 </Text>
               </View>
             </TouchableOpacity>
+
+            {/* One price with no duration: say what it is per. With duration tiers each price is
+                for its whole option, so there is nothing to choose. */}
+            {pricesByUnit ? (
+              <View className="mt-4">
+                <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                  {t('addEditService.priceUnit')}
+                </Text>
+                <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                  {(
+                    [
+                      [PricingUnit.PerVisit, 'durations.unitPerVisit'],
+                      [PricingUnit.PerHour, 'durations.unitPerHour'],
+                      [PricingUnit.PerDay, 'durations.unitPerDay'],
+                      [PricingUnit.PerNight, 'durations.unitPerNight'],
+                    ] as const
+                  ).map(([unit, key]) => {
+                    const active = pricingUnit === unit;
+                    return (
+                      <TouchableOpacity
+                        key={unit}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: active }}
+                        aria-checked={active}
+                        onPress={() => setPricingUnit(unit)}
+                        className={`rounded-full border px-4 py-2 ${
+                          active
+                            ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                            : `${isDarkMode ? 'border-gray-700' : 'border-gray-300'} ${inputBg}`
+                        }`}>
+                        <Text
+                          className={`text-sm ${active ? 'font-semibold text-brand-600' : subtextColor}`}>
+                          {t(key)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {pricingUnit !== PricingUnit.PerVisit ? (
+                  <Text className={`${subtextColor} mt-2 text-xs`}>
+                    {t('addEditService.priceUnitHint')}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
           </View>
 
           {/* Maximum Pet Capacity */}

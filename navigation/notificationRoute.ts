@@ -147,6 +147,10 @@ export function routeForPayload(
     case NotificationType.AdminQueueCleared:
       return [{ name: 'Notifications' }];
 
+    // Nobody took the owner's request: their list, where an expired one can be sent again.
+    case NotificationType.GroupBookingRequestExpired:
+      return [{ name: 'MyGroupRequests' }];
+
     // ── Either side ───────────────────────────────────────────────────────────────────────
     case NotificationType.NewChatMessage:
       return chatRoute(p.conversationId);

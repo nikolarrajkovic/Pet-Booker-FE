@@ -6,6 +6,7 @@ import ServicePhoto from './ServicePhoto';
 import { useLocale } from '../../context/LocaleContext';
 import { formatMoney } from '../../services/currency';
 import {
+  priceSuffix,
   serviceCurrency,
   serviceFromBasePrice,
   serviceFromPrice,
@@ -353,7 +354,12 @@ export default function ServiceResultRow({
                       {money(basePrice)}
                     </Text>
                   )}
-                  <Text className={`text-lg font-semibold ${textColor}`}>{money(price)}</Text>
+                  <Text className={`text-lg font-semibold ${textColor}`}>
+                    {money(price)}
+                    <Text className={`text-xs font-normal ${subtextColor}`}>
+                      {priceSuffix(t, service)}
+                    </Text>
+                  </Text>
                 </View>
                 {deposit > 0 && (
                   <Text className={`text-[10px] ${subtextColor} mt-0.5`}>

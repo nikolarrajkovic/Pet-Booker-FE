@@ -3,6 +3,7 @@ import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import {
+  priceSuffix,
   ServiceDto,
   ServiceSortBy,
   serviceCurrency,
@@ -199,6 +200,7 @@ export default function ListView({ services, badge, paging, sort, header, date }
         {/* Each service prices in its own provider's currency, so format per item. */}
         <Text className="mt-1 font-semibold text-brand-600">
           {t('bookService.priceFrom')} {formatMoney(item.price, serviceCurrency(item.dto))}
+          {priceSuffix(t, item.dto)}
         </Text>
       </View>
     </TouchableOpacity>

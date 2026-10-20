@@ -3,7 +3,10 @@ import {
   hmsToMinutes,
   roomIn,
   startCandidates,
+  stayRoom,
+  stayStartCandidates,
 } from '../screens/book-service-screen/slotMath';
+import { PricingUnit, unitsFor } from '../services/services';
 
 /**
  * The booking form offers a start every 30 minutes and checks each against the day's availability
@@ -111,5 +114,49 @@ describe('late starts across midnight', () => {
     expect(roomIn(segments, 23 * 60 + 30, 24 * 60 + 30)).toBeNull();
     // Starts belong to the picked day only — Saturday's 09:00 is not one of Friday's.
     expect(startCandidates(segments, 60, 30).every((m) => m < 24 * 60)).toBe(true);
+  });
+});
+
+/**
+ * A stay priced per day or night (feedback 2026-10-21) runs past the working hours — its nights
+ * are not working hours — so it is judged the way the server judges a booking across days: the
+ * drop-off inside the first day's hours and every date it touches a working day.
+ */
+describe('stays across days', () => {
+  const at = (h: number, m = 0) => h * 60 + m;
+  const day = (room = 2) => [{ from: '08:00:00', to: '20:00:00', remainingCapacity: room }];
+  const DAY = 24 * 60;
+
+  it('takes a two-night stay across working days, with the tightest room', () => {
+    expect(stayRoom([day(2), day(1), day(2)], at(18), 2 * DAY)).toBe(1);
+  });
+
+  it('refuses a stay over a day off, or a drop-off outside the hours', () => {
+    expect(stayRoom([day(), [], day()], at(18), 2 * DAY)).toBeNull();
+    expect(stayRoom([day(), day()], at(21), DAY)).toBeNull();
+  });
+
+  it('needs the days it touches to be loaded', () => {
+    expect(stayRoom([day()], at(18), DAY)).toBeNull();
+  });
+
+  it('offers drop-offs every step inside the first day only', () => {
+    const starts = stayStartCandidates(daySegments(day(), day()), 60);
+    expect(starts[0]).toBe(at(8));
+    expect(starts[starts.length - 1]).toBe(at(19));
+  });
+});
+
+/** The client's copy of the server's ServicePricing.UnitsFor — only for the figure before the quote. */
+describe('unitsFor', () => {
+  const d = (day: number, h: number, m = 0) => new Date(2026, 10, day, h, m);
+  it.each([
+    [PricingUnit.PerVisit, d(6, 10), d(6, 15), 1],
+    [PricingUnit.PerHour, d(6, 10), d(6, 12, 10), 2.5],
+    [PricingUnit.PerDay, d(6, 8), d(7, 14), 2],
+    [PricingUnit.PerNight, d(6, 20), d(7, 8), 1],
+    [PricingUnit.PerNight, d(6, 18), d(8, 20), 2],
+  ])('unit %i from %s to %s is %d', (unit, from, to, expected) => {
+    expect(unitsFor(unit, from, to)).toBe(expected);
   });
 });

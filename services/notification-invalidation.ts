@@ -84,6 +84,8 @@ export function resourcesForNotification(notification: { type?: unknown }): stri
     // A group request landed in the provider's inbox.
     case NotificationType.GroupBookingRequested:
     case NotificationType.GroupBookingRequestedAsap:
+    // ...or one of the owner's closed unanswered.
+    case NotificationType.GroupBookingRequestExpired:
       resources.add('group-booking-requests');
       break;
 

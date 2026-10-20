@@ -98,6 +98,9 @@ export const NotificationType = {
   /** GroupBookingRequested for an "as soon as possible" request: needed now, open until a
    *  deadline. Provider-facing; same data, same inbox. In-app + push, no email. */
   GroupBookingRequestedAsap: 35,
+  /** The owner's group request closed with no provider accepting it; { groupBookingRequestId }.
+   *  Customer-facing, in-app + push. Opens My group requests, where it can be sent again. */
+  GroupBookingRequestExpired: 36,
 } as const;
 
 /**

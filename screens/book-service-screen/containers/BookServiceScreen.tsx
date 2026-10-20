@@ -20,6 +20,10 @@ import DatePicker from '../../../components/shared/DatePicker';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { PetSelector, BookingSummary, TimeSlotPicker, TimeSlot } from '../components';
 import {
+  unitsFor,
+  serviceUnit,
+  priceSuffix,
+  PricingUnit,
   ServiceDto,
   getService,
   getServiceAvailability,
@@ -51,7 +55,7 @@ import { useResource } from '../../../hooks/useResource';
 import { LoadingState, MessageState } from '../../../components/shared/ListState';
 import { formatKm } from '../../../i18n/numbers';
 import { parseDateOnly } from '../../../services/date-only';
-import { daySegments, roomIn, startCandidates } from '../slotMath';
+import { daySegments, roomIn, startCandidates, stayRoom, stayStartCandidates } from '../slotMath';
 
 // The user books one specific service (chosen before entering this screen), not
 // a provider — the service comes in as a route param and carries serviceProviderId.
@@ -111,6 +115,19 @@ const SLOT_STEP_MINUTES = 30;
 
 // How far ahead "Repeat on other days" offers the same time (bulk booking: a walk every weekday).
 const REPEAT_HORIZON_DAYS = 14;
+
+const DAY_MINUTES = 24 * 60;
+
+/**
+ * The lengths a service priced per hour, day or night offers (feedback 2026-10-21), in minutes.
+ * A day or a night is a 24-hour block from the drop-off, as at a pet hotel. The service's own
+ * minimum and maximum length narrow them.
+ */
+const LENGTHS_BY_UNIT: Record<number, number[]> = {
+  [PricingUnit.PerHour]: [60, 90, 120, 180, 240, 360, 480],
+  [PricingUnit.PerDay]: [1, 2, 3, 5, 7].map((n) => n * DAY_MINUTES),
+  [PricingUnit.PerNight]: [1, 2, 3, 5, 7, 14].map((n) => n * DAY_MINUTES),
+};
 
 // Local date-only key, "YYYY-MM-DD" — how the availability endpoint takes its from/to params and
 // how its `days[]` come back. Built from the local calendar fields rather than toISOString(),
@@ -190,7 +207,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
     borderColor,
   } = useThemeColors();
   const location = useLocation();
-  const { t, tEnum } = useLocale();
+  const { t, tEnum, tPlural } = useLocale();
 
   // The service is fixed for this screen — booking targets this one service.
   // It arrives from Home/Search list endpoints, which return a LEANER ServiceDto
@@ -226,9 +243,29 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
   const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
   const selectedOption = pricingOptions.find((o) => o.id === selectedOptionId) ?? null;
   const optionChosen = pricingOptions.length === 0 || selectedOption != null;
-  // Slot length (and stride) for the time picker — the option's duration when
-  // one is chosen, else the classic 1h grid.
-  const slotMs = selectedOption ? selectedOption.durationMinutes * 60000 : SLOT_DURATION_MS;
+  // Priced per hour, day or night: the customer chooses how long, and pays the price for each.
+  const pricingUnit = serviceUnit(selectedService);
+  const lengthChoices = useMemo(() => {
+    const all = LENGTHS_BY_UNIT[pricingUnit] ?? [];
+    const min = selectedService.details?.minDurationMinutes ?? 0;
+    const max = selectedService.details?.maxDurationMinutes ?? Number.POSITIVE_INFINITY;
+    const fitting = all.filter((m) => m >= min && m <= max);
+    return fitting.length > 0 ? fitting : all.slice(0, 1);
+  }, [pricingUnit, selectedService]);
+  const [lengthMinutes, setLengthMinutes] = useState<number | null>(null);
+  const chosenLength =
+    lengthMinutes != null && lengthChoices.includes(lengthMinutes)
+      ? lengthMinutes
+      : (lengthChoices[0] ?? null);
+  // Slot length (and stride) for the time picker — the option's duration when one is chosen, the
+  // chosen length for a service priced per unit, else the classic 1h grid.
+  const slotMs = selectedOption
+    ? selectedOption.durationMinutes * 60000
+    : chosenLength != null
+      ? chosenLength * 60000
+      : SLOT_DURATION_MS;
+  // A stay of a day or more runs past the working hours (its nights are not working hours).
+  const isStay = slotMs >= DAY_MINUTES * 60000;
 
   // Selected extras by their real AdditionalService id (they were catalog string ids before).
   const [selectedAddons, setSelectedAddons] = useState<number[]>([]);
@@ -488,7 +525,20 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
       const start = new Date(day);
       start.setHours(Math.floor(startMin / 60), startMin % 60, 0, 0);
       const end = start.getTime() + slotMs;
-      const room = roomIn(segmentsOn(day), startMin, startMin + slotMinutes);
+      const room = isStay
+        ? stayRoom(
+            Array.from(
+              { length: Math.floor((startMin + slotMinutes) / DAY_MINUTES) + 1 },
+              (_, i) => {
+                const d = new Date(day);
+                d.setDate(d.getDate() + i);
+                return availByDate[dateKey(d)];
+              }
+            ),
+            startMin,
+            slotMinutes
+          )
+        : roomIn(segmentsOn(day), startMin, startMin + slotMinutes);
       const localTaken = appointments.filter((a) =>
         overlaps(
           parseBookingDate(a.bookingFrom).getTime(),
@@ -504,7 +554,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
         available: room != null && start.getTime() > earliest && room - localTaken >= petCount,
       };
     },
-    [segmentsOn, appointments, slotMs, slotMinutes, leadTimeHours, petCount]
+    [segmentsOn, appointments, slotMs, slotMinutes, leadTimeHours, petCount, isStay, availByDate]
   );
 
   const timeSlots: TimeSlot[] = useMemo(() => {
@@ -512,7 +562,10 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
     const windows = availWindows;
     if (windows.length === 0) return []; // no availability → unavailable
     const slots: TimeSlot[] = [];
-    for (const m of startCandidates(segmentsOn(selectedDate), slotMinutes, SLOT_STEP_MINUTES)) {
+    const candidates = isStay
+      ? stayStartCandidates(segmentsOn(selectedDate), SLOT_STEP_MINUTES)
+      : startCandidates(segmentsOn(selectedDate), slotMinutes, SLOT_STEP_MINUTES);
+    for (const m of candidates) {
       const { start, covered, available } = slotOn(selectedDate, m);
       // A start whose range runs past the end of the day's hours is not a time at all.
       if (!covered) continue;
@@ -528,7 +581,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
       });
     }
     return slots;
-  }, [selectedDate, availWindows, slotMinutes, slotOn, segmentsOn]);
+  }, [selectedDate, availWindows, slotMinutes, slotOn, segmentsOn, isStay]);
 
   // ── Repeat on other days ─────────────────────────────────────────────────────
   // The same start time on the next REPEAT_HORIZON_DAYS days, for a walk every weekday or a sit
@@ -538,7 +591,8 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
     ? startDateTime.getHours() * 60 + startDateTime.getMinutes()
     : null;
   const repeatDays = useMemo(() => {
-    if (!selectedDate || startMinOfDay == null) return [];
+    // A stay of a day or more would overlap itself on the next day.
+    if (!selectedDate || startMinOfDay == null || isStay) return [];
     const out: { key: string; date: Date; available: boolean }[] = [];
     for (let i = 1; i <= REPEAT_HORIZON_DAYS; i++) {
       const day = new Date(selectedDate);
@@ -548,7 +602,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
       out.push({ key: dateKey(day), date: day, available: slotOn(day, startMinOfDay).available });
     }
     return out;
-  }, [selectedDate, startMinOfDay, loadedMonths, availByDate, slotOn]);
+  }, [selectedDate, startMinOfDay, loadedMonths, availByDate, slotOn, isStay]);
   // A day picked earlier that no longer fits (another time, more pets) simply drops out.
   const validExtraDates = useMemo(
     () => extraDates.filter((k) => repeatDays.some((d) => d.key === k && d.available)),
@@ -616,7 +670,15 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
     if (pricingOptions.length > 0) {
       return Math.min(...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o)));
     }
-    return servicePrice(selectedService);
+    return servicePrice(selectedService) * currentUnits();
+  };
+
+  // How many hours, days or nights the current length is (1 for a per-visit service) — the same
+  // count the server prices by; the quote, once it arrives, is the figure that is billed.
+  const currentUnits = () => {
+    if (pricingUnit === PricingUnit.PerVisit) return 1;
+    const from = startDateTime ?? new Date(2000, 0, 1, 10);
+    return unitsFor(pricingUnit, from, new Date(from.getTime() + slotMs));
   };
 
   // The body the quote (and later the create) is built from. Serialized into the effect's dep so
@@ -855,13 +917,34 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
 
   const { isWebLayout } = useResponsive();
 
-  // "1 h", "45 min", "2 h 30 min" — what one appointment lasts, once it is known.
+  // "3 nights" / "2 days" — a stay's length in the unit it is priced in.
+  const stayLabel = (minutes: number) =>
+    tPlural(
+      Math.round(minutes / DAY_MINUTES),
+      pricingUnit === PricingUnit.PerNight
+        ? { one: 'durations.nNightsOne', few: 'durations.nNightsFew', many: 'durations.nNights' }
+        : { one: 'durations.nDaysOne', few: 'durations.nDaysFew', many: 'durations.nDays' }
+    );
+  const hoursLabel = (minutes: number) =>
+    minutes >= 60
+      ? minutes % 60 === 0
+        ? t('durations.nHours', { n: minutes / 60 })
+        : `${t('durations.nHours', { n: Math.floor(minutes / 60) })} ${t('durations.nMin', { n: minutes % 60 })}`
+      : t('durations.nMin', { n: minutes });
+  const lengthLabel = (minutes: number) =>
+    minutes >= DAY_MINUTES && minutes % DAY_MINUTES === 0
+      ? stayLabel(minutes)
+      : hoursLabel(minutes);
+
+  // "1 h", "45 min", "2 h 30 min", "2 nights" — what one appointment lasts, once it is known.
   const durationLabel = optionChosen
-    ? slotMinutes >= 60
-      ? slotMinutes % 60 === 0
-        ? t('durations.nHours', { n: slotMinutes / 60 })
-        : `${t('durations.nHours', { n: Math.floor(slotMinutes / 60) })} ${t('durations.nMin', { n: slotMinutes % 60 })}`
-      : t('durations.nMin', { n: slotMinutes })
+    ? isStay
+      ? lengthLabel(slotMinutes)
+      : slotMinutes >= 60
+        ? slotMinutes % 60 === 0
+          ? t('durations.nHours', { n: slotMinutes / 60 })
+          : `${t('durations.nHours', { n: Math.floor(slotMinutes / 60) })} ${t('durations.nMin', { n: slotMinutes % 60 })}`
+        : t('durations.nMin', { n: slotMinutes })
     : null;
 
   const canContinue = selectionComplete || appointments.length > 0;
@@ -956,10 +1039,58 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
                             ...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o))
                           )
                         )}`
-                    : fmt(servicePrice(selectedService))}
+                    : `${fmt(servicePrice(selectedService))}${priceSuffix(t, selectedService)}`}
                 </Text>
               </View>
             </View>
+
+            {/* Priced per hour, day or night: how long, chosen here (feedback 2026-10-21). */}
+            {pricingOptions.length === 0 && lengthChoices.length > 0 && (
+              <View className="mt-4">
+                <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                  {t('bookService.chooseLength')}
+                </Text>
+                <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                  {lengthChoices.map((m) => {
+                    const active = chosenLength === m;
+                    return (
+                      <TouchableOpacity
+                        key={m}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: active }}
+                        aria-checked={active}
+                        onPress={() => {
+                          setLengthMinutes(m);
+                          // The length decides which starts fit: re-pick.
+                          setStartDateTime(null);
+                        }}
+                        className={`rounded-full border px-4 py-2 ${
+                          active
+                            ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                            : `${borderColor} ${cardBg}`
+                        }`}>
+                        <Text
+                          className={`text-sm ${active ? 'font-semibold text-brand-600' : subtextColor}`}>
+                          {lengthLabel(m)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {chosenLength != null ? (
+                  <Text className={`mt-2 text-sm ${subtextColor}`}>
+                    {t('bookService.lengthTotal', {
+                      length: lengthLabel(chosenLength),
+                      price: fmt(servicePrice(selectedService)),
+                    })}
+                    {' = '}
+                    <Text className="font-semibold text-brand-600">
+                      {fmt(servicePrice(selectedService) * currentUnits())}
+                    </Text>
+                  </Text>
+                ) : null}
+              </View>
+            )}
 
             {/* Duration/price options — required pick when the service defines any */}
             {pricingOptions.length > 0 && (

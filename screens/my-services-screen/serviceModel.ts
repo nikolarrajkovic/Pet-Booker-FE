@@ -578,6 +578,12 @@ export type ServiceFormInput = {
   serviceName: string;
   description: string;
   pricingTiers: PricingTier[];
+  /**
+   * What the price is per (PricingUnit) when the service has one price and no duration tiers:
+   * per visit, hour, day or night. Omit to keep the original's. Ignored with duration tiers,
+   * whose prices are each for the whole option.
+   */
+  pricingUnit?: number;
   maxPetCapacity?: number; // → details.maxConcurrentBookings
   // Which pets the service takes (PetSpeciesType FLAGS) → details.acceptedSpecies. The screen
   // refuses to save with none, as the API does.
@@ -638,6 +644,11 @@ export function resolveServiceAddressForSave(
  * not "clear them" — a provider switching every day off still needs `clearServiceSchedules`.
  * Pricing options have no such gap; `[]` there really is "no tiers".
  */
+/** Whether any tier names a duration — then the service prices by option, not by unit. */
+export function hasDurationTiers(tiers: PricingTier[]): boolean {
+  return tiers.some((tier) => !!tier.duration);
+}
+
 export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): ServiceDto {
   // basePrice = the cheapest tier, so any card reading `price` alone shows a correct "from"
   // figure; the tiers themselves persist as the `pricingOptions` below.
@@ -675,7 +686,9 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
   // `pricing` prices the service itself; add-on money lives on each extra's own row.
   const pricing: NonNullable<ServiceDto['pricing']> = {
     basePrice,
-    unit: original?.pricing?.unit ?? 0,
+    unit: hasDurationTiers(form.pricingTiers)
+      ? 0
+      : (form.pricingUnit ?? original?.pricing?.unit ?? 0),
     isEscrowPercentEnabled: original?.pricing?.isEscrowPercentEnabled ?? false,
     escrowPercent: original?.pricing?.escrowPercent ?? null,
     escrowAmount: original?.pricing?.escrowAmount ?? 0,

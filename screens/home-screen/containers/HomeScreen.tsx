@@ -16,7 +16,12 @@ import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { useLocale } from '../../../context/LocaleContext';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getErrorMessage } from '../../../services/http';
-import { ServiceDto, serviceCurrency, serviceFromPrice } from '../../../services/services';
+import {
+  ServiceDto,
+  priceSuffix,
+  serviceCurrency,
+  serviceFromPrice,
+} from '../../../services/services';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
 import { useNotifications } from '../../../context/NotificationsContext';
 import { useAuth } from '../../../context/AuthContext';
@@ -349,6 +354,7 @@ export default function HomeScreen() {
             reviews={item.reviews}
             price={item.price}
             currency={serviceCurrency(item.dto)}
+            priceSuffix={priceSuffix(t, item.dto)}
             badge={badge}
             dealAmount={item.dealAmount}
             unavailable={item.dto.isBookable === false}

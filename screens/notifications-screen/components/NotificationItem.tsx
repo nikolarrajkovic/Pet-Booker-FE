@@ -75,6 +75,8 @@ const VISUAL_BY_NAME: Record<
   GroupBookingRequested: { icon: 'people-outline', accent: 'brand' },
   // Needed now: the flash, in the colour of things with a deadline.
   GroupBookingRequestedAsap: { icon: 'flash-outline', accent: 'warning' },
+  // Nobody took the owner's request — something to act on (send it again), not an error.
+  GroupBookingRequestExpired: { icon: 'hourglass-outline', accent: 'warning' },
   // An admin's moderation of the partner: the pause and the ban need their attention.
   ProviderTimedOut: { icon: 'time-outline', accent: 'warning' },
   ProviderTimeoutLifted: { icon: 'play-circle-outline', accent: 'brand' },

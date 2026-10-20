@@ -264,6 +264,65 @@ export function effectiveOptionPrice(svc: ServiceDto, option: ServicePricingOpti
  * Option-less services keep the classic single price: `price` is the base with any live
  * promotion already applied by the server, so it is preferred over `pricing.basePrice`.
  */
+/** How a service's base price is counted — Domain.PricingUnit. */
+export const PricingUnit = { PerVisit: 0, PerHour: 1, PerDay: 2, PerNight: 3 } as const;
+export type PricingUnitValue = (typeof PricingUnit)[keyof typeof PricingUnit];
+
+/**
+ * The unit a booking of this service is priced in: its `pricing.unit`, except that a service with
+ * pricing options prices each option as a whole (the server ignores the unit there).
+ */
+export function serviceUnit(
+  svc?: Pick<ServiceDto, 'pricing' | 'pricingOptions'> | null
+): PricingUnitValue {
+  if (!svc || (svc.pricingOptions?.length ?? 0) > 0) return PricingUnit.PerVisit;
+  const unit = svc.pricing?.unit ?? 0;
+  return unit === 1 || unit === 2 || unit === 3 ? unit : PricingUnit.PerVisit;
+}
+
+/**
+ * How many units a booking from `from` to `to` is — the client's copy of the server's
+ * `ServicePricing.UnitsFor`, for the figure shown before the quote arrives (the quote is the bill):
+ * per hour rounded up to the half hour, per day in whole 24-hour days, per night as midnights
+ * crossed (at least one).
+ */
+export function unitsFor(unit: number, from: Date, to: Date): number {
+  const minutes = (to.getTime() - from.getTime()) / 60000;
+  if (minutes <= 0) return 1;
+  switch (unit) {
+    case PricingUnit.PerHour:
+      return Math.max(0.5, Math.ceil(minutes / 30) / 2);
+    case PricingUnit.PerDay:
+      return Math.max(1, Math.ceil(minutes / (24 * 60)));
+    case PricingUnit.PerNight: {
+      const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+      const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+      return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000));
+    }
+    default:
+      return 1;
+  }
+}
+
+const PRICE_SUFFIX_KEYS = {
+  [PricingUnit.PerHour]: 'durations.suffixHour',
+  [PricingUnit.PerDay]: 'durations.suffixDay',
+  [PricingUnit.PerNight]: 'durations.suffixNight',
+} as const;
+
+/**
+ * " /hour", " /day", " /night" after the price of a service priced that way; empty for one priced
+ * per visit or by option. Every place a service's price is shown appends it, so 1,500 a night never
+ * reads as 1,500 for the stay.
+ */
+export function priceSuffix(
+  t: (key: any) => string,
+  svc?: Pick<ServiceDto, 'pricing' | 'pricingOptions'> | null
+): string {
+  const unit = serviceUnit(svc);
+  return unit === PricingUnit.PerVisit ? '' : ` ${t(PRICE_SUFFIX_KEYS[unit])}`;
+}
+
 export function serviceFromPrice(svc: ServiceDto): number {
   const options = svc.pricingOptions ?? [];
   if (options.length > 0) {
