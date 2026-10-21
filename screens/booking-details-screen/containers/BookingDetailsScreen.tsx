@@ -326,6 +326,14 @@ export default function BookingDetailsScreen() {
               </Text>
             </TouchableOpacity>
           ) : null}
+          {/* What the customer told the provider when booking. */}
+          {dto.note ? (
+            <Row
+              icon="document-text-outline"
+              label={isCustomer ? t('bookingDetails.yourNote') : t('bookingDetails.customerNote')}
+              value={dto.note}
+            />
+          ) : null}
           {/* Why it was called off, as the person who did it wrote it. */}
           {vm.statusLabel === 'cancelled' && dto.cancelReason ? (
             <Row

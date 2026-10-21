@@ -4,6 +4,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import ServiceCard from '../../../components/shared/ServiceCard';
 import SeeMoreCard from '../../../components/shared/SeeMoreCard';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import BookingCartPill from '../../../components/shared/BookingCartPill';
 import Rail from '../../../components/shared/Rail';
 import GroupRequestCta from '../../../components/shared/GroupRequestCta';
 import BrandMark from '../../../components/shared/BrandMark';
@@ -721,6 +722,8 @@ export default function HomeScreen() {
           )
         )}
       </ScrollView>
+      {/* What waits in the booking cart, while the next service is found. */}
+      <BookingCartPill />
     </ScreenLayout>
   );
 }

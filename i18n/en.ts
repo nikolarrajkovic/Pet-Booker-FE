@@ -594,6 +594,16 @@ const en = {
     step1: 'Service',
     chooseDuration: 'Choose Duration & Price *',
     chooseLength: 'How long *',
+    noteTitle: 'Notes for the provider',
+    noteHint: 'Optional. Anything they should know — sent with every appointment below.',
+    notePlaceholder: 'e.g. She pulls on the lead; the key is with the neighbour in flat 4.',
+    addAnotherService: 'Add another service to this booking',
+    continueWithCart: 'Continue to review ({count} appointments)',
+    cartPill: 'Your booking · appointments: {count} · Review',
+    cartTitle: 'Also in this booking',
+    cartLine: '{name} · appointments: {count}',
+    cartHint: 'Everything here is booked together when you confirm.',
+    cartRemove: 'Remove from this booking',
     lengthTotal: '{length} × {price}',
     additionalServices: 'Additional Services',
     optional: 'Optional',
@@ -675,6 +685,10 @@ const en = {
     infoDuration: 'Each appointment lasts {duration}.',
   },
   reviewBooking: {
+    nServices: '{count} services',
+    subtotal: 'Subtotal',
+    grandTotal: 'Total for {count} appointments',
+    noteLine: 'Note: {note}',
     nextStepsTitle: 'What happens next',
     nextStep1:
       'The provider gets your request and confirms or declines it — we notify you either way.',
@@ -780,6 +794,8 @@ const en = {
     submitFailed: 'Could not submit your review. Please try again.',
   },
   bookingDetails: {
+    yourNote: 'Your note for the provider',
+    customerNote: 'Note from the customer',
     noShowNoticeProvider: "You recorded that the customer didn't show up.",
     noShowNotice:
       "The provider recorded that you didn't show up. The deposit was kept; anything paid beyond it was refunded.",

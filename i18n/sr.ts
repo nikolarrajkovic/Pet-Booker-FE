@@ -575,6 +575,16 @@ const sr: TranslationDict = {
     step1: 'Usluga',
     chooseDuration: 'Izaberite trajanje i cenu *',
     chooseLength: 'Koliko dugo *',
+    noteTitle: 'Napomena za pružaoca',
+    noteHint: 'Opciono. Sve što treba da zna — šalje se uz svaki termin ispod.',
+    notePlaceholder: 'npr. Vuče na povocu; ključ je kod komšije u stanu 4.',
+    addAnotherService: 'Dodaj još jednu uslugu u ovu rezervaciju',
+    continueWithCart: 'Nastavi na pregled (termina: {count})',
+    cartPill: 'Vaša rezervacija · termina: {count} · Pregled',
+    cartTitle: 'Takođe u ovoj rezervaciji',
+    cartLine: '{name} · termina: {count}',
+    cartHint: 'Sve ovde se rezerviše zajedno kada potvrdite.',
+    cartRemove: 'Ukloni iz ove rezervacije',
     lengthTotal: '{length} × {price}',
     additionalServices: 'Dodatne usluge',
     optional: 'Opciono',
@@ -655,6 +665,10 @@ const sr: TranslationDict = {
     infoDuration: 'Svaki termin traje {duration}.',
   },
   reviewBooking: {
+    nServices: 'usluge: {count}',
+    subtotal: 'Međuzbir',
+    grandTotal: 'Ukupno (termina: {count})',
+    noteLine: 'Napomena: {note}',
     nextStepsTitle: 'Šta sledi',
     nextStep1:
       'Pružalac dobija vaš zahtev i potvrđuje ga ili odbija — obavestićemo vas u oba slučaja.',
@@ -756,6 +770,8 @@ const sr: TranslationDict = {
     submitFailed: 'Slanje recenzije nije uspelo. Pokušajte ponovo.',
   },
   bookingDetails: {
+    yourNote: 'Vaša napomena pružaocu',
+    customerNote: 'Napomena klijenta',
     noShowNoticeProvider: 'Evidentirali ste da se klijent nije pojavio.',
     noShowNotice:
       'Partner je evidentirao da se niste pojavili. Depozit je zadržan; sve plaćeno preko toga je vraćeno.',

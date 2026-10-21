@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import {
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -57,6 +65,8 @@ import { LoadingState, MessageState } from '../../../components/shared/ListState
 import { formatKm } from '../../../i18n/numbers';
 import { parseDateOnly } from '../../../services/date-only';
 import { daySegments, roomIn, startCandidates, stayRoom, stayStartCandidates } from '../slotMath';
+import type { Appointment } from '../appointment';
+import { useBookingCart } from '../../../context/BookingCartContext';
 
 // The user books one specific service (chosen before entering this screen), not
 // a provider — the service comes in as a route param and carries serviceProviderId.
@@ -73,35 +83,6 @@ const servicePrice = (s: ServiceDto) => s.price ?? s.pricing?.basePrice ?? 0;
 
 // Add-ons come from the service itself (see services/service-addons.ts), so a
 // booker sees exactly what the provider configured — nothing is hardcoded here.
-
-type Appointment = {
-  id: number;
-  service: { id: number; name: string; price: number };
-  pet: { id: number; name: string; image: string };
-  // The extras as the SERVER priced them: name, amount, and for a per-distance extra the fees and
-  // that leg's distance behind the number — everything Review needs to itemize the charge without
-  // recomputing anything.
-  addons: BookingAdditionalServiceReadDto[];
-  // The ids the booking create will send (the quote priced exactly these).
-  addonIds: number[];
-  bookingFrom: string;
-  bookingTo: string;
-  total: number;
-  // The chosen pricing option (duration/price variant) — required when the
-  // service defines options. Frozen at add time: changing the selector never
-  // mutates an already-added appointment. `pricingOptionBase` keeps the
-  // pre-discount option price for the Review breakdown's discount line.
-  pricingOptionId?: number;
-  pricingOptionName?: string;
-  pricingOptionBase?: number;
-  // Required when a selected extra needs that side; sent inline on booking create.
-  pickupAddress?: AddressDto;
-  leaveOverAddress?: AddressDto;
-  // The distances the server measured for each leg when it priced this selection. Display only —
-  // the create re-measures from the addresses above rather than trusting a client value.
-  pickupDistanceKm?: number | null;
-  leaveOverDistanceKm?: number | null;
-};
 
 // Bookable slots are derived from the day's availability windows
 // (GET /api/services/{id}/availability). A date with no windows is not
@@ -203,6 +184,10 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
   const gutter = usePageGutter();
   const navigation = useNavigation();
   const { currentUser } = useAuth();
+  // Other services set aside for the same checkout (feedback 2026-10-21).
+  const cart = useBookingCart();
+  // What the provider should know ("reactive with other dogs"); travels with every appointment.
+  const [note, setNote] = useState('');
   const { showError } = useToast();
   const {
     isDarkMode,
@@ -904,6 +889,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
     const pet = pets.find((p) => p.id === petId);
     return {
       id,
+      note: note.trim() || undefined,
       service: {
         id: selectedService.id ?? 0,
         name: selectedService.name ?? 'Service',
@@ -955,11 +941,23 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
 
   const onContinue = () => {
     const current = [...appointments, ...buildAppointments()];
+    // Everything in this checkout: the services set aside in the cart, plus this one.
+    const sections = cart.withSection(selectedService, current);
+    if (sections.length === 0) return;
+    (navigation as any).navigate('ReviewBooking', { sections });
+  };
+
+  // "Add another service": these appointments wait in the cart, and the customer goes to find the
+  // next service (a walk here, grooming there), to check out together.
+  const addAnotherService = () => {
+    const current = [...appointments, ...buildAppointments()];
     if (current.length === 0) return;
-    (navigation as any).navigate('ReviewBooking', {
-      service: selectedService,
-      appointments: current,
-    });
+    cart.add(selectedService, current);
+    setAppointments([]);
+    resetSelection();
+    // Search is a tab, which exists only inside MainTabs: from this stack screen it is reached
+    // through it (a bare navigate('Search') went nowhere).
+    (navigation as any).navigate('MainTabs', { screen: 'Search' });
   };
 
   const stepDot = (done: boolean, n: number) => (
@@ -1005,10 +1003,15 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
         : t('durations.nMin', { n: slotMinutes })
     : null;
 
-  // One checkout takes at most MAX_BATCH_APPOINTMENTS (the server refuses more, all or nothing).
+  // One checkout takes at most MAX_BATCH_APPOINTMENTS (the server refuses more, all or nothing),
+  // the services waiting in the cart included.
   const tooMany =
-    appointments.length + (selectionComplete ? selectionCount : 0) > MAX_BATCH_APPOINTMENTS;
-  const canContinue = (selectionComplete || appointments.length > 0) && !tooMany;
+    cart.count + appointments.length + (selectionComplete ? selectionCount : 0) >
+    MAX_BATCH_APPOINTMENTS;
+  const hasOwn = selectionComplete || appointments.length > 0;
+  const canContinue = (hasOwn || cart.count > 0) && !tooMany;
+  // Other services already in this booking (not this one, which the form itself shows).
+  const otherSections = cart.sections.filter((s) => s.service.id !== selectedService.id);
 
   // Why Continue is greyed out, in the order the form asks. A disabled button with no reason
   // left people re-checking every section to find the one step they had not done.
@@ -1062,6 +1065,43 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
           // The tall tail clears the pinned CTA bar; on the web design the bar sits in the flow
           // below the scroll area, so there is nothing overlapping to clear.
           contentContainerStyle={{ paddingBottom: isWebLayout ? 24 : 100 }}>
+          {/* Booking several services at once: what is already waiting in this checkout. */}
+          {otherSections.length > 0 ? (
+            <View className={`${gutter.px} pt-4`}>
+              <View
+                className={`flex-row items-start rounded-2xl border p-4 ${borderColor} ${
+                  isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'
+                }`}>
+                <Ionicons name="cart-outline" size={20} color={BRAND_GREEN} />
+                <View className="ml-3 flex-1">
+                  <Text className={`text-sm font-semibold ${textColor}`}>
+                    {t('bookService.cartTitle')}
+                  </Text>
+                  {otherSections.map((s) => (
+                    <View key={s.service.id} className="mt-1 flex-row items-center">
+                      <Text className={`flex-1 text-sm ${subtextColor}`}>
+                        {t('bookService.cartLine', {
+                          name: s.service.name ?? t('reviewBooking.yourService'),
+                          count: s.appointments.length,
+                        })}
+                      </Text>
+                      <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel={t('bookService.cartRemove')}
+                        onPress={() => cart.removeService(s.service.id ?? 0)}
+                        className="ml-2 p-1">
+                        <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  <Text className={`mt-2 text-xs ${subtextColor}`}>
+                    {t('bookService.cartHint')}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : null}
+
           {/* Step 1: Service (fixed — chosen before entering this screen). When
               the service defines pricing options, picking one is part of this
               step — the booking can't proceed without it. */}
@@ -1589,6 +1629,26 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
             </View>
           )}
 
+          {/* For the provider: anything they should know, sent with every appointment. */}
+          <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
+            <Text className={`text-base font-semibold ${textColor}`}>
+              {t('bookService.noteTitle')}
+            </Text>
+            <Text className={`mb-3 mt-1 text-xs ${subtextColor}`}>{t('bookService.noteHint')}</Text>
+            <TextInput
+              value={note}
+              onChangeText={setNote}
+              multiline
+              maxLength={1000}
+              placeholder={t('bookService.notePlaceholder')}
+              placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
+              accessibilityLabel={t('bookService.noteTitle')}
+              className={`rounded-xl border px-4 py-3 ${borderColor} ${cardBg} ${textColor}`}
+              style={{ minHeight: 88, textAlignVertical: 'top' } as any}
+            />
+            <Text className={`mt-1 text-right text-xs ${subtextColor}`}>{note.length}/1000</Text>
+          </View>
+
           {/* Add This / Add Another Appointment */}
           {selectionComplete && (
             <View className={`${gutter.px} py-4`}>
@@ -1755,8 +1815,24 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
           disabled={!canContinue}
           onPress={onContinue}
           className={`items-center rounded-2xl py-4 ${canContinue ? 'bg-brand-500' : 'bg-gray-300'}`}>
-          <Text className="text-lg font-bold text-white">{t('bookService.continueToReview')}</Text>
+          <Text className="text-lg font-bold text-white">
+            {cart.count > 0
+              ? t('bookService.continueWithCart', { count: cart.count + appointments.length })
+              : t('bookService.continueToReview')}
+          </Text>
         </TouchableOpacity>
+        {/* Booking several services at once: keep these and pick the next service. */}
+        {hasOwn && !tooMany ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={addAnotherService}
+            className="mt-2 flex-row items-center justify-center rounded-2xl border border-brand-500 py-3">
+            <Ionicons name="cart-outline" size={18} color={BRAND_GREEN} />
+            <Text className="ml-2 text-sm font-semibold text-brand-600">
+              {t('bookService.addAnotherService')}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
         {missingStep ? (
           <Text className={`mt-2 text-center text-xs ${subtextColor}`}>{missingStep}</Text>
         ) : null}

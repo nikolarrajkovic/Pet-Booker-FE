@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Button from '../../../components/shared/Button';
 import PetLoader from '../../../components/shared/PetLoader';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import BookingCartPill from '../../../components/shared/BookingCartPill';
 import TwoColumn from '../../../components/shared/TwoColumn';
 import { useResponsive } from '../../../hooks/useResponsive';
 import FilterModal from '../../../components/FilterModal';
@@ -883,6 +884,8 @@ export default function SearchScreen() {
         maxPrice={maxPrice}
         availableAddOns={facets.addOns}
       />
+      {/* What waits in the booking cart, while the next service is found. */}
+      <BookingCartPill />
     </ScreenLayout>
   );
 }

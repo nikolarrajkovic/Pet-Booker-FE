@@ -108,7 +108,8 @@ function bookingToRequest(t: TFn, b: BookingDto): ServiceRequest {
     basePrice: b.basePrice,
     currency: b.priceCurrency ?? null,
     additionalServices: selectedAddOns(t, b), // pickup / drop-off / special-needs the booker picked
-    notesFromOwner: '', // BACKEND-GAP: no owner-notes field
+    // The customer's note for the provider (feedback 2026-10-21; there was no field for it).
+    notesFromOwner: b.note ?? '',
     status,
     expiredAfterAccepting:
       status === 'expired' && b.currentStatus !== BookingStatusType.ServiceRequestedByUser,

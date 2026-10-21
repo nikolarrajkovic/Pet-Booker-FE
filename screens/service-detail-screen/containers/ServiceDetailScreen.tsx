@@ -19,6 +19,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import TwoColumn from '../../../components/shared/TwoColumn';
 import ServicePhoto from '../../../components/shared/ServicePhoto';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import BookingCartPill from '../../../components/shared/BookingCartPill';
 import StickyFooter from '../../../components/shared/StickyFooter';
 import { useResponsive } from '../../../hooks/useResponsive';
 import {
@@ -763,6 +764,8 @@ export default function ServiceDetailScreen() {
           </TouchableOpacity>
         </StickyFooter>
       )}
+      {/* What waits in the booking cart; above the phone's Book Now bar. */}
+      <BookingCartPill bottomOffset={isWebLayout ? 0 : 88} />
     </ScreenLayout>
   );
 }

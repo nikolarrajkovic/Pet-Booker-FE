@@ -577,6 +577,16 @@ const ru: TranslationDict = {
     step1: 'Услуга',
     chooseDuration: 'Выберите длительность и цену *',
     chooseLength: 'Как долго *',
+    noteTitle: 'Примечание для исполнителя',
+    noteHint: 'Необязательно. Всё, что ему нужно знать, — отправится с каждой записью ниже.',
+    notePlaceholder: 'напр. Тянет поводок; ключ у соседа из квартиры 4.',
+    addAnotherService: 'Добавить ещё одну услугу в это бронирование',
+    continueWithCart: 'Перейти к проверке (записей: {count})',
+    cartPill: 'Ваше бронирование · записей: {count} · Проверить',
+    cartTitle: 'Также в этом бронировании',
+    cartLine: '{name} · записей: {count}',
+    cartHint: 'Всё здесь бронируется вместе, когда вы подтвердите.',
+    cartRemove: 'Убрать из этого бронирования',
     lengthTotal: '{length} × {price}',
     additionalServices: 'Дополнительные услуги',
     optional: 'Необязательно',
@@ -656,6 +666,10 @@ const ru: TranslationDict = {
     infoDuration: 'Каждая запись длится {duration}.',
   },
   reviewBooking: {
+    nServices: 'услуг: {count}',
+    subtotal: 'Промежуточный итог',
+    grandTotal: 'Итого (записей: {count})',
+    noteLine: 'Примечание: {note}',
     nextStepsTitle: 'Что дальше',
     nextStep1:
       'Исполнитель получит запрос и подтвердит или отклонит его — мы сообщим в любом случае.',
@@ -758,6 +772,8 @@ const ru: TranslationDict = {
     submitFailed: 'Не удалось отправить отзыв. Попробуйте снова.',
   },
   bookingDetails: {
+    yourNote: 'Ваше примечание исполнителю',
+    customerNote: 'Примечание клиента',
     noShowNoticeProvider: 'Вы отметили, что клиент не пришёл.',
     noShowNotice:
       'Партнёр отметил, что вы не пришли. Депозит удержан; всё оплаченное сверх него возвращено.',
