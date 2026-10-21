@@ -15,6 +15,8 @@ interface DatePickerProps {
   // Optional per-day gate (on top of min/max). Return false to disable a date —
   // e.g. weekdays a service isn't scheduled for. Receives the day's start.
   isDateEnabled?: (date: Date) => boolean;
+  /** No card of its own — for a container that already draws one (a dropdown panel). */
+  bare?: boolean;
 }
 
 /**
@@ -50,6 +52,7 @@ export default function DatePicker({
   minDate,
   maxDate,
   isDateEnabled,
+  bare = false,
 }: DatePickerProps) {
   const { t } = useLocale();
   // Localized month/day names, indexed by getMonth()/getDay().
@@ -223,14 +226,18 @@ export default function DatePicker({
 
   return (
     <View
-      style={{
-        marginTop: 12,
-        backgroundColor: cardBg,
-        borderWidth: 1,
-        borderColor,
-        borderRadius: 16,
-        padding: 16,
-      }}>
+      style={
+        bare
+          ? { padding: 16 }
+          : {
+              marginTop: 12,
+              backgroundColor: cardBg,
+              borderWidth: 1,
+              borderColor,
+              borderRadius: 16,
+              padding: 16,
+            }
+      }>
       {/* Month/Year navigation — both parts are their own drill-down control */}
       <View
         style={{

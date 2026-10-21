@@ -595,7 +595,7 @@ const en = {
     chooseDuration: 'Choose Duration & Price *',
     chooseLength: 'How long *',
     noteTitle: 'Notes for the provider',
-    noteHint: 'Optional. Anything they should know — sent with every appointment below.',
+    noteHint: 'Optional. Anything they should know — sent with every appointment in this booking.',
     notePlaceholder: 'e.g. She pulls on the lead; the key is with the neighbour in flat 4.',
     addAnotherService: 'Add another service to this booking',
     continueWithCart: 'Continue to review ({count} appointments)',

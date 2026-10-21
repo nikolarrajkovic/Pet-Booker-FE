@@ -18,6 +18,11 @@ import { usePushPermission } from '../../../hooks/usePushPermission';
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import TimePicker from '../../../components/shared/TimePicker';
+import AnchoredPopover, {
+  anchorOf,
+  type PopoverAnchor,
+} from '../../../components/shared/AnchoredPopover';
+import { useResponsive } from '../../../hooks/useResponsive';
 import { EnableNotificationsCard, NotificationToggle, PushPermissionNotice } from '../components';
 import { registerPushDevice, unregisterPushDevice } from '../../../services/push-registration';
 import {
@@ -69,6 +74,9 @@ export default function NotificationSettingsScreen() {
   const [showEnableModal, setShowEnableModal] = useState(true);
   const [saveError, setSaveError] = useState(false);
   const [quietEdge, setQuietEdge] = useState<QuietEdge | null>(null);
+  // The row the time picker opened from: on the web design it opens under it.
+  const [quietAnchor, setQuietAnchor] = useState<PopoverAnchor>(null);
+  const { isWebLayout } = useResponsive();
   const userId = currentUser?.id;
 
   useFocusEffect(
@@ -330,7 +338,10 @@ export default function NotificationSettingsScreen() {
                       <TouchableOpacity
                         accessibilityRole="button"
                         className="flex-row items-center justify-between px-4 py-3.5"
-                        onPress={() => setQuietEdge(edge)}>
+                        onPress={(e) => {
+                          setQuietAnchor(anchorOf(e));
+                          setQuietEdge(edge);
+                        }}>
                         <Text className={`text-base ${textColor}`}>
                           {t(
                             edge === 'start'
@@ -372,25 +383,50 @@ export default function NotificationSettingsScreen() {
 
       {/* Quiet-hours time picker. Same modal wrapper AddEditService uses — TimePicker itself
           renders a plain card and leaves presentation to the caller. */}
-      {quietEdge && (
-        <Modal visible transparent animationType="fade" onRequestClose={() => setQuietEdge(null)}>
-          <View className={`flex-1 items-center justify-center bg-black/50 ${gutter.px}`}>
-            <View className="w-full max-w-sm">
-              <TimePicker
-                value={timeToDate(quietTime(quietEdge), quietEdge === 'start' ? 22 : 8)}
-                onChange={(date) =>
-                  update(
-                    quietEdge === 'start'
-                      ? { dndStartTime: dateToTime(date) }
-                      : { dndEndTime: dateToTime(date) }
-                  )
-                }
-                onClose={() => setQuietEdge(null)}
-                isDarkMode={isDarkMode}
-              />
+      {isWebLayout ? (
+        <AnchoredPopover
+          visible={quietEdge !== null}
+          onClose={() => setQuietEdge(null)}
+          anchor={quietAnchor}
+          width={340}
+          maxHeight={460}>
+          {quietEdge ? (
+            <TimePicker
+              bare
+              value={timeToDate(quietTime(quietEdge), quietEdge === 'start' ? 22 : 8)}
+              onChange={(date) =>
+                update(
+                  quietEdge === 'start'
+                    ? { dndStartTime: dateToTime(date) }
+                    : { dndEndTime: dateToTime(date) }
+                )
+              }
+              onClose={() => setQuietEdge(null)}
+              isDarkMode={isDarkMode}
+            />
+          ) : null}
+        </AnchoredPopover>
+      ) : (
+        quietEdge && (
+          <Modal visible transparent animationType="fade" onRequestClose={() => setQuietEdge(null)}>
+            <View className={`flex-1 items-center justify-center bg-black/50 ${gutter.px}`}>
+              <View className="w-full max-w-sm">
+                <TimePicker
+                  value={timeToDate(quietTime(quietEdge), quietEdge === 'start' ? 22 : 8)}
+                  onChange={(date) =>
+                    update(
+                      quietEdge === 'start'
+                        ? { dndStartTime: dateToTime(date) }
+                        : { dndEndTime: dateToTime(date) }
+                    )
+                  }
+                  onClose={() => setQuietEdge(null)}
+                  isDarkMode={isDarkMode}
+                />
+              </View>
             </View>
-          </View>
-        </Modal>
+          </Modal>
+        )
       )}
     </ScreenLayout>
   );

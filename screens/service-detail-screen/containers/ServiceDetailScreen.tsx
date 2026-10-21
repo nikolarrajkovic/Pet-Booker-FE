@@ -705,21 +705,21 @@ export default function ServiceDetailScreen() {
         <View className="flex-1 items-center justify-center py-20">
           <ActivityIndicator size="large" color={BRAND_GREEN} />
         </View>
-      ) : (
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingBottom: isWebLayout ? 24 : 110 }}>
-          {isWebLayout ? (
-            <View className={gutter.px}>
-              <TwoColumn aside={bookingPanel}>
-                <View className={`${cardBg} overflow-hidden rounded-2xl border ${borderColor}`}>
-                  {details}
-                </View>
-              </TwoColumn>
+      ) : isWebLayout ? (
+        // No scroll view of its own on the web design: the page scrolls, and the booking card stays
+        // in view beside the details (TwoColumn makes it sticky). Even flattened, a ScrollView is
+        // still an overflow container, which pinned the card to the top of the details and let it
+        // scroll away with them (feedback 2026-10-21).
+        <View className={gutter.px} style={{ paddingBottom: 24 }}>
+          <TwoColumn aside={bookingPanel}>
+            <View className={`${cardBg} overflow-hidden rounded-2xl border ${borderColor}`}>
+              {details}
             </View>
-          ) : (
-            details
-          )}
+          </TwoColumn>
+        </View>
+      ) : (
+        <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 110 }}>
+          {details}
         </ScrollView>
       )}
 
@@ -765,7 +765,7 @@ export default function ServiceDetailScreen() {
         </StickyFooter>
       )}
       {/* What waits in the booking cart; above the phone's Book Now bar. */}
-      <BookingCartPill bottomOffset={isWebLayout ? 0 : 88} />
+      <BookingCartPill bottomOffset={88} />
     </ScreenLayout>
   );
 }

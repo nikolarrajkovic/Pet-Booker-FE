@@ -10,11 +10,16 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import LanguagePicker from '../../../components/shared/LanguagePicker';
 import CurrencyPicker from '../../../components/shared/CurrencyPicker';
+import SelectMenu from '../../../components/shared/SelectMenu';
+import { anchorOf, type PopoverAnchor } from '../../../components/shared/AnchoredPopover';
+import { useResponsive } from '../../../hooks/useResponsive';
 import { LANGUAGES } from '../../../i18n';
 import { getErrorMessage } from '../../../services/http';
 import {
   asSupportedCurrency,
+  currencySymbol,
   registerDisplayCurrency,
+  SUPPORTED_CURRENCIES,
   type SupportedCurrency,
 } from '../../../services/currency';
 import {
@@ -63,6 +68,9 @@ export default function SettingsScreen() {
 
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
   const [currencyPickerOpen, setCurrencyPickerOpen] = useState(false);
+  // The row a picker opened from: on the web design it is a dropdown under it.
+  const [pickerAnchor, setPickerAnchor] = useState<PopoverAnchor>(null);
+  const { isWebLayout } = useResponsive();
 
   // The preference lives on the user's UserNotificationSettings record (created lazily on
   // first save). /auth/me carries it too, so the row shows a value before the fetch lands.
@@ -210,7 +218,10 @@ export default function SettingsScreen() {
         <View className={`${cardBg} rounded-2xl`}>
           <TouchableOpacity
             accessibilityRole="button"
-            onPress={() => setLanguagePickerOpen(true)}
+            onPress={(e) => {
+              setPickerAnchor(anchorOf(e));
+              setLanguagePickerOpen(true);
+            }}
             className={`flex-row items-center ${divider} p-4`}>
             <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-purple-50">
               <Ionicons name="globe" size={24} color="#A855F7" />
@@ -228,7 +239,10 @@ export default function SettingsScreen() {
           {!isProviderProfile ? (
             <TouchableOpacity
               accessibilityRole="button"
-              onPress={() => setCurrencyPickerOpen(true)}
+              onPress={(e) => {
+                setPickerAnchor(anchorOf(e));
+                setCurrencyPickerOpen(true);
+              }}
               className={`flex-row items-center ${divider} p-4`}>
               <View className="mr-4 h-12 w-12 items-center justify-center rounded-xl bg-green-50">
                 <Ionicons name="cash" size={24} color={BRAND_GREEN} />
@@ -330,22 +344,58 @@ export default function SettingsScreen() {
         onConfirm={handleDeleteAccount}
       />
 
-      <LanguagePicker
-        visible={languagePickerOpen}
-        current={language}
-        onSelect={(lang) => {
-          setLanguage(lang);
-          setLanguagePickerOpen(false);
-        }}
-        onClose={() => setLanguagePickerOpen(false)}
-      />
+      {/* A dropdown under the row on the web design; the phone keeps its dialogs. */}
+      {isWebLayout ? (
+        <>
+          <SelectMenu
+            visible={languagePickerOpen}
+            onClose={() => setLanguagePickerOpen(false)}
+            anchor={pickerAnchor}
+            title={t('settings.language')}
+            align="end"
+            maxWidth={360}
+            options={LANGUAGES.map((l) => ({
+              key: l.code,
+              label: l.label,
+              selected: l.code === language,
+              onSelect: () => setLanguage(l.code),
+            }))}
+          />
+          <SelectMenu
+            visible={currencyPickerOpen}
+            onClose={() => setCurrencyPickerOpen(false)}
+            anchor={pickerAnchor}
+            title={t('settings.currency')}
+            align="end"
+            maxWidth={360}
+            options={SUPPORTED_CURRENCIES.map((code) => ({
+              key: code,
+              label: `${t(`currencies.${code.toLowerCase()}` as any)} (${currencySymbol(code)})`,
+              selected: code === currency,
+              onSelect: () => handleSelectCurrency(code),
+            }))}
+          />
+        </>
+      ) : (
+        <>
+          <LanguagePicker
+            visible={languagePickerOpen}
+            current={language}
+            onSelect={(lang) => {
+              setLanguage(lang);
+              setLanguagePickerOpen(false);
+            }}
+            onClose={() => setLanguagePickerOpen(false)}
+          />
 
-      <CurrencyPicker
-        visible={currencyPickerOpen}
-        current={currency}
-        onSelect={handleSelectCurrency}
-        onClose={() => setCurrencyPickerOpen(false)}
-      />
+          <CurrencyPicker
+            visible={currencyPickerOpen}
+            current={currency}
+            onSelect={handleSelectCurrency}
+            onClose={() => setCurrencyPickerOpen(false)}
+          />
+        </>
+      )}
     </ScreenLayout>
   );
 }

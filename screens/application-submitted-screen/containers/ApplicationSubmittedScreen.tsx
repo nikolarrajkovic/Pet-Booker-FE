@@ -7,6 +7,7 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import AnimatedCheckmark from '../../../components/shared/AnimatedCheckmark';
 import { VerificationProgress, NeedHelpCard, WhileYouWaitCard } from '../components';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 export default function ApplicationSubmittedScreen() {
   const gutter = usePageGutter();
@@ -14,24 +15,49 @@ export default function ApplicationSubmittedScreen() {
   const { resetToTab } = useAppNavigation();
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
+  const { isWebLayout } = useResponsive();
+
+  const actions = (
+    <>
+      <TouchableOpacity
+        accessibilityRole="button"
+        onPress={() => resetToTab('Home')}
+        className="mb-3 items-center rounded-2xl bg-brand-500 py-4">
+        <Text className="text-lg font-bold text-white">{t('applicationSubmitted.backToHome')}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        accessibilityRole="button"
+        onPress={() => resetToTab('Profile')}
+        className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} items-center rounded-2xl py-4`}>
+        <Text className={`${textColor} text-lg font-semibold`}>
+          {t('applicationSubmitted.viewProfile')}
+        </Text>
+      </TouchableOpacity>
+    </>
+  );
 
   return (
     <ScreenLayout
       headerVariant="large"
+      narrow
       contentBg={bgColor}
+      // The web design draws no coloured header, so the white check and title that sit on it on a
+      // phone were white on the page's pattern (feedback 2026-10-21): they open the page on a card.
       headerChildren={
-        // pb-8 rather than py-4's 16: the rounded content sheet is pulled 32px up over this.
-        <View className="items-center pb-8 pt-4">
-          <View className="mb-6">
-            <AnimatedCheckmark size={96} color="white" ringColor="rgba(255,255,255,0.2)" />
+        isWebLayout ? undefined : (
+          // pb-8 rather than py-4's 16: the rounded content sheet is pulled 32px up over this.
+          <View className="items-center pb-8 pt-4">
+            <View className="mb-6">
+              <AnimatedCheckmark size={96} color="white" ringColor="rgba(255,255,255,0.2)" />
+            </View>
+            <Text className="mb-2 text-2xl font-bold text-white">
+              {t('applicationSubmitted.title')}
+            </Text>
+            <Text className="text-center text-base text-white/90">
+              {t('applicationSubmitted.subtitle')}
+            </Text>
           </View>
-          <Text className="mb-2 text-2xl font-bold text-white">
-            {t('applicationSubmitted.title')}
-          </Text>
-          <Text className="text-center text-base text-white/90">
-            {t('applicationSubmitted.subtitle')}
-          </Text>
-        </View>
+        )
       }>
       <ScrollView
         className="flex-1"
@@ -40,6 +66,21 @@ export default function ApplicationSubmittedScreen() {
           paddingBottom: 40,
           paddingHorizontal: gutter.value,
         }}>
+        {isWebLayout ? (
+          <View
+            className={`${cardBg} mb-6 items-center rounded-2xl border ${borderColor} px-6 py-8`}>
+            <View className="mb-5">
+              <AnimatedCheckmark size={88} isDarkMode={isDarkMode} />
+            </View>
+            <Text className={`mb-2 text-center text-2xl font-bold ${textColor}`}>
+              {t('applicationSubmitted.title')}
+            </Text>
+            <Text className={`text-center text-base ${subtextColor}`}>
+              {t('applicationSubmitted.subtitle')}
+            </Text>
+          </View>
+        ) : null}
+
         {/* What Happens Next */}
         <View
           className={`${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'} mb-6 rounded-2xl border p-5 ${isDarkMode ? 'border-blue-800' : 'border-blue-200'}`}>
@@ -52,11 +93,17 @@ export default function ApplicationSubmittedScreen() {
           </Text>
         </View>
 
-        <VerificationProgress
-          isDarkMode={isDarkMode}
-          textColor={textColor}
-          subtextColor={subtextColor}
-        />
+        {/* On a card on the web design, like the rest of the page — not on the bare pattern. */}
+        <View
+          className={
+            isWebLayout ? `${cardBg} mb-6 rounded-2xl border ${borderColor} px-5 pt-5` : undefined
+          }>
+          <VerificationProgress
+            isDarkMode={isDarkMode}
+            textColor={textColor}
+            subtextColor={subtextColor}
+          />
+        </View>
 
         <NeedHelpCard
           isDarkMode={isDarkMode}
@@ -66,27 +113,15 @@ export default function ApplicationSubmittedScreen() {
         />
 
         <WhileYouWaitCard isDarkMode={isDarkMode} />
+
+        {/* The page ends with its actions on the web design; a phone pins them below. */}
+        {isWebLayout ? <View className="mt-6">{actions}</View> : null}
       </ScrollView>
 
       {/* Fixed Bottom Buttons */}
-      <View className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={() => resetToTab('Home')}
-          className="mb-3 items-center rounded-2xl bg-brand-500 py-4">
-          <Text className="text-lg font-bold text-white">
-            {t('applicationSubmitted.backToHome')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={() => resetToTab('Profile')}
-          className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} items-center rounded-2xl py-4`}>
-          <Text className={`${textColor} text-lg font-semibold`}>
-            {t('applicationSubmitted.viewProfile')}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {isWebLayout ? null : (
+        <View className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>{actions}</View>
+      )}
     </ScreenLayout>
   );
 }

@@ -15,6 +15,10 @@ import TwoColumn from '../../../components/shared/TwoColumn';
 import DatePicker from '../../../components/shared/DatePicker';
 import TimePicker from '../../../components/shared/TimePicker';
 import ResponsiveModal from '../../../components/shared/ResponsiveModal';
+import AnchoredPopover, {
+  anchorOf,
+  type PopoverAnchor,
+} from '../../../components/shared/AnchoredPopover';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import ListState from '../../../components/shared/ListState';
 import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
@@ -175,6 +179,12 @@ export default function CreateGroupRequestScreen() {
   const [from, setFrom] = useState<Date>(defaultStart);
   const [to, setTo] = useState<Date>(() => new Date(defaultStart().getTime() + 3600000));
   const [picker, setPicker] = useState<null | 'fromDate' | 'fromTime' | 'toDate' | 'toTime'>(null);
+  // The row a picker opened from: on the web design it opens under it.
+  const [pickerAnchor, setPickerAnchor] = useState<PopoverAnchor>(null);
+  const openPicker = (which: NonNullable<typeof picker>) => (e: unknown) => {
+    setPickerAnchor(anchorOf(e));
+    setPicker(which);
+  };
   // "As soon as possible": no start time — the request goes out now, stays open for a while, and
   // the provider who takes it says how soon they can be there.
   const [asap, setAsap] = useState<boolean>(route.params?.asap ?? false);
@@ -478,7 +488,7 @@ export default function CreateGroupRequestScreen() {
   const pickerRow = (
     icon: 'calendar-outline' | 'time-outline',
     text: string,
-    onPress: () => void
+    onPress: (e: unknown) => void
   ) => (
     <TouchableOpacity
       accessibilityRole="button"
@@ -600,13 +610,13 @@ export default function CreateGroupRequestScreen() {
         <>
           {label(t('groupRequest.starts'))}
           <View className="flex-row gap-2">
-            {pickerRow('calendar-outline', dateText(from), () => setPicker('fromDate'))}
-            {pickerRow('time-outline', timeText(from), () => setPicker('fromTime'))}
+            {pickerRow('calendar-outline', dateText(from), openPicker('fromDate'))}
+            {pickerRow('time-outline', timeText(from), openPicker('fromTime'))}
           </View>
           {label(t('groupRequest.ends'))}
           <View className="flex-row gap-2">
-            {pickerRow('calendar-outline', dateText(to), () => setPicker('toDate'))}
-            {pickerRow('time-outline', timeText(to), () => setPicker('toTime'))}
+            {pickerRow('calendar-outline', dateText(to), openPicker('toDate'))}
+            {pickerRow('time-outline', timeText(to), openPicker('toTime'))}
           </View>
           {whenError ? (
             <Text className="mt-2 text-xs text-red-500">{whenError}</Text>
@@ -932,46 +942,75 @@ export default function CreateGroupRequestScreen() {
   );
 
   // ── pickers (shared by both layouts) ────────────────────────────────────────
+  // Under the row they open from on the web design (feedback 2026-10-21); a centred card on a
+  // phone.
+  const datePicker = (bare: boolean) => (
+    <DatePicker
+      bare={bare}
+      value={picker === 'toDate' ? to : from}
+      minDate={picker === 'toDate' ? from : new Date()}
+      isDarkMode={isDarkMode}
+      onChange={(date) => {
+        if (date) {
+          if (picker === 'toDate') setTo(withDate(to, date));
+          else setStart(withDate(from, date));
+        }
+        setPicker(null);
+      }}
+      onClose={() => setPicker(null)}
+    />
+  );
+  const timePicker = (bare: boolean) => (
+    <TimePicker
+      bare={bare}
+      value={picker === 'toTime' ? to : from}
+      isDarkMode={isDarkMode}
+      onChange={(time) => {
+        if (picker === 'toTime') setTo(withTime(to, time));
+        else setStart(withTime(from, time));
+      }}
+      onClose={() => setPicker(null)}
+    />
+  );
   const pickers = (
     <>
-      <ResponsiveModal
-        visible={picker === 'fromDate' || picker === 'toDate'}
-        onClose={() => setPicker(null)}
-        mobilePresentation="centered"
-        dialogWidth={420}>
-        <View className={`${cardBg} p-4`}>
-          <DatePicker
-            value={picker === 'toDate' ? to : from}
-            minDate={picker === 'toDate' ? from : new Date()}
-            isDarkMode={isDarkMode}
-            onChange={(date) => {
-              if (date) {
-                if (picker === 'toDate') setTo(withDate(to, date));
-                else setStart(withDate(from, date));
-              }
-              setPicker(null);
-            }}
+      {isWebLayout ? (
+        <>
+          <AnchoredPopover
+            visible={picker === 'fromDate' || picker === 'toDate'}
             onClose={() => setPicker(null)}
-          />
-        </View>
-      </ResponsiveModal>
-      <ResponsiveModal
-        visible={picker === 'fromTime' || picker === 'toTime'}
-        onClose={() => setPicker(null)}
-        mobilePresentation="centered"
-        dialogWidth={380}>
-        <View className={`${cardBg} p-4`}>
-          <TimePicker
-            value={picker === 'toTime' ? to : from}
-            isDarkMode={isDarkMode}
-            onChange={(time) => {
-              if (picker === 'toTime') setTo(withTime(to, time));
-              else setStart(withTime(from, time));
-            }}
+            anchor={pickerAnchor}
+            width={360}
+            maxHeight={480}>
+            {datePicker(true)}
+          </AnchoredPopover>
+          <AnchoredPopover
+            visible={picker === 'fromTime' || picker === 'toTime'}
             onClose={() => setPicker(null)}
-          />
-        </View>
-      </ResponsiveModal>
+            anchor={pickerAnchor}
+            width={340}
+            maxHeight={460}>
+            {timePicker(true)}
+          </AnchoredPopover>
+        </>
+      ) : (
+        <>
+          <ResponsiveModal
+            visible={picker === 'fromDate' || picker === 'toDate'}
+            onClose={() => setPicker(null)}
+            mobilePresentation="centered"
+            dialogWidth={420}>
+            <View className={`${cardBg} p-4`}>{datePicker(false)}</View>
+          </ResponsiveModal>
+          <ResponsiveModal
+            visible={picker === 'fromTime' || picker === 'toTime'}
+            onClose={() => setPicker(null)}
+            mobilePresentation="centered"
+            dialogWidth={380}>
+            <View className={`${cardBg} p-4`}>{timePicker(false)}</View>
+          </ResponsiveModal>
+        </>
+      )}
       <FilterModal
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}

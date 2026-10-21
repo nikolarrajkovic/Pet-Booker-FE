@@ -576,7 +576,7 @@ const sr: TranslationDict = {
     chooseDuration: 'Izaberite trajanje i cenu *',
     chooseLength: 'Koliko dugo *',
     noteTitle: 'Napomena za pružaoca',
-    noteHint: 'Opciono. Sve što treba da zna — šalje se uz svaki termin ispod.',
+    noteHint: 'Opciono. Sve što treba da zna — šalje se uz svaki termin u ovoj rezervaciji.',
     notePlaceholder: 'npr. Vuče na povocu; ključ je kod komšije u stanu 4.',
     addAnotherService: 'Dodaj još jednu uslugu u ovu rezervaciju',
     continueWithCart: 'Nastavi na pregled (termina: {count})',
