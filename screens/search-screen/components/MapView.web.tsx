@@ -18,6 +18,8 @@ interface LocationData {
 
 interface MapViewComponentProps {
   services: ServiceSearchItem[];
+  /** The day the search is filtered to, handed on to the service page (see serviceDetailParams). */
+  date?: string | null;
   location: LocationData;
   isDarkMode?: boolean;
   /** Selection mode - see MapView.tsx. Clicking a pin toggles it instead of opening a card. */
@@ -303,6 +305,7 @@ export default function MapViewComponent({
   isDarkMode = false,
   selectedIds,
   onToggleSelect,
+  date,
 }: MapViewComponentProps) {
   const navigation = useNavigation();
   const { t, language } = useLocale();
@@ -362,7 +365,7 @@ export default function MapViewComponent({
         markersRef.current = new Map();
         const groups = groupByLocation(services);
         const open = (s: ServiceSearchItem) =>
-          (navigation as any).navigate('ServiceDetail', serviceDetailParams(s.dto));
+          (navigation as any).navigate('ServiceDetail', serviceDetailParams(s.dto, date));
         const isPicked = (id: number) => pickedRef.current.has(id);
         groups.forEach((group) => {
           const only = group.items.length === 1 ? group.items[0] : null;

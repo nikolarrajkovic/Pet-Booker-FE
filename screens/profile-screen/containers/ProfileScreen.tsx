@@ -232,7 +232,6 @@ export default function ProfileScreen() {
       headerVariant="large"
       showBackButton
       contentBg={contentBg}
-      width="wide"
       // On the web design the account menu in the TopBar already names the signed-in user, so the
       // page needs a title rather than a second identity card.
       headerTitle={isWebLayout ? t('profile.title') : undefined}

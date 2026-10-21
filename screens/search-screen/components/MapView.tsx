@@ -20,6 +20,8 @@ interface LocationData {
 
 interface MapViewComponentProps {
   services: ServiceSearchItem[];
+  /** The day the search is filtered to, handed on to the service page (see serviceDetailParams). */
+  date?: string | null;
   location: LocationData;
   isDarkMode?: boolean;
   /**
@@ -53,6 +55,7 @@ export default function MapViewComponent({
   selectedIds,
   onToggleSelect,
   bottomOffset,
+  date,
 }: MapViewComponentProps) {
   const navigation = useNavigation();
   const { t } = useLocale();
@@ -66,7 +69,7 @@ export default function MapViewComponent({
   const openOrToggle = (item: ServiceSearchItem) =>
     selectMode
       ? onToggleSelect!(item)
-      : (navigation as any).navigate('ServiceDetail', serviceDetailParams(item.dto));
+      : (navigation as any).navigate('ServiceDetail', serviceDetailParams(item.dto, date));
 
   if (location.loading) {
     return (

@@ -57,12 +57,14 @@ import { resolveImageUrl } from '../../../services/service-providers';
 import {
   createGroupBookingRequest,
   GroupBookingAudience,
+  REQUEST_DISTANCES_KM,
 } from '../../../services/group-booking-requests';
 import { MapViewComponent } from '../../search-screen/components';
 import type { ServiceSearchItem } from '../../search-screen/components/ListView';
 import ProviderPickRow from '../components/ProviderPickRow';
-import { formatDateWindow } from '../groupRequestFormat';
+import { formatAsapWindow, formatDateWindow, formatLength } from '../groupRequestFormat';
 import { formatWeekdayDayMonth } from '../../../i18n/dates';
+import { formatDateOnly } from '../../../services/date-only';
 import { useRequestPlace, type WhereChoice } from '../useRequestPlace';
 import { useProviderSelection } from '../useProviderSelection';
 
@@ -75,7 +77,13 @@ export type CreateGroupRequestParams = {
   filters?: FilterState;
   /** Whether the price slider had been moved — an untouched slider is no price bound. */
   priceTouched?: boolean;
+  /** Open on "As soon as possible" (the "Need someone now?" entry points). */
+  asap?: boolean;
 };
+
+/** ASAP: how long the service is wanted for, and how long the request stays open, in minutes. */
+const ASAP_LENGTHS = [30, 60, 90, 120, 180];
+const ASAP_OPEN_FOR = [30, 60, 120, 240];
 
 const PAGE_SIZE = 20;
 const DEFAULT_MAX_PRICE = 200;
@@ -154,7 +162,7 @@ export default function CreateGroupRequestScreen() {
   const { currentUser } = useAuth();
   const { enums } = useEnums();
   const { t, tEnum, language } = useLocale();
-  const { showError, showSuccess } = useToast();
+  const { showError, showSuccess, showInfo } = useToast();
   const { code: displayCurrency } = useCurrency();
   const location = useLocation();
 
@@ -167,6 +175,18 @@ export default function CreateGroupRequestScreen() {
   const [from, setFrom] = useState<Date>(defaultStart);
   const [to, setTo] = useState<Date>(() => new Date(defaultStart().getTime() + 3600000));
   const [picker, setPicker] = useState<null | 'fromDate' | 'fromTime' | 'toDate' | 'toTime'>(null);
+  // "As soon as possible": no start time — the request goes out now, stays open for a while, and
+  // the provider who takes it says how soon they can be there.
+  const [asap, setAsap] = useState<boolean>(route.params?.asap ?? false);
+  const [asapLength, setAsapLength] = useState(60);
+  const [asapOpenFor, setAsapOpenFor] = useState(60);
+  // How far "every matching provider" reaches. "Now" is no use from across the city, so an ASAP
+  // request starts at 5 km; a planned one at any distance — until the owner picks one themselves.
+  const [maxDistanceKm, setMaxDistanceKm] = useState<number | null>(route.params?.asap ? 5 : null);
+  const distanceTouched = useRef(false);
+  useEffect(() => {
+    if (!distanceTouched.current) setMaxDistanceKm(asap ? 5 : null);
+  }, [asap]);
 
   // ── who ────────────────────────────────────────────────────────────────────
   const selection = useProviderSelection(serviceType);
@@ -289,8 +309,11 @@ export default function CreateGroupRequestScreen() {
       priceCurrency: priceBounded ? displayCurrency : undefined,
       minRating: ratingThreshold(filters.minimumRating),
       onSaleOnly: filters.onSaleOnly || undefined,
+      // ASAP: the ones working today. The server's audience is narrower still — working between
+      // now and the deadline — which a browse filter cannot say.
+      availableOn: asap ? formatDateOnly(new Date()) : undefined,
     }),
-    [filters, priceBounded, facets.maxPrice, displayCurrency]
+    [filters, priceBounded, facets.maxPrice, displayCurrency, asap]
   );
   const filterKey = JSON.stringify(filterParams);
 
@@ -331,8 +354,9 @@ export default function CreateGroupRequestScreen() {
   const listRef = useNearBottomLoader(step === 2 || isWebLayout, candidates.loadMore);
 
   // ── validation ─────────────────────────────────────────────────────────────
-  const whenError =
-    to <= from
+  const whenError = asap
+    ? null
+    : to <= from
       ? t('groupRequest.endBeforeStart')
       : from <= new Date()
         ? t('groupRequest.startInPast')
@@ -366,11 +390,15 @@ export default function CreateGroupRequestScreen() {
 
       const addressId = await place.resolveAddressId(createAddress);
 
-      await createGroupBookingRequest({
+      // ASAP: now and now + the length; the server restamps "now" with its own clock.
+      const now = new Date();
+      const created = await createGroupBookingRequest({
         petId: Number(petId),
         serviceType: serviceType!,
-        bookingFrom: formatBookingDate(from),
-        bookingTo: formatBookingDate(to),
+        bookingFrom: formatBookingDate(asap ? now : from),
+        bookingTo: formatBookingDate(asap ? new Date(now.getTime() + asapLength * 60000) : to),
+        isAsap: asap,
+        activeUntil: asap ? formatBookingDate(new Date(now.getTime() + asapOpenFor * 60000)) : null,
         addressId,
         note: note.trim() || null,
         paymentType,
@@ -388,10 +416,15 @@ export default function CreateGroupRequestScreen() {
               acceptedSpecies: filterParams.acceptedSpecies,
               onSaleOnly: filters.onSaleOnly,
               requiredAddOnNames: filters.addOns,
+              maxDistanceKm,
             }
           : {}),
       });
-      showSuccess(t('groupRequest.sent'));
+      // Say who it reached, so a request nobody can see is known now rather than at its deadline.
+      const reached = created.reachedProviderCount;
+      if (reached === 0) showInfo(t('groupRequest.sentToNobody'));
+      else if (reached != null) showSuccess(t('groupRequest.sentTo', { count: reached }));
+      else showSuccess(t('groupRequest.sent'));
       // Terminal: the finished form must not sit behind Back.
       resetToScreen('MyGroupRequests', undefined, 'Home');
     } catch (e) {
@@ -541,20 +574,46 @@ export default function CreateGroupRequestScreen() {
         </View>
       )}
 
-      {label(t('groupRequest.starts'))}
-      <View className="flex-row gap-2">
-        {pickerRow('calendar-outline', dateText(from), () => setPicker('fromDate'))}
-        {pickerRow('time-outline', timeText(from), () => setPicker('fromTime'))}
+      {label(t('groupRequest.when'))}
+      <View className="flex-row flex-wrap gap-2">
+        {chip(!asap, t('groupRequest.modeScheduled'), () => setAsap(false), 'scheduled')}
+        {chip(asap, t('groupRequest.modeAsap'), () => setAsap(true), 'asap')}
       </View>
-      {label(t('groupRequest.ends'))}
-      <View className="flex-row gap-2">
-        {pickerRow('calendar-outline', dateText(to), () => setPicker('toDate'))}
-        {pickerRow('time-outline', timeText(to), () => setPicker('toTime'))}
-      </View>
-      {whenError ? (
-        <Text className="mt-2 text-xs text-red-500">{whenError}</Text>
+
+      {asap ? (
+        <>
+          {label(t('groupRequest.asapLength'))}
+          <View className="flex-row flex-wrap gap-2">
+            {ASAP_LENGTHS.map((m) =>
+              chip(asapLength === m, formatLength(t, m), () => setAsapLength(m), `len-${m}`)
+            )}
+          </View>
+          {label(t('groupRequest.asapOpenFor'))}
+          <View className="flex-row flex-wrap gap-2">
+            {ASAP_OPEN_FOR.map((m) =>
+              chip(asapOpenFor === m, formatLength(t, m), () => setAsapOpenFor(m), `open-${m}`)
+            )}
+          </View>
+          <Text className={`mt-2 text-xs ${subtextColor}`}>{t('groupRequest.asapHint')}</Text>
+        </>
       ) : (
-        <Text className={`mt-2 text-xs ${subtextColor}`}>{formatDateWindow(t, from, to)}</Text>
+        <>
+          {label(t('groupRequest.starts'))}
+          <View className="flex-row gap-2">
+            {pickerRow('calendar-outline', dateText(from), () => setPicker('fromDate'))}
+            {pickerRow('time-outline', timeText(from), () => setPicker('fromTime'))}
+          </View>
+          {label(t('groupRequest.ends'))}
+          <View className="flex-row gap-2">
+            {pickerRow('calendar-outline', dateText(to), () => setPicker('toDate'))}
+            {pickerRow('time-outline', timeText(to), () => setPicker('toTime'))}
+          </View>
+          {whenError ? (
+            <Text className="mt-2 text-xs text-red-500">{whenError}</Text>
+          ) : (
+            <Text className={`mt-2 text-xs ${subtextColor}`}>{formatDateWindow(t, from, to)}</Text>
+          )}
+        </>
       )}
     </View>
   );
@@ -687,10 +746,35 @@ export default function CreateGroupRequestScreen() {
       </View>
     );
 
+  const distancePicker = anyMatching ? (
+    <View className="mb-4">
+      <Text className={`mb-2 text-sm font-semibold ${textColor}`}>
+        {t('groupRequest.distanceTitle')}
+      </Text>
+      <View className="flex-row flex-wrap gap-2">
+        {REQUEST_DISTANCES_KM.map((km) =>
+          chip(
+            maxDistanceKm === km,
+            km == null ? t('groupRequest.distanceAny') : t('groupRequest.distanceKm', { km }),
+            () => {
+              distanceTouched.current = true;
+              setMaxDistanceKm(km);
+            },
+            `km-${km ?? 'any'}`
+          )
+        )}
+      </View>
+      {maxDistanceKm != null ? (
+        <Text className={`mt-2 text-xs ${subtextColor}`}>{t('groupRequest.distanceHint')}</Text>
+      ) : null}
+    </View>
+  ) : null;
+
   const who = (
     <View>
       {sectionTitle(2, t('groupRequest.stepWho'), !step2Error)}
       {audienceToggle}
+      {distancePicker}
       {serviceType != null && (
         <View
           className={`mb-3 flex-row items-center rounded-xl border px-3 ${borderColor} ${inputBg}`}>
@@ -813,14 +897,22 @@ export default function CreateGroupRequestScreen() {
       <Text className={`mb-3 text-base font-bold ${textColor}`}>{t('groupRequest.summary')}</Text>
       {summaryLine('pricetag-outline', typeLabel || t('groupRequest.chooseType'))}
       {summaryLine('paw-outline', petName ?? t('groupRequest.choosePet'))}
-      {summaryLine('calendar-outline', formatDateWindow(t, from, to))}
+      {asap
+        ? summaryLine(
+            'flash-outline',
+            formatAsapWindow(t, asapLength, new Date(Date.now() + asapOpenFor * 60000))
+          )
+        : summaryLine('calendar-outline', formatDateWindow(t, from, to))}
       {summaryLine('location-outline', whereLabel)}
       {summaryLine(
         'people-outline',
         anyMatching
-          ? excludedCount > 0
-            ? t('groupRequest.summaryAnyExcept', { excluded: excludedCount })
-            : t('groupRequest.summaryAny', { count: candidates.totalItems })
+          ? (excludedCount > 0
+              ? t('groupRequest.summaryAnyExcept', { excluded: excludedCount })
+              : t('groupRequest.summaryAny', { count: candidates.totalItems })) +
+              (maxDistanceKm != null
+                ? ` · ${t('groupRequest.withinKm', { km: maxDistanceKm })}`
+                : '')
           : t('groupRequest.selectedCount', { count: pickedProviderCount })
       )}
       <Text className={`mb-4 mt-2 text-xs ${subtextColor}`}>{t('groupRequest.firstToAccept')}</Text>
@@ -888,6 +980,7 @@ export default function CreateGroupRequestScreen() {
         maxPrice={facets.maxPrice}
         availableAddOns={facets.addOns}
         hideServiceTypes
+        hideWhen
       />
       {place.picker.visible && (
         <MapAddressPicker
@@ -914,8 +1007,7 @@ export default function CreateGroupRequestScreen() {
         headerVariant="standard"
         showBackButton
         headerTitle={t('groupRequest.title')}
-        headerSubtitle={t('groupRequest.subtitle')}
-        width="wide">
+        headerSubtitle={t('groupRequest.subtitle')}>
         {/* No ScrollView of its own on web: ScreenLayout owns the page scroller, and a scroll
             container between the aside and it is what stops `position: sticky` from holding the
             summary (and its Send button) in view. Paging the candidate list rides on

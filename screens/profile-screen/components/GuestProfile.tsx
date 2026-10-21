@@ -38,9 +38,9 @@ export default function GuestProfile() {
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="large"
       contentBg={bgColor}
-      width="narrow"
       headerTitle={isWebLayout ? t('profile.title') : undefined}
       headerChildren={
         isWebLayout ? undefined : (

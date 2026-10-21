@@ -11,7 +11,7 @@ import { render, screen } from '@testing-library/react-native';
 import { withProviders, setViewport, setPlatform } from '../test-utils';
 import ResponsiveGrid from '../../components/shared/ResponsiveGrid';
 import ResponsiveModal from '../../components/shared/ResponsiveModal';
-import ContentContainer, { CONTENT_WIDTHS } from '../../components/shared/ContentContainer';
+import ContentContainer, { FORM_WIDTH } from '../../components/shared/ContentContainer';
 import TwoColumn from '../../components/shared/TwoColumn';
 import StickyFooter from '../../components/shared/StickyFooter';
 
@@ -260,31 +260,68 @@ describe('ResponsiveModal', () => {
 });
 
 describe('ContentContainer', () => {
-  it('caps the column on the web design', () => {
+  // Every web page is laid out like Search: the full width beside the sidebar, inset by the one
+  // page gutter. Pages used to pick a cap that was centred in the window, so each page had its
+  // own margins (32px to 531px from the sidebar on a 1920 screen).
+  it('fills the width on the web design, inset by the page gutter, with no cap', () => {
     setViewport('desktop');
     const { UNSAFE_root } = render(
       withProviders(
-        <ContentContainer width="narrow">
+        <ContentContainer>
           <Text>body</Text>
         </ContentContainer>
       )
     );
 
     const style = JSON.stringify(UNSAFE_root.findByType(View).props.style);
-    expect(style).toContain(String(CONTENT_WIDTHS.narrow));
+    expect(style).not.toContain('maxWidth');
+    expect(style).toContain('"paddingHorizontal":32');
   });
 
-  it('leaves a full-width screen uncapped', () => {
+  // Forms and text pages are the exception: one centred column of fields, not a band of
+  // 1,600px inputs (feedback 2026-10-20).
+  it('caps a narrow page at the form width and centres it on the web design', () => {
     setViewport('desktop');
     const { UNSAFE_root } = render(
       withProviders(
-        <ContentContainer width="full">
+        <ContentContainer narrow>
+          <Text>form</Text>
+        </ContentContainer>
+      )
+    );
+
+    const style = JSON.stringify(UNSAFE_root.findByType(View).props.style);
+    expect(style).toContain(`"maxWidth":${FORM_WIDTH}`);
+    expect(style).toContain('"marginHorizontal":"auto"');
+    expect(style).toContain('"paddingHorizontal":32');
+  });
+
+  it('leaves a narrow page full width on the phone design', () => {
+    setViewport('mobile');
+    const { UNSAFE_root } = render(
+      withProviders(
+        <ContentContainer narrow>
+          <Text>form</Text>
+        </ContentContainer>
+      )
+    );
+
+    expect(JSON.stringify(UNSAFE_root.findByType(View).props.style)).not.toContain('maxWidth');
+  });
+
+  it('keeps the phone gutter on the phone design', () => {
+    setViewport('mobile');
+    const { UNSAFE_root } = render(
+      withProviders(
+        <ContentContainer>
           <Text>body</Text>
         </ContentContainer>
       )
     );
 
-    expect(JSON.stringify(UNSAFE_root.findByType(View).props.style)).not.toContain('maxWidth":1');
+    expect(JSON.stringify(UNSAFE_root.findByType(View).props.style)).toContain(
+      '"paddingHorizontal":16'
+    );
   });
 });
 

@@ -53,6 +53,10 @@ interface PriceBreakdownProps {
   total: number;
   /** Currency the amounts are in, from the booking/quote that produced them. */
   currency?: string | null;
+  /** A checkout of several services labels each breakdown with its service. */
+  title?: string;
+  /** "Subtotal" when a grand total follows; "Total" otherwise. */
+  totalLabel?: string;
 }
 
 // Distance to at most 2 decimals, no trailing zeros (3.4 km, 1 km, 2.42 km).
@@ -68,6 +72,8 @@ export default function PriceBreakdown({
   discount,
   addons,
   total,
+  title,
+  totalLabel,
 }: PriceBreakdownProps) {
   const gutter = usePageGutter();
   const { t } = useLocale();
@@ -76,7 +82,7 @@ export default function PriceBreakdown({
   return (
     <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
       <Text className={`text-base font-semibold ${textColor} mb-4`}>
-        {t('reviewBooking.priceBreakdown')}
+        {title ?? t('reviewBooking.priceBreakdown')}
       </Text>
       <View className="mb-3 flex-row justify-between">
         <Text className={`text-sm ${subtextColor}`}>{t('reviewBooking.serviceLine')}</Text>
@@ -122,7 +128,9 @@ export default function PriceBreakdown({
         </View>
       ))}
       <View className={`border-t ${borderColor} mt-3 flex-row justify-between pt-3`}>
-        <Text className={`text-base font-bold ${textColor}`}>{t('reviewBooking.total')}</Text>
+        <Text className={`text-base font-bold ${textColor}`}>
+          {totalLabel ?? t('reviewBooking.total')}
+        </Text>
         <Text className="text-2xl font-bold text-brand-600">{money(total)}</Text>
       </View>
     </View>

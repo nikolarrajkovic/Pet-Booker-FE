@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -7,6 +7,10 @@ import { useCurrency } from '../../hooks/useCurrency';
 import { useEnums } from '../../context/EnumsContext';
 import { useLocale } from '../../context/LocaleContext';
 import { PetSpecies, isOfferedSpecies } from '../../services/pets';
+import { DayPeriod } from '../../services/services';
+import { formatDateOnly, parseDateOnly } from '../../services/date-only';
+import { formatFullDate } from '../../i18n/dates';
+import DatePicker from './DatePicker';
 
 /**
  * What the user has narrowed the catalogue to.
@@ -26,6 +30,10 @@ export interface FilterState {
   minimumRating: string; // 'Any' | '3+' | '4+' | '5+'
   /** Only services with a promotion running right now. */
   onSaleOnly: boolean;
+  /** The day the service is needed ("YYYY-MM-DD"), or null for any day. */
+  date: string | null;
+  /** Parts of the day (DayPeriod values); empty = any time. */
+  timesOfDay: number[];
 }
 
 export const EMPTY_FILTERS: Omit<FilterState, 'priceRange'> = {
@@ -34,6 +42,8 @@ export const EMPTY_FILTERS: Omit<FilterState, 'priceRange'> = {
   addOns: [],
   minimumRating: 'Any',
   onSaleOnly: false,
+  date: null,
+  timesOfDay: [],
 };
 
 // Rating thresholds are a fixed 0–5 review scale (a presentation choice), not a
@@ -49,6 +59,8 @@ export function activeFilterCount(filters: FilterState, maxPrice: number): numbe
     filters.addOns.length +
     (filters.minimumRating !== 'Any' ? 1 : 0) +
     (filters.onSaleOnly ? 1 : 0) +
+    (filters.date ? 1 : 0) +
+    filters.timesOfDay.length +
     (filters.priceRange[0] > 0 || filters.priceRange[1] < maxPrice ? 1 : 0)
   );
 }
@@ -68,6 +80,11 @@ interface SearchFiltersProps {
    * request names one kind of service), so a multi-select of types beside it would contradict it.
    */
   hideServiceTypes?: boolean;
+  /**
+   * Leaves out "When". The group-request form states its own date and time, so a second, looser
+   * "when" beside it would contradict it.
+   */
+  hideWhen?: boolean;
 }
 
 /**
@@ -88,6 +105,7 @@ export default function SearchFilters({
   maxPrice,
   availableAddOns = [],
   hideServiceTypes = false,
+  hideWhen = false,
 }: SearchFiltersProps) {
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { enums } = useEnums();
@@ -108,6 +126,29 @@ export default function SearchFilters({
       [key]: current.includes(option) ? current.filter((v) => v !== option) : [...current, option],
     });
   };
+
+  const toggleTimeOfDay = (period: number) =>
+    onChange({
+      ...value,
+      timesOfDay: value.timesOfDay.includes(period)
+        ? value.timesOfDay.filter((p) => p !== period)
+        : [...value.timesOfDay, period],
+    });
+
+  // "When": any day, today, tomorrow, or a picked date. Walks and sits are planned around a day
+  // and a part of it ("Saturday morning"), and the list could not be narrowed by either.
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const today = new Date();
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  const todayKey = formatDateOnly(today);
+  const tomorrowKey = formatDateOnly(tomorrow);
+  const pickedOther = value.date != null && value.date !== todayKey && value.date !== tomorrowKey;
+  const pickedDate = parseDateOnly(value.date);
+  const dayChips: { key: string; label: string; date: string | null }[] = [
+    { key: 'any', label: t('shared.anyDay'), date: null },
+    { key: 'today', label: t('shared.today'), date: todayKey },
+    { key: 'tomorrow', label: t('shared.tomorrow'), date: tomorrowKey },
+  ];
 
   const toggleAddOn = (name: string) => {
     onChange({
@@ -153,6 +194,99 @@ export default function SearchFilters({
           {value.onSaleOnly && <Ionicons name="checkmark" size={13} color="white" />}
         </View>
       </TouchableOpacity>
+
+      {/* When — the day, and the part of it */}
+      <View className="mb-6" style={hideWhen ? { display: 'none' } : undefined}>
+        {sectionTitle(t('shared.when'))}
+        <View className="flex-row flex-wrap gap-2">
+          {dayChips.map((chip) => {
+            const active = value.date === chip.date && !(chip.date == null && pickedOther);
+            return (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                aria-pressed={active}
+                key={chip.key}
+                onPress={() => {
+                  setShowDatePicker(false);
+                  onChange({ ...value, date: chip.date });
+                }}
+                className={chipClass(active)}>
+                <Text className={chipTextClass(active)}>{chip.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityState={{ selected: pickedOther }}
+            aria-pressed={pickedOther}
+            onPress={() => setShowDatePicker((v) => !v)}
+            className={`flex-row items-center ${chipClass(pickedOther)}`}>
+            <Ionicons
+              name="calendar-outline"
+              size={14}
+              color={pickedOther ? BRAND_GREEN : isDarkMode ? '#9CA3AF' : '#6B7280'}
+            />
+            <Text className={`ml-1.5 ${chipTextClass(pickedOther)}`}>
+              {pickedOther && pickedDate
+                ? formatFullDate(pickedDate, undefined, 'short')
+                : t('shared.pickDate')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {showDatePicker ? (
+          <View className="mt-3">
+            <DatePicker
+              value={pickedDate ?? tomorrow}
+              minDate={today}
+              isDarkMode={isDarkMode}
+              onChange={(date) => {
+                if (date) onChange({ ...value, date: formatDateOnly(new Date(date)) });
+                setShowDatePicker(false);
+              }}
+              onClose={() => setShowDatePicker(false)}
+            />
+          </View>
+        ) : null}
+        {/* Two per row: four labels side by side do not fit the filter rail or a phone. */}
+        <View className="mt-3 flex-row flex-wrap gap-2">
+          {(
+            [
+              [DayPeriod.Morning, 'bookService.morning', 'sunny-outline'],
+              [DayPeriod.Afternoon, 'bookService.afternoon', 'partly-sunny-outline'],
+              [DayPeriod.Evening, 'bookService.evening', 'cloudy-night-outline'],
+              // Late and overnight sitters (hours past 22:00, or running past midnight).
+              [DayPeriod.Night, 'bookService.night', 'moon-outline'],
+            ] as const
+          ).map(([period, labelKey, icon]) => {
+            const active = value.timesOfDay.includes(period);
+            return (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                aria-pressed={active}
+                key={period}
+                onPress={() => toggleTimeOfDay(period)}
+                style={{ flexBasis: '48%', flexGrow: 1 }}
+                className={`flex-row items-center justify-center rounded-xl border py-2 ${
+                  active
+                    ? `${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'} border-brand-500`
+                    : `${cardBg} ${borderColor}`
+                }`}>
+                <Ionicons
+                  name={icon}
+                  size={14}
+                  color={active ? BRAND_GREEN : isDarkMode ? '#9CA3AF' : '#6B7280'}
+                />
+                <Text className={`ml-1 ${chipTextClass(active)}`} numberOfLines={1}>
+                  {t(labelKey)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <Text className={`mt-2 text-xs ${subtextColor}`}>{t('shared.whenHint')}</Text>
+      </View>
 
       {/* Service Type — serviceProviderType enum */}
       <View className="mb-6" style={hideServiceTypes ? { display: 'none' } : undefined}>

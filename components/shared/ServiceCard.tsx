@@ -19,6 +19,8 @@ type ServiceCardProps = {
    * Omit to fall back to the user's display preference.
    */
   currency?: string | null;
+  /** " /hour", " /night"… for a service priced per unit (`priceSuffix`); empty per visit. */
+  priceSuffix?: string;
   badge?: 'popular' | 'deal';
   /** Formatted discount (e.g. "3% OFF" / "5 € OFF") — shown on the deal badge. */
   dealAmount?: string;
@@ -46,6 +48,7 @@ export default function ServiceCard({
   distance,
   price,
   currency,
+  priceSuffix: suffix = '',
   badge,
   dealAmount,
   fill = false,
@@ -85,6 +88,7 @@ export default function ServiceCard({
           rather than a blank rectangle — see ServicePhoto. */}
       <ServicePhoto
         uri={image}
+        thumbWidth={fill ? 960 : 480}
         radiusClass="rounded-none"
         iconSize={fill ? 34 : 26}
         className={`w-full ${fill ? 'h-44' : 'h-32'}`}>
@@ -99,7 +103,10 @@ export default function ServiceCard({
         {/* Price Badge */}
         {price > 0 && (
           <View className="absolute right-2 top-2 rounded-full bg-brand-500 px-3 py-1">
-            <Text className="text-xs font-bold text-white">{formatMoney(price, currency)}+</Text>
+            <Text className="text-xs font-bold text-white">
+              {formatMoney(price, currency)}
+              {suffix || '+'}
+            </Text>
           </View>
         )}
 

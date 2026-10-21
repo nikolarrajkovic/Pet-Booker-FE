@@ -34,6 +34,7 @@ import {
 import { useEnums } from '../../../context/EnumsContext';
 import { PetSpecies, isOfferedSpecies } from '../../../services/pets';
 import {
+  PricingUnit,
   createService,
   updateService,
   deleteService,
@@ -47,6 +48,7 @@ import { clearServiceSchedules } from '../../../services/service-schedules';
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 import { showAlert } from '../../../services/alert';
 import {
+  hasDurationTiers,
   serviceDtoToUi,
   uiToServiceDto,
   buildServicePhotos,
@@ -58,8 +60,10 @@ import {
   resolveServiceAddressForSave,
   DURATION_OPTION_LABELS,
   PricingTier,
+  isOvernightHours,
 } from '../serviceModel';
 import { usePageGutter } from '../../../hooks/usePageGutter';
+import { useResponsive } from '../../../hooks/useResponsive';
 
 // serviceProviderType enum `displayName`s — the selected label maps back to a
 // real numeric `type` on save via providerTypeValue().
@@ -74,7 +78,13 @@ const DURATION_OPTIONS = DURATION_OPTION_LABELS;
 // rather than three fixed rows with a hardcoded catalog behind them.
 
 interface WorkingHours {
-  [day: string]: { enabled: boolean; startTime: string; endTime: string };
+  [day: string]: {
+    enabled: boolean;
+    startTime: string;
+    endTime: string;
+    /** A second window the same day (a split day). */
+    second?: { startTime: string; endTime: string } | null;
+  };
 }
 
 interface ExistingService {
@@ -126,6 +136,7 @@ function getInitialAdditionalServices(existing?: ExistingService): AdditionalSer
 
 export default function AddEditServiceScreen() {
   const gutter = usePageGutter();
+  const { isWebLayout } = useResponsive();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<{ params: AddEditServiceParams }, 'params'>>();
   const params = route.params;
@@ -180,9 +191,18 @@ export default function AddEditServiceScreen() {
   const [pricingTiers, setPricingTiers] = useState<PricingTier[]>(
     existingService?.pricingTiers || [{ duration: '', price: '' }]
   );
+  // What a single, duration-less price is per: a visit, an hour, a day or a night. Customers then
+  // choose how long when they book and pay it for each unit (feedback 2026-10-21).
+  const [pricingUnit, setPricingUnit] = useState<number>(
+    params?.serviceDto?.pricing?.unit ?? PricingUnit.PerVisit
+  );
+  const pricesByUnit = !hasDurationTiers(pricingTiers);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [timePickerDay, setTimePickerDay] = useState<string | null>(null);
-  const [timePickerType, setTimePickerType] = useState<'start' | 'end'>('start');
+  // 'start2' / 'end2' are the day's second window.
+  const [timePickerType, setTimePickerType] = useState<'start' | 'end' | 'start2' | 'end2'>(
+    'start'
+  );
   const [selectedTime, setSelectedTime] = useState(new Date());
   const [maxPetCapacity, setMaxPetCapacity] = useState(
     existingService?.maxConcurrentBookings != null
@@ -324,10 +344,38 @@ export default function AddEditServiceScreen() {
     }));
   };
 
-  const openTimePicker = (day: string, type: 'start' | 'end') => {
+  // One tap for late hours (feedback 2026-10-18): an end before the start runs into the next
+  // morning, which the time picker alone never suggested. Applied to the days switched on, or to
+  // every day when none is yet.
+  const applyLatePreset = (kind: 'late' | 'overnight') =>
+    setWorkingHours((prev) => {
+      const anyOn = Object.values(prev).some((d) => d.enabled);
+      return Object.fromEntries(
+        Object.entries(prev).map(([day, h]) => {
+          if (anyOn && !h.enabled) return [day, h];
+          return [
+            day,
+            // A preset is the whole day's hours: a second window would only collide with it.
+            kind === 'late'
+              ? { enabled: true, startTime: h.startTime, endTime: '02:00', second: null }
+              : { enabled: true, startTime: '20:00', endTime: '08:00', second: null },
+          ];
+        })
+      );
+    });
+
+  const openTimePicker = (day: string, type: 'start' | 'end' | 'start2' | 'end2') => {
     setTimePickerDay(day);
     setTimePickerType(type);
-    const timeStr = type === 'start' ? workingHours[day].startTime : workingHours[day].endTime;
+    const h = workingHours[day];
+    const timeStr =
+      type === 'start'
+        ? h.startTime
+        : type === 'end'
+          ? h.endTime
+          : type === 'start2'
+            ? (h.second?.startTime ?? '19:00')
+            : (h.second?.endTime ?? '22:00');
     const [hours, minutesPart] = timeStr.split(':');
     const [minutes, period] = minutesPart.split(' ');
     // 24h "HH:mm" by default; legacy "h:mm AM/PM" still tolerated.
@@ -352,14 +400,48 @@ export default function AddEditServiceScreen() {
     // 24-hour display, e.g. "08:00" / "18:00" / "24:00".
     const formattedTime = formatTime24(date);
 
-    setWorkingHours((prev) => ({
-      ...prev,
-      [timePickerDay]: {
-        ...prev[timePickerDay],
-        [timePickerType === 'start' ? 'startTime' : 'endTime']: formattedTime,
-      },
-    }));
+    setWorkingHours((prev) => {
+      const day = prev[timePickerDay];
+      if (timePickerType === 'start2' || timePickerType === 'end2') {
+        const second = day.second ?? { startTime: '19:00', endTime: '22:00' };
+        return {
+          ...prev,
+          [timePickerDay]: {
+            ...day,
+            second: {
+              ...second,
+              [timePickerType === 'start2' ? 'startTime' : 'endTime']: formattedTime,
+            },
+          },
+        };
+      }
+      return {
+        ...prev,
+        [timePickerDay]: {
+          ...day,
+          [timePickerType === 'start' ? 'startTime' : 'endTime']: formattedTime,
+        },
+      };
+    });
   };
+
+  /**
+   * A split day (feedback 2026-10-21): a second window, by default after a break once the first one
+   * ends — 16:00–20:00 after a morning, 19:00–22:00 after a day — or an early morning before late
+   * hours. The partner adjusts it; overlapping windows are refused on save.
+   */
+  const setSecondWindow = (day: string, on: boolean) =>
+    setWorkingHours((prev) => {
+      const h = prev[day];
+      const [eh] = h.endTime.split(':').map((n) => parseInt(n, 10) || 0);
+      const late = isOvernightHours(h.startTime, h.endTime) || eh > 18;
+      const second = late
+        ? { startTime: '07:00', endTime: '09:00' }
+        : eh <= 13
+          ? { startTime: '16:00', endTime: '20:00' }
+          : { startTime: '19:00', endTime: '22:00' };
+      return { ...prev, [day]: { ...h, second: on ? second : null } };
+    });
 
   const addPricingTier = () => {
     setPricingTiers([...pricingTiers, { duration: '', price: '' }]);
@@ -493,6 +575,7 @@ export default function AddEditServiceScreen() {
           serviceName,
           description,
           pricingTiers,
+          pricingUnit,
           maxPetCapacity: parseInt(maxPetCapacity, 10) || 1,
           acceptedSpecies,
           additionalServices,
@@ -566,14 +649,12 @@ export default function AddEditServiceScreen() {
 
   return (
     <ScreenLayout
+      narrow
       showBackButton
       headerTitle={isEdit ? t('addEditService.titleEdit') : t('addEditService.titleAdd')}
       headerSubtitle={isEdit ? t('addEditService.subtitleEdit') : t('addEditService.subtitleAdd')}
       rightAction={previewButton}
-      contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-white'}
-      // A form: one column of fields. Capped narrow so a label never sits a screen-width
-      // away from the input it names.
-      width="narrow">
+      contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-white'}>
       <ScrollView className={`flex-1 ${gutter.px} py-6`} showsVerticalScrollIndicator={false}>
         {isFirstService ? (
           <View
@@ -867,6 +948,51 @@ export default function AddEditServiceScreen() {
                 </Text>
               </View>
             </TouchableOpacity>
+
+            {/* One price with no duration: say what it is per. With duration tiers each price is
+                for its whole option, so there is nothing to choose. */}
+            {pricesByUnit ? (
+              <View className="mt-4">
+                <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                  {t('addEditService.priceUnit')}
+                </Text>
+                <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                  {(
+                    [
+                      [PricingUnit.PerVisit, 'durations.unitPerVisit'],
+                      [PricingUnit.PerHour, 'durations.unitPerHour'],
+                      [PricingUnit.PerDay, 'durations.unitPerDay'],
+                      [PricingUnit.PerNight, 'durations.unitPerNight'],
+                    ] as const
+                  ).map(([unit, key]) => {
+                    const active = pricingUnit === unit;
+                    return (
+                      <TouchableOpacity
+                        key={unit}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: active }}
+                        aria-checked={active}
+                        onPress={() => setPricingUnit(unit)}
+                        className={`rounded-full border px-4 py-2 ${
+                          active
+                            ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                            : `${isDarkMode ? 'border-gray-700' : 'border-gray-300'} ${inputBg}`
+                        }`}>
+                        <Text
+                          className={`text-sm ${active ? 'font-semibold text-brand-600' : subtextColor}`}>
+                          {t(key)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {pricingUnit !== PricingUnit.PerVisit ? (
+                  <Text className={`${subtextColor} mt-2 text-xs`}>
+                    {t('addEditService.priceUnitHint')}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
           </View>
 
           {/* Maximum Pet Capacity */}
@@ -1083,9 +1209,10 @@ export default function AddEditServiceScreen() {
                         }
                       />
 
-                      {/* Free distance + Max distance side by side */}
-                      <View className="flex-row gap-3">
-                        <View className="flex-1">
+                      {/* Free distance + Max distance: side by side on the phone, one per row
+                          in the web form (feedback 2026-10-20). */}
+                      <View className={isWebLayout ? 'gap-3' : 'flex-row gap-3'}>
+                        <View className={isWebLayout ? '' : 'flex-1'}>
                           <Text className={`${textColor} mb-1 text-sm font-medium`}>
                             {t('addEditService.freeDistance')}
                           </Text>
@@ -1109,7 +1236,7 @@ export default function AddEditServiceScreen() {
                             <Text className={`${subtextColor} ml-1`}>{t('addEditService.km')}</Text>
                           </View>
                         </View>
-                        <View className="flex-1">
+                        <View className={isWebLayout ? '' : 'flex-1'}>
                           <Text className={`${textColor} mb-1 text-sm font-medium`}>
                             {t('addEditService.maxDistance')}
                           </Text>
@@ -1156,6 +1283,31 @@ export default function AddEditServiceScreen() {
             <Text className={`${subtextColor} mb-3 text-sm`}>
               {t('addEditService.workingHoursHint')}
             </Text>
+
+            {/* Late and overnight hours in one tap. */}
+            <View className="mb-1 flex-row flex-wrap items-center gap-2">
+              <View className="flex-row items-center">
+                <Ionicons name="moon-outline" size={16} color={BRAND_GREEN} />
+                <Text className={`ml-1.5 text-sm font-medium ${textColor}`}>
+                  {t('addEditService.lateHours')}
+                </Text>
+              </View>
+              {(
+                [
+                  ['late', 'addEditService.presetLate'],
+                  ['overnight', 'addEditService.presetOvernight'],
+                ] as const
+              ).map(([kind, labelKey]) => (
+                <TouchableOpacity
+                  key={kind}
+                  accessibilityRole="button"
+                  onPress={() => applyLatePreset(kind)}
+                  className={`${cardBg} rounded-full border border-brand-300 px-3 py-1.5`}>
+                  <Text className="text-sm font-medium text-brand-600">{t(labelKey)}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text className={`${subtextColor} mb-3 text-xs`}>{t('addEditService.lateHint')}</Text>
 
             {!anyDayEnabled && (
               <View
@@ -1226,11 +1378,69 @@ export default function AddEditServiceScreen() {
                           accessibilityRole="button"
                           onPress={() => openTimePicker(day, 'end')}
                           className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
-                          <Text className={textColor}>{hours.endTime}</Text>
+                          <Text className={textColor}>
+                            {hours.endTime}
+                            {/* Runs past midnight: say so where the time is read. */}
+                            {isOvernightHours(hours.startTime, hours.endTime) ? (
+                              <Text className="text-xs text-brand-600">
+                                {' '}
+                                ({t('addEditService.nextDay')})
+                              </Text>
+                            ) : null}
+                          </Text>
                           <Ionicons name="time-outline" size={20} color="#6B7280" />
                         </TouchableOpacity>
                       </View>
                     </View>
+
+                    {/* A split day: a second window, e.g. 08:00–12:00 and 17:00–21:00. */}
+                    {hours.second ? (
+                      <View className="mt-3 flex-row items-end gap-3">
+                        <View className="flex-1">
+                          <TouchableOpacity
+                            accessibilityRole="button"
+                            onPress={() => openTimePicker(day, 'start2')}
+                            className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
+                            <Text className={textColor}>{hours.second.startTime}</Text>
+                            <Ionicons name="time-outline" size={20} color="#6B7280" />
+                          </TouchableOpacity>
+                        </View>
+                        <View className="flex-1">
+                          <TouchableOpacity
+                            accessibilityRole="button"
+                            onPress={() => openTimePicker(day, 'end2')}
+                            className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
+                            <Text className={textColor}>
+                              {hours.second.endTime}
+                              {isOvernightHours(hours.second.startTime, hours.second.endTime) ? (
+                                <Text className="text-xs text-brand-600">
+                                  {' '}
+                                  ({t('addEditService.nextDay')})
+                                </Text>
+                              ) : null}
+                            </Text>
+                            <Ionicons name="time-outline" size={20} color="#6B7280" />
+                          </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          accessibilityLabel={t('addEditService.removeSecondTime')}
+                          onPress={() => setSecondWindow(day, false)}
+                          className="h-12 w-10 items-center justify-center">
+                          <Ionicons name="close-circle-outline" size={22} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        accessibilityRole="button"
+                        onPress={() => setSecondWindow(day, true)}
+                        className="mt-3 flex-row items-center">
+                        <Ionicons name="add-circle-outline" size={18} color={BRAND_GREEN} />
+                        <Text className="ml-1.5 text-sm font-medium text-brand-600">
+                          {t('addEditService.addSecondTime')}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
               </View>

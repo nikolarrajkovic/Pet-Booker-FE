@@ -9,7 +9,7 @@ import {
   GroupBookingResponse,
   type GroupBookingRequestDto,
 } from '../../../services/group-booking-requests';
-import { formatRequestWindow, sentAgo } from '../groupRequestFormat';
+import { formatRequestWhen, sentAgo } from '../groupRequestFormat';
 
 type Props = {
   request: GroupBookingRequestDto;
@@ -69,20 +69,34 @@ export default function GroupRequestCard({
             {sentAgo(t, r)}
           </Text>
         </View>
-        <View
-          className={`rounded-full px-2.5 py-1 ${named ? 'bg-brand-500' : isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`}>
-          <Text className={`text-[11px] font-semibold ${named ? 'text-white' : 'text-brand-600'}`}>
-            {named ? t('groupRequest.badgeNamed') : t('groupRequest.badgeOpen')}
-          </Text>
+        <View className="items-end" style={{ gap: 4 }}>
+          <View
+            className={`rounded-full px-2.5 py-1 ${named ? 'bg-brand-500' : isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`}>
+            <Text
+              className={`text-[11px] font-semibold ${named ? 'text-white' : 'text-brand-600'}`}>
+              {named ? t('groupRequest.badgeNamed') : t('groupRequest.badgeOpen')}
+            </Text>
+          </View>
+          {/* Someone needs it now: the one thing a provider scanning the inbox must not miss. */}
+          {r.isAsap ? (
+            <View className="flex-row items-center rounded-full bg-amber-500 px-2.5 py-1">
+              <Ionicons name="flash" size={11} color="white" />
+              <Text className="ml-1 text-[11px] font-bold text-white">
+                {t('groupRequest.asapBadge')}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
 
       <View className="mt-3" style={{ gap: 6 }}>
         <View className="flex-row items-center">
-          <Ionicons name="calendar-outline" size={15} color={BRAND_GREEN} />
-          <Text className={`ml-2 flex-1 text-sm ${textColor}`}>
-            {formatRequestWindow(t, r.bookingFrom, r.bookingTo)}
-          </Text>
+          <Ionicons
+            name={r.isAsap ? 'flash-outline' : 'calendar-outline'}
+            size={15}
+            color={BRAND_GREEN}
+          />
+          <Text className={`ml-2 flex-1 text-sm ${textColor}`}>{formatRequestWhen(t, r)}</Text>
         </View>
         {(r.address || r.city) && (
           <View className="flex-row items-center">

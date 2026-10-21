@@ -109,7 +109,7 @@ whole thing in a 440px card on web.
 `ScreenLayout` stays the root of every screen and dispatches on the layout mode:
 
 ```tsx
-<ScreenLayout headerTitle="My Bookings" showBackButton width="wide">
+<ScreenLayout headerTitle="My Bookings" showBackButton>
   {/* body */}
 </ScreenLayout>
 ```
@@ -117,14 +117,16 @@ whole thing in a 440px card on web.
 - **Mobile** → today's markup, unchanged: `SafeAreaView` → `KeyboardAvoidingView` → green
   `AppHeader` → rounded content sheet → footer.
 - **Web** → `PageHeader` (title, subtitle, back link, right action) inside a
-  `ContentContainer`; no green block, no rounded sheet, no safe-area padding, and
+  `ContentContainer` — the full width beside the sidebar, inset by the one 32px page gutter (a
+  centred per-page cap put each page's content at a different distance from the sidebar;
+  feedback 2026-10-19). **Forms and text pages pass `narrow`**: one centred 720px column with
+  the title above it and one field per row (feedback 2026-10-20); no green block, no rounded sheet, no safe-area padding, and
   `showNotificationButton` is ignored because the bell lives in the `TopBar`.
 
 New `ScreenLayout` props, all optional and all mobile-inert:
 
 | Prop | Effect on web |
 |---|---|
-| `width` | `'narrow'` (720px — forms, auth), `'default'` (1120px), `'wide'` (1400px — dashboards, maps), `'full'` (no cap) |
 | `aside` | Right-hand column, sticky, collapses **below** the main content on mobile |
 | `webHeaderRight` | Actions rendered beside the page title instead of in the mobile header row |
 

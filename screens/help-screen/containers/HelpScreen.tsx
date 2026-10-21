@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import FormCard from '../../../components/shared/FormCard';
+import { useResponsive } from '../../../hooks/useResponsive';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -19,6 +20,7 @@ const QUESTIONS = [1, 2, 3, 4, 5, 6] as const;
  */
 export default function HelpScreen() {
   const gutter = usePageGutter();
+  const { isWebLayout } = useResponsive();
   const navigation = useNavigation<any>();
   const { bgColor, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
@@ -40,14 +42,21 @@ export default function HelpScreen() {
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('help.title')}
-      contentBg={bgColor}
-      width="narrow">
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
+      contentBg={bgColor}>
+      {/* Web: the card sits inside the page gutter like every other page's, and pads itself.
+          Phone: FormCard is a pass-through, so the text carries the gutter. */}
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          paddingBottom: 32,
+          paddingHorizontal: isWebLayout ? gutter.value : 0,
+        }}>
         <FormCard>
-          <View className={`${gutter.px} py-6`}>
+          <View className={`${isWebLayout ? '' : gutter.px} py-6`}>
             <Text className={`mb-5 text-sm ${subtextColor}`}>{t('help.intro')}</Text>
 
             <Text className={`mb-2 text-base font-bold ${textColor}`} accessibilityRole="header">

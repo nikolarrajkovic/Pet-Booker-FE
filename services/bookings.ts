@@ -109,6 +109,8 @@ export type BookingDto = {
   /** True when the server derived the Expired state (see BookingState.Expired). */
   isExpired?: boolean;
   cancelReason?: string | null;
+  /** The customer's note for the provider (max 1000 characters). */
+  note?: string | null;
   bookingFrom: string; // ISO date-time
   bookingTo: string; // ISO date-time
   basePrice: number;
@@ -236,6 +238,7 @@ type WritableBookingCreate = {
   // distances: it measures each trip leg itself from the addresses under `location`.
   additionalServices?: BookingAdditionalServiceRef[];
   location?: BookingLocationDto | null;
+  note?: string | null;
 };
 
 /**
@@ -542,6 +545,8 @@ export type CreateBookingInput = {
   // from the booked service's catalog and freezes it as a line item on the booking. There is
   // deliberately no way to send a price or a distance — both decide what is charged.
   additionalServiceIds?: number[];
+  /** For the provider: anything they should know (max 1000 characters). */
+  note?: string | null;
 };
 
 /**
@@ -605,6 +610,7 @@ function toCreateBody(input: CreateBookingInput): WritableBookingCreate {
     additionalServices: (input.additionalServiceIds ?? []).map((id) => ({
       additionalServiceId: id,
     })),
+    note: input.note?.trim() || null,
   };
 
   // Pickup/Drop-off addresses are sent INLINE in this POST (never /api/addresses).
@@ -628,6 +634,9 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
     })
   );
 }
+
+/** The most appointments one checkout may hold — the server's CreateBookingsBatchCommandValidator. */
+export const MAX_BATCH_APPOINTMENTS = 60;
 
 /**
  * Several appointments in one checkout, created all or nothing (`POST /api/bookings/batch`). If any

@@ -79,8 +79,16 @@ export function newAdditionalServiceEntry(): AdditionalServiceEntry {
   };
 }
 
+/** A second window the same day — a split day, 08:00–12:00 and 17:00–21:00. */
+export type SecondWindow = { startTime: string; endTime: string };
+
 export interface WorkingHours {
-  [day: string]: { enabled: boolean; startTime: string; endTime: string };
+  [day: string]: {
+    enabled: boolean;
+    startTime: string;
+    endTime: string;
+    second?: SecondWindow | null;
+  };
 }
 
 export interface UiService {
@@ -411,6 +419,20 @@ function hmsToUiTime(hms: string): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+/**
+ * Whether a day's hours run past midnight into the next day ("20:00" → "02:00"), in the form's
+ * 24h "HH:mm" strings. The backend reads an end at or before the start that way (Domain.WorkingHours,
+ * feedback 2026-10-18) — late and overnight sitting. "24:00" is the end of the same day.
+ */
+export function isOvernightHours(startTime: string, endTime: string): boolean {
+  if (endTime.startsWith('24:')) return false;
+  const minutes = (t: string) => {
+    const [h, m] = t.split(':').map((n) => parseInt(n, 10) || 0);
+    return h * 60 + m;
+  };
+  return minutes(endTime) <= minutes(startTime);
+}
+
 /** Service schedules (embedded on the service GET) → the form's WorkingHours. */
 export function schedulesToWorkingHours(schedules?: ServiceScheduleDto[] | null): WorkingHours {
   const hours: WorkingHours = {};
@@ -418,10 +440,19 @@ export function schedulesToWorkingHours(schedules?: ServiceScheduleDto[] | null)
   for (const day of UI_DAY_ORDER) {
     hours[day] = { enabled: false, startTime: '09:00', endTime: '17:00' };
   }
-  for (const s of schedules ?? []) {
+  // A day may have two windows (a split day). They used to overwrite each other here, so editing
+  // a service with a split day and saving it dropped all but the last window. Earliest first.
+  const sorted = [...(schedules ?? [])].sort(
+    (a, b) => a.day - b.day || a.from.localeCompare(b.from)
+  );
+  for (const s of sorted) {
     const name = DAY_NAMES[s.day];
-    if (name && hours[name]) {
-      hours[name] = { enabled: true, startTime: hmsToUiTime(s.from), endTime: hmsToUiTime(s.to) };
+    if (!name || !hours[name]) continue;
+    const window = { startTime: hmsToUiTime(s.from), endTime: hmsToUiTime(s.to) };
+    if (!hours[name].enabled) {
+      hours[name] = { enabled: true, ...window, second: null };
+    } else if (!hours[name].second) {
+      hours[name] = { ...hours[name], second: window };
     }
   }
   return hours;
@@ -438,6 +469,14 @@ export function workingHoursToSchedules(
     const day = DAY_NAMES.indexOf(name);
     if (day < 0) continue;
     out.push({ serviceId, day, from: uiTimeToHms(h.startTime), to: uiTimeToHms(h.endTime) });
+    if (h.second) {
+      out.push({
+        serviceId,
+        day,
+        from: uiTimeToHms(h.second.startTime),
+        to: uiTimeToHms(h.second.endTime),
+      });
+    }
   }
   return out;
 }
@@ -564,6 +603,12 @@ export type ServiceFormInput = {
   serviceName: string;
   description: string;
   pricingTiers: PricingTier[];
+  /**
+   * What the price is per (PricingUnit) when the service has one price and no duration tiers:
+   * per visit, hour, day or night. Omit to keep the original's. Ignored with duration tiers,
+   * whose prices are each for the whole option.
+   */
+  pricingUnit?: number;
   maxPetCapacity?: number; // → details.maxConcurrentBookings
   // Which pets the service takes (PetSpeciesType FLAGS) → details.acceptedSpecies. The screen
   // refuses to save with none, as the API does.
@@ -624,6 +669,11 @@ export function resolveServiceAddressForSave(
  * not "clear them" — a provider switching every day off still needs `clearServiceSchedules`.
  * Pricing options have no such gap; `[]` there really is "no tiers".
  */
+/** Whether any tier names a duration — then the service prices by option, not by unit. */
+export function hasDurationTiers(tiers: PricingTier[]): boolean {
+  return tiers.some((tier) => !!tier.duration);
+}
+
 export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): ServiceDto {
   // basePrice = the cheapest tier, so any card reading `price` alone shows a correct "from"
   // figure; the tiers themselves persist as the `pricingOptions` below.
@@ -661,7 +711,9 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
   // `pricing` prices the service itself; add-on money lives on each extra's own row.
   const pricing: NonNullable<ServiceDto['pricing']> = {
     basePrice,
-    unit: original?.pricing?.unit ?? 0,
+    unit: hasDurationTiers(form.pricingTiers)
+      ? 0
+      : (form.pricingUnit ?? original?.pricing?.unit ?? 0),
     isEscrowPercentEnabled: original?.pricing?.isEscrowPercentEnabled ?? false,
     escrowPercent: original?.pricing?.escrowPercent ?? null,
     escrowAmount: original?.pricing?.escrowAmount ?? 0,

@@ -3,6 +3,7 @@ import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import {
+  priceSuffix,
   ServiceDto,
   ServiceSortBy,
   serviceCurrency,
@@ -13,6 +14,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import ServiceResultRow from '../../../components/shared/ServiceResultRow';
 import ServicePhoto from '../../../components/shared/ServicePhoto';
+import { DROPDOWN_ANCHOR } from '../../../components/shared/SortMenu';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
@@ -69,6 +71,8 @@ interface ListViewProps {
   };
   /** Rendered above the results on the phone design — the filter button and its active count. */
   header?: React.ReactNode;
+  /** The day the search is filtered to, handed on to the service page and its booking form. */
+  date?: string | null;
 }
 
 /**
@@ -100,7 +104,7 @@ interface ListViewProps {
  * the description and the chips.
  */
 const RICH_ROW_MIN_WIDTH = 640;
-export default function ListView({ services, badge, paging, sort, header }: ListViewProps) {
+export default function ListView({ services, badge, paging, sort, header, date }: ListViewProps) {
   const gutter = usePageGutter();
   const navigation = useNavigation();
   const tabBarSpacing = useTabBarSpacing();
@@ -134,13 +138,20 @@ export default function ListView({ services, badge, paging, sort, header }: List
     <TouchableOpacity
       accessibilityRole="button"
       key={item.id}
-      onPress={() => (navigation as any).navigate('ServiceDetail', serviceDetailParams(item.dto))}
+      onPress={() =>
+        (navigation as any).navigate('ServiceDetail', serviceDetailParams(item.dto, date))
+      }
       className={`${cardBg} mb-3 flex-row rounded-2xl border p-3 shadow-sm ${borderColor}`}
       activeOpacity={0.9}>
       {/* Service image + category banner (Popular / Deal) */}
       {/* ServicePhoto layers the paw placeholder behind the photo, so a service with no photo (or
           a dead URL) reads as "no photo yet" instead of a blank white hole in the card. */}
-      <ServicePhoto uri={item.image} radiusClass="rounded-xl" iconSize={26} className="h-20 w-20">
+      <ServicePhoto
+        uri={item.image}
+        thumbWidth={240}
+        radiusClass="rounded-xl"
+        iconSize={26}
+        className="h-20 w-20">
         {badge === 'popular' && (
           <View className="absolute left-1 top-1 flex-row items-center rounded-full bg-amber-500 px-1.5 py-0.5">
             <Ionicons name="flame" size={10} color="white" />
@@ -194,6 +205,7 @@ export default function ListView({ services, badge, paging, sort, header }: List
         {/* Each service prices in its own provider's currency, so format per item. */}
         <Text className="mt-1 font-semibold text-brand-600">
           {t('bookService.priceFrom')} {formatMoney(item.price, serviceCurrency(item.dto))}
+          {priceSuffix(t, item.dto)}
         </Text>
       </View>
     </TouchableOpacity>
@@ -222,15 +234,15 @@ export default function ListView({ services, badge, paging, sort, header }: List
         {/* The sort panel opens downwards OVER the first result rows, so this row has to out-rank
             them in paint order. A z-index only competes inside its own stacking context, and the
             cards are later siblings of this row — so raising it on the panel alone left the panel
-            underneath them. It is set here in `style` rather than as a `z-*` class because RN
-            resolves zIndex from the style object. */}
-        <View className="mb-4 flex-row items-center justify-between" style={{ zIndex: 20 }}>
+            underneath them. On Android it also needs elevation, or the cards' own elevation draws
+            them over the open menu — see DROPDOWN_ANCHOR. */}
+        <View className="mb-4 flex-row items-center justify-between" style={DROPDOWN_ANCHOR}>
           <Text className={`text-sm font-medium ${textColor}`}>
             {t('search.resultsCount', { count: resultCount })}
           </Text>
 
           {sort && (
-            <View style={{ zIndex: 20 }}>
+            <View style={DROPDOWN_ANCHOR}>
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel={`${t('search.sortBy')}: ${t(activeSortLabel as any)}`}
@@ -254,10 +266,8 @@ export default function ListView({ services, badge, paging, sort, header }: List
                 <View
                   className={`absolute right-0 top-11 w-56 rounded-xl border py-1 ${borderColor} ${cardBg}`}
                   style={{
-                    // Above the rows on every platform: zIndex for web/iOS, and elevation, which
-                    // is what actually orders overlapping views on Android — the result cards
-                    // carry elevation 2, so a panel without one paints under them there even
-                    // with a higher zIndex.
+                    // Above its own row's content; the row's DROPDOWN_ANCHOR is what lifts the
+                    // whole menu above the result cards (on Android, by elevation).
                     zIndex: 30,
                     shadowColor: '#000',
                     shadowOpacity: 0.15,
@@ -301,7 +311,7 @@ export default function ListView({ services, badge, paging, sort, header }: List
               distance={item.distance}
               badge={badge}
               onPress={() =>
-                (navigation as any).navigate('ServiceDetail', serviceDetailParams(item.dto))
+                (navigation as any).navigate('ServiceDetail', serviceDetailParams(item.dto, date))
               }
             />
           ) : (

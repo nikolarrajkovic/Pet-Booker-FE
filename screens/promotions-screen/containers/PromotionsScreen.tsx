@@ -271,8 +271,7 @@ export default function PromotionsScreen({ route }: PromotionsScreenProps) {
             {t('promotions.newButton')}
           </Text>
         </TouchableOpacity>
-      }
-      width="wide">
+      }>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{

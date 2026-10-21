@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import FormCard from '../../../components/shared/FormCard';
+import { useResponsive } from '../../../hooks/useResponsive';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -25,6 +26,7 @@ type Params = { Legal: { doc?: LegalDoc } };
  */
 export default function LegalScreen() {
   const gutter = usePageGutter();
+  const { isWebLayout } = useResponsive();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<Params, 'Legal'>>();
   const doc: LegalDoc = route.params?.doc === 'privacy' ? 'privacy' : 'terms';
@@ -37,14 +39,21 @@ export default function LegalScreen() {
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={title}
-      contentBg={bgColor}
-      width="narrow">
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
+      contentBg={bgColor}>
+      {/* Web: the card sits inside the page gutter like every other page's, and pads itself.
+          Phone: FormCard is a pass-through, so the text carries the gutter. */}
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          paddingBottom: 32,
+          paddingHorizontal: isWebLayout ? gutter.value : 0,
+        }}>
         <FormCard>
-          <View className={`${gutter.px} py-6`}>
+          <View className={`${isWebLayout ? '' : gutter.px} py-6`}>
             <View
               className="mb-4 flex-row items-start rounded-xl px-3 py-3"
               style={{ backgroundColor: isDarkMode ? 'rgba(217,119,6,0.14)' : '#FFFBEB' }}>

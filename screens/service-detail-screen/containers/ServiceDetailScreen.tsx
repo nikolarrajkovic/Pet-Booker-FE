@@ -17,11 +17,13 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocale } from '../../../context/LocaleContext';
 import TwoColumn from '../../../components/shared/TwoColumn';
+import ServicePhoto from '../../../components/shared/ServicePhoto';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import BookingCartPill from '../../../components/shared/BookingCartPill';
 import StickyFooter from '../../../components/shared/StickyFooter';
-import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 import { useResponsive } from '../../../hooks/useResponsive';
 import {
+  priceSuffix,
   getService,
   ServiceDto,
   effectiveOptionPrice,
@@ -43,6 +45,7 @@ import {
 import {
   schedulesToWorkingHours,
   durationDisplayLabel,
+  isOvernightHours,
 } from '../../my-services-screen/serviceModel';
 import { PetSpecies } from '../../../services/pets';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -58,7 +61,8 @@ import { useRequireSignIn } from '../../../hooks/useRequireSignIn';
 //   * from the URL `/services/:serviceId`, carrying only an id — nothing to render
 //     until the fetch lands, so it shows a spinner first.
 // Either way the mount fetch is the same call, so the id-only path costs nothing extra.
-type ServiceDetailRouteParams = { service?: ServiceDto; serviceId?: number };
+// `date`: the day a search was filtered to, passed on to the booking form (serviceDetailParams).
+type ServiceDetailRouteParams = { service?: ServiceDto; serviceId?: number; date?: string };
 
 // Prefer the effective price (after any applied discount) the API returns.
 const servicePrice = (s: ServiceDto) => s.price ?? s.pricing?.basePrice ?? 0;
@@ -90,19 +94,15 @@ export default function ServiceDetailScreen() {
   // them back to this page (app review G7).
   const requireSignIn = useRequireSignIn();
   const route = useRoute<RouteProp<{ params: ServiceDetailRouteParams }, 'params'>>();
-  const { service, serviceId } = route.params ?? {};
+  const { service, serviceId, date: searchedDate } = route.params ?? {};
   // The id is what identifies the screen; a passed `service` is just a head start on rendering.
   const id = service?.id ?? serviceId ?? null;
   const { width: windowWidth } = useWindowDimensions();
   const { isWebLayout } = useResponsive();
 
-  // The paged gallery sizes each photo to one "page". That page is the WINDOW on a phone, where
-  // the screen is the container — but on the web design the container is the capped content
-  // column beside the sidebar, so using the window width would render each photo wider than the
-  // column and leave the paging maths one photo behind every swipe.
-  const screenWidth = isWebLayout
-    ? Math.min(windowWidth, CONTENT_WIDTHS.default ?? windowWidth)
-    : windowWidth;
+  // The paged gallery sizes each photo to one "page": the window on a phone. On the web design the
+  // gallery measures its own card (onLayout → galleryWidth) — this is only the first frame's guess.
+  const screenWidth = windowWidth;
   const {
     isDarkMode,
     bgColor: contentBg,
@@ -303,6 +303,7 @@ export default function ServiceDetailScreen() {
       (navigation as any).navigate('BookService', {
         serviceId: selectedService.id,
         service: selectedService,
+        ...(searchedDate ? { date: searchedDate } : {}),
       })
     );
 
@@ -336,6 +337,10 @@ export default function ServiceDetailScreen() {
   // is a card beside the booking panel, so the price and Book Now stay in view while reading —
   // they used to sit ~1,750px down, at the end of a column stretched across the window.
   const pageWidth = galleryWidth ?? screenWidth;
+  // 4:3, capped. The gallery used to be a fixed 224px band — on the 780px desktop card that is
+  // 3.5:1, so a portrait phone photo kept a third of its height. ServicePhoto now shows the whole
+  // photo (blurred fill around it), and a taller frame gives it room to be seen.
+  const galleryHeight = Math.round(Math.min(pageWidth * 0.75, isWebLayout ? 440 : 340));
   const details = (
     <>
       {/* Photo gallery — profile photo first, swipe through the rest */}
@@ -349,11 +354,12 @@ export default function ServiceDetailScreen() {
               setActivePhoto(Math.round(e.nativeEvent.contentOffset.x / pageWidth))
             }>
             {photoUris.map((uri, i) => (
-              <Image
+              <ServicePhoto
                 key={i}
-                source={{ uri }}
-                style={{ width: pageWidth, height: 224 }}
-                resizeMode="cover"
+                uri={uri}
+                radiusClass="rounded-none"
+                iconSize={48}
+                style={{ width: pageWidth, height: galleryHeight }}
               />
             ))}
           </ScrollView>
@@ -415,6 +421,7 @@ export default function ServiceDetailScreen() {
           <View className="mt-4 flex-row items-baseline">
             <Text className={`${subtextColor} mr-2`}>{t('serviceDetail.startingFrom')}</Text>
             <Text className="text-3xl font-bold text-brand-600">{money(effective)}</Text>
+            <Text className={`${subtextColor} ml-1`}>{priceSuffix(t, svc)}</Text>
             {hasDiscount ? (
               <Text className={`${subtextColor} ml-2 line-through`}>{money(base)}</Text>
             ) : null}
@@ -602,7 +609,9 @@ export default function ServiceDetailScreen() {
                         like a data glitch rather than "we're open all day". */}
                 {isAllDay(h.startTime, h.endTime)
                   ? t('serviceDetail.openAllDay')
-                  : `${h.startTime} – ${h.endTime}`}
+                  : isOvernightHours(h.startTime, h.endTime)
+                    ? `${h.startTime} – ${h.endTime} (${t('addEditService.nextDay')})`
+                    : `${h.startTime} – ${h.endTime}`}
               </Text>
             </View>
           ))
@@ -645,6 +654,7 @@ export default function ServiceDetailScreen() {
       <Text className={`${subtextColor} mb-1 text-sm`}>{t('serviceDetail.startingFrom')}</Text>
       <View className="flex-row flex-wrap items-baseline">
         <Text className="text-3xl font-bold text-brand-600">{money(effective)}</Text>
+        <Text className={`${subtextColor} ml-1`}>{priceSuffix(t, svc)}</Text>
         {hasDiscount ? (
           <Text className={`${subtextColor} ml-2 line-through`}>{money(base)}</Text>
         ) : null}
@@ -678,7 +688,6 @@ export default function ServiceDetailScreen() {
       headerVariant="standard"
       showBackButton
       contentBg={contentBg}
-      width="default"
       headerTitle={isWebLayout ? t('serviceDetail.title') : undefined}
       headerSubtitle={isWebLayout ? t('serviceDetail.subtitle') : undefined}
       headerChildren={
@@ -755,6 +764,8 @@ export default function ServiceDetailScreen() {
           </TouchableOpacity>
         </StickyFooter>
       )}
+      {/* What waits in the booking cart; above the phone's Book Now bar. */}
+      <BookingCartPill bottomOffset={isWebLayout ? 0 : 88} />
     </ScreenLayout>
   );
 }

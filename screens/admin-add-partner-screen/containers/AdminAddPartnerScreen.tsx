@@ -170,15 +170,13 @@ export default function AdminAddPartnerScreen() {
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('admin.addPartnerTitle')}
       headerSubtitle={t('admin.addPartnerSubtitle')}
       contentBg={bgColor}
-      headerChildren={<StepProgress step={step} total={totalSteps} />}
-      // A form: one column of fields. Capped narrow so a label never sits a screen-width
-      // away from the input it names.
-      width="narrow">
+      headerChildren={<StepProgress step={step} total={totalSteps} />}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{

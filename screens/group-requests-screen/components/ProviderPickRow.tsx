@@ -50,6 +50,7 @@ export default function ProviderPickRow({ item, selected, disabled, onToggle }: 
       />
       <ServicePhoto
         uri={item.image}
+        thumbWidth={240}
         radiusClass="rounded-xl"
         iconSize={18}
         className="ml-3 h-12 w-12"

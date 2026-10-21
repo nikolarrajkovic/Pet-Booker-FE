@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import {
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+} from 'react-native';
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -14,21 +22,28 @@ import { durationDisplayLabel } from '../../my-services-screen/serviceModel';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import StickyFooter from '../../../components/shared/StickyFooter';
+import ServicePhoto from '../../../components/shared/ServicePhoto';
 import { useResponsive } from '../../../hooks/useResponsive';
 import DatePicker from '../../../components/shared/DatePicker';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { PetSelector, BookingSummary, TimeSlotPicker, TimeSlot } from '../components';
 import {
+  unitsFor,
+  serviceUnit,
+  priceSuffix,
+  PricingUnit,
   ServiceDto,
   getService,
   getServiceAvailability,
   AvailabilityWindowDto,
   effectiveOptionPrice,
   serviceCurrency,
+  serviceAsksDeposit,
 } from '../../../services/services';
 import { getPets, PetResponse, speciesAccepted } from '../../../services/pets';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import {
+  MAX_BATCH_APPOINTMENTS,
   parseBookingDate,
   formatBookingDate,
   type BookingAdditionalServiceReadDto,
@@ -48,6 +63,10 @@ import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useResource } from '../../../hooks/useResource';
 import { LoadingState, MessageState } from '../../../components/shared/ListState';
 import { formatKm } from '../../../i18n/numbers';
+import { parseDateOnly } from '../../../services/date-only';
+import { daySegments, roomIn, startCandidates, stayRoom, stayStartCandidates } from '../slotMath';
+import type { Appointment } from '../appointment';
+import { useBookingCart } from '../../../context/BookingCartContext';
 
 // The user books one specific service (chosen before entering this screen), not
 // a provider — the service comes in as a route param and carries serviceProviderId.
@@ -57,47 +76,45 @@ import { formatKm } from '../../../i18n/numbers';
  * exists and the service is fetched. It used to need the object, so the address bar read
  * `/BookService?service=[object Object]` and a reload dropped the user on Home.
  */
-type BookServiceRouteParams = { serviceId?: number; service?: ServiceDto };
+// `date` ("YYYY-MM-DD"): the day the customer searched for, so the form opens on it.
+type BookServiceRouteParams = { serviceId?: number; service?: ServiceDto; date?: string };
 
 const servicePrice = (s: ServiceDto) => s.price ?? s.pricing?.basePrice ?? 0;
 
 // Add-ons come from the service itself (see services/service-addons.ts), so a
 // booker sees exactly what the provider configured — nothing is hardcoded here.
 
-type Appointment = {
-  id: number;
-  service: { id: number; name: string; price: number };
-  pet: { id: number; name: string; image: string };
-  // The extras as the SERVER priced them: name, amount, and for a per-distance extra the fees and
-  // that leg's distance behind the number — everything Review needs to itemize the charge without
-  // recomputing anything.
-  addons: BookingAdditionalServiceReadDto[];
-  // The ids the booking create will send (the quote priced exactly these).
-  addonIds: number[];
-  bookingFrom: string;
-  bookingTo: string;
-  total: number;
-  // The chosen pricing option (duration/price variant) — required when the
-  // service defines options. Frozen at add time: changing the selector never
-  // mutates an already-added appointment. `pricingOptionBase` keeps the
-  // pre-discount option price for the Review breakdown's discount line.
-  pricingOptionId?: number;
-  pricingOptionName?: string;
-  pricingOptionBase?: number;
-  // Required when a selected extra needs that side; sent inline on booking create.
-  pickupAddress?: AddressDto;
-  leaveOverAddress?: AddressDto;
-  // The distances the server measured for each leg when it priced this selection. Display only —
-  // the create re-measures from the addresses above rather than trusting a client value.
-  pickupDistanceKm?: number | null;
-  leaveOverDistanceKm?: number | null;
-};
-
 // Bookable slots are derived from the day's availability windows
 // (GET /api/services/{id}/availability). A date with no windows is not
 // bookable. Slot length: the chosen pricing option's duration when the service
 // defines options, else this 1h default (classic free-range services).
 const SLOT_DURATION_MS = 60 * 60 * 1000;
+
+// Starts are offered every half hour, whatever the appointment's length. The grid used to step by
+// the slot itself, so a 1h walk could only start on the hour and a 3h sit only at 09:00, 12:00 and
+// 15:00 — a customer who needed 10:30 had no way to ask for it.
+const SLOT_STEP_MINUTES = 30;
+
+// How far ahead "Repeat on other days" offers the same time (bulk booking: a walk every weekday).
+const REPEAT_HORIZON_DAYS = 14;
+
+/** "Every week": how many weeks the pattern may run (feedback 2026-10-21). */
+const WEEKLY_WEEKS = [2, 4, 8];
+/** Monday first, as the calendar shows the week; JS getDay() numbers. */
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+const DAY_MINUTES = 24 * 60;
+
+/**
+ * The lengths a service priced per hour, day or night offers (feedback 2026-10-21), in minutes.
+ * A day or a night is a 24-hour block from the drop-off, as at a pet hotel. The service's own
+ * minimum and maximum length narrow them.
+ */
+const LENGTHS_BY_UNIT: Record<number, number[]> = {
+  [PricingUnit.PerHour]: [60, 90, 120, 180, 240, 360, 480],
+  [PricingUnit.PerDay]: [1, 2, 3, 5, 7].map((n) => n * DAY_MINUTES),
+  [PricingUnit.PerNight]: [1, 2, 3, 5, 7, 14].map((n) => n * DAY_MINUTES),
+};
 
 // Local date-only key, "YYYY-MM-DD" — how the availability endpoint takes its from/to params and
 // how its `days[]` come back. Built from the local calendar fields rather than toISOString(),
@@ -108,16 +125,6 @@ const dateKey = (d: Date): string =>
 /** "YYYY-MM" — the cache key for one fetched month of availability. */
 const monthKeyOf = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-
-// "HH:mm:ss" (or "HH:mm") → minutes since midnight, rounded to the nearest
-// minute. Rounding lets the 23:59:59 end-of-day sentinel (= 24:00) read back as
-// 1440 so a window ending at midnight still yields its final 23:00–24:00 slot.
-const hmsToMinutes = (t?: string | null): number => {
-  if (!t) return 0;
-  const [h, m, s] = t.split(':');
-  const total = (parseInt(h, 10) || 0) * 60 + (parseInt(m, 10) || 0) + (parseInt(s, 10) || 0) / 60;
-  return Math.round(total);
-};
 
 /** Two time ranges overlap (half-open intervals). */
 const overlaps = (aFrom: number, aTo: number, bFrom: number, bTo: number) =>
@@ -152,9 +159,10 @@ export default function BookServiceScreen() {
   );
   const service = passed ?? data;
 
-  if (service) return <BookServiceForm service={service} />;
+  if (service) return <BookServiceForm service={service} initialDate={route.params?.date} />;
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('bookService.title')}
@@ -172,10 +180,14 @@ export default function BookServiceScreen() {
   );
 }
 
-function BookServiceForm({ service }: { service: ServiceDto }) {
+function BookServiceForm({ service, initialDate }: { service: ServiceDto; initialDate?: string }) {
   const gutter = usePageGutter();
   const navigation = useNavigation();
   const { currentUser } = useAuth();
+  // Other services set aside for the same checkout (feedback 2026-10-21).
+  const cart = useBookingCart();
+  // What the provider should know ("reactive with other dogs"); travels with every appointment.
+  const [note, setNote] = useState('');
   const { showError } = useToast();
   const {
     isDarkMode,
@@ -186,7 +198,7 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
     borderColor,
   } = useThemeColors();
   const location = useLocation();
-  const { t, tEnum } = useLocale();
+  const { t, tEnum, tPlural } = useLocale();
 
   // The service is fixed for this screen — booking targets this one service.
   // It arrives from Home/Search list endpoints, which return a LEANER ServiceDto
@@ -222,9 +234,29 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
   const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
   const selectedOption = pricingOptions.find((o) => o.id === selectedOptionId) ?? null;
   const optionChosen = pricingOptions.length === 0 || selectedOption != null;
-  // Slot length (and stride) for the time picker — the option's duration when
-  // one is chosen, else the classic 1h grid.
-  const slotMs = selectedOption ? selectedOption.durationMinutes * 60000 : SLOT_DURATION_MS;
+  // Priced per hour, day or night: the customer chooses how long, and pays the price for each.
+  const pricingUnit = serviceUnit(selectedService);
+  const lengthChoices = useMemo(() => {
+    const all = LENGTHS_BY_UNIT[pricingUnit] ?? [];
+    const min = selectedService.details?.minDurationMinutes ?? 0;
+    const max = selectedService.details?.maxDurationMinutes ?? Number.POSITIVE_INFINITY;
+    const fitting = all.filter((m) => m >= min && m <= max);
+    return fitting.length > 0 ? fitting : all.slice(0, 1);
+  }, [pricingUnit, selectedService]);
+  const [lengthMinutes, setLengthMinutes] = useState<number | null>(null);
+  const chosenLength =
+    lengthMinutes != null && lengthChoices.includes(lengthMinutes)
+      ? lengthMinutes
+      : (lengthChoices[0] ?? null);
+  // Slot length (and stride) for the time picker — the option's duration when one is chosen, the
+  // chosen length for a service priced per unit, else the classic 1h grid.
+  const slotMs = selectedOption
+    ? selectedOption.durationMinutes * 60000
+    : chosenLength != null
+      ? chosenLength * 60000
+      : SLOT_DURATION_MS;
+  // A stay of a day or more runs past the working hours (its nights are not working hours).
+  const isStay = slotMs >= DAY_MINUTES * 60000;
 
   // Selected extras by their real AdditionalService id (they were catalog string ids before).
   const [selectedAddons, setSelectedAddons] = useState<number[]>([]);
@@ -232,10 +264,28 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
   const [pickupAddr, setPickupAddr] = useState<AddressDto | null>(null);
   const [dropoffAddr, setDropoffAddr] = useState<AddressDto | null>(null);
   const [pickerFor, setPickerFor] = useState<'pickup' | 'dropoff' | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null); // date only (slot picks the time)
+  // Date only (the slot picks the time). Opens on the day the customer searched for, when that is
+  // still ahead — a day in the past (an old link) starts empty instead.
+  const [selectedDate, setSelectedDate] = useState<Date | null>(() => {
+    const searched = parseDateOnly(initialDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return searched && searched >= today ? searched : null;
+  });
   const [startDateTime, setStartDateTime] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedPet, setSelectedPet] = useState<number | null>(null);
+  // Several pets can be booked at once — one booking each, same time and extras.
+  const [selectedPets, setSelectedPets] = useState<number[]>([]);
+  // The pet the quote is priced for. The price does not depend on which pet it is, so one quote
+  // prices every pet's appointment.
+  const selectedPet = selectedPets[0] ?? null;
+  // Extra days ("YYYY-MM-DD") the same start time is repeated on.
+  const [extraDates, setExtraDates] = useState<string[]>([]);
+  // "Repeat on other days": tick days in the next two weeks, or a weekly pattern — the same time on
+  // chosen weekdays for a number of weeks ("Mon, Wed, Fri for 4 weeks").
+  const [repeatMode, setRepeatMode] = useState<'days' | 'weekly'>('days');
+  const [weeklyDays, setWeeklyDays] = useState<number[]>([]);
+  const [weeklyWeeks, setWeeklyWeeks] = useState(4);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   // Server-derived bookable windows (with remaining capacity), keyed by "YYYY-MM-DD".
@@ -319,8 +369,8 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
           setPets(mapped);
           // The newest pet the service takes - typically the one just added for this booking.
           const bookable = mapped.filter((p) => speciesAccepted(acceptedSpecies, p.type));
-          setSelectedPet(
-            (prev) => prev ?? (bookable.length ? bookable[bookable.length - 1].id : null)
+          setSelectedPets((prev) =>
+            prev.length ? prev : bookable.length ? [bookable[bookable.length - 1].id] : []
           );
         } catch (e) {
           if (!cancelled) showError(getErrorMessage(e, t('bookService.petsLoadError')));
@@ -334,10 +384,21 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
 
   // A selection the service doesn't take (the service detail arrived after the pick) is dropped.
   useEffect(() => {
-    if (selectedPet != null && petItems.some((p) => p.id === selectedPet && !p.accepted)) {
-      setSelectedPet(null);
-    }
-  }, [selectedPet, petItems]);
+    const refused = selectedPets.filter((id) => petItems.some((p) => p.id === id && !p.accepted));
+    if (refused.length) setSelectedPets((prev) => prev.filter((id) => !refused.includes(id)));
+  }, [selectedPets, petItems]);
+
+  // An owner with exactly one pet the service takes has nothing to choose: pick it for them, once.
+  const autoPickedPet = useRef(false);
+  useEffect(() => {
+    if (autoPickedPet.current || isLoading) return;
+    autoPickedPet.current = true;
+    const bookable = petItems.filter((p) => p.accepted);
+    if (bookable.length === 1) setSelectedPets((prev) => (prev.length ? prev : [bookable[0].id]));
+  }, [petItems, isLoading]);
+
+  const togglePet = (id: number) =>
+    setSelectedPets((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
 
   // Fetch the availability for the whole month a date belongs to, once. This is the ONLY source
   // of slot availability — the server already factors in the provider's bookings (per-window
@@ -345,10 +406,25 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
   //
   // The month the user is most likely to pick from is loaded up front so the calendar opens with
   // its unbookable days already greyed out, rather than looking uniformly available until tapped.
-  const monthToLoad = useMemo(() => monthKeyOf(selectedDate ?? new Date()), [selectedDate]);
+  //
+  // The month two weeks on is loaded too, so "Repeat on other days" can tell which of the next
+  // fourteen days are free at the chosen time. One month at a time: the effect re-runs as each lands.
+  const monthsToLoad = useMemo(() => {
+    const base = selectedDate ?? new Date();
+    // A weekly pattern reaches further: every month its weeks touch.
+    const horizon = repeatMode === 'weekly' ? weeklyWeeks * 7 : REPEAT_HORIZON_DAYS;
+    const months = [monthKeyOf(base)];
+    for (let d = 7; d <= horizon + 7; d += 7) {
+      const later = new Date(base);
+      later.setDate(later.getDate() + Math.min(d, horizon));
+      months.push(monthKeyOf(later));
+    }
+    return Array.from(new Set(months));
+  }, [selectedDate, repeatMode, weeklyWeeks]);
+  const monthToLoad = monthsToLoad.find((m) => !loadedMonths[m]);
 
   useEffect(() => {
-    if (serviceId == null || loadedMonths[monthToLoad]) return;
+    if (serviceId == null || monthToLoad == null) return;
 
     let cancelled = false;
     (async () => {
@@ -377,7 +453,7 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
     return () => {
       cancelled = true;
     };
-  }, [serviceId, monthToLoad, loadedMonths, showError, t]);
+  }, [serviceId, monthToLoad, showError, t]);
 
   // Re-fetch from scratch if the service changes underneath us.
   useEffect(() => {
@@ -415,62 +491,170 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
   const hasNoWorkingHours =
     selectedService != null && (selectedService.schedules?.length ?? 0) === 0;
 
-  // Build bookable slots for the selected date from the availability endpoint's
-  // window(s) for that date. Slot length AND stride follow the chosen pricing
-  // option's duration (a back-to-back grid inside each window); option-less
-  // services keep the classic hourly grid. No windows → no slots (not
-  // bookable). A slot is unavailable when it's in the past, the window has no
-  // capacity left (remainingCapacity already accounts for the provider's
-  // bookings), or appointments added this session have filled that capacity.
+  // Bookable starts for the selected date, every SLOT_STEP_MINUTES inside the day's availability.
+  // The appointment's length is the chosen pricing option's duration (1h for option-less services).
+  // A start is unavailable when it is in the past (or inside the service's lead time), or when the
+  // range it covers has no room left for every selected pet — the server already subtracted real
+  // bookings, and appointments added this session count against it too.
+  const slotMinutes = slotMs / 60000;
+  const petCount = Math.max(1, selectedPets.length);
+  // The earliest start the server will accept: now, plus the service's own minimum lead time.
+  // BookingScheduleDtoValidator.MeetsLeadTime enforces this, so a slot inside the window is
+  // rejected with a 422 — and the user only found out after choosing a duration, a date, a
+  // time, a pet, a payment method and pressing Confirm. The detail screen already advertises
+  // the rule as "Book Nh ahead"; honour it here too.
+  const leadTimeHours = selectedService.details?.leadTimeHours ?? 0;
+
+  /**
+   * A day's availability segments followed by the next day's: a late start can run past midnight
+   * when the hours do (an overnight window), so 23:30 for an hour is judged across both days.
+   */
+  const segmentsOn = useCallback(
+    (day: Date) => {
+      const next = new Date(day);
+      next.setDate(next.getDate() + 1);
+      return daySegments(availByDate[dateKey(day)] ?? [], availByDate[dateKey(next)] ?? []);
+    },
+    [availByDate]
+  );
+
+  /**
+   * One start on one day: its instant, whether the day's availability covers it at all, and
+   * whether it has room for this selection.
+   */
+  const slotOn = useCallback(
+    (day: Date, startMin: number): { start: Date; covered: boolean; available: boolean } => {
+      const start = new Date(day);
+      start.setHours(Math.floor(startMin / 60), startMin % 60, 0, 0);
+      const end = start.getTime() + slotMs;
+      const room = isStay
+        ? stayRoom(
+            Array.from(
+              { length: Math.floor((startMin + slotMinutes) / DAY_MINUTES) + 1 },
+              (_, i) => {
+                const d = new Date(day);
+                d.setDate(d.getDate() + i);
+                return availByDate[dateKey(d)];
+              }
+            ),
+            startMin,
+            slotMinutes
+          )
+        : roomIn(segmentsOn(day), startMin, startMin + slotMinutes);
+      const localTaken = appointments.filter((a) =>
+        overlaps(
+          parseBookingDate(a.bookingFrom).getTime(),
+          parseBookingDate(a.bookingTo).getTime(),
+          start.getTime(),
+          end
+        )
+      ).length;
+      const earliest = Date.now() + Math.max(0, leadTimeHours) * 60 * 60 * 1000;
+      return {
+        start,
+        covered: room != null,
+        available: room != null && start.getTime() > earliest && room - localTaken >= petCount,
+      };
+    },
+    [segmentsOn, appointments, slotMs, slotMinutes, leadTimeHours, petCount, isStay, availByDate]
+  );
+
   const timeSlots: TimeSlot[] = useMemo(() => {
     if (!selectedDate) return [];
     const windows = availWindows;
     if (windows.length === 0) return []; // no availability → unavailable
-    // The earliest start the server will accept: now, plus the service's own minimum lead time.
-    // BookingScheduleDtoValidator.MeetsLeadTime enforces this, so a slot inside the window is
-    // rejected with a 422 — and the user only found out after choosing a duration, a date, a
-    // time, a pet, a payment method and pressing Confirm. The detail screen already advertises
-    // the rule as "Book Nh ahead"; honour it here too.
-    const leadTimeHours = selectedService.details?.leadTimeHours ?? 0;
-    const now = Date.now() + Math.max(0, leadTimeHours) * 60 * 60 * 1000;
-    const slotMinutes = slotMs / 60000;
-    const byId = new Map<string, TimeSlot>();
-    for (const w of windows) {
-      const fromMin = hmsToMinutes(w.from);
-      const toMin = hmsToMinutes(w.to);
-      // Only whole slots that fit inside the window [from, to).
-      for (let m = fromMin; m + slotMinutes <= toMin; m += slotMinutes) {
-        const hour = Math.floor(m / 60);
-        const minute = m % 60;
-        const id = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-        if (byId.has(id)) continue; // overlapping windows → keep one slot per start
-        const start = new Date(selectedDate);
-        start.setHours(hour, minute, 0, 0);
-        const end = start.getTime() + slotMs;
-        // Appointments added this session count against the window's remaining
-        // capacity (the server already subtracted real bookings).
-        const localTaken = appointments.filter((a) =>
-          overlaps(
-            parseBookingDate(a.bookingFrom).getTime(),
-            parseBookingDate(a.bookingTo).getTime(),
-            start.getTime(),
-            end
-          )
-        ).length;
-        byId.set(id, {
-          id,
-          label: start.toLocaleTimeString(undefined, {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-          }),
-          start,
-          available: start.getTime() > now && localTaken < w.remainingCapacity,
-        });
-      }
+    const slots: TimeSlot[] = [];
+    const candidates = isStay
+      ? stayStartCandidates(segmentsOn(selectedDate), SLOT_STEP_MINUTES)
+      : startCandidates(segmentsOn(selectedDate), slotMinutes, SLOT_STEP_MINUTES);
+    for (const m of candidates) {
+      const { start, covered, available } = slotOn(selectedDate, m);
+      // A start whose range runs past the end of the day's hours is not a time at all.
+      if (!covered) continue;
+      slots.push({
+        id: `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`,
+        label: start.toLocaleTimeString(undefined, {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }),
+        start,
+        available,
+      });
     }
-    return Array.from(byId.values()).sort((a, b) => a.start.getTime() - b.start.getTime());
-  }, [selectedDate, availWindows, appointments, slotMs, selectedService.details?.leadTimeHours]);
+    return slots;
+  }, [selectedDate, availWindows, slotMinutes, slotOn, segmentsOn, isStay]);
+
+  // ── Repeat on other days ─────────────────────────────────────────────────────
+  // The same start time on the next REPEAT_HORIZON_DAYS days, for a walk every weekday or a sit
+  // every evening without building each appointment by hand. Only days whose availability has
+  // loaded and that the provider works are listed; a day without room at that time is greyed.
+  const startMinOfDay = startDateTime
+    ? startDateTime.getHours() * 60 + startDateTime.getMinutes()
+    : null;
+  const repeatDays = useMemo(() => {
+    // A stay of a day or more would overlap itself on the next day.
+    if (!selectedDate || startMinOfDay == null || isStay) return [];
+    const out: { key: string; date: Date; available: boolean }[] = [];
+    for (let i = 1; i <= REPEAT_HORIZON_DAYS; i++) {
+      const day = new Date(selectedDate);
+      day.setDate(day.getDate() + i);
+      if (!loadedMonths[monthKeyOf(day)]) continue;
+      if ((availByDate[dateKey(day)] ?? []).length === 0) continue;
+      out.push({ key: dateKey(day), date: day, available: slotOn(day, startMinOfDay).available });
+    }
+    return out;
+  }, [selectedDate, startMinOfDay, loadedMonths, availByDate, slotOn, isStay]);
+  // The weekly pattern: every chosen weekday in the next `weeklyWeeks` weeks, at the same time.
+  // A day that is full at that time, or that the provider doesn't work, is skipped and counted.
+  const weeklyPlan = useMemo(() => {
+    const plan = { dates: [] as string[], skipped: 0, pending: false };
+    if (repeatMode !== 'weekly' || !selectedDate || startMinOfDay == null || isStay) return plan;
+    for (let i = 1; i < weeklyWeeks * 7; i++) {
+      const day = new Date(selectedDate);
+      day.setDate(day.getDate() + i);
+      if (!weeklyDays.includes(day.getDay())) continue;
+      if (!loadedMonths[monthKeyOf(day)]) {
+        plan.pending = true;
+        continue;
+      }
+      const works = (availByDate[dateKey(day)] ?? []).length > 0;
+      if (works && slotOn(day, startMinOfDay).available) plan.dates.push(dateKey(day));
+      else plan.skipped++;
+    }
+    return plan;
+  }, [
+    repeatMode,
+    selectedDate,
+    startMinOfDay,
+    isStay,
+    weeklyWeeks,
+    weeklyDays,
+    loadedMonths,
+    availByDate,
+    slotOn,
+  ]);
+  const chooseRepeatMode = (mode: 'days' | 'weekly') => {
+    setRepeatMode(mode);
+    // The weekday picked is the obvious first one to repeat.
+    if (mode === 'weekly' && weeklyDays.length === 0 && selectedDate) {
+      setWeeklyDays([selectedDate.getDay()]);
+    }
+  };
+  const toggleWeeklyDay = (day: number) =>
+    setWeeklyDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
+  // A day picked earlier that no longer fits (another time, more pets) simply drops out.
+  const validExtraDates = useMemo(
+    () =>
+      repeatMode === 'weekly'
+        ? weeklyPlan.dates
+        : extraDates.filter((k) => repeatDays.some((d) => d.key === k && d.available)),
+    [repeatMode, weeklyPlan, extraDates, repeatDays]
+  );
+  const toggleExtraDate = (key: string) =>
+    setExtraDates((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  // How many appointments the current selection makes: every chosen day × every chosen pet.
+  const selectionCount = (1 + validExtraDates.length) * petCount;
 
   const selectedSlotId = startDateTime
     ? `${String(startDateTime.getHours()).padStart(2, '0')}:${String(startDateTime.getMinutes()).padStart(2, '0')}`
@@ -529,7 +713,15 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
     if (pricingOptions.length > 0) {
       return Math.min(...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o)));
     }
-    return servicePrice(selectedService);
+    return servicePrice(selectedService) * currentUnits();
+  };
+
+  // How many hours, days or nights the current length is (1 for a per-visit service) — the same
+  // count the server prices by; the quote, once it arrives, is the figure that is billed.
+  const currentUnits = () => {
+    if (pricingUnit === PricingUnit.PerVisit) return 1;
+    const from = startDateTime ?? new Date(2000, 0, 1, 10);
+    return unitsFor(pricingUnit, from, new Date(from.getTime() + slotMs));
   };
 
   // The body the quote (and later the create) is built from. Serialized into the effect's dep so
@@ -665,23 +857,45 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
   const selectionComplete =
     optionChosen &&
     !!startDateTime &&
-    selectedPet !== null &&
+    selectedPets.length > 0 &&
     addressesProvided &&
     !quoteState.loading &&
     !quoteState.failed &&
     (selectedAddonDefs.length === 0 || quote != null);
 
-  const buildAppointment = (): Appointment | null => {
-    if (!optionChosen || !startDateTime || selectedPet === null || !addressesProvided) return null;
-    const pet = pets.find((p) => p.id === selectedPet);
+  /**
+   * The appointments the current selection makes: the picked day plus every repeat day, once per
+   * picked pet. All share the one quote — the price depends on the service, the extras and the
+   * addresses, none of which differ between them.
+   */
+  const buildAppointments = (): Appointment[] => {
+    if (!optionChosen || !startDateTime || selectedPets.length === 0 || !addressesProvided) {
+      return [];
+    }
+    const starts = [
+      startDateTime,
+      ...validExtraDates.map((key) => {
+        const [y, m, d] = key.split('-').map(Number);
+        return new Date(y, m - 1, d, startDateTime.getHours(), startDateTime.getMinutes());
+      }),
+    ];
+    const stamp = Date.now();
+    return starts.flatMap((start, i) =>
+      selectedPets.map((petId, j) => buildAppointment(start, petId, stamp + i * 100 + j))
+    );
+  };
+
+  const buildAppointment = (start: Date, petId: number, id: number): Appointment => {
+    const pet = pets.find((p) => p.id === petId);
     return {
-      id: Date.now(),
+      id,
+      note: note.trim() || undefined,
       service: {
         id: selectedService.id ?? 0,
         name: selectedService.name ?? 'Service',
         price: money(quote ? quote.basePrice - quote.discountAmount : currentServicePrice()),
       },
-      pet: { id: selectedPet, name: pet?.name ?? 'Pet', image: pet?.image ?? '' },
+      pet: { id: petId, name: pet?.name ?? 'Pet', image: pet?.image ?? '' },
       // Freeze the SERVER's priced lines. Each already carries the name, the amount, and (for a
       // per-distance extra) the fees and that leg's distance — so Review itemizes the charge
       // without recomputing it, and what is shown is what will be billed.
@@ -691,8 +905,8 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
       // time the user picked under parseBookingDate (see services/bookings.ts).
       // End = start + the chosen option's duration (1h for option-less services);
       // for option bookings the server re-derives it from the option anyway.
-      bookingFrom: formatBookingDate(startDateTime),
-      bookingTo: formatBookingDate(new Date(startDateTime.getTime() + slotMs)),
+      bookingFrom: formatBookingDate(start),
+      bookingTo: formatBookingDate(new Date(start.getTime() + slotMs)),
       total: currentTotal(),
       pricingOptionId: selectedOption?.id ?? undefined,
       pricingOptionName: selectedOption?.name,
@@ -704,19 +918,19 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
     };
   };
 
+  // After adding, only the TIME is cleared. It used to clear the pet, the extras and the pickup
+  // and drop-off places too, so a second walk for the same dog meant picking everything again —
+  // including both addresses on the map. The next appointment is almost always the same thing at
+  // another time; whatever differs is one tap to change.
   const resetSelection = () => {
-    setSelectedAddons([]);
-    setPickupAddr(null);
-    setDropoffAddr(null);
-    setSelectedDate(null);
     setStartDateTime(null);
-    setSelectedPet(null);
+    setExtraDates([]);
   };
 
   const addAppointment = () => {
-    const apt = buildAppointment();
-    if (!apt) return;
-    setAppointments((prev) => [...prev, apt]);
+    const apts = buildAppointments();
+    if (apts.length === 0) return;
+    setAppointments((prev) => [...prev, ...apts]);
     resetSelection();
   };
 
@@ -726,14 +940,24 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
   const grandTotal = appointments.reduce((sum, a) => sum + a.total, 0);
 
   const onContinue = () => {
-    const current = [...appointments];
-    const apt = buildAppointment();
-    if (apt) current.push(apt);
+    const current = [...appointments, ...buildAppointments()];
+    // Everything in this checkout: the services set aside in the cart, plus this one.
+    const sections = cart.withSection(selectedService, current);
+    if (sections.length === 0) return;
+    (navigation as any).navigate('ReviewBooking', { sections });
+  };
+
+  // "Add another service": these appointments wait in the cart, and the customer goes to find the
+  // next service (a walk here, grooming there), to check out together.
+  const addAnotherService = () => {
+    const current = [...appointments, ...buildAppointments()];
     if (current.length === 0) return;
-    (navigation as any).navigate('ReviewBooking', {
-      service: selectedService,
-      appointments: current,
-    });
+    cart.add(selectedService, current);
+    setAppointments([]);
+    resetSelection();
+    // Search is a tab, which exists only inside MainTabs: from this stack screen it is reached
+    // through it (a bare navigate('Search') went nowhere).
+    (navigation as any).navigate('MainTabs', { screen: 'Search' });
   };
 
   const stepDot = (done: boolean, n: number) => (
@@ -749,27 +973,68 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
 
   const { isWebLayout } = useResponsive();
 
-  const canContinue = selectionComplete || appointments.length > 0;
+  // "3 nights" / "2 days" — a stay's length in the unit it is priced in.
+  const stayLabel = (minutes: number) =>
+    tPlural(
+      Math.round(minutes / DAY_MINUTES),
+      pricingUnit === PricingUnit.PerNight
+        ? { one: 'durations.nNightsOne', few: 'durations.nNightsFew', many: 'durations.nNights' }
+        : { one: 'durations.nDaysOne', few: 'durations.nDaysFew', many: 'durations.nDays' }
+    );
+  const hoursLabel = (minutes: number) =>
+    minutes >= 60
+      ? minutes % 60 === 0
+        ? t('durations.nHours', { n: minutes / 60 })
+        : `${t('durations.nHours', { n: Math.floor(minutes / 60) })} ${t('durations.nMin', { n: minutes % 60 })}`
+      : t('durations.nMin', { n: minutes });
+  const lengthLabel = (minutes: number) =>
+    minutes >= DAY_MINUTES && minutes % DAY_MINUTES === 0
+      ? stayLabel(minutes)
+      : hoursLabel(minutes);
+
+  // "1 h", "45 min", "2 h 30 min", "2 nights" — what one appointment lasts, once it is known.
+  const durationLabel = optionChosen
+    ? isStay
+      ? lengthLabel(slotMinutes)
+      : slotMinutes >= 60
+        ? slotMinutes % 60 === 0
+          ? t('durations.nHours', { n: slotMinutes / 60 })
+          : `${t('durations.nHours', { n: Math.floor(slotMinutes / 60) })} ${t('durations.nMin', { n: slotMinutes % 60 })}`
+        : t('durations.nMin', { n: slotMinutes })
+    : null;
+
+  // One checkout takes at most MAX_BATCH_APPOINTMENTS (the server refuses more, all or nothing),
+  // the services waiting in the cart included.
+  const tooMany =
+    cart.count + appointments.length + (selectionComplete ? selectionCount : 0) >
+    MAX_BATCH_APPOINTMENTS;
+  const hasOwn = selectionComplete || appointments.length > 0;
+  const canContinue = (hasOwn || cart.count > 0) && !tooMany;
+  // Other services already in this booking (not this one, which the form itself shows).
+  const otherSections = cart.sections.filter((s) => s.service.id !== selectedService.id);
 
   // Why Continue is greyed out, in the order the form asks. A disabled button with no reason
   // left people re-checking every section to find the one step they had not done.
   const missingStep = canContinue
     ? null
-    : !optionChosen
-      ? t('bookService.needDuration')
-      : !startDateTime
-        ? t('bookService.needTime')
-        : selectedPet === null
-          ? t('bookService.needPet')
-          : !addressesProvided
-            ? t('bookService.needAddress')
-            : null;
+    : tooMany
+      ? t('bookService.tooManyAppointments', { max: MAX_BATCH_APPOINTMENTS })
+      : !optionChosen
+        ? t('bookService.needDuration')
+        : !startDateTime
+          ? t('bookService.needTime')
+          : selectedPets.length === 0
+            ? t('bookService.needPet')
+            : !addressesProvided
+              ? t('bookService.needAddress')
+              : null;
   // Before the quote, the figure is the service alone: extras are priced by the server once the
   // time and pet are known. It used to read as the final total with an extra already picked.
   const extrasPending = !quote && selectedAddonDefs.length > 0;
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       contentBg={contentBg}
@@ -800,6 +1065,43 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
           // The tall tail clears the pinned CTA bar; on the web design the bar sits in the flow
           // below the scroll area, so there is nothing overlapping to clear.
           contentContainerStyle={{ paddingBottom: isWebLayout ? 24 : 100 }}>
+          {/* Booking several services at once: what is already waiting in this checkout. */}
+          {otherSections.length > 0 ? (
+            <View className={`${gutter.px} pt-4`}>
+              <View
+                className={`flex-row items-start rounded-2xl border p-4 ${borderColor} ${
+                  isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'
+                }`}>
+                <Ionicons name="cart-outline" size={20} color={BRAND_GREEN} />
+                <View className="ml-3 flex-1">
+                  <Text className={`text-sm font-semibold ${textColor}`}>
+                    {t('bookService.cartTitle')}
+                  </Text>
+                  {otherSections.map((s) => (
+                    <View key={s.service.id} className="mt-1 flex-row items-center">
+                      <Text className={`flex-1 text-sm ${subtextColor}`}>
+                        {t('bookService.cartLine', {
+                          name: s.service.name ?? t('reviewBooking.yourService'),
+                          count: s.appointments.length,
+                        })}
+                      </Text>
+                      <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel={t('bookService.cartRemove')}
+                        onPress={() => cart.removeService(s.service.id ?? 0)}
+                        className="ml-2 p-1">
+                        <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  <Text className={`mt-2 text-xs ${subtextColor}`}>
+                    {t('bookService.cartHint')}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : null}
+
           {/* Step 1: Service (fixed — chosen before entering this screen). When
               the service defines pricing options, picking one is part of this
               step — the booking can't proceed without it. */}
@@ -813,14 +1115,13 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
             <View
               className={`overflow-hidden rounded-2xl border-2 border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`}>
               {/* Service profile picture */}
-              {serviceImage ? (
-                <Image source={{ uri: serviceImage }} className="h-40 w-full" resizeMode="cover" />
-              ) : (
-                <View
-                  className={`h-40 w-full ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
-                  <Ionicons name="paw" size={40} color="#9CA3AF" />
-                </View>
-              )}
+              {/* The whole photo, not its middle band — see ServicePhoto. */}
+              <ServicePhoto
+                uri={serviceImage}
+                radiusClass="rounded-none"
+                iconSize={40}
+                className="h-48 w-full"
+              />
               <View className="flex-row items-start justify-between p-4">
                 <View className="mr-4 flex-1">
                   {/* Service name */}
@@ -841,10 +1142,58 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
                             ...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o))
                           )
                         )}`
-                    : fmt(servicePrice(selectedService))}
+                    : `${fmt(servicePrice(selectedService))}${priceSuffix(t, selectedService)}`}
                 </Text>
               </View>
             </View>
+
+            {/* Priced per hour, day or night: how long, chosen here (feedback 2026-10-21). */}
+            {pricingOptions.length === 0 && lengthChoices.length > 0 && (
+              <View className="mt-4">
+                <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+                  {t('bookService.chooseLength')}
+                </Text>
+                <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                  {lengthChoices.map((m) => {
+                    const active = chosenLength === m;
+                    return (
+                      <TouchableOpacity
+                        key={m}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: active }}
+                        aria-checked={active}
+                        onPress={() => {
+                          setLengthMinutes(m);
+                          // The length decides which starts fit: re-pick.
+                          setStartDateTime(null);
+                        }}
+                        className={`rounded-full border px-4 py-2 ${
+                          active
+                            ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                            : `${borderColor} ${cardBg}`
+                        }`}>
+                        <Text
+                          className={`text-sm ${active ? 'font-semibold text-brand-600' : subtextColor}`}>
+                          {lengthLabel(m)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {chosenLength != null ? (
+                  <Text className={`mt-2 text-sm ${subtextColor}`}>
+                    {t('bookService.lengthTotal', {
+                      length: lengthLabel(chosenLength),
+                      price: fmt(servicePrice(selectedService)),
+                    })}
+                    {' = '}
+                    <Text className="font-semibold text-brand-600">
+                      {fmt(servicePrice(selectedService) * currentUnits())}
+                    </Text>
+                  </Text>
+                ) : null}
+              </View>
+            )}
 
             {/* Duration/price options — required pick when the service defines any */}
             {pricingOptions.length > 0 && (
@@ -1091,20 +1440,169 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
               <TimeSlotPicker
                 slots={timeSlots}
                 selectedSlotId={selectedSlotId}
-                onSelectSlot={(slot) => setStartDateTime(slot.start)}
-                isLoading={isLoadingSlots}
+                onSelectSlot={(slot) => {
+                  setStartDateTime(slot.start);
+                  // Repeat days were checked against the previous time.
+                  setExtraDates([]);
+                }}
+                // Loading only while the picked day's own month is: the month after it may still
+                // be arriving in the background for the repeat days.
+                isLoading={isLoadingSlots && !loadedMonths[monthKeyOf(selectedDate)]}
+                slotMinutes={slotMinutes}
                 isDarkMode={isDarkMode}
                 textColor={textColor}
                 subtextColor={subtextColor}
               />
             )}
+            {selectedDate && selectedPets.length > 1 ? (
+              <Text className={`mt-1 text-xs ${subtextColor}`}>
+                {t('bookService.roomForPets', { count: selectedPets.length })}
+              </Text>
+            ) : null}
+
+            {/* Bulk booking: the same time on other days, without rebuilding each appointment. */}
+            {startDateTime && !isStay && (repeatDays.length > 0 || repeatMode === 'weekly') ? (
+              <View className="mt-5">
+                <View className="mb-1 flex-row items-center">
+                  <Ionicons name="repeat" size={16} color={BRAND_GREEN} />
+                  <Text className={`ml-2 text-sm font-semibold ${textColor}`}>
+                    {t('bookService.repeatTitle')}
+                  </Text>
+                </View>
+                <View className="mb-3 mt-2 flex-row gap-2">
+                  {(['days', 'weekly'] as const).map((mode) => {
+                    const active = repeatMode === mode;
+                    return (
+                      <TouchableOpacity
+                        key={mode}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: active }}
+                        aria-checked={active}
+                        onPress={() => chooseRepeatMode(mode)}
+                        className={`rounded-full border px-3 py-1.5 ${
+                          active ? 'border-brand-500 bg-brand-500' : `${borderColor} ${cardBg}`
+                        }`}>
+                        <Text
+                          className={`text-xs font-medium ${active ? 'text-white' : subtextColor}`}>
+                          {mode === 'days'
+                            ? t('bookService.repeatModeDays')
+                            : t('bookService.repeatModeWeekly')}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {repeatMode === 'weekly' ? (
+                  <View>
+                    <Text className={`mb-2 text-xs ${subtextColor}`}>
+                      {t('bookService.weeklyHint')}
+                    </Text>
+                    <View className="mb-3 flex-row flex-wrap gap-2">
+                      {WEEK_ORDER.map((d) => {
+                        const on = weeklyDays.includes(d);
+                        return (
+                          <TouchableOpacity
+                            key={d}
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: on }}
+                            aria-checked={on}
+                            onPress={() => toggleWeeklyDay(d)}
+                            style={{ minWidth: 44 }}
+                            className={`items-center rounded-xl border px-2 py-2 ${
+                              on ? 'border-brand-500 bg-brand-500' : `${borderColor} ${cardBg}`
+                            }`}>
+                            <Text
+                              className={`text-xs font-semibold ${on ? 'text-white' : textColor}`}>
+                              {t(DAY_SHORT_KEYS[d])}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    <View className="mb-2 flex-row flex-wrap items-center gap-2">
+                      {WEEKLY_WEEKS.map((n) => {
+                        const on = weeklyWeeks === n;
+                        return (
+                          <TouchableOpacity
+                            key={n}
+                            accessibilityRole="radio"
+                            accessibilityState={{ checked: on }}
+                            aria-checked={on}
+                            onPress={() => setWeeklyWeeks(n)}
+                            className={`rounded-full border px-3 py-1.5 ${
+                              on ? 'border-brand-500' : borderColor
+                            } ${cardBg}`}>
+                            <Text
+                              className={`text-xs ${on ? 'font-semibold text-brand-600' : subtextColor}`}>
+                              {tPlural(n, {
+                                one: 'durations.nWeeksOne',
+                                few: 'durations.nWeeksFew',
+                                many: 'durations.nWeeks',
+                              })}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    <Text className={`text-xs ${subtextColor}`}>
+                      {weeklyPlan.pending
+                        ? t('bookService.weeklyLoading')
+                        : t('bookService.weeklySummary', { count: weeklyPlan.dates.length })}
+                      {weeklyPlan.skipped > 0
+                        ? ` · ${t('bookService.weeklySkipped', { count: weeklyPlan.skipped })}`
+                        : ''}
+                    </Text>
+                  </View>
+                ) : null}
+                {repeatMode === 'days' ? (
+                  <Text className={`mb-3 text-xs ${subtextColor}`}>
+                    {repeatDays.some((d) => d.available)
+                      ? t('bookService.repeatHint')
+                      : t('bookService.repeatNone')}
+                  </Text>
+                ) : null}
+                {repeatMode === 'days' ? (
+                  <View className="flex-row flex-wrap gap-2">
+                    {repeatDays.map((d) => {
+                      const on = validExtraDates.includes(d.key);
+                      return (
+                        <TouchableOpacity
+                          key={d.key}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: on, disabled: !d.available }}
+                          aria-checked={on}
+                          aria-disabled={!d.available}
+                          disabled={!d.available}
+                          onPress={() => toggleExtraDate(d.key)}
+                          style={{ minWidth: 58 }}
+                          className={`items-center rounded-xl border px-2 py-1.5 ${
+                            on
+                              ? 'border-brand-500 bg-brand-500'
+                              : d.available
+                                ? `${borderColor} ${cardBg}`
+                                : `${borderColor} opacity-40`
+                          }`}>
+                          <Text className={`text-[11px] ${on ? 'text-white' : subtextColor}`}>
+                            {t(DAY_SHORT_KEYS[d.date.getDay()])}
+                          </Text>
+                          <Text
+                            className={`text-sm font-semibold ${on ? 'text-white' : textColor}`}>
+                            {d.date.getDate()} {t(MONTH_SHORT_KEYS[d.date.getMonth()])}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
           </View>
 
           {/* Step 4: Select Pet */}
           {pets.length > 0 ? (
             <PetSelector
-              selectedPet={selectedPet}
-              onSelectPet={setSelectedPet}
+              selectedPets={selectedPets}
+              onTogglePet={togglePet}
               pets={petItems}
               isDarkMode={isDarkMode}
               textColor={textColor}
@@ -1131,6 +1629,26 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
             </View>
           )}
 
+          {/* For the provider: anything they should know, sent with every appointment. */}
+          <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
+            <Text className={`text-base font-semibold ${textColor}`}>
+              {t('bookService.noteTitle')}
+            </Text>
+            <Text className={`mb-3 mt-1 text-xs ${subtextColor}`}>{t('bookService.noteHint')}</Text>
+            <TextInput
+              value={note}
+              onChangeText={setNote}
+              multiline
+              maxLength={1000}
+              placeholder={t('bookService.notePlaceholder')}
+              placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
+              accessibilityLabel={t('bookService.noteTitle')}
+              className={`rounded-xl border px-4 py-3 ${borderColor} ${cardBg} ${textColor}`}
+              style={{ minHeight: 88, textAlignVertical: 'top' } as any}
+            />
+            <Text className={`mt-1 text-right text-xs ${subtextColor}`}>{note.length}/1000</Text>
+          </View>
+
           {/* Add This / Add Another Appointment */}
           {selectionComplete && (
             <View className={`${gutter.px} py-4`}>
@@ -1140,9 +1658,11 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
                 className="flex-row items-center justify-center rounded-2xl bg-brand-500 py-4">
                 <Ionicons name="add" size={20} color="white" />
                 <Text className="ml-2 text-base font-bold text-white">
-                  {appointments.length === 0
-                    ? t('bookService.addThisAppointment')
-                    : t('bookService.addAnotherAppointment')}
+                  {selectionCount > 1
+                    ? t('bookService.addNAppointments', { count: selectionCount })
+                    : appointments.length === 0
+                      ? t('bookService.addThisAppointment')
+                      : t('bookService.addAnotherAppointment')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1235,18 +1755,48 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
             />
           )}
 
+          {/* What the customer is agreeing to, before they reach the checkout. */}
+          <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
+            <View className={`rounded-2xl border p-4 ${borderColor} ${cardBg}`}>
+              <View className="mb-2 flex-row items-center">
+                <Ionicons name="information-circle-outline" size={18} color={BRAND_GREEN} />
+                <Text className={`ml-2 text-sm font-semibold ${textColor}`}>
+                  {t('bookService.goodToKnow')}
+                </Text>
+              </View>
+              {[
+                durationLabel ? t('bookService.infoDuration', { duration: durationLabel }) : null,
+                t('bookService.infoConfirm'),
+                t('bookService.infoPayLater'),
+                serviceAsksDeposit(selectedService)
+                  ? t('bookService.infoDeposit')
+                  : t('bookService.infoFreeCancel'),
+                leadTimeHours > 0 ? t('bookService.infoLeadTime', { hours: leadTimeHours }) : null,
+              ]
+                .filter(Boolean)
+                .map((line) => (
+                  <View key={line as string} className="mt-1 flex-row">
+                    <Text className={`mr-2 text-sm ${subtextColor}`}>•</Text>
+                    <Text className={`flex-1 text-sm ${subtextColor}`}>{line}</Text>
+                  </View>
+                ))}
+            </View>
+          </View>
+
           {/* Running total for the current (unadded) selection */}
           {appointments.length === 0 && selectedService && (
             <View
               className={`border-t ${gutter.px} py-5 ${borderColor} flex-row items-center justify-between`}>
               <Text className={`text-base font-semibold ${textColor}`}>
-                {t('bookService.total')}
+                {selectionCount > 1
+                  ? t('bookService.totalForN', { count: selectionCount })
+                  : t('bookService.total')}
               </Text>
               <Text className="text-2xl font-bold text-brand-600">
                 {/* Until a required duration is picked the figure is the cheapest option, so say
                     "from" rather than presenting a provisional number as the final one. */}
                 {!optionChosen || extrasPending ? `${t('bookService.priceFrom')} ` : ''}
-                {fmt(currentTotal())}
+                {fmt(money(currentTotal() * selectionCount))}
               </Text>
             </View>
           )}
@@ -1265,8 +1815,24 @@ function BookServiceForm({ service }: { service: ServiceDto }) {
           disabled={!canContinue}
           onPress={onContinue}
           className={`items-center rounded-2xl py-4 ${canContinue ? 'bg-brand-500' : 'bg-gray-300'}`}>
-          <Text className="text-lg font-bold text-white">{t('bookService.continueToReview')}</Text>
+          <Text className="text-lg font-bold text-white">
+            {cart.count > 0
+              ? t('bookService.continueWithCart', { count: cart.count + appointments.length })
+              : t('bookService.continueToReview')}
+          </Text>
         </TouchableOpacity>
+        {/* Booking several services at once: keep these and pick the next service. */}
+        {hasOwn && !tooMany ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={addAnotherService}
+            className="mt-2 flex-row items-center justify-center rounded-2xl border border-brand-500 py-3">
+            <Ionicons name="cart-outline" size={18} color={BRAND_GREEN} />
+            <Text className="ml-2 text-sm font-semibold text-brand-600">
+              {t('bookService.addAnotherService')}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
         {missingStep ? (
           <Text className={`mt-2 text-center text-xs ${subtextColor}`}>{missingStep}</Text>
         ) : null}

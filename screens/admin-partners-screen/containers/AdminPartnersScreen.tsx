@@ -14,7 +14,7 @@ import { SUBMISSION_ORDER_OPTIONS } from '../../../hooks/useModerationQueue';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ListState from '../../../components/shared/ListState';
 import FilterTabs, { type FilterTab } from '../../../components/shared/FilterTabs';
-import SortMenu from '../../../components/shared/SortMenu';
+import SortMenu, { DROPDOWN_ANCHOR } from '../../../components/shared/SortMenu';
 import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import {
   ApprovalStatus,
@@ -227,8 +227,7 @@ export default function AdminPartnersScreen() {
       // screen was opened directly (tab to tab) and there is nothing to pop.
       onBackPress={() => goUp('AdminDashboard')}
       headerTitle={t('admin.partners')}
-      headerChildren={searchField}
-      width="wide">
+      headerChildren={searchField}>
       {/* On the phone the tabs stay put above the scrolling list, as they always have: four
           pills do not fit 390px, hence their own horizontal scroller. */}
       {!isWebLayout && <PhoneTabs activeTab={activeTab} onChange={setActiveTab} counts={counts} />}
@@ -242,7 +241,10 @@ export default function AdminPartnersScreen() {
         {/* The order control out-ranks the rows in paint order, so its panel opens over them. */}
         {isWebLayout ? (
           <View
-            style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 16, zIndex: 20 }}>
+            style={[
+              { flexDirection: 'row', alignItems: 'center', paddingRight: 16 },
+              DROPDOWN_ANCHOR,
+            ]}>
             <View style={{ flex: 1 }}>
               <FilterTabs
                 tabs={TABS}
@@ -255,7 +257,11 @@ export default function AdminPartnersScreen() {
           </View>
         ) : (
           sort && (
-            <View style={{ alignItems: 'flex-end', paddingHorizontal: gutter.value, zIndex: 20 }}>
+            <View
+              style={[
+                { alignItems: 'flex-end', paddingHorizontal: gutter.value },
+                DROPDOWN_ANCHOR,
+              ]}>
               {sort}
             </View>
           )

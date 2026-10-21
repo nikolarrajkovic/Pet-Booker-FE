@@ -78,6 +78,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationsProvider, useNotifications } from './context/NotificationsContext';
 import { MessagesProvider } from './context/MessagesContext';
 import { EnumsProvider } from './context/EnumsContext';
+import { BookingCartProvider } from './context/BookingCartContext';
 import LanguagePicker from './components/shared/LanguagePicker';
 import AppShell from './components/layout/AppShell';
 import { useResponsive } from './hooks/useResponsive';
@@ -530,7 +531,9 @@ export default function App() {
               <NotificationsProvider>
                 <MessagesProvider>
                   <EnumsProvider>
-                    <AppContent />
+                    <BookingCartProvider>
+                      <AppContent />
+                    </BookingCartProvider>
                   </EnumsProvider>
                 </MessagesProvider>
               </NotificationsProvider>

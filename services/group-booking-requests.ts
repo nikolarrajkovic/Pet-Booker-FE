@@ -81,6 +81,13 @@ export type GroupBookingRequestDto = {
   serviceType: number;
   bookingFrom: string;
   bookingTo: string;
+  /**
+   * "As soon as possible": `bookingFrom` is when it was asked, `bookingTo − bookingFrom` the length
+   * wanted, and it stays open until `activeUntil` (naive wall-clock). It starts when a provider
+   * accepts — they say how soon they can be there.
+   */
+  isAsap?: boolean;
+  activeUntil?: string | null;
   addressId?: number | null;
   /** Owner / admin / the accepting provider only. Everyone else gets `city`. */
   address?: AddressDto | null;
@@ -109,6 +116,13 @@ export type GroupBookingRequestDto = {
   excluded?: GroupBookingRecipientReadDto[];
   invitedCount: number;
   declinedCount: number;
+  /** AnyEligible: only providers within this many km were asked. Null: any distance. */
+  maxDistanceKm?: number | null;
+  /**
+   * Owner/admin only: how many providers the request went to when it was sent ("Sent to 6
+   * walkers"); 0 means nobody could see it. Null on requests sent before this was recorded.
+   */
+  reachedProviderCount?: number | null;
   /** Provider reader only. */
   myResponse?: GroupBookingResponseValue | null;
   /** Provider reader only — empty means they have nothing to accept it with. */
@@ -118,9 +132,13 @@ export type GroupBookingRequestDto = {
 export type CreateGroupBookingRequestInput = {
   petId: number;
   serviceType: number;
-  /** Naive wall-clock (`formatBookingDate`). */
+  /** Naive wall-clock (`formatBookingDate`). For ASAP: now and now + the length wanted. */
   bookingFrom: string;
   bookingTo: string;
+  /** "As soon as possible": the server starts it at its own now and keeps it open until `activeUntil`. */
+  isAsap?: boolean;
+  /** ASAP only: the latest start the owner will take (15 minutes to 12 hours ahead). Wall-clock. */
+  activeUntil?: string | null;
   addressId?: number | null;
   note?: string | null;
   paymentType: number;
@@ -137,9 +155,17 @@ export type CreateGroupBookingRequestInput = {
   acceptedSpecies?: number;
   onSaleOnly?: boolean;
   requiredAddOnNames?: string[];
+  /**
+   * AnyEligible: ask only providers within this many km (1–100) of the place, else of the
+   * owner's home address. Dropped by the server when neither is on the map.
+   */
+  maxDistanceKm?: number | null;
 };
 
 const PATH = '/api/group-booking-requests';
+
+/** The distances the request form offers, in km; `null` is "any distance". */
+export const REQUEST_DISTANCES_KM = [null, 2, 5, 10, 20] as const;
 
 /**
  * Sends the request. Price bounds are in the currency the user saw them in, so the body DECLARES
@@ -205,15 +231,23 @@ export function getGroupBookingRequest(id: number): Promise<GroupBookingRequestD
   });
 }
 
-/** Provider: take it with one of their services. First come, first served — a late accept 400s. */
+/**
+ * Provider: take it with one of their services. First come, first served — a late accept 400s.
+ * An ASAP request also needs `startInMinutes` (how soon they can start, 0–180, by its deadline).
+ */
 export function acceptGroupBookingRequest(
   id: number,
   serviceId: number,
-  pricingOptionId?: number | null
+  pricingOptionId?: number | null,
+  startInMinutes?: number | null
 ): Promise<GroupBookingRequestDto> {
   return apiJson<GroupBookingRequestDto>(`${PATH}/${id}/accept`, {
     method: 'POST',
-    body: { serviceId, pricingOptionId: pricingOptionId ?? null },
+    body: {
+      serviceId,
+      pricingOptionId: pricingOptionId ?? null,
+      startInMinutes: startInMinutes ?? null,
+    },
     fallback: 'Could not accept this request.',
     context: 'acceptGroupBookingRequest',
   });
@@ -233,6 +267,26 @@ export function declineGroupBookingRequest(
 }
 
 /** Owner: withdraw an open request. */
+/**
+ * Sends an "as soon as possible" request that closed with nobody accepting it again: a new request
+ * with the same pet, length, place and providers, open for `openForMinutes` (else as long as
+ * before) and within `maxDistanceKm` (null: any distance).
+ */
+export function sendGroupBookingRequestAgain(
+  id: number,
+  options: { openForMinutes?: number | null; maxDistanceKm?: number | null }
+): Promise<GroupBookingRequestDto> {
+  return apiJson<GroupBookingRequestDto>(`${PATH}/${id}/send-again`, {
+    method: 'POST',
+    body: {
+      openForMinutes: options.openForMinutes ?? null,
+      maxDistanceKm: options.maxDistanceKm ?? null,
+    },
+    fallback: 'Could not send your request again.',
+    context: 'sendGroupBookingRequestAgain',
+  });
+}
+
 export function cancelGroupBookingRequest(
   id: number,
   reason?: string

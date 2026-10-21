@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import ServiceCard from '../../../components/shared/ServiceCard';
 import SeeMoreCard from '../../../components/shared/SeeMoreCard';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import BookingCartPill from '../../../components/shared/BookingCartPill';
 import Rail from '../../../components/shared/Rail';
 import GroupRequestCta from '../../../components/shared/GroupRequestCta';
 import BrandMark from '../../../components/shared/BrandMark';
@@ -16,7 +17,12 @@ import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { useLocale } from '../../../context/LocaleContext';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { getErrorMessage } from '../../../services/http';
-import { ServiceDto, serviceCurrency, serviceFromPrice } from '../../../services/services';
+import {
+  ServiceDto,
+  priceSuffix,
+  serviceCurrency,
+  serviceFromPrice,
+} from '../../../services/services';
 import { getMostPopular, getOnSale, getRecentlyBooked, getNearMe } from '../../../services/home';
 import { useNotifications } from '../../../context/NotificationsContext';
 import { useAuth } from '../../../context/AuthContext';
@@ -25,6 +31,9 @@ import { DiscountType } from '../../../services/service-discounts';
 import { formatOfferAmount } from '../../../screens/promotions-screen/components';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { serviceDetailParams } from '../../../navigation/linking';
+import { useResource } from '../../../hooks/useResource';
+import { getPets } from '../../../services/pets';
+import { dismissPetPrompt, isPetPromptDismissed } from '../../../services/pet-prompt-storage';
 
 // No stock-photo fallback.
 //
@@ -55,29 +64,15 @@ const SERVICE_TYPES = [
 ];
 
 /**
- * The category pills: a sideways scroller on a phone, a wrapping row on the web design.
+ * The category quick filters: compact chips that wrap, on both designs.
  *
- * Same children either way — only the container differs, which is what keeps the pills' own
- * markup (colours, labels, accessibility) in one place rather than duplicated per design.
+ * They used to be large coloured buttons in a sideways scroller on the phone — only three of the
+ * six fitted, the rest were off the edge with nothing saying so, and at that size they read as
+ * the page's main actions rather than as a way to narrow the list. Small chips under a "Browse by
+ * service" label all fit on two lines at 390px and say what they are.
  */
-function PillRow({ isWebLayout, children }: { isWebLayout: boolean; children: React.ReactNode }) {
-  const gutter = usePageGutter();
-  if (isWebLayout) {
-    return <View className="-mx-2 flex-row flex-wrap">{children}</View>;
-  }
-  return (
-    // Bleeds to the screen edges (cancelling the section's gutter) and pads its content instead,
-    // so the row scrolls out from under the edge like the rails below it rather than being sliced
-    // off at the gutter. Each pill carries an 8px side margin, so the content padding is the
-    // gutter less 8 — which keeps the first pill on the page column.
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      className={`${gutter.negMx} flex-row`}
-      contentContainerStyle={{ paddingHorizontal: gutter.value - 8 }}>
-      {children}
-    </ScrollView>
-  );
+function PillRow({ children }: { children: React.ReactNode }) {
+  return <View className="-mx-1 flex-row flex-wrap">{children}</View>;
 }
 
 /** A service flattened for ServiceCard. Booking targets the service itself. */
@@ -151,7 +146,7 @@ export default function HomeScreen() {
   const { isWebLayout } = useResponsive();
   const tabBarSpacing = useTabBarSpacing();
   const { t, tEnum } = useLocale();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, isAdmin, isPartner, currentUser } = useAuth();
 
   const [nearYou, setNearYou] = useState<ServiceItem[]>([]);
   const [mostPopular, setMostPopular] = useState<ServiceItem[]>([]);
@@ -168,6 +163,35 @@ export default function HomeScreen() {
   const [failed, setFailed] = useState({ popular: false, deals: false, recent: false });
   const [nearYouFailed, setNearYouFailed] = useState(false);
   const [reloads, setReloads] = useState(0);
+
+  // ── "Add your pet" welcome card ─────────────────────────────────────────────
+  // A customer with no pet yet is greeted on Home by a card that leads to Add Pet. It stays until
+  // they add one (the server fact that retires it everywhere) or press "Not now". Partners and
+  // admins are here to work, and a managed partner login has no user to own a pet at all.
+  const userId = currentUser?.id;
+  const isProviderProfile = (currentUser?.providerProfileId ?? 0) > 0;
+  const petPromptEligible =
+    isLoggedIn && userId != null && !isAdmin && !isPartner && !isProviderProfile;
+  const { data: myPets } = useResource(['pets', userId], () => getPets(userId as number), {
+    enabled: petPromptEligible,
+  });
+  // null = not read yet: the card waits for the answer rather than flashing up and away.
+  const [petPromptDismissed, setPetPromptDismissed] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!petPromptEligible || userId == null) return;
+    let cancelled = false;
+    isPetPromptDismissed(userId).then((v) => !cancelled && setPetPromptDismissed(v));
+    return () => {
+      cancelled = true;
+    };
+  }, [petPromptEligible, userId]);
+  // Dismissed on the account (any device) or on this device.
+  const showPetPrompt =
+    petPromptEligible &&
+    !currentUser?.petPromptDismissed &&
+    petPromptDismissed === false &&
+    myPets != null &&
+    myPets.length === 0;
   // Live badge counts — kept current by the SignalR pushes in the two providers.
   const { unreadCount, refreshUnreadCount } = useNotifications();
   const { unreadCount: unreadMessages, refreshUnreadCount: refreshUnreadMessages } = useMessages();
@@ -336,6 +360,7 @@ export default function HomeScreen() {
             reviews={item.reviews}
             price={item.price}
             currency={serviceCurrency(item.dto)}
+            priceSuffix={priceSuffix(t, item.dto)}
             badge={badge}
             dealAmount={item.dealAmount}
             unavailable={item.dto.isBookable === false}
@@ -443,7 +468,6 @@ export default function HomeScreen() {
     <ScreenLayout
       headerVariant="large"
       contentBg={contentBg}
-      width="wide"
       // The greeting, tagline and location now live in the WelcomeBanner card inside the content,
       // rather than as a page title, a subtitle and a stray row beneath them.
       headerChildren={
@@ -552,16 +576,17 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Service Type Pills */}
-        <View className={`${gutter.px} pb-4 pt-4`}>
-          {/*
-            Six pills fit comfortably across a desktop column, so they wrap into place instead of
-            hiding behind a horizontal scrollbar — a sideways scroller is a phone affordance, and
-            on a mouse it is the one gesture people do not think to try.
-          */}
-          <PillRow isWebLayout={isWebLayout}>
+        {/* Service type quick filters */}
+        <View className={`${gutter.px} pb-3 pt-4`}>
+          <Text
+            className={`mb-2 text-xs font-semibold uppercase ${subtextColor}`}
+            style={{ letterSpacing: 0.6 }}>
+            {t('home.browseByService')}
+          </Text>
+          <PillRow>
             {SERVICE_TYPES.map((service) => {
               const typeLabel = tEnum('serviceProviderType', service.value, service.label);
+              const color = SERVICE_TYPE_COLORS[service.value] ?? BRAND_GREEN;
               return (
                 <TouchableOpacity
                   key={service.id}
@@ -571,19 +596,64 @@ export default function HomeScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={t('home.a11yBrowseCategory', { category: typeLabel })}
                   accessible
-                  // `my-1` is what keeps the rows apart once they wrap on the web design; in the
-                  // phone's single-row scroller it is 4px of harmless breathing room.
-                  className="mx-2 my-1 flex-row items-center rounded-full px-6 py-3"
-                  // Each type has its own colour (SERVICE_TYPE_COLORS), shared with the admin
-                  // dashboard so a type reads the same everywhere.
-                  style={{ backgroundColor: SERVICE_TYPE_COLORS[service.value] ?? BRAND_GREEN }}>
-                  <Ionicons name={service.icon as any} size={18} color="white" />
-                  <Text className="ml-2 font-semibold text-white">{typeLabel}</Text>
+                  // A chip, not a call to action: the type's colour marks the icon and the
+                  // outline, so six of them no longer outshout the services below.
+                  className={`m-1 flex-row items-center rounded-full border px-3 py-1.5 ${
+                    isDarkMode ? 'bg-[#1a2332]' : 'bg-white'
+                  }`}
+                  style={{ borderColor: color }}>
+                  <Ionicons name={service.icon as any} size={14} color={color} />
+                  <Text className={`ml-1.5 text-sm font-medium ${textColor}`}>{typeLabel}</Text>
                 </TouchableOpacity>
               );
             })}
           </PillRow>
         </View>
+
+        {showPetPrompt && (
+          <View className={`${gutter.px} pb-4`}>
+            <View
+              className={`flex-row items-center rounded-2xl border p-4 ${
+                isDarkMode ? 'border-[#243447] bg-[#1a2332]' : 'border-brand-200 bg-brand-50'
+              }`}>
+              <Image
+                source={require('../../../assets/empty-pets.png')}
+                accessibilityRole="none"
+                alt=""
+                style={{ width: 72, height: 72 }}
+                resizeMode="contain"
+              />
+              <View className="ml-3 flex-1">
+                <Text className={`text-base font-bold ${textColor}`}>
+                  {t('home.petPromptTitle')}
+                </Text>
+                <Text className={`mt-1 text-sm ${subtextColor}`}>{t('home.petPromptBody')}</Text>
+                <View className="mt-3 flex-row flex-wrap items-center gap-2">
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => (navigation as any).navigate('AddPet', { goBackOnSave: true })}
+                    className="flex-row items-center rounded-xl bg-brand-500 px-4 py-2">
+                    <Ionicons name="add" size={16} color="white" />
+                    <Text className="ml-1 text-sm font-bold text-white">
+                      {t('home.petPromptAdd')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => {
+                      setPetPromptDismissed(true);
+                      if (userId != null) dismissPetPrompt(userId);
+                    }}
+                    className="px-3 py-2">
+                    <Text className={`text-sm font-medium ${subtextColor}`}>
+                      {t('home.petPromptLater')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* "Ask several providers" sits with the category pills — both are ways to start looking —
             and above the rails, so it is seen before the reader has committed to one listing. */}
@@ -652,6 +722,8 @@ export default function HomeScreen() {
           )
         )}
       </ScrollView>
+      {/* What waits in the booking cart, while the next service is found. */}
+      <BookingCartPill />
     </ScreenLayout>
   );
 }

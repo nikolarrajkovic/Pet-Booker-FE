@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors, themeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
+import ServicePhoto from '../../../components/shared/ServicePhoto';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import {
   getServices,
@@ -154,8 +155,7 @@ export default function MyServicesScreen() {
       headerSubtitle={subtitle}
       rightAction={addNewButton}
       webHeaderRight={addNewButtonWeb}
-      contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50'}
-      width="wide">
+      contentBg={isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50'}>
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View className={`${gutter.px} py-4`} style={{ gap: 16 }}>
           {isLoading ? (
@@ -265,20 +265,13 @@ function ServiceListCard({
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 2 },
       }}>
-      {/* Image Area */}
-      <View className="relative bg-gray-200" style={{ height: 180 }}>
-        {service.images[0] ? (
-          <Image
-            source={{ uri: service.images[0] }}
-            style={{ width: '100%', height: '100%' }}
-            resizeMode="cover"
-          />
-        ) : (
-          <View className="flex-1 items-center justify-center">
-            <Ionicons name="paw-outline" size={52} color="#C4C9D4" />
-          </View>
-        )}
-
+      {/* The partner sees the photo the way customers do: whole, not its middle band. */}
+      <ServicePhoto
+        uri={service.images[0]}
+        thumbWidth={960}
+        radiusClass="rounded-none"
+        iconSize={52}
+        style={{ height: 180, width: '100%' }}>
         {/* Edit / Delete overlay buttons */}
         <View className="absolute right-3 top-3 flex-row" style={{ gap: 8 }}>
           <TouchableOpacity
@@ -298,7 +291,7 @@ function ServiceListCard({
             <Ionicons name="trash-outline" size={15} color="white" />
           </TouchableOpacity>
         </View>
-      </View>
+      </ServicePhoto>
 
       {/* Card Content */}
       <View className="p-4">

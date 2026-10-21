@@ -26,9 +26,11 @@ import {
   GroupBookingRequestView,
   GroupBookingResponse,
   GroupBookingStatus,
+  sendGroupBookingRequestAgain,
   type GroupBookingRequestDto,
 } from '../../../services/group-booking-requests';
-import { formatRequestWindow, statusStyle } from '../groupRequestFormat';
+import { formatRequestWhen, statusStyle } from '../groupRequestFormat';
+import SendAgainDialog from '../components/SendAgainDialog';
 
 type Tab = 'active' | 'past';
 
@@ -53,7 +55,9 @@ const TABS: readonly FilterTab<Tab>[] = [
  * The owner's group requests: open ones (still waiting for a provider) and past ones (taken,
  * cancelled or expired). Paged from the server per tab, like every list; a request is never
  * edited, so the only action is Cancel while it is open, and a fulfilled one links to the booking
- * it became.
+ * it became. One that expired with nobody accepting it can be sent again (an "as soon as possible"
+ * one in one step, open longer and further afield) or asked again from the form (a planned one,
+ * which needs a new time).
  */
 export default function MyGroupRequestsScreen() {
   const navigation = useNavigation<any>();
@@ -61,10 +65,11 @@ export default function MyGroupRequestsScreen() {
   const { isWebLayout } = useResponsive();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t, tEnum } = useLocale();
-  const { showError, showSuccess } = useToast();
+  const { showError, showSuccess, showInfo } = useToast();
   const [tab, setTab] = useState<Tab>('active');
   const [busyId, setBusyId] = useState<number | null>(null);
   const [counts, setCounts] = useState<Record<Tab, number>>({ active: 0, past: 0 });
+  const [sendingAgain, setSendingAgain] = useState<GroupBookingRequestDto | null>(null);
 
   const fetchPage = useCallback(
     (page: number) =>
@@ -117,18 +122,55 @@ export default function MyGroupRequestsScreen() {
     ]);
   };
 
-  const audienceText = (r: GroupBookingRequestDto) =>
-    r.audience === GroupBookingAudience.AnyEligible
-      ? (r.excluded?.length ?? 0) > 0
-        ? t('groupRequest.audienceAnyExcept', {
-            names: (r.excluded ?? []).map((x) => x.serviceProviderName ?? '').join(', '),
-          })
-        : t('groupRequest.audienceAny')
-      : t('groupRequest.audienceSelected', { count: r.invitedCount });
+  const sendAgain = async (openForMinutes: number, maxDistanceKm: number | null) => {
+    const request = sendingAgain;
+    if (!request) return;
+    setBusyId(request.id);
+    try {
+      const created = await sendGroupBookingRequestAgain(request.id, {
+        openForMinutes,
+        maxDistanceKm,
+      });
+      setSendingAgain(null);
+      const reached = created.reachedProviderCount;
+      if (reached === 0) showInfo(t('groupRequest.sentToNobody'));
+      else if (reached != null) showSuccess(t('groupRequest.sentTo', { count: reached }));
+      else showSuccess(t('groupRequest.sent'));
+      // The new one is open: show it where it now is.
+      setTab('active');
+    } catch (e) {
+      showError(getErrorMessage(e, t('groupRequest.sendAgainFailed')));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const audienceText = (r: GroupBookingRequestDto) => {
+    const audience =
+      r.audience === GroupBookingAudience.AnyEligible
+        ? (r.excluded?.length ?? 0) > 0
+          ? t('groupRequest.audienceAnyExcept', {
+              names: (r.excluded ?? []).map((x) => x.serviceProviderName ?? '').join(', '),
+            })
+          : t('groupRequest.audienceAny')
+        : t('groupRequest.audienceSelected', { count: r.invitedCount });
+    const parts = [audience];
+    if (r.maxDistanceKm != null) parts.push(t('groupRequest.withinKm', { km: r.maxDistanceKm }));
+    // How many it reached is news only for "every matching provider" — a named list says itself.
+    if (r.audience === GroupBookingAudience.AnyEligible && r.reachedProviderCount != null) {
+      parts.push(
+        r.reachedProviderCount === 0
+          ? t('groupRequest.reachedNobody')
+          : t('groupRequest.reachedCount', { count: r.reachedProviderCount })
+      );
+    }
+    return parts.join(' · ');
+  };
 
   const card = (r: GroupBookingRequestDto) => {
     const status = statusStyle(t, r.status);
     const isOpen = r.status === GroupBookingStatus.Open;
+    const isExpired = r.status === GroupBookingStatus.Expired;
     return (
       <View key={r.id} className={`mb-3 rounded-2xl border p-4 ${borderColor} ${cardBg}`}>
         <View className="flex-row items-start justify-between">
@@ -142,9 +184,7 @@ export default function MyGroupRequestsScreen() {
                 </Text>
               ) : null}
             </Text>
-            <Text className={`mt-1 text-sm ${subtextColor}`}>
-              {formatRequestWindow(t, r.bookingFrom, r.bookingTo)}
-            </Text>
+            <Text className={`mt-1 text-sm ${subtextColor}`}>{formatRequestWhen(t, r)}</Text>
           </View>
           <View className="rounded-full px-3 py-1" style={{ backgroundColor: status.bg }}>
             <Text className="text-xs font-semibold" style={{ color: status.fg }}>
@@ -193,8 +233,11 @@ export default function MyGroupRequestsScreen() {
         {r.status === GroupBookingStatus.Cancelled && r.cancelReason ? (
           <Text className={`mt-3 text-xs italic ${subtextColor}`}>{r.cancelReason}</Text>
         ) : null}
+        {isExpired ? (
+          <Text className={`mt-3 text-sm ${textColor}`}>{t('groupRequest.nobodyTook')}</Text>
+        ) : null}
 
-        {(isOpen || r.bookingId) && (
+        {(isOpen || r.bookingId || isExpired) && (
           <View className="mt-4 flex-row justify-end gap-2">
             {r.bookingId ? (
               <Button
@@ -209,6 +252,25 @@ export default function MyGroupRequestsScreen() {
                 variant="outline"
                 disabled={busyId === r.id}
                 onPress={() => cancel(r)}
+              />
+            ) : null}
+            {isExpired && r.isAsap ? (
+              <Button
+                text={t('groupRequest.sendAgain')}
+                variant="primary"
+                icon={<Ionicons name="refresh" size={16} color="white" />}
+                disabled={busyId === r.id}
+                onPress={() => setSendingAgain(r)}
+              />
+            ) : null}
+            {isExpired && !r.isAsap ? (
+              // A planned request needs a new time: the form, opened on the same kind of service.
+              <Button
+                text={t('groupRequest.askAgain')}
+                variant="outline"
+                onPress={() =>
+                  navigation.navigate('CreateGroupRequest', { serviceType: r.serviceType })
+                }
               />
             ) : null}
           </View>
@@ -232,8 +294,7 @@ export default function MyGroupRequestsScreen() {
       headerTitle={t('groupRequest.myTitle')}
       headerSubtitle={t('groupRequest.mySubtitle')}
       contentBg={isWebLayout ? undefined : isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]'}
-      webHeaderRight={newButton}
-      width="wide">
+      webHeaderRight={newButton}>
       <FilterTabs tabs={TABS} activeKey={tab} onChange={setTab} counts={counts} />
       <ScrollView
         className="flex-1"
@@ -263,6 +324,12 @@ export default function MyGroupRequestsScreen() {
           )}
         </View>
       </ScrollView>
+      <SendAgainDialog
+        request={sendingAgain}
+        busy={sendingAgain != null && busyId === sendingAgain.id}
+        onClose={() => setSendingAgain(null)}
+        onConfirm={sendAgain}
+      />
     </ScreenLayout>
   );
 }

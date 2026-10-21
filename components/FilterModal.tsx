@@ -36,6 +36,8 @@ interface FilterModalProps {
   availableAddOns?: string[];
   /** Passed to SearchFilters — see its prop of the same name. */
   hideServiceTypes?: boolean;
+  /** Leaves out "When" — see SearchFilters. */
+  hideWhen?: boolean;
 }
 
 /**
@@ -55,6 +57,7 @@ export default function FilterModal({
   maxPrice,
   availableAddOns = [],
   hideServiceTypes = false,
+  hideWhen = false,
 }: FilterModalProps) {
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -133,6 +136,7 @@ export default function FilterModal({
           <ScrollView className={`flex-1 ${sheetPx} py-4`}>
             <SearchFilters
               hideServiceTypes={hideServiceTypes}
+              hideWhen={hideWhen}
               value={draft}
               onChange={setDraft}
               maxPrice={maxPrice}

@@ -132,14 +132,12 @@ export default function CreatePromotionScreen() {
 
   return (
     <ScreenLayout
+      narrow
       headerVariant="standard"
       showBackButton
       headerTitle={t('promotions.createTitle')}
       headerSubtitle={t('promotions.createSubtitle')}
-      contentBg={contentBg}
-      // A form: one column of fields. Capped narrow so a label never sits a screen-width
-      // away from the input it names.
-      width="narrow">
+      contentBg={contentBg}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{

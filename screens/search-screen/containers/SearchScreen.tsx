@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Button from '../../../components/shared/Button';
 import PetLoader from '../../../components/shared/PetLoader';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import BookingCartPill from '../../../components/shared/BookingCartPill';
 import TwoColumn from '../../../components/shared/TwoColumn';
 import { useResponsive } from '../../../hooks/useResponsive';
 import FilterModal from '../../../components/FilterModal';
@@ -26,12 +27,14 @@ import {
   serviceFromPrice,
   ServiceDto,
   ServiceSortBy,
+  DayPeriod,
   type GetServicesParams,
   type ServiceSortByValue,
 } from '../../../services/services';
 import type { PagedResult } from '../../../services/http';
 import { usePagedList } from '../../../hooks/usePagedList';
 import { forwardGeocode, GeoPoint } from '../../../services/geocoding';
+import { parseDateOnly } from '../../../services/date-only';
 import { getRecentlyBooked, getNearMe } from '../../../services/home';
 import { resolveImageUrl, providerTypeValue } from '../../../services/service-providers';
 import { useLocale } from '../../../context/LocaleContext';
@@ -164,6 +167,34 @@ function ratingThreshold(minimumRating: string): number | undefined {
   if (minimumRating === 'Any') return undefined;
   const parsed = parseFloat(minimumRating);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/**
+ * The server's "When" filter, for a complete Home list filtered here: a working window on that
+ * day's weekday (if a day is set) overlapping one of the parts of the day (if any are set).
+ * Morning is before 12:00, afternoon 12:00–17:00, evening from 17:00, night past 22:00 or past
+ * midnight (backend `DayPeriodBands`).
+ */
+function worksWhen(svc: ServiceDto, date: string | null, parts: number[]): boolean {
+  const weekday = date ? parseDateOnly(date)?.getDay() : undefined;
+  const minutes = (hms: string) => {
+    const [h, m] = hms.split(':').map((n) => parseInt(n, 10) || 0);
+    return h * 60 + m;
+  };
+  return (svc.schedules ?? []).some((s) => {
+    if (weekday != null && s.day !== weekday) return false;
+    if (parts.length === 0) return true;
+    const from = minutes(s.from);
+    const to = minutes(s.to);
+    // Ends at or before it starts: runs past midnight, so it covers the rest of its own day.
+    const overnight = to <= from;
+    return (
+      (parts.includes(DayPeriod.Morning) && from < 12 * 60) ||
+      (parts.includes(DayPeriod.Afternoon) && from < 17 * 60 && (to > 12 * 60 || overnight)) ||
+      (parts.includes(DayPeriod.Evening) && (to > 17 * 60 || overnight)) ||
+      (parts.includes(DayPeriod.Night) && (to > 22 * 60 || overnight))
+    );
+  });
 }
 
 export default function SearchScreen() {
@@ -362,6 +393,9 @@ export default function SearchScreen() {
             : undefined,
         minRating: ratingThreshold(f.minimumRating),
         onSaleOnly: f.onSaleOnly || undefined,
+        availableOn: f.date ?? undefined,
+        // Parts of the day are FLAGS — OR-ed into the single value the API takes.
+        timesOfDay: f.timesOfDay.length ? f.timesOfDay.reduce((all, p) => all | p, 0) : undefined,
         query: query || undefined,
       })
     );
@@ -517,6 +551,9 @@ export default function SearchScreen() {
       }
       const threshold = ratingThreshold(filters.minimumRating);
       if (threshold != null && item.rating > 0 && item.rating < threshold) return false;
+      if (filters.date || filters.timesOfDay.length) {
+        if (!worksWhen(svc, filters.date, filters.timesOfDay)) return false;
+      }
 
       return true;
     });
@@ -723,6 +760,7 @@ export default function SearchScreen() {
   const listContent = (
     <ListView
       services={services}
+      date={filters.date}
       badge={categoryConfig?.badge}
       paging={{ total: totalItems, hasMore, isLoadingMore, onLoadMore: loadMore }}
       // A complete Home list has its own meaning-bearing order (most booked, nearest); re-sorting
@@ -763,7 +801,12 @@ export default function SearchScreen() {
       className={`${showFilterRail ? '' : 'flex-1'} ${isWebLayout ? 'px-8 pb-4' : 'pb-20'}`}
       style={showFilterRail ? { height: 680 } : undefined}>
       {queryChip}
-      <MapViewComponent services={mapServices} location={location} isDarkMode={isDarkMode} />
+      <MapViewComponent
+        services={mapServices}
+        date={filters.date}
+        location={location}
+        isDarkMode={isDarkMode}
+      />
     </View>
   );
 
@@ -780,14 +823,6 @@ export default function SearchScreen() {
               : t('search.allServices')
       }
       contentBg={contentBg}
-      // Uncapped, unlike every other screen. `ContentContainer` centres a capped column, and that
-      // centring margin STACKS on top of the gutter — so past ~1750px the space outside the
-      // results grew with the window (43px at 1800, 243px at 2200) while the gap between the
-      // results and the filter rail stayed at its fixed 32. The page then read as a narrow strip
-      // adrift in the window. A browse list has no reading-measure problem to solve — its rows are
-      // built from fixed-width blocks and one flexible middle — so it takes the width it is given
-      // and every gutter stays the same size.
-      width="full"
       // Back is a phone affordance here — on the web design Search is a sidebar destination, not
       // somewhere you drilled into, so there is nothing above it to go back to.
       showBackButton
@@ -849,6 +884,8 @@ export default function SearchScreen() {
         maxPrice={maxPrice}
         availableAddOns={facets.addOns}
       />
+      {/* What waits in the booking cart, while the next service is found. */}
+      <BookingCartPill />
     </ScreenLayout>
   );
 }

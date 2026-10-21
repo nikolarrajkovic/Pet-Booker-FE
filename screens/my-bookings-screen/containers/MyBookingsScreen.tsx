@@ -178,8 +178,7 @@ export default function MyBookingsScreen() {
         headerVariant="standard"
         headerTitle={t('myBookings.title')}
         contentBg={bgColor}
-        showBackButton
-        width="default">
+        showBackButton>
         <ScrollView
           className="flex-1"
           scrollEventThrottle={200}

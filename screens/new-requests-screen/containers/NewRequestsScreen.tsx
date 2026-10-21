@@ -108,7 +108,8 @@ function bookingToRequest(t: TFn, b: BookingDto): ServiceRequest {
     basePrice: b.basePrice,
     currency: b.priceCurrency ?? null,
     additionalServices: selectedAddOns(t, b), // pickup / drop-off / special-needs the booker picked
-    notesFromOwner: '', // BACKEND-GAP: no owner-notes field
+    // The customer's note for the provider (feedback 2026-10-21; there was no field for it).
+    notesFromOwner: b.note ?? '',
     status,
     expiredAfterAccepting:
       status === 'expired' && b.currentStatus !== BookingStatusType.ServiceRequestedByUser,
@@ -318,8 +319,7 @@ export default function NewRequestsScreen() {
         many: 'requests.pendingMany',
       })}
       contentBg={contentBg}
-      showNotificationButton
-      width="wide">
+      showNotificationButton>
       {/* Filter tabs */}
       <View
         className={`${gutter.mx} mb-3 mt-4 ${tabBg} flex-row rounded-2xl border p-1 ${borderColor}`}>

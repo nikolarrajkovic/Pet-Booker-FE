@@ -4,47 +4,18 @@ import { useResponsive, byMode } from '../../hooks/useResponsive';
 import { PAGE_GUTTER } from '../../hooks/usePageGutter';
 
 /**
- * How wide the content column is allowed to grow on the web design.
- *
- * A page that runs to the edge of a 1920px window is unreadable — text lines pass 200 characters
- * and the eye loses the start of the next one. Each shape gets the cap that suits it rather than
- * one global number:
+ * The width of a **form page** on the web design (see `narrow`): one column of fields, the title
+ * above it, centred in the window.
  */
-export const CONTENT_WIDTHS = {
-  /** Forms and auth — a single column of fields nobody wants to be 1400px wide. */
-  narrow: 720,
-  /**
-   * The default: reading pages, detail screens, lists of cards.
-   *
-   * 1360 rather than a tighter reading measure because the cap applies to what is left of the
-   * window *after* the sidebar. At 1240 a 1500px window put ~130px of gutter either side of
-   * every list, which read as the page failing to fill its space — while `wide` pages beside it
-   * ran edge to edge, so the two looked like different applications.
-   */
-  default: 1360,
-  /**
-   * Dashboards and grids, where more columns genuinely help.
-   *
-   * 1600 rather than a more conventional ~1400: the cap applies to what is *left* of the window
-   * after the sidebar, and centring that inside the remaining region adds a second gutter on top
-   * of the container's own padding. At 1920 a 1400 cap put 180px of dead space on each side of
-   * every dashboard — enough that the page read as under-filled rather than tidy.
-   *
-   * Reserve it for genuine grids and dashboards. A single column of cards belongs on `default`,
-   * whatever its length — My Bookings sat here once, and next to My Pets and Messages the two
-   * caps read as two different page widths rather than one design.
-   */
-  wide: 1600,
-  /** No cap — maps and anything that should bleed to the window edge. */
-  full: undefined,
-} as const;
-
-export type ContentWidth = keyof typeof CONTENT_WIDTHS;
+export const FORM_WIDTH = 720;
 
 type ContentContainerProps = {
   children: ReactNode;
-  /** Max width on the web design. Ignored on mobile, which is always full-bleed. */
-  width?: ContentWidth;
+  /**
+   * A form or a page of text: cap the column at `FORM_WIDTH` and centre it. Web design only.
+   * Everything else leaves this off and fills the width.
+   */
+  narrow?: boolean;
   /** Drop the horizontal padding — for a child that manages its own gutters (a full-bleed rail). */
   noPadding?: boolean;
   className?: string;
@@ -52,43 +23,37 @@ type ContentContainerProps = {
 };
 
 /**
- * The centred, width-capped column the web design lays its content in.
+ * The column the web design lays a page in.
  *
- * On **mobile this is a plain `View`** with the phone's page gutter, so wrapping a screen
- * body in it changes nothing about the shipped phone design. On tablet/desktop it centres the
- * content and stops it growing past `CONTENT_WIDTHS[width]`.
+ * **Most pages: the full width beside the sidebar, inset by the one page gutter**
+ * (hooks/usePageGutter — 32 on web, 16 on a phone), laid out the way Search is. Pages used to pick
+ * a cap here — 1360, 1600 — centred in what was left of the window, so on a 1920 screen content
+ * started anywhere from 32px to 211px from the sidebar (feedback 2026-10-19).
  *
- * Use this rather than a hand-written `maxWidth` — four screens each picking their own number is
- * how a "responsive" app ends up with four different column widths and three different gutters.
+ * **Forms and text pages are `narrow`**: one column, `FORM_WIDTH` wide, centred, with the title
+ * above it. Stretched to the full width a form became a band of 1,600px inputs, and side-by-side
+ * fields read as two forms (feedback 2026-10-20: "one field per row … smaller width as before").
+ *
+ * On mobile this is a plain `View` with the phone's gutter, so wrapping a screen body in it
+ * changes nothing about the phone design.
  */
 export default function ContentContainer({
   children,
-  width = 'default',
+  narrow = false,
   noPadding = false,
   className = '',
   style,
 }: ContentContainerProps) {
-  const { mode } = useResponsive();
-
-  // Desktop padding sits *inside* the width cap, so it stacks with the centring margin. The value
-  // is the app-wide page gutter (hooks/usePageGutter), so a screen body padded with the same
-  // token lines up under the title this container pads.
+  const { mode, isWebLayout } = useResponsive();
   const horizontalPadding = noPadding ? 0 : byMode(mode, PAGE_GUTTER);
+  // The gutter sits inside the cap, so a narrow page's title and its form card share one edge.
+  const cap: ViewStyle =
+    narrow && isWebLayout ? { maxWidth: FORM_WIDTH, marginHorizontal: 'auto' } : {};
 
   return (
     <View
       className={className}
-      style={[
-        {
-          width: '100%',
-          maxWidth: CONTENT_WIDTHS[width],
-          // `auto` margins are what centre a max-width box; on mobile `maxWidth` is undefined for
-          // `full` and equal-or-wider than the screen otherwise, so this is a no-op there.
-          marginHorizontal: 'auto',
-          paddingHorizontal: horizontalPadding,
-        },
-        style,
-      ]}>
+      style={[{ width: '100%', paddingHorizontal: horizontalPadding }, cap, style]}>
       {children}
     </View>
   );

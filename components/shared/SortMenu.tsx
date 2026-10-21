@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Platform, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
@@ -24,9 +24,24 @@ type SortMenuProps<V extends string | number> = {
  * deserve a full-screen overlay.
  *
  * The panel opens downwards over whatever follows, so the row holding this has to out-rank the
- * rows beneath it in paint order — give that row `style={{ zIndex: 20 }}`. A z-index only
+ * rows beneath it in paint order — give that row `style={DROPDOWN_ANCHOR}`. A z-index only
  * competes inside its own stacking context, and the list rows are later siblings of that row.
  */
+/**
+ * The style for the row an inline dropdown opens from, so its panel paints over the rows below.
+ *
+ * `zIndex` is enough on the web and iOS but **not on Android**, where a parent draws its children
+ * in elevation order before it consults zIndex. List cards carry elevation (`shadow-sm` compiles to
+ * one there), the row holding the menu had none, so every card below drew over the open panel —
+ * its text showing through the options ("the dropdown is covered by text from the background").
+ * The panel's own elevation could not help: it only orders it inside that row. A row with no
+ * background casts no shadow, so the elevation costs nothing visible.
+ */
+export const DROPDOWN_ANCHOR: ViewStyle = {
+  zIndex: 20,
+  ...(Platform.OS === 'android' ? { elevation: 24 } : null),
+};
+
 export default function SortMenu<V extends string | number>({
   value,
   options,
@@ -38,7 +53,7 @@ export default function SortMenu<V extends string | number>({
   const activeLabel = options.find((o) => o.value === value)?.labelKey ?? options[0]?.labelKey;
 
   return (
-    <View style={{ zIndex: 20 }}>
+    <View style={DROPDOWN_ANCHOR}>
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityLabel={`${t('search.sortBy')}: ${t(activeLabel as any)}`}

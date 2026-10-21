@@ -28,6 +28,41 @@ export function formatRequestWindow(t: TFn, fromIso: string, toIso: string): str
   return `${day(t, from)} ${hhmm(from)} → ${day(t, to)} ${hhmm(to)}`;
 }
 
+/** "45 min", "1 h", "1 h 30 min" — the length of an ASAP request. */
+export function formatLength(t: TFn, minutes: number): string {
+  if (minutes < 60) return t('durations.nMin', { n: minutes });
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0
+    ? t('durations.nHours', { n: hours })
+    : `${t('durations.nHours', { n: hours })} ${t('durations.nMin', { n: rest })}`;
+}
+
+/** "As soon as possible · 1 h · open until 16:30". */
+export function formatAsapWindow(t: TFn, lengthMinutes: number, until: Date): string {
+  return t('groupRequest.asapSummary', {
+    length: formatLength(t, lengthMinutes),
+    until: hhmm(until),
+  });
+}
+
+/**
+ * When a request is for, as every card states it: the window for a scheduled one, "as soon as
+ * possible · length · open until" for an ASAP one (it has no start until a provider accepts).
+ */
+export function formatRequestWhen(
+  t: TFn,
+  r: Pick<GroupBookingRequestDto, 'bookingFrom' | 'bookingTo' | 'isAsap' | 'activeUntil'>
+): string {
+  if (r.isAsap && r.activeUntil) {
+    const length = Math.round(
+      (parseBookingDate(r.bookingTo).getTime() - parseBookingDate(r.bookingFrom).getTime()) / 60000
+    );
+    return formatAsapWindow(t, length, parseBookingDate(r.activeUntil));
+  }
+  return formatRequestWindow(t, r.bookingFrom, r.bookingTo);
+}
+
 /** Same for two local Dates still being edited in the form. */
 export function formatDateWindow(t: TFn, from: Date, to: Date): string {
   if (from.toDateString() === to.toDateString()) {

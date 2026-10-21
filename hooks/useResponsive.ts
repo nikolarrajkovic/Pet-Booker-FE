@@ -9,7 +9,7 @@ export const BREAKPOINTS = {
   tablet: 768,
   /** At and above this the app draws its full web design: sidebar + top bar. */
   desktop: 1024,
-  /** Above this the content column stops growing and the extra space becomes margin. */
+  /** At and above this a card grid may add a column (`isWide`). */
   wide: 1440,
 } as const;
 

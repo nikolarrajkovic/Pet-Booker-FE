@@ -1,4 +1,5 @@
 import { addressLabel } from '../../../services/geocoding';
+import BookingCartPill from '../../../components/shared/BookingCartPill';
 import React from 'react';
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -9,6 +10,7 @@ import { useResource } from '../../../hooks/useResource';
 import { serviceDetailParams } from '../../../navigation/linking';
 import ServicePhoto from '../../../components/shared/ServicePhoto';
 import {
+  priceSuffix,
   getServices,
   ServiceDto,
   serviceCurrency,
@@ -303,6 +305,7 @@ export default function ProviderDetailScreen() {
                         <View className="items-end">
                           <Text className="text-base font-bold text-brand-600">
                             {formatMoney(serviceFromPrice(svc), serviceCurrency(svc))}
+                            {priceSuffix(t, svc)}
                           </Text>
                           {unavailable ? (
                             <View className="mt-2 rounded-full bg-gray-100 px-4 py-1.5">
@@ -359,6 +362,8 @@ export default function ProviderDetailScreen() {
           </>
         )}
       </ScrollView>
+      {/* What waits in the booking cart, while the next service is found. */}
+      <BookingCartPill />
     </View>
   );
 }

@@ -26,7 +26,6 @@ import {
 } from '../../../services/bookings';
 import { formatShortDate } from '../../../i18n/dates';
 import { useResponsive } from '../../../hooks/useResponsive';
-import { CONTENT_WIDTHS } from '../../../components/shared/ContentContainer';
 import BackLink from '../../../components/shared/BackLink';
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 import { showAlert } from '../../../services/alert';
@@ -332,8 +331,6 @@ export default function PartnerDetailsScreen() {
           paddingTop: isWebLayout ? 32 : insets.top + 12,
           paddingBottom: isWebLayout ? 12 : 28,
           width: '100%',
-          maxWidth: isWebLayout ? CONTENT_WIDTHS.default : undefined,
-          alignSelf: 'center',
         }}>
         {isWebLayout && <BackLink />}
         {!isWebLayout && (
@@ -380,8 +377,6 @@ export default function PartnerDetailsScreen() {
               ? {
                   paddingBottom: 40,
                   width: '100%',
-                  maxWidth: CONTENT_WIDTHS.default,
-                  alignSelf: 'center',
                 }
               : { paddingBottom: 100 + insets.bottom }
           }
