@@ -19,6 +19,11 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import TimePicker, { formatTime24 } from '../../../components/shared/TimePicker';
+import SelectMenu from '../../../components/shared/SelectMenu';
+import AnchoredPopover, {
+  anchorOf,
+  type PopoverAnchor,
+} from '../../../components/shared/AnchoredPopover';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import FormCard from '../../../components/shared/FormCard';
 import CurrencyInput from '../../../components/shared/CurrencyInput';
@@ -182,6 +187,8 @@ export default function AddEditServiceScreen() {
   const [showServiceTypeModal, setShowServiceTypeModal] = useState(false);
   const [showDurationModal, setShowDurationModal] = useState(false);
   const [durationModalIndex, setDurationModalIndex] = useState(0);
+  // The field a picker opened from: on the web design its list opens under it.
+  const [pickerAnchor, setPickerAnchor] = useState<PopoverAnchor>(null);
   const [serviceName, setServiceName] = useState(existingService?.name || '');
   const [description, setDescription] = useState(existingService?.description || '');
   const [serviceImages, setServiceImages] = useState<ServiceImageInput[]>(
@@ -364,7 +371,12 @@ export default function AddEditServiceScreen() {
       );
     });
 
-  const openTimePicker = (day: string, type: 'start' | 'end' | 'start2' | 'end2') => {
+  const openTimePicker = (
+    day: string,
+    type: 'start' | 'end' | 'start2' | 'end2',
+    anchor: PopoverAnchor = null
+  ) => {
+    setPickerAnchor(anchor);
     setTimePickerDay(day);
     setTimePickerType(type);
     const h = workingHours[day];
@@ -643,8 +655,6 @@ export default function AddEditServiceScreen() {
   );
 
   // Esc dismisses these dialogs — RN's onRequestClose only fires for Android's back button.
-  useEscapeToClose(showServiceTypeModal, () => setShowServiceTypeModal(false));
-  useEscapeToClose(showDurationModal, () => setShowDurationModal(false));
   useEscapeToClose(showTimePicker, () => setShowTimePicker(false));
 
   return (
@@ -681,7 +691,10 @@ export default function AddEditServiceScreen() {
             </Text>
             <TouchableOpacity
               accessibilityRole="button"
-              onPress={() => setShowServiceTypeModal(true)}
+              onPress={(e) => {
+                setPickerAnchor(anchorOf(e));
+                setShowServiceTypeModal(true);
+              }}
               className={`${inputBg} flex-row items-center justify-between rounded-xl px-4 py-3`}>
               <Text className={serviceType ? textColor : `${subtextColor}`}>
                 {serviceType ? typeLabel(serviceType) : t('addEditService.selectServiceType')}
@@ -886,7 +899,8 @@ export default function AddEditServiceScreen() {
                 {/* Duration picker */}
                 <TouchableOpacity
                   accessibilityRole="button"
-                  onPress={() => {
+                  onPress={(e) => {
+                    setPickerAnchor(anchorOf(e));
                     setDurationModalIndex(index);
                     setShowDurationModal(true);
                   }}
@@ -1364,7 +1378,7 @@ export default function AddEditServiceScreen() {
                         </Text>
                         <TouchableOpacity
                           accessibilityRole="button"
-                          onPress={() => openTimePicker(day, 'start')}
+                          onPress={(e) => openTimePicker(day, 'start', anchorOf(e))}
                           className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
                           <Text className={textColor}>{hours.startTime}</Text>
                           <Ionicons name="time-outline" size={20} color="#6B7280" />
@@ -1376,7 +1390,7 @@ export default function AddEditServiceScreen() {
                         </Text>
                         <TouchableOpacity
                           accessibilityRole="button"
-                          onPress={() => openTimePicker(day, 'end')}
+                          onPress={(e) => openTimePicker(day, 'end', anchorOf(e))}
                           className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
                           <Text className={textColor}>
                             {hours.endTime}
@@ -1399,7 +1413,7 @@ export default function AddEditServiceScreen() {
                         <View className="flex-1">
                           <TouchableOpacity
                             accessibilityRole="button"
-                            onPress={() => openTimePicker(day, 'start2')}
+                            onPress={(e) => openTimePicker(day, 'start2', anchorOf(e))}
                             className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
                             <Text className={textColor}>{hours.second.startTime}</Text>
                             <Ionicons name="time-outline" size={20} color="#6B7280" />
@@ -1408,7 +1422,7 @@ export default function AddEditServiceScreen() {
                         <View className="flex-1">
                           <TouchableOpacity
                             accessibilityRole="button"
-                            onPress={() => openTimePicker(day, 'end2')}
+                            onPress={(e) => openTimePicker(day, 'end2', anchorOf(e))}
                             className={`${cardBg} border ${borderColor} flex-row items-center justify-between rounded-xl px-4 py-3`}>
                             <Text className={textColor}>
                               {hours.second.endTime}
@@ -1480,101 +1494,33 @@ export default function AddEditServiceScreen() {
         </FormCard>
       </ScrollView>
 
-      {/* Service Type Modal */}
-      <Modal
+      {/* Service type and duration: a dropdown under the field on the web design, a sheet on a
+          phone. */}
+      <SelectMenu
         visible={showServiceTypeModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowServiceTypeModal(false)}>
-        <TouchableOpacity
-          accessible={false}
-          focusable={false}
-          activeOpacity={1}
-          onPress={() => setShowServiceTypeModal(false)}
-          className="flex-1 justify-end bg-black/50">
-          <TouchableOpacity activeOpacity={1} className={`${cardBg} rounded-t-3xl`}>
-            <View className="p-6">
-              <View className="mb-4 flex-row items-center justify-between">
-                <Text className={`text-xl font-bold ${textColor}`}>
-                  {t('addEditService.selectServiceTypeModal')}
-                </Text>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  accessibilityLabel={t('common.close')}
-                  onPress={() => setShowServiceTypeModal(false)}>
-                  <Ionicons name="close" size={24} color={isDarkMode ? '#fff' : '#000'} />
-                </TouchableOpacity>
-              </View>
-
-              {typeOptions.map((type) => (
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  key={type}
-                  onPress={() => {
-                    setServiceType(type);
-                    setShowServiceTypeModal(false);
-                  }}
-                  className={`border-b py-4 ${borderColor}`}>
-                  <View className="flex-row items-center justify-between">
-                    <Text className={`text-base ${textColor}`}>{typeLabel(type)}</Text>
-                    {serviceType === type && (
-                      <Ionicons name="checkmark" size={24} color={BRAND_GREEN} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Duration Picker Modal */}
-      <Modal
+        onClose={() => setShowServiceTypeModal(false)}
+        anchor={pickerAnchor}
+        title={t('addEditService.selectServiceTypeModal')}
+        options={typeOptions.map((type) => ({
+          key: String(type),
+          label: typeLabel(type),
+          selected: serviceType === type,
+          onSelect: () => setServiceType(type),
+        }))}
+      />
+      <SelectMenu
         visible={showDurationModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDurationModal(false)}>
-        <TouchableOpacity
-          accessible={false}
-          focusable={false}
-          activeOpacity={1}
-          onPress={() => setShowDurationModal(false)}
-          className="flex-1 justify-end bg-black/50">
-          <TouchableOpacity activeOpacity={1} className={`${cardBg} rounded-t-3xl`}>
-            <View className="p-6">
-              <View className="mb-4 flex-row items-center justify-between">
-                <Text className={`text-xl font-bold ${textColor}`}>
-                  {t('addEditService.selectDuration')}
-                </Text>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  accessibilityLabel={t('common.close')}
-                  onPress={() => setShowDurationModal(false)}>
-                  <Ionicons name="close" size={24} color={isDarkMode ? '#fff' : '#000'} />
-                </TouchableOpacity>
-              </View>
-
-              {DURATION_OPTIONS.map((option) => (
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  key={option}
-                  onPress={() => {
-                    updatePricingTier(durationModalIndex, 'duration', option);
-                    setShowDurationModal(false);
-                  }}
-                  className={`border-b py-4 ${borderColor}`}>
-                  <View className="flex-row items-center justify-between">
-                    <Text className={`text-base ${textColor}`}>{option}</Text>
-                    {pricingTiers[durationModalIndex]?.duration === option && (
-                      <Ionicons name="checkmark" size={24} color={BRAND_GREEN} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+        onClose={() => setShowDurationModal(false)}
+        anchor={pickerAnchor}
+        title={t('addEditService.selectDuration')}
+        minWidth={160}
+        options={DURATION_OPTIONS.map((option) => ({
+          key: option,
+          label: option,
+          selected: pricingTiers[durationModalIndex]?.duration === option,
+          onSelect: () => updatePricingTier(durationModalIndex, 'duration', option),
+        }))}
+      />
 
       {/* Map picker for the service location — opens on the current address's
           pin when there is one, else the user's current location */}
@@ -1599,8 +1545,23 @@ export default function AddEditServiceScreen() {
         />
       )}
 
-      {/* Time Picker Modal */}
-      {showTimePicker && (
+      {/* Time picker: under the field on the web design, a dialog on a phone. */}
+      {isWebLayout ? (
+        <AnchoredPopover
+          visible={showTimePicker}
+          onClose={() => setShowTimePicker(false)}
+          anchor={pickerAnchor}
+          width={340}
+          maxHeight={460}>
+          <TimePicker
+            bare
+            value={selectedTime}
+            onChange={handleTimeChange}
+            onClose={() => setShowTimePicker(false)}
+            isDarkMode={isDarkMode}
+          />
+        </AnchoredPopover>
+      ) : showTimePicker ? (
         <Modal
           visible={showTimePicker}
           transparent
@@ -1617,7 +1578,7 @@ export default function AddEditServiceScreen() {
             </View>
           </View>
         </Modal>
-      )}
+      ) : null}
     </ScreenLayout>
   );
 }

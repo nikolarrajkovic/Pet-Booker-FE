@@ -24,6 +24,10 @@ interface PetSelectorProps {
   subtextColor: string;
   cardBg: string;
   borderColor: string;
+  /** The number on the section's step dot. */
+  step?: number;
+  /** Replaces the section's own wrapper — the web booking form puts it on a card. */
+  containerClassName?: string;
 }
 
 export default function PetSelector({
@@ -35,20 +39,22 @@ export default function PetSelector({
   subtextColor,
   cardBg,
   borderColor,
+  step = 4,
+  containerClassName,
 }: PetSelectorProps) {
   const gutter = usePageGutter();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
   const anySelected = selectedPets.length > 0;
   return (
-    <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
+    <View className={containerClassName ?? `border-t ${gutter.px} py-5 ${borderColor}`}>
       <View className="mb-4 flex-row items-center">
         <View
           className={`h-6 w-6 items-center justify-center rounded-full ${anySelected ? 'bg-brand-500' : 'bg-gray-300'}`}>
           {anySelected ? (
             <Ionicons name="checkmark" size={16} color="white" />
           ) : (
-            <Text className="text-xs font-bold text-white">4</Text>
+            <Text className="text-xs font-bold text-white">{step}</Text>
           )}
         </View>
         <Text className={`text-base font-semibold ${textColor} ml-3`}>

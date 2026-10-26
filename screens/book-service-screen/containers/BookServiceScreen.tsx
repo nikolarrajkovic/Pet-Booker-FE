@@ -287,6 +287,16 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
   const [weeklyDays, setWeeklyDays] = useState<number[]>([]);
   const [weeklyWeeks, setWeeklyWeeks] = useState(4);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const { isWebLayout } = useResponsive();
+  // The web design checks out what is selected, straight away (feedback 2026-10-21): every picked
+  // pet on every repeat day, as one booking, with no "Add appointment" step, no list of added
+  // appointments and no cart. The phone design keeps adding appointments and the cart.
+  const directCheckout = isWebLayout;
+  // Appointments added on the phone design before the window widened don't count on the web one.
+  const heldAppointments = useMemo(
+    () => (directCheckout ? [] : appointments),
+    [directCheckout, appointments]
+  );
 
   // Server-derived bookable windows (with remaining capacity), keyed by "YYYY-MM-DD".
   //
@@ -541,7 +551,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
             slotMinutes
           )
         : roomIn(segmentsOn(day), startMin, startMin + slotMinutes);
-      const localTaken = appointments.filter((a) =>
+      const localTaken = heldAppointments.filter((a) =>
         overlaps(
           parseBookingDate(a.bookingFrom).getTime(),
           parseBookingDate(a.bookingTo).getTime(),
@@ -556,7 +566,16 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
         available: room != null && start.getTime() > earliest && room - localTaken >= petCount,
       };
     },
-    [segmentsOn, appointments, slotMs, slotMinutes, leadTimeHours, petCount, isStay, availByDate]
+    [
+      segmentsOn,
+      heldAppointments,
+      slotMs,
+      slotMinutes,
+      leadTimeHours,
+      petCount,
+      isStay,
+      availByDate,
+    ]
   );
 
   const timeSlots: TimeSlot[] = useMemo(() => {
@@ -940,6 +959,14 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
   const grandTotal = appointments.reduce((sum, a) => sum + a.total, 0);
 
   const onContinue = () => {
+    if (directCheckout) {
+      const own = buildAppointments();
+      if (own.length === 0) return;
+      (navigation as any).navigate('ReviewBooking', {
+        sections: [{ service: selectedService, appointments: own }],
+      });
+      return;
+    }
     const current = [...appointments, ...buildAppointments()];
     // Everything in this checkout: the services set aside in the cart, plus this one.
     const sections = cart.withSection(selectedService, current);
@@ -970,8 +997,6 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
       )}
     </View>
   );
-
-  const { isWebLayout } = useResponsive();
 
   // "3 nights" / "2 days" — a stay's length in the unit it is priced in.
   const stayLabel = (minutes: number) =>
@@ -1005,13 +1030,18 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
 
   // One checkout takes at most MAX_BATCH_APPOINTMENTS (the server refuses more, all or nothing),
   // the services waiting in the cart included.
-  const tooMany =
-    cart.count + appointments.length + (selectionComplete ? selectionCount : 0) >
-    MAX_BATCH_APPOINTMENTS;
+  const tooMany = directCheckout
+    ? selectionComplete && selectionCount > MAX_BATCH_APPOINTMENTS
+    : cart.count + appointments.length + (selectionComplete ? selectionCount : 0) >
+      MAX_BATCH_APPOINTMENTS;
   const hasOwn = selectionComplete || appointments.length > 0;
-  const canContinue = (hasOwn || cart.count > 0) && !tooMany;
+  const canContinue = directCheckout
+    ? selectionComplete && !tooMany
+    : (hasOwn || cart.count > 0) && !tooMany;
   // Other services already in this booking (not this one, which the form itself shows).
-  const otherSections = cart.sections.filter((s) => s.service.id !== selectedService.id);
+  const otherSections = directCheckout
+    ? []
+    : cart.sections.filter((s) => s.service.id !== selectedService.id);
 
   // Why Continue is greyed out, in the order the form asks. A disabled button with no reason
   // left people re-checking every section to find the one step they had not done.
@@ -1032,6 +1062,864 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
   // time and pet are known. It used to read as the final total with an extra already picked.
   const extrasPending = !quote && selectedAddonDefs.length > 0;
 
+  const servicePriceText =
+    pricingOptions.length > 0
+      ? selectedOption
+        ? fmt(effectiveOptionPrice(selectedService, selectedOption))
+        : `${t('bookService.priceFrom')} ${fmt(
+            Math.min(...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o)))
+          )}`
+      : `${fmt(servicePrice(selectedService))}${priceSuffix(t, selectedService)}`;
+
+  const sectionHeading = (done: boolean, n: number, title: string, optional = false) => (
+    <View className="mb-4 flex-row items-center">
+      {stepDot(done, n)}
+      <Text className={`text-base font-semibold ${textColor} ml-3`}>{title}</Text>
+      {optional ? (
+        <Text className={`text-sm ${subtextColor} ml-2`}>{t('bookService.optional')}</Text>
+      ) : null}
+    </View>
+  );
+
+  // ── The form's pieces. Each design arranges them below. ─────────────────────────────────────
+  const lengthChoicesBlock = (
+    <>
+      {' '}
+      {/* Priced per hour, day or night: how long, chosen here (feedback 2026-10-21). */}
+      {pricingOptions.length === 0 && lengthChoices.length > 0 && (
+        <View className="mt-4">
+          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+            {t('bookService.chooseLength')}
+          </Text>
+          <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+            {lengthChoices.map((m) => {
+              const active = chosenLength === m;
+              return (
+                <TouchableOpacity
+                  key={m}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: active }}
+                  aria-checked={active}
+                  onPress={() => {
+                    setLengthMinutes(m);
+                    // The length decides which starts fit: re-pick.
+                    setStartDateTime(null);
+                  }}
+                  className={`rounded-full border px-4 py-2 ${
+                    active
+                      ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                      : `${borderColor} ${cardBg}`
+                  }`}>
+                  <Text
+                    className={`text-sm ${active ? 'font-semibold text-brand-600' : subtextColor}`}>
+                    {lengthLabel(m)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {chosenLength != null ? (
+            <Text className={`mt-2 text-sm ${subtextColor}`}>
+              {t('bookService.lengthTotal', {
+                length: lengthLabel(chosenLength),
+                price: fmt(servicePrice(selectedService)),
+              })}
+              {' = '}
+              <Text className="font-semibold text-brand-600">
+                {fmt(servicePrice(selectedService) * currentUnits())}
+              </Text>
+            </Text>
+          ) : null}
+        </View>
+      )}
+    </>
+  );
+  const optionsBlock = (
+    <>
+      {' '}
+      {/* Duration/price options — required pick when the service defines any */}
+      {pricingOptions.length > 0 && (
+        <View className="mt-4">
+          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+            {t('bookService.chooseDuration')}
+          </Text>
+          {pricingOptions.map((option) => {
+            const effective = effectiveOptionPrice(selectedService, option);
+            const isSelected = option.id != null && option.id === selectedOptionId;
+            return (
+              <TouchableOpacity
+                accessibilityRole="button"
+                key={option.id ?? option.name}
+                onPress={() => {
+                  setSelectedOptionId(option.id ?? null);
+                  // Slot length follows the option — a picked start time may
+                  // no longer be valid, so re-pick.
+                  setStartDateTime(null);
+                }}
+                className={`mb-3 rounded-2xl border-2 p-4 ${
+                  isSelected
+                    ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                    : `${borderColor} ${cardBg}`
+                }`}>
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1">
+                    <Text className={`text-base font-semibold ${textColor}`}>
+                      {durationDisplayLabel(t, option.name)}
+                    </Text>
+                    <Text className={`text-sm ${subtextColor} mt-1`}>
+                      {t('durations.nMin', { n: option.durationMinutes })}
+                      {option.description ? ` • ${option.description}` : ''}
+                    </Text>
+                  </View>
+                  <View className="ml-4 items-end">
+                    {effective < option.price && (
+                      <Text className={`text-xs ${subtextColor} line-through`}>
+                        {fmt(option.price)}
+                      </Text>
+                    )}
+                    <Text className="text-lg font-bold text-brand-600">{fmt(effective)}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+    </>
+  );
+  const extrasBlock = (
+    <>
+      {' '}
+      {serviceAddons.length === 0 ? (
+        <Text className={`text-sm ${subtextColor}`}>{t('bookService.noAddons')}</Text>
+      ) : (
+        serviceAddons.map((addon) => {
+          const selected = addon.id != null && selectedAddons.includes(addon.id);
+          // Once selected, show what the server actually quoted for it; before that (or for
+          // an unselected extra) show the provider's rate card, e.g. "$5 + $2/km".
+          const line = selected ? quotedAddonLine(addon) : null;
+          return (
+            <TouchableOpacity
+              accessibilityRole="button"
+              key={addon.id ?? addon.name}
+              onPress={() => addon.id != null && toggleAddon(addon.id)}
+              className={`mb-3 rounded-2xl border-2 p-4 ${
+                selected
+                  ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                  : `${borderColor} ${cardBg}`
+              }`}>
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1">
+                  {/* Provider-authored name/description — shown verbatim. */}
+                  <Text className={`text-base font-semibold ${textColor}`}>{addon.name}</Text>
+                  {addon.description ? (
+                    <Text className={`text-sm ${subtextColor} mt-1`}>{addon.description}</Text>
+                  ) : null}
+                </View>
+                <Text className="ml-4 text-lg font-bold text-brand-600">
+                  {line
+                    ? fmt(line.price)
+                    : (addonPriceLabel(t, addon, displayCurrency) ?? t('addons.included'))}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })
+      )}
+      {/* Location required when Pickup / Drop-off is selected — picked on a map */}
+      {pickupSelected && (
+        <View className="mb-3 mt-1">
+          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+            {t('bookService.pickupAddress')}
+          </Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => setPickerFor('pickup')}
+            className={`rounded-2xl border px-4 py-3 ${borderColor} ${cardBg} flex-row items-center`}>
+            <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
+            <Text
+              className={`ml-3 flex-1 ${pickupAddr ? textColor : subtextColor}`}
+              numberOfLines={2}>
+              {pickupAddr ? addressLabel(pickupAddr) : t('bookService.pickOnMap')}
+            </Text>
+            <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+          </TouchableOpacity>
+          {/* Price check: measured distance + estimated per-km surcharge. */}
+          {pickupAddr
+            ? addonsOnPickupLeg.map((a) => (
+                <View key={a.id ?? a.name}>{renderDistanceEstimate(a)}</View>
+              ))
+            : null}
+          {/* Copy the drop-off address into pickup (explicit, not auto-filled). */}
+          {dropoffSelected && dropoffAddr && pickupAddr !== dropoffAddr ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => setPickupAddr(dropoffAddr)}
+              className="mt-2 flex-row items-center self-start">
+              <Ionicons name="copy-outline" size={14} color={BRAND_GREEN} />
+              <Text className="ml-1.5 text-sm font-medium text-brand-600">
+                {t('bookService.sameAsDropoff')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      )}
+      {dropoffSelected && (
+        <View className="mb-1 mt-1">
+          <Text className={`text-sm font-semibold ${textColor} mb-2`}>
+            {t('bookService.dropoffAddress')}
+          </Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => setPickerFor('dropoff')}
+            className={`rounded-2xl border px-4 py-3 ${borderColor} ${cardBg} flex-row items-center`}>
+            <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
+            <Text
+              className={`ml-3 flex-1 ${dropoffAddr ? textColor : subtextColor}`}
+              numberOfLines={2}>
+              {dropoffAddr ? addressLabel(dropoffAddr) : t('bookService.pickOnMap')}
+            </Text>
+            <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+          </TouchableOpacity>
+          {/* Price check: measured distance + estimated per-km surcharge. */}
+          {dropoffAddr
+            ? addonsOnDropoffLeg.map((a) => (
+                <View key={a.id ?? a.name}>{renderDistanceEstimate(a)}</View>
+              ))
+            : null}
+          {/* Copy the pickup address into drop-off (explicit, not auto-filled). */}
+          {pickupSelected && pickupAddr && dropoffAddr !== pickupAddr ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => setDropoffAddr(pickupAddr)}
+              className="mt-2 flex-row items-center self-start">
+              <Ionicons name="copy-outline" size={14} color={BRAND_GREEN} />
+              <Text className="ml-1.5 text-sm font-medium text-brand-600">
+                {t('bookService.sameAsPickup')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      )}
+    </>
+  );
+  const dateTimeBlock = (
+    <>
+      {' '}
+      {/* A service with no working hours at all can never be booked. Say so once, here,
+                instead of opening a calendar in which every single day reports "not available". */}
+      {hasNoWorkingHours ? (
+        <View className={`mb-3 rounded-2xl border p-4 ${borderColor} ${cardBg}`}>
+          <View className="flex-row items-center">
+            <Ionicons name="information-circle-outline" size={20} color="#F59E0B" />
+            <Text className={`ml-3 flex-1 ${subtextColor}`}>{t('bookService.noWorkingHours')}</Text>
+          </View>
+        </View>
+      ) : (
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => setShowDatePicker((v) => !v)}
+          className={`mb-3 rounded-2xl border p-4 ${borderColor} ${cardBg} flex-row items-center justify-between`}>
+          <View className="flex-row items-center">
+            <Ionicons name="calendar-outline" size={20} color={BRAND_GREEN} />
+            <Text className={`ml-3 ${selectedDate ? textColor : subtextColor}`}>
+              {selectedDate
+                ? formatFullDate(selectedDate, undefined, 'short')
+                : t('bookService.selectDate')}
+            </Text>
+          </View>
+          <Ionicons
+            name={showDatePicker ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+          />
+        </TouchableOpacity>
+      )}
+      {showDatePicker && (
+        <DatePicker
+          value={selectedDate ?? new Date()}
+          minDate={new Date()}
+          isDarkMode={isDarkMode}
+          // Grey out days that are genuinely unbookable — no schedule window, or fully
+          // booked — using the month of availability already fetched, falling back to the
+          // weekly schedule pattern until it lands.
+          isDateEnabled={isDateBookable}
+          onChange={(date) => {
+            if (date) {
+              setSelectedDate(new Date(date));
+              setStartDateTime(null); // availability differs per day — re-pick a slot
+            }
+            setShowDatePicker(false);
+          }}
+          onClose={() => setShowDatePicker(false)}
+        />
+      )}
+      {selectedDate && (
+        <TimeSlotPicker
+          slots={timeSlots}
+          selectedSlotId={selectedSlotId}
+          onSelectSlot={(slot) => {
+            setStartDateTime(slot.start);
+            // Repeat days were checked against the previous time.
+            setExtraDates([]);
+          }}
+          // Loading only while the picked day's own month is: the month after it may still
+          // be arriving in the background for the repeat days.
+          isLoading={isLoadingSlots && !loadedMonths[monthKeyOf(selectedDate)]}
+          slotMinutes={slotMinutes}
+          isDarkMode={isDarkMode}
+          textColor={textColor}
+          subtextColor={subtextColor}
+        />
+      )}
+      {selectedDate && selectedPets.length > 1 ? (
+        <Text className={`mt-1 text-xs ${subtextColor}`}>
+          {t('bookService.roomForPets', { count: selectedPets.length })}
+        </Text>
+      ) : null}
+      {/* Bulk booking: the same time on other days, without rebuilding each appointment. */}
+      {startDateTime && !isStay && (repeatDays.length > 0 || repeatMode === 'weekly') ? (
+        <View className="mt-5">
+          <View className="mb-1 flex-row items-center">
+            <Ionicons name="repeat" size={16} color={BRAND_GREEN} />
+            <Text className={`ml-2 text-sm font-semibold ${textColor}`}>
+              {t('bookService.repeatTitle')}
+            </Text>
+          </View>
+          <View className="mb-3 mt-2 flex-row gap-2">
+            {(['days', 'weekly'] as const).map((mode) => {
+              const active = repeatMode === mode;
+              return (
+                <TouchableOpacity
+                  key={mode}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: active }}
+                  aria-checked={active}
+                  onPress={() => chooseRepeatMode(mode)}
+                  className={`rounded-full border px-3 py-1.5 ${
+                    active ? 'border-brand-500 bg-brand-500' : `${borderColor} ${cardBg}`
+                  }`}>
+                  <Text className={`text-xs font-medium ${active ? 'text-white' : subtextColor}`}>
+                    {mode === 'days'
+                      ? t('bookService.repeatModeDays')
+                      : t('bookService.repeatModeWeekly')}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {repeatMode === 'weekly' ? (
+            <View>
+              <Text className={`mb-2 text-xs ${subtextColor}`}>{t('bookService.weeklyHint')}</Text>
+              <View className="mb-3 flex-row flex-wrap gap-2">
+                {WEEK_ORDER.map((d) => {
+                  const on = weeklyDays.includes(d);
+                  return (
+                    <TouchableOpacity
+                      key={d}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: on }}
+                      aria-checked={on}
+                      onPress={() => toggleWeeklyDay(d)}
+                      style={{ minWidth: 44 }}
+                      className={`items-center rounded-xl border px-2 py-2 ${
+                        on ? 'border-brand-500 bg-brand-500' : `${borderColor} ${cardBg}`
+                      }`}>
+                      <Text className={`text-xs font-semibold ${on ? 'text-white' : textColor}`}>
+                        {t(DAY_SHORT_KEYS[d])}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <View className="mb-2 flex-row flex-wrap items-center gap-2">
+                {WEEKLY_WEEKS.map((n) => {
+                  const on = weeklyWeeks === n;
+                  return (
+                    <TouchableOpacity
+                      key={n}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: on }}
+                      aria-checked={on}
+                      onPress={() => setWeeklyWeeks(n)}
+                      className={`rounded-full border px-3 py-1.5 ${
+                        on ? 'border-brand-500' : borderColor
+                      } ${cardBg}`}>
+                      <Text
+                        className={`text-xs ${on ? 'font-semibold text-brand-600' : subtextColor}`}>
+                        {tPlural(n, {
+                          one: 'durations.nWeeksOne',
+                          few: 'durations.nWeeksFew',
+                          many: 'durations.nWeeks',
+                        })}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text className={`text-xs ${subtextColor}`}>
+                {weeklyPlan.pending
+                  ? t('bookService.weeklyLoading')
+                  : t('bookService.weeklySummary', { count: weeklyPlan.dates.length })}
+                {weeklyPlan.skipped > 0
+                  ? ` · ${t('bookService.weeklySkipped', { count: weeklyPlan.skipped })}`
+                  : ''}
+              </Text>
+            </View>
+          ) : null}
+          {repeatMode === 'days' ? (
+            <Text className={`mb-3 text-xs ${subtextColor}`}>
+              {repeatDays.some((d) => d.available)
+                ? t('bookService.repeatHint')
+                : t('bookService.repeatNone')}
+            </Text>
+          ) : null}
+          {repeatMode === 'days' ? (
+            <View className="flex-row flex-wrap gap-2">
+              {repeatDays.map((d) => {
+                const on = validExtraDates.includes(d.key);
+                return (
+                  <TouchableOpacity
+                    key={d.key}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on, disabled: !d.available }}
+                    aria-checked={on}
+                    aria-disabled={!d.available}
+                    disabled={!d.available}
+                    onPress={() => toggleExtraDate(d.key)}
+                    style={{ minWidth: 58 }}
+                    className={`items-center rounded-xl border px-2 py-1.5 ${
+                      on
+                        ? 'border-brand-500 bg-brand-500'
+                        : d.available
+                          ? `${borderColor} ${cardBg}`
+                          : `${borderColor} opacity-40`
+                    }`}>
+                    <Text className={`text-[11px] ${on ? 'text-white' : subtextColor}`}>
+                      {t(DAY_SHORT_KEYS[d.date.getDay()])}
+                    </Text>
+                    <Text className={`text-sm font-semibold ${on ? 'text-white' : textColor}`}>
+                      {d.date.getDate()} {t(MONTH_SHORT_KEYS[d.date.getMonth()])}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+    </>
+  );
+  const notesBlock = (
+    <>
+      {' '}
+      <Text className={`text-base font-semibold ${textColor}`}>{t('bookService.noteTitle')}</Text>
+      <Text className={`mb-3 mt-1 text-xs ${subtextColor}`}>{t('bookService.noteHint')}</Text>
+      <TextInput
+        value={note}
+        onChangeText={setNote}
+        multiline
+        maxLength={1000}
+        placeholder={t('bookService.notePlaceholder')}
+        placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
+        accessibilityLabel={t('bookService.noteTitle')}
+        className={`rounded-xl border px-4 py-3 ${borderColor} ${cardBg} ${textColor}`}
+        style={{ minHeight: 88, textAlignVertical: 'top' } as any}
+      />
+      <Text className={`mt-1 text-right text-xs ${subtextColor}`}>{note.length}/1000</Text>
+    </>
+  );
+  const goodToKnowBlock = (
+    <View className={`rounded-2xl border p-4 ${borderColor} ${cardBg}`}>
+      <View className="mb-2 flex-row items-center">
+        <Ionicons name="information-circle-outline" size={18} color={BRAND_GREEN} />
+        <Text className={`ml-2 text-sm font-semibold ${textColor}`}>
+          {t('bookService.goodToKnow')}
+        </Text>
+      </View>
+      {[
+        durationLabel ? t('bookService.infoDuration', { duration: durationLabel }) : null,
+        t('bookService.infoConfirm'),
+        t('bookService.infoPayLater'),
+        serviceAsksDeposit(selectedService)
+          ? t('bookService.infoDeposit')
+          : t('bookService.infoFreeCancel'),
+        leadTimeHours > 0 ? t('bookService.infoLeadTime', { hours: leadTimeHours }) : null,
+      ]
+        .filter(Boolean)
+        .map((line) => (
+          <View key={line as string} className="mt-1 flex-row">
+            <Text className={`mr-2 text-sm ${subtextColor}`}>•</Text>
+            <Text className={`flex-1 text-sm ${subtextColor}`}>{line}</Text>
+          </View>
+        ))}
+    </View>
+  );
+  const noPetsBlock = (stepNumber: number) => (
+    <>
+      <View className="mb-3 flex-row items-center">
+        {stepDot(false, stepNumber)}
+        <Text className={`text-base font-semibold ${textColor} ml-3`}>
+          {t('bookService.selectPet')}
+        </Text>
+      </View>
+      <Text className={`text-sm ${subtextColor} mb-3`}>{t('bookService.noPetsYet')}</Text>
+      <TouchableOpacity
+        accessibilityRole="button"
+        onPress={() => (navigation as any).navigate('AddPet', { goBackOnSave: true })}
+        className="flex-row items-center justify-center rounded-2xl bg-brand-500 py-3">
+        <Ionicons name="add" size={20} color="white" />
+        <Text className="ml-2 font-bold text-white">{t('bookService.addAPet')}</Text>
+      </TouchableOpacity>
+    </>
+  );
+
+  // The phone design: one sheet of numbered steps, appointments added one selection at a time.
+  const phoneForm = (
+    <>
+      {/* Booking several services at once: what is already waiting in this checkout. */}
+      {otherSections.length > 0 ? (
+        <View className={`${gutter.px} pt-4`}>
+          <View
+            className={`flex-row items-start rounded-2xl border p-4 ${borderColor} ${
+              isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'
+            }`}>
+            <Ionicons name="cart-outline" size={20} color={BRAND_GREEN} />
+            <View className="ml-3 flex-1">
+              <Text className={`text-sm font-semibold ${textColor}`}>
+                {t('bookService.cartTitle')}
+              </Text>
+              {otherSections.map((s) => (
+                <View key={s.service.id} className="mt-1 flex-row items-center">
+                  <Text className={`flex-1 text-sm ${subtextColor}`}>
+                    {t('bookService.cartLine', {
+                      name: s.service.name ?? t('reviewBooking.yourService'),
+                      count: s.appointments.length,
+                    })}
+                  </Text>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={t('bookService.cartRemove')}
+                    onPress={() => cart.removeService(s.service.id ?? 0)}
+                    className="ml-2 p-1">
+                    <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <Text className={`mt-2 text-xs ${subtextColor}`}>{t('bookService.cartHint')}</Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {/* Step 1: Service (fixed — chosen before entering this screen). When
+          the service defines pricing options, picking one is part of this
+          step — the booking can't proceed without it. */}
+      <View className={`${gutter.px} py-5`}>
+        <View className="mb-4 flex-row items-center">
+          {stepDot(optionChosen, 1)}
+          <Text className={`text-base font-semibold ${textColor} ml-3`}>
+            {t('bookService.step1')}
+          </Text>
+        </View>
+        <View
+          className={`overflow-hidden rounded-2xl border-2 border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`}>
+          {/* Service profile picture */}
+          {/* The whole photo, not its middle band — see ServicePhoto. */}
+          <ServicePhoto
+            uri={serviceImage}
+            radiusClass="rounded-none"
+            iconSize={40}
+            className="h-48 w-full"
+          />
+          <View className="flex-row items-start justify-between p-4">
+            <View className="mr-4 flex-1">
+              {/* Service name */}
+              <Text className={`text-base font-semibold ${textColor}`}>
+                {selectedService.name ?? 'Service'}
+              </Text>
+              {/* Service type */}
+              {serviceTypeLabel ? (
+                <Text className="mt-1 text-sm text-brand-600">{serviceTypeLabel}</Text>
+              ) : null}
+            </View>
+            <Text className="text-xl font-bold text-brand-600">
+              {pricingOptions.length > 0
+                ? selectedOption
+                  ? fmt(effectiveOptionPrice(selectedService, selectedOption))
+                  : `${t('bookService.priceFrom')} ${fmt(
+                      Math.min(
+                        ...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o))
+                      )
+                    )}`
+                : `${fmt(servicePrice(selectedService))}${priceSuffix(t, selectedService)}`}
+            </Text>
+          </View>
+        </View>
+        {lengthChoicesBlock}
+        {optionsBlock}
+      </View>
+
+      {/* Step 2: Additional Services */}
+      <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
+        {sectionHeading(selectedAddons.length > 0, 2, t('bookService.additionalServices'), true)}
+        {extrasBlock}
+      </View>
+
+      {/* Step 3: Choose Date & Time */}
+      <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
+        {sectionHeading(!!startDateTime, 3, t('bookService.chooseDateTime'))}
+        {dateTimeBlock}
+      </View>
+
+      {/* Step 4: Select Pet */}
+      {pets.length > 0 ? (
+        <PetSelector
+          selectedPets={selectedPets}
+          onTogglePet={togglePet}
+          pets={petItems}
+          isDarkMode={isDarkMode}
+          textColor={textColor}
+          subtextColor={subtextColor}
+          cardBg={cardBg}
+          borderColor={borderColor}
+        />
+      ) : (
+        <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>{noPetsBlock(4)}</View>
+      )}
+
+      {/* For the provider: anything they should know, sent with every appointment. */}
+      <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>{notesBlock}</View>
+
+      {/* Add This / Add Another Appointment */}
+      {selectionComplete && (
+        <View className={`${gutter.px} py-4`}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={addAppointment}
+            className="flex-row items-center justify-center rounded-2xl bg-brand-500 py-4">
+            <Ionicons name="add" size={20} color="white" />
+            <Text className="ml-2 text-base font-bold text-white">
+              {selectionCount > 1
+                ? t('bookService.addNAppointments', { count: selectionCount })
+                : appointments.length === 0
+                  ? t('bookService.addThisAppointment')
+                  : t('bookService.addAnotherAppointment')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Added Appointments */}
+      {appointments.length > 0 && (
+        <View className={`${gutter.px} py-5`}>
+          <Text className={`text-base font-semibold ${textColor} mb-4`}>
+            {t('bookService.addedAppointments', { count: appointments.length })}
+          </Text>
+          {appointments.map((apt) => (
+            <View key={apt.id} className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>
+              <View className="flex-row items-start">
+                {apt.pet.image ? (
+                  <Image
+                    source={{ uri: apt.pet.image }}
+                    className="mr-3 h-16 w-16 rounded-xl"
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View
+                    className={`mr-3 h-16 w-16 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
+                    <Ionicons name="paw" size={26} color="#9CA3AF" />
+                  </View>
+                )}
+                <View className="flex-1">
+                  <Text className={`text-base font-semibold ${textColor}`}>
+                    {apt.service.name}{' '}
+                    <Text className={`${subtextColor} font-normal`}>
+                      {t('bookService.forPet', { name: apt.pet.name })}
+                    </Text>
+                  </Text>
+                  <Text className={`text-sm ${subtextColor} mt-1`}>
+                    {(() => {
+                      const d = parseBookingDate(apt.bookingFrom);
+                      return `${t(DAY_SHORT_KEYS[d.getDay()])}, ${t(MONTH_SHORT_KEYS[d.getMonth()])} ${d.getDate()}`;
+                    })()}{' '}
+                    {t('bookService.at')}{' '}
+                    {parseBookingDate(apt.bookingFrom).toLocaleTimeString(undefined, {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false,
+                    })}
+                  </Text>
+                  {apt.pricingOptionName && (
+                    <Text className={`text-xs ${subtextColor} mt-1`}>
+                      {t('bookService.option', {
+                        name: durationDisplayLabel(t, apt.pricingOptionName),
+                      })}
+                    </Text>
+                  )}
+                  {apt.addons.length > 0 && (
+                    <Text className={`text-xs ${subtextColor} mt-1`}>
+                      + {apt.addons.map((a) => a.name).join(', ')}
+                    </Text>
+                  )}
+                </View>
+                <View className="ml-2 items-end">
+                  <Text className="text-lg font-bold text-brand-600">{fmt(apt.total)}</Text>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.close')}
+                    onPress={() => removeAppointment(apt.id)}
+                    className="mt-2">
+                    <Ionicons name="close" size={20} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Booking Summary */}
+      {appointments.length > 0 && (
+        <BookingSummary
+          appointments={appointments}
+          grandTotal={grandTotal}
+          isDarkMode={isDarkMode}
+          textColor={textColor}
+          subtextColor={subtextColor}
+          currency={displayCurrency}
+        />
+      )}
+
+      {/* What the customer is agreeing to, before they reach the checkout. */}
+      <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>{goodToKnowBlock}</View>
+
+      {/* Running total for the current (unadded) selection */}
+      {appointments.length === 0 && selectedService && (
+        <View
+          className={`border-t ${gutter.px} py-5 ${borderColor} flex-row items-center justify-between`}>
+          <Text className={`text-base font-semibold ${textColor}`}>
+            {selectionCount > 1
+              ? t('bookService.totalForN', { count: selectionCount })
+              : t('bookService.total')}
+          </Text>
+          <Text className="text-2xl font-bold text-brand-600">
+            {/* Until a required duration is picked the figure is the cheapest option, so say
+                    "from" rather than presenting a provisional number as the final one. */}
+            {!optionChosen || extrasPending ? `${t('bookService.priceFrom')} ` : ''}
+            {fmt(money(currentTotal() * selectionCount))}
+          </Text>
+        </View>
+      )}
+      {appointments.length === 0 && selectedService && extrasPending ? (
+        <Text className={`${gutter.px} -mt-3 pb-4 text-right text-xs ${subtextColor}`}>
+          {t('bookService.extrasPricedLater')}
+        </Text>
+      ) : null}
+    </>
+  );
+
+  // The web design (feedback 2026-10-21): the service presented at the top rather than marked as
+  // the selected one, then the choices grouped on white cards — the pattern behind the page made
+  // the bare sections hard to read — and what is selected goes straight to Review as one booking.
+  const webCard = `${cardBg} mb-4 rounded-2xl border ${borderColor} p-6`;
+  const rating = selectedService.rating ?? null;
+  const webForm = (
+    <View className={`${gutter.px} pt-2`}>
+      <View className={`${cardBg} mb-4 overflow-hidden rounded-2xl border ${borderColor}`}>
+        {/* The whole photo, not its middle band — see ServicePhoto. */}
+        <ServicePhoto
+          uri={serviceImage}
+          radiusClass="rounded-none"
+          iconSize={48}
+          className="h-64 w-full"
+        />
+        <View className="flex-row items-end justify-between p-6">
+          <View className="mr-4 flex-1">
+            {serviceTypeLabel ? (
+              <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-brand-600">
+                {serviceTypeLabel}
+              </Text>
+            ) : null}
+            <Text className={`text-2xl font-bold ${textColor}`}>
+              {selectedService.name ?? 'Service'}
+            </Text>
+            {rating != null && rating > 0 ? (
+              <View className="mt-2 flex-row items-center">
+                <Ionicons name="star" size={14} color="#F59E0B" />
+                <Text className={`ml-1 text-sm font-semibold ${textColor}`}>
+                  {rating.toFixed(1)}
+                </Text>
+                {selectedService.totalRatingNumber ? (
+                  <Text className={`ml-1 text-sm ${subtextColor}`}>
+                    ({selectedService.totalRatingNumber})
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
+          <Text className="text-2xl font-bold text-brand-600">{servicePriceText}</Text>
+        </View>
+      </View>
+
+      <View className={webCard}>
+        {sectionHeading(optionChosen && !!startDateTime, 1, t('bookService.chooseDateTime'))}
+        {pricingOptions.length > 0 || lengthChoices.length > 0 ? (
+          // The blocks open with their own top margin, made for the phone's step layout.
+          <View className="-mt-4 mb-4">
+            {lengthChoicesBlock}
+            {optionsBlock}
+          </View>
+        ) : null}
+        {dateTimeBlock}
+      </View>
+
+      {pets.length > 0 ? (
+        <PetSelector
+          selectedPets={selectedPets}
+          onTogglePet={togglePet}
+          pets={petItems}
+          isDarkMode={isDarkMode}
+          textColor={textColor}
+          subtextColor={subtextColor}
+          cardBg={cardBg}
+          borderColor={borderColor}
+          step={2}
+          containerClassName={webCard}
+        />
+      ) : (
+        <View className={webCard}>{noPetsBlock(2)}</View>
+      )}
+
+      <View className={webCard}>
+        {sectionHeading(selectedAddons.length > 0, 3, t('bookService.additionalServices'), true)}
+        {extrasBlock}
+      </View>
+
+      <View className={webCard}>{notesBlock}</View>
+
+      <View className={webCard}>
+        <View className="flex-row items-center justify-between">
+          <Text className={`text-base font-semibold ${textColor}`}>
+            {selectionCount > 1
+              ? t('bookService.totalForN', { count: selectionCount })
+              : t('bookService.total')}
+          </Text>
+          <Text className="text-2xl font-bold text-brand-600">
+            {!optionChosen || extrasPending ? `${t('bookService.priceFrom')} ` : ''}
+            {fmt(money(currentTotal() * selectionCount))}
+          </Text>
+        </View>
+        {extrasPending ? (
+          <Text className={`mt-1 text-right text-xs ${subtextColor}`}>
+            {t('bookService.extrasPricedLater')}
+          </Text>
+        ) : null}
+        <View className="mt-4">{goodToKnowBlock}</View>
+      </View>
+    </View>
+  );
+
   return (
     <ScreenLayout
       narrow
@@ -1039,11 +1927,6 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
       showBackButton
       contentBg={contentBg}
       headerTitle={isWebLayout ? t('bookService.title') : undefined}
-      headerSubtitle={
-        isWebLayout
-          ? [selectedService.name, selectedService.basicServiceName].filter(Boolean).join(' • ')
-          : undefined
-      }
       headerChildren={
         isWebLayout ? undefined : (
           // mb-6 clears the rounded content sheet pulled 32px up over the header.
@@ -1065,746 +1948,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
           // The tall tail clears the pinned CTA bar; on the web design the bar sits in the flow
           // below the scroll area, so there is nothing overlapping to clear.
           contentContainerStyle={{ paddingBottom: isWebLayout ? 24 : 100 }}>
-          {/* Booking several services at once: what is already waiting in this checkout. */}
-          {otherSections.length > 0 ? (
-            <View className={`${gutter.px} pt-4`}>
-              <View
-                className={`flex-row items-start rounded-2xl border p-4 ${borderColor} ${
-                  isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'
-                }`}>
-                <Ionicons name="cart-outline" size={20} color={BRAND_GREEN} />
-                <View className="ml-3 flex-1">
-                  <Text className={`text-sm font-semibold ${textColor}`}>
-                    {t('bookService.cartTitle')}
-                  </Text>
-                  {otherSections.map((s) => (
-                    <View key={s.service.id} className="mt-1 flex-row items-center">
-                      <Text className={`flex-1 text-sm ${subtextColor}`}>
-                        {t('bookService.cartLine', {
-                          name: s.service.name ?? t('reviewBooking.yourService'),
-                          count: s.appointments.length,
-                        })}
-                      </Text>
-                      <TouchableOpacity
-                        accessibilityRole="button"
-                        accessibilityLabel={t('bookService.cartRemove')}
-                        onPress={() => cart.removeService(s.service.id ?? 0)}
-                        className="ml-2 p-1">
-                        <Ionicons name="close-circle-outline" size={18} color="#EF4444" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                  <Text className={`mt-2 text-xs ${subtextColor}`}>
-                    {t('bookService.cartHint')}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          ) : null}
-
-          {/* Step 1: Service (fixed — chosen before entering this screen). When
-              the service defines pricing options, picking one is part of this
-              step — the booking can't proceed without it. */}
-          <View className={`${gutter.px} py-5`}>
-            <View className="mb-4 flex-row items-center">
-              {stepDot(optionChosen, 1)}
-              <Text className={`text-base font-semibold ${textColor} ml-3`}>
-                {t('bookService.step1')}
-              </Text>
-            </View>
-            <View
-              className={`overflow-hidden rounded-2xl border-2 border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`}>
-              {/* Service profile picture */}
-              {/* The whole photo, not its middle band — see ServicePhoto. */}
-              <ServicePhoto
-                uri={serviceImage}
-                radiusClass="rounded-none"
-                iconSize={40}
-                className="h-48 w-full"
-              />
-              <View className="flex-row items-start justify-between p-4">
-                <View className="mr-4 flex-1">
-                  {/* Service name */}
-                  <Text className={`text-base font-semibold ${textColor}`}>
-                    {selectedService.name ?? 'Service'}
-                  </Text>
-                  {/* Service type */}
-                  {serviceTypeLabel ? (
-                    <Text className="mt-1 text-sm text-brand-600">{serviceTypeLabel}</Text>
-                  ) : null}
-                </View>
-                <Text className="text-xl font-bold text-brand-600">
-                  {pricingOptions.length > 0
-                    ? selectedOption
-                      ? fmt(effectiveOptionPrice(selectedService, selectedOption))
-                      : `${t('bookService.priceFrom')} ${fmt(
-                          Math.min(
-                            ...pricingOptions.map((o) => effectiveOptionPrice(selectedService, o))
-                          )
-                        )}`
-                    : `${fmt(servicePrice(selectedService))}${priceSuffix(t, selectedService)}`}
-                </Text>
-              </View>
-            </View>
-
-            {/* Priced per hour, day or night: how long, chosen here (feedback 2026-10-21). */}
-            {pricingOptions.length === 0 && lengthChoices.length > 0 && (
-              <View className="mt-4">
-                <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-                  {t('bookService.chooseLength')}
-                </Text>
-                <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-                  {lengthChoices.map((m) => {
-                    const active = chosenLength === m;
-                    return (
-                      <TouchableOpacity
-                        key={m}
-                        accessibilityRole="radio"
-                        accessibilityState={{ checked: active }}
-                        aria-checked={active}
-                        onPress={() => {
-                          setLengthMinutes(m);
-                          // The length decides which starts fit: re-pick.
-                          setStartDateTime(null);
-                        }}
-                        className={`rounded-full border px-4 py-2 ${
-                          active
-                            ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
-                            : `${borderColor} ${cardBg}`
-                        }`}>
-                        <Text
-                          className={`text-sm ${active ? 'font-semibold text-brand-600' : subtextColor}`}>
-                          {lengthLabel(m)}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-                {chosenLength != null ? (
-                  <Text className={`mt-2 text-sm ${subtextColor}`}>
-                    {t('bookService.lengthTotal', {
-                      length: lengthLabel(chosenLength),
-                      price: fmt(servicePrice(selectedService)),
-                    })}
-                    {' = '}
-                    <Text className="font-semibold text-brand-600">
-                      {fmt(servicePrice(selectedService) * currentUnits())}
-                    </Text>
-                  </Text>
-                ) : null}
-              </View>
-            )}
-
-            {/* Duration/price options — required pick when the service defines any */}
-            {pricingOptions.length > 0 && (
-              <View className="mt-4">
-                <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-                  {t('bookService.chooseDuration')}
-                </Text>
-                {pricingOptions.map((option) => {
-                  const effective = effectiveOptionPrice(selectedService, option);
-                  const isSelected = option.id != null && option.id === selectedOptionId;
-                  return (
-                    <TouchableOpacity
-                      accessibilityRole="button"
-                      key={option.id ?? option.name}
-                      onPress={() => {
-                        setSelectedOptionId(option.id ?? null);
-                        // Slot length follows the option — a picked start time may
-                        // no longer be valid, so re-pick.
-                        setStartDateTime(null);
-                      }}
-                      className={`mb-3 rounded-2xl border-2 p-4 ${
-                        isSelected
-                          ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
-                          : `${borderColor} ${cardBg}`
-                      }`}>
-                      <View className="flex-row items-center justify-between">
-                        <View className="flex-1">
-                          <Text className={`text-base font-semibold ${textColor}`}>
-                            {durationDisplayLabel(t, option.name)}
-                          </Text>
-                          <Text className={`text-sm ${subtextColor} mt-1`}>
-                            {t('durations.nMin', { n: option.durationMinutes })}
-                            {option.description ? ` • ${option.description}` : ''}
-                          </Text>
-                        </View>
-                        <View className="ml-4 items-end">
-                          {effective < option.price && (
-                            <Text className={`text-xs ${subtextColor} line-through`}>
-                              {fmt(option.price)}
-                            </Text>
-                          )}
-                          <Text className="text-lg font-bold text-brand-600">{fmt(effective)}</Text>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-
-          {/* Step 2: Additional Services */}
-          <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
-            <View className="mb-4 flex-row items-center">
-              {stepDot(selectedAddons.length > 0, 2)}
-              <Text className={`text-base font-semibold ${textColor} ml-3`}>
-                {t('bookService.additionalServices')}
-              </Text>
-              <Text className={`text-sm ${subtextColor} ml-2`}>{t('bookService.optional')}</Text>
-            </View>
-            {serviceAddons.length === 0 ? (
-              <Text className={`text-sm ${subtextColor}`}>{t('bookService.noAddons')}</Text>
-            ) : (
-              serviceAddons.map((addon) => {
-                const selected = addon.id != null && selectedAddons.includes(addon.id);
-                // Once selected, show what the server actually quoted for it; before that (or for
-                // an unselected extra) show the provider's rate card, e.g. "$5 + $2/km".
-                const line = selected ? quotedAddonLine(addon) : null;
-                return (
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    key={addon.id ?? addon.name}
-                    onPress={() => addon.id != null && toggleAddon(addon.id)}
-                    className={`mb-3 rounded-2xl border-2 p-4 ${
-                      selected
-                        ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
-                        : `${borderColor} ${cardBg}`
-                    }`}>
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-1">
-                        {/* Provider-authored name/description — shown verbatim. */}
-                        <Text className={`text-base font-semibold ${textColor}`}>{addon.name}</Text>
-                        {addon.description ? (
-                          <Text className={`text-sm ${subtextColor} mt-1`}>
-                            {addon.description}
-                          </Text>
-                        ) : null}
-                      </View>
-                      <Text className="ml-4 text-lg font-bold text-brand-600">
-                        {line
-                          ? fmt(line.price)
-                          : (addonPriceLabel(t, addon, displayCurrency) ?? t('addons.included'))}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })
-            )}
-
-            {/* Location required when Pickup / Drop-off is selected — picked on a map */}
-            {pickupSelected && (
-              <View className="mb-3 mt-1">
-                <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-                  {t('bookService.pickupAddress')}
-                </Text>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={() => setPickerFor('pickup')}
-                  className={`rounded-2xl border px-4 py-3 ${borderColor} ${cardBg} flex-row items-center`}>
-                  <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
-                  <Text
-                    className={`ml-3 flex-1 ${pickupAddr ? textColor : subtextColor}`}
-                    numberOfLines={2}>
-                    {pickupAddr ? addressLabel(pickupAddr) : t('bookService.pickOnMap')}
-                  </Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={18}
-                    color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-                  />
-                </TouchableOpacity>
-                {/* Price check: measured distance + estimated per-km surcharge. */}
-                {pickupAddr
-                  ? addonsOnPickupLeg.map((a) => (
-                      <View key={a.id ?? a.name}>{renderDistanceEstimate(a)}</View>
-                    ))
-                  : null}
-                {/* Copy the drop-off address into pickup (explicit, not auto-filled). */}
-                {dropoffSelected && dropoffAddr && pickupAddr !== dropoffAddr ? (
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => setPickupAddr(dropoffAddr)}
-                    className="mt-2 flex-row items-center self-start">
-                    <Ionicons name="copy-outline" size={14} color={BRAND_GREEN} />
-                    <Text className="ml-1.5 text-sm font-medium text-brand-600">
-                      {t('bookService.sameAsDropoff')}
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            )}
-            {dropoffSelected && (
-              <View className="mb-1 mt-1">
-                <Text className={`text-sm font-semibold ${textColor} mb-2`}>
-                  {t('bookService.dropoffAddress')}
-                </Text>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={() => setPickerFor('dropoff')}
-                  className={`rounded-2xl border px-4 py-3 ${borderColor} ${cardBg} flex-row items-center`}>
-                  <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
-                  <Text
-                    className={`ml-3 flex-1 ${dropoffAddr ? textColor : subtextColor}`}
-                    numberOfLines={2}>
-                    {dropoffAddr ? addressLabel(dropoffAddr) : t('bookService.pickOnMap')}
-                  </Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={18}
-                    color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-                  />
-                </TouchableOpacity>
-                {/* Price check: measured distance + estimated per-km surcharge. */}
-                {dropoffAddr
-                  ? addonsOnDropoffLeg.map((a) => (
-                      <View key={a.id ?? a.name}>{renderDistanceEstimate(a)}</View>
-                    ))
-                  : null}
-                {/* Copy the pickup address into drop-off (explicit, not auto-filled). */}
-                {pickupSelected && pickupAddr && dropoffAddr !== pickupAddr ? (
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => setDropoffAddr(pickupAddr)}
-                    className="mt-2 flex-row items-center self-start">
-                    <Ionicons name="copy-outline" size={14} color={BRAND_GREEN} />
-                    <Text className="ml-1.5 text-sm font-medium text-brand-600">
-                      {t('bookService.sameAsPickup')}
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            )}
-          </View>
-
-          {/* Step 3: Choose Date & Time */}
-          <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
-            <View className="mb-4 flex-row items-center">
-              {stepDot(!!startDateTime, 3)}
-              <Text className={`text-base font-semibold ${textColor} ml-3`}>
-                {t('bookService.chooseDateTime')}
-              </Text>
-            </View>
-            {/* A service with no working hours at all can never be booked. Say so once, here,
-                instead of opening a calendar in which every single day reports "not available". */}
-            {hasNoWorkingHours ? (
-              <View className={`mb-3 rounded-2xl border p-4 ${borderColor} ${cardBg}`}>
-                <View className="flex-row items-center">
-                  <Ionicons name="information-circle-outline" size={20} color="#F59E0B" />
-                  <Text className={`ml-3 flex-1 ${subtextColor}`}>
-                    {t('bookService.noWorkingHours')}
-                  </Text>
-                </View>
-              </View>
-            ) : (
-              <TouchableOpacity
-                accessibilityRole="button"
-                onPress={() => setShowDatePicker((v) => !v)}
-                className={`mb-3 rounded-2xl border p-4 ${borderColor} ${cardBg} flex-row items-center justify-between`}>
-                <View className="flex-row items-center">
-                  <Ionicons name="calendar-outline" size={20} color={BRAND_GREEN} />
-                  <Text className={`ml-3 ${selectedDate ? textColor : subtextColor}`}>
-                    {selectedDate
-                      ? formatFullDate(selectedDate, undefined, 'short')
-                      : t('bookService.selectDate')}
-                  </Text>
-                </View>
-                <Ionicons
-                  name={showDatePicker ? 'chevron-up' : 'chevron-down'}
-                  size={18}
-                  color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-                />
-              </TouchableOpacity>
-            )}
-            {showDatePicker && (
-              <DatePicker
-                value={selectedDate ?? new Date()}
-                minDate={new Date()}
-                isDarkMode={isDarkMode}
-                // Grey out days that are genuinely unbookable — no schedule window, or fully
-                // booked — using the month of availability already fetched, falling back to the
-                // weekly schedule pattern until it lands.
-                isDateEnabled={isDateBookable}
-                onChange={(date) => {
-                  if (date) {
-                    setSelectedDate(new Date(date));
-                    setStartDateTime(null); // availability differs per day — re-pick a slot
-                  }
-                  setShowDatePicker(false);
-                }}
-                onClose={() => setShowDatePicker(false)}
-              />
-            )}
-            {selectedDate && (
-              <TimeSlotPicker
-                slots={timeSlots}
-                selectedSlotId={selectedSlotId}
-                onSelectSlot={(slot) => {
-                  setStartDateTime(slot.start);
-                  // Repeat days were checked against the previous time.
-                  setExtraDates([]);
-                }}
-                // Loading only while the picked day's own month is: the month after it may still
-                // be arriving in the background for the repeat days.
-                isLoading={isLoadingSlots && !loadedMonths[monthKeyOf(selectedDate)]}
-                slotMinutes={slotMinutes}
-                isDarkMode={isDarkMode}
-                textColor={textColor}
-                subtextColor={subtextColor}
-              />
-            )}
-            {selectedDate && selectedPets.length > 1 ? (
-              <Text className={`mt-1 text-xs ${subtextColor}`}>
-                {t('bookService.roomForPets', { count: selectedPets.length })}
-              </Text>
-            ) : null}
-
-            {/* Bulk booking: the same time on other days, without rebuilding each appointment. */}
-            {startDateTime && !isStay && (repeatDays.length > 0 || repeatMode === 'weekly') ? (
-              <View className="mt-5">
-                <View className="mb-1 flex-row items-center">
-                  <Ionicons name="repeat" size={16} color={BRAND_GREEN} />
-                  <Text className={`ml-2 text-sm font-semibold ${textColor}`}>
-                    {t('bookService.repeatTitle')}
-                  </Text>
-                </View>
-                <View className="mb-3 mt-2 flex-row gap-2">
-                  {(['days', 'weekly'] as const).map((mode) => {
-                    const active = repeatMode === mode;
-                    return (
-                      <TouchableOpacity
-                        key={mode}
-                        accessibilityRole="radio"
-                        accessibilityState={{ checked: active }}
-                        aria-checked={active}
-                        onPress={() => chooseRepeatMode(mode)}
-                        className={`rounded-full border px-3 py-1.5 ${
-                          active ? 'border-brand-500 bg-brand-500' : `${borderColor} ${cardBg}`
-                        }`}>
-                        <Text
-                          className={`text-xs font-medium ${active ? 'text-white' : subtextColor}`}>
-                          {mode === 'days'
-                            ? t('bookService.repeatModeDays')
-                            : t('bookService.repeatModeWeekly')}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-                {repeatMode === 'weekly' ? (
-                  <View>
-                    <Text className={`mb-2 text-xs ${subtextColor}`}>
-                      {t('bookService.weeklyHint')}
-                    </Text>
-                    <View className="mb-3 flex-row flex-wrap gap-2">
-                      {WEEK_ORDER.map((d) => {
-                        const on = weeklyDays.includes(d);
-                        return (
-                          <TouchableOpacity
-                            key={d}
-                            accessibilityRole="checkbox"
-                            accessibilityState={{ checked: on }}
-                            aria-checked={on}
-                            onPress={() => toggleWeeklyDay(d)}
-                            style={{ minWidth: 44 }}
-                            className={`items-center rounded-xl border px-2 py-2 ${
-                              on ? 'border-brand-500 bg-brand-500' : `${borderColor} ${cardBg}`
-                            }`}>
-                            <Text
-                              className={`text-xs font-semibold ${on ? 'text-white' : textColor}`}>
-                              {t(DAY_SHORT_KEYS[d])}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                    <View className="mb-2 flex-row flex-wrap items-center gap-2">
-                      {WEEKLY_WEEKS.map((n) => {
-                        const on = weeklyWeeks === n;
-                        return (
-                          <TouchableOpacity
-                            key={n}
-                            accessibilityRole="radio"
-                            accessibilityState={{ checked: on }}
-                            aria-checked={on}
-                            onPress={() => setWeeklyWeeks(n)}
-                            className={`rounded-full border px-3 py-1.5 ${
-                              on ? 'border-brand-500' : borderColor
-                            } ${cardBg}`}>
-                            <Text
-                              className={`text-xs ${on ? 'font-semibold text-brand-600' : subtextColor}`}>
-                              {tPlural(n, {
-                                one: 'durations.nWeeksOne',
-                                few: 'durations.nWeeksFew',
-                                many: 'durations.nWeeks',
-                              })}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                    <Text className={`text-xs ${subtextColor}`}>
-                      {weeklyPlan.pending
-                        ? t('bookService.weeklyLoading')
-                        : t('bookService.weeklySummary', { count: weeklyPlan.dates.length })}
-                      {weeklyPlan.skipped > 0
-                        ? ` · ${t('bookService.weeklySkipped', { count: weeklyPlan.skipped })}`
-                        : ''}
-                    </Text>
-                  </View>
-                ) : null}
-                {repeatMode === 'days' ? (
-                  <Text className={`mb-3 text-xs ${subtextColor}`}>
-                    {repeatDays.some((d) => d.available)
-                      ? t('bookService.repeatHint')
-                      : t('bookService.repeatNone')}
-                  </Text>
-                ) : null}
-                {repeatMode === 'days' ? (
-                  <View className="flex-row flex-wrap gap-2">
-                    {repeatDays.map((d) => {
-                      const on = validExtraDates.includes(d.key);
-                      return (
-                        <TouchableOpacity
-                          key={d.key}
-                          accessibilityRole="checkbox"
-                          accessibilityState={{ checked: on, disabled: !d.available }}
-                          aria-checked={on}
-                          aria-disabled={!d.available}
-                          disabled={!d.available}
-                          onPress={() => toggleExtraDate(d.key)}
-                          style={{ minWidth: 58 }}
-                          className={`items-center rounded-xl border px-2 py-1.5 ${
-                            on
-                              ? 'border-brand-500 bg-brand-500'
-                              : d.available
-                                ? `${borderColor} ${cardBg}`
-                                : `${borderColor} opacity-40`
-                          }`}>
-                          <Text className={`text-[11px] ${on ? 'text-white' : subtextColor}`}>
-                            {t(DAY_SHORT_KEYS[d.date.getDay()])}
-                          </Text>
-                          <Text
-                            className={`text-sm font-semibold ${on ? 'text-white' : textColor}`}>
-                            {d.date.getDate()} {t(MONTH_SHORT_KEYS[d.date.getMonth()])}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                ) : null}
-              </View>
-            ) : null}
-          </View>
-
-          {/* Step 4: Select Pet */}
-          {pets.length > 0 ? (
-            <PetSelector
-              selectedPets={selectedPets}
-              onTogglePet={togglePet}
-              pets={petItems}
-              isDarkMode={isDarkMode}
-              textColor={textColor}
-              subtextColor={subtextColor}
-              cardBg={cardBg}
-              borderColor={borderColor}
-            />
-          ) : (
-            <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
-              <View className="mb-3 flex-row items-center">
-                {stepDot(false, 4)}
-                <Text className={`text-base font-semibold ${textColor} ml-3`}>
-                  {t('bookService.selectPet')}
-                </Text>
-              </View>
-              <Text className={`text-sm ${subtextColor} mb-3`}>{t('bookService.noPetsYet')}</Text>
-              <TouchableOpacity
-                accessibilityRole="button"
-                onPress={() => (navigation as any).navigate('AddPet', { goBackOnSave: true })}
-                className="flex-row items-center justify-center rounded-2xl bg-brand-500 py-3">
-                <Ionicons name="add" size={20} color="white" />
-                <Text className="ml-2 font-bold text-white">{t('bookService.addAPet')}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* For the provider: anything they should know, sent with every appointment. */}
-          <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
-            <Text className={`text-base font-semibold ${textColor}`}>
-              {t('bookService.noteTitle')}
-            </Text>
-            <Text className={`mb-3 mt-1 text-xs ${subtextColor}`}>{t('bookService.noteHint')}</Text>
-            <TextInput
-              value={note}
-              onChangeText={setNote}
-              multiline
-              maxLength={1000}
-              placeholder={t('bookService.notePlaceholder')}
-              placeholderTextColor={isDarkMode ? '#6B7280' : '#9CA3AF'}
-              accessibilityLabel={t('bookService.noteTitle')}
-              className={`rounded-xl border px-4 py-3 ${borderColor} ${cardBg} ${textColor}`}
-              style={{ minHeight: 88, textAlignVertical: 'top' } as any}
-            />
-            <Text className={`mt-1 text-right text-xs ${subtextColor}`}>{note.length}/1000</Text>
-          </View>
-
-          {/* Add This / Add Another Appointment */}
-          {selectionComplete && (
-            <View className={`${gutter.px} py-4`}>
-              <TouchableOpacity
-                accessibilityRole="button"
-                onPress={addAppointment}
-                className="flex-row items-center justify-center rounded-2xl bg-brand-500 py-4">
-                <Ionicons name="add" size={20} color="white" />
-                <Text className="ml-2 text-base font-bold text-white">
-                  {selectionCount > 1
-                    ? t('bookService.addNAppointments', { count: selectionCount })
-                    : appointments.length === 0
-                      ? t('bookService.addThisAppointment')
-                      : t('bookService.addAnotherAppointment')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Added Appointments */}
-          {appointments.length > 0 && (
-            <View className={`${gutter.px} py-5`}>
-              <Text className={`text-base font-semibold ${textColor} mb-4`}>
-                {t('bookService.addedAppointments', { count: appointments.length })}
-              </Text>
-              {appointments.map((apt) => (
-                <View
-                  key={apt.id}
-                  className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>
-                  <View className="flex-row items-start">
-                    {apt.pet.image ? (
-                      <Image
-                        source={{ uri: apt.pet.image }}
-                        className="mr-3 h-16 w-16 rounded-xl"
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View
-                        className={`mr-3 h-16 w-16 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
-                        <Ionicons name="paw" size={26} color="#9CA3AF" />
-                      </View>
-                    )}
-                    <View className="flex-1">
-                      <Text className={`text-base font-semibold ${textColor}`}>
-                        {apt.service.name}{' '}
-                        <Text className={`${subtextColor} font-normal`}>
-                          {t('bookService.forPet', { name: apt.pet.name })}
-                        </Text>
-                      </Text>
-                      <Text className={`text-sm ${subtextColor} mt-1`}>
-                        {(() => {
-                          const d = parseBookingDate(apt.bookingFrom);
-                          return `${t(DAY_SHORT_KEYS[d.getDay()])}, ${t(MONTH_SHORT_KEYS[d.getMonth()])} ${d.getDate()}`;
-                        })()}{' '}
-                        {t('bookService.at')}{' '}
-                        {parseBookingDate(apt.bookingFrom).toLocaleTimeString(undefined, {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          hour12: false,
-                        })}
-                      </Text>
-                      {apt.pricingOptionName && (
-                        <Text className={`text-xs ${subtextColor} mt-1`}>
-                          {t('bookService.option', {
-                            name: durationDisplayLabel(t, apt.pricingOptionName),
-                          })}
-                        </Text>
-                      )}
-                      {apt.addons.length > 0 && (
-                        <Text className={`text-xs ${subtextColor} mt-1`}>
-                          + {apt.addons.map((a) => a.name).join(', ')}
-                        </Text>
-                      )}
-                    </View>
-                    <View className="ml-2 items-end">
-                      <Text className="text-lg font-bold text-brand-600">{fmt(apt.total)}</Text>
-                      <TouchableOpacity
-                        accessibilityRole="button"
-                        accessibilityLabel={t('common.close')}
-                        onPress={() => removeAppointment(apt.id)}
-                        className="mt-2">
-                        <Ionicons
-                          name="close"
-                          size={20}
-                          color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* Booking Summary */}
-          {appointments.length > 0 && (
-            <BookingSummary
-              appointments={appointments}
-              grandTotal={grandTotal}
-              isDarkMode={isDarkMode}
-              textColor={textColor}
-              subtextColor={subtextColor}
-              currency={displayCurrency}
-            />
-          )}
-
-          {/* What the customer is agreeing to, before they reach the checkout. */}
-          <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
-            <View className={`rounded-2xl border p-4 ${borderColor} ${cardBg}`}>
-              <View className="mb-2 flex-row items-center">
-                <Ionicons name="information-circle-outline" size={18} color={BRAND_GREEN} />
-                <Text className={`ml-2 text-sm font-semibold ${textColor}`}>
-                  {t('bookService.goodToKnow')}
-                </Text>
-              </View>
-              {[
-                durationLabel ? t('bookService.infoDuration', { duration: durationLabel }) : null,
-                t('bookService.infoConfirm'),
-                t('bookService.infoPayLater'),
-                serviceAsksDeposit(selectedService)
-                  ? t('bookService.infoDeposit')
-                  : t('bookService.infoFreeCancel'),
-                leadTimeHours > 0 ? t('bookService.infoLeadTime', { hours: leadTimeHours }) : null,
-              ]
-                .filter(Boolean)
-                .map((line) => (
-                  <View key={line as string} className="mt-1 flex-row">
-                    <Text className={`mr-2 text-sm ${subtextColor}`}>•</Text>
-                    <Text className={`flex-1 text-sm ${subtextColor}`}>{line}</Text>
-                  </View>
-                ))}
-            </View>
-          </View>
-
-          {/* Running total for the current (unadded) selection */}
-          {appointments.length === 0 && selectedService && (
-            <View
-              className={`border-t ${gutter.px} py-5 ${borderColor} flex-row items-center justify-between`}>
-              <Text className={`text-base font-semibold ${textColor}`}>
-                {selectionCount > 1
-                  ? t('bookService.totalForN', { count: selectionCount })
-                  : t('bookService.total')}
-              </Text>
-              <Text className="text-2xl font-bold text-brand-600">
-                {/* Until a required duration is picked the figure is the cheapest option, so say
-                    "from" rather than presenting a provisional number as the final one. */}
-                {!optionChosen || extrasPending ? `${t('bookService.priceFrom')} ` : ''}
-                {fmt(money(currentTotal() * selectionCount))}
-              </Text>
-            </View>
-          )}
-          {appointments.length === 0 && selectedService && extrasPending ? (
-            <Text className={`${gutter.px} -mt-3 pb-4 text-right text-xs ${subtextColor}`}>
-              {t('bookService.extrasPricedLater')}
-            </Text>
-          ) : null}
+          {isWebLayout ? webForm : phoneForm}
         </ScrollView>
       )}
 
@@ -1816,13 +1960,17 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
           onPress={onContinue}
           className={`items-center rounded-2xl py-4 ${canContinue ? 'bg-brand-500' : 'bg-gray-300'}`}>
           <Text className="text-lg font-bold text-white">
-            {cart.count > 0
-              ? t('bookService.continueWithCart', { count: cart.count + appointments.length })
-              : t('bookService.continueToReview')}
+            {directCheckout
+              ? selectionComplete && selectionCount > 1
+                ? t('bookService.continueWithCart', { count: selectionCount })
+                : t('bookService.continueToReview')
+              : cart.count > 0
+                ? t('bookService.continueWithCart', { count: cart.count + appointments.length })
+                : t('bookService.continueToReview')}
           </Text>
         </TouchableOpacity>
         {/* Booking several services at once: keep these and pick the next service. */}
-        {hasOwn && !tooMany ? (
+        {!directCheckout && hasOwn && !tooMany ? (
           <TouchableOpacity
             accessibilityRole="button"
             onPress={addAnotherService}

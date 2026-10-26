@@ -9,6 +9,7 @@ import { BRAND_GREEN } from '../../hooks/useThemeColors';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 import { usePageGutter } from '../../hooks/usePageGutter';
+import AnchoredPopover from './AnchoredPopover';
 interface PhoneInputProps {
   /** Stored phone value (dial code + national number, e.g. "+38164 123 4567"). */
   value: string;
@@ -132,13 +133,65 @@ export default function PhoneInput({
   const { isWebLayout } = useResponsive();
   const gutter = usePageGutter();
   // The phone's country list is a bottom sheet the width of the screen, so it takes the page
-  // gutter; the web dialog keeps its own inset.
+  // gutter; the web dropdown keeps its own inset.
   const sheetPx = isWebLayout ? 'px-5' : gutter.px;
-  useEscapeToClose(pickerVisible, () => setPickerVisible(false));
+  useEscapeToClose(pickerVisible && !isWebLayout, () => setPickerVisible(false));
+  // The whole field: on the web design the country list opens under it (feedback 2026-10-21).
+  const fieldRef = useRef<View>(null);
+
+  const countryList = (
+    <>
+      {/* Search */}
+      <View className={`${sheetPx} pb-3`}>
+        <View
+          className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-2.5 ${borderColor}`}>
+          <Ionicons name="search" size={18} color={placeholderColor} style={{ marginRight: 8 }} />
+          <TextInput
+            className={`flex-1 ${inputText}`}
+            placeholder={t('shared.searchCountry')}
+            // The desktop dropdown opens ready to type a country into.
+            autoFocus={isWebLayout}
+            placeholderTextColor={placeholderColor}
+            value={search}
+            onChangeText={setSearch}
+            autoCorrect={false}
+          />
+        </View>
+      </View>
+
+      <FlatList
+        data={filtered}
+        keyExtractor={(c) => c.iso}
+        // The dropdown has a fixed height to scroll within; the phone sheet sizes itself.
+        style={isWebLayout ? { maxHeight: 300 } : undefined}
+        keyboardShouldPersistTaps="handled"
+        renderItem={({ item }) => {
+          const selected = item.iso === country.iso;
+          return (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => selectCountry(item)}
+              className={`flex-row items-center ${sheetPx} py-3`}>
+              <CountryFlag iso={item.iso} width={30} />
+              <Text className={`ml-3 flex-1 ${textColor}`}>{item.name}</Text>
+              <Text className={`${subtextColor} mr-2`}>{item.dialCode}</Text>
+              {selected && <Ionicons name="checkmark" size={18} color={BRAND_GREEN} />}
+            </TouchableOpacity>
+          );
+        }}
+        ListEmptyComponent={
+          <Text className={`py-8 text-center ${subtextColor}`}>{t('common.noResults')}</Text>
+        }
+      />
+    </>
+  );
 
   return (
     <View>
-      <View className={`flex-row items-center ${inputBg} rounded-xl border ${borderColor}`}>
+      <View
+        ref={fieldRef}
+        collapsable={false}
+        className={`flex-row items-center ${inputBg} rounded-xl border ${borderColor}`}>
         {/* Country selector */}
         <TouchableOpacity
           onPress={() => setPickerVisible(true)}
@@ -168,90 +221,57 @@ export default function PhoneInput({
         />
       </View>
 
-      {/* Country picker modal */}
-      <Modal
-        visible={pickerVisible}
-        animationType={isWebLayout ? 'fade' : 'slide'}
-        transparent
-        onRequestClose={() => setPickerVisible(false)}>
-        {/* Bottom sheet on a phone, centred dialog on the web design — a country list pinned to
-            the bottom edge of a monitor is a phone artefact, and it puts the search field a long
-            way from where the user just clicked. */}
-        <Pressable
-          accessible={false}
-          focusable={false}
-          tabIndex={-1}
-          className={isWebLayout ? 'flex-1 items-center justify-center' : 'flex-1 justify-end'}
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: isWebLayout ? 24 : 0 }}
-          onPress={() => setPickerVisible(false)}>
+      {isWebLayout ? (
+        <AnchoredPopover
+          visible={pickerVisible}
+          onClose={() => setPickerVisible(false)}
+          anchor={fieldRef}
+          minWidth={320}
+          maxHeight={380}
+          scroll={false}>
+          <View className="pt-3">{countryList}</View>
+        </AnchoredPopover>
+      ) : (
+        <Modal
+          visible={pickerVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setPickerVisible(false)}>
+          {/* A bottom sheet on a phone. The web design opens the list under the field instead (above):
+            pinned to the bottom of a monitor it was a phone artefact, and even as a centred dialog
+            it covered the form to choose one value. */}
           <Pressable
             accessible={false}
             focusable={false}
             tabIndex={-1}
-            className={`${cardBg} ${isWebLayout ? 'rounded-2xl' : 'rounded-t-3xl'}`}
-            style={
-              isWebLayout
-                ? { maxHeight: '80%', width: '100%', maxWidth: 440 }
-                : { maxHeight: '80%' }
-            }
-            onPress={(e) => e.stopPropagation()}>
-            {/* Header */}
-            <View className={`flex-row items-center justify-between ${sheetPx} pb-3 pt-5`}>
-              <Text className={`text-lg font-bold ${textColor}`}>{t('shared.selectCountry')}</Text>
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityLabel={t('common.close')}
-                onPress={() => setPickerVisible(false)}>
-                <Ionicons name="close" size={24} color={placeholderColor} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Search */}
-            <View className={`${sheetPx} pb-3`}>
-              <View
-                className={`flex-row items-center ${inputBg} rounded-xl border px-4 py-2.5 ${borderColor}`}>
-                <Ionicons
-                  name="search"
-                  size={18}
-                  color={placeholderColor}
-                  style={{ marginRight: 8 }}
-                />
-                <TextInput
-                  className={`flex-1 ${inputText}`}
-                  placeholder={t('shared.searchCountry')}
-                  placeholderTextColor={placeholderColor}
-                  value={search}
-                  onChangeText={setSearch}
-                  autoCorrect={false}
-                />
+            className="flex-1 justify-end"
+            style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+            onPress={() => setPickerVisible(false)}>
+            <Pressable
+              accessible={false}
+              focusable={false}
+              tabIndex={-1}
+              className={`${cardBg} rounded-t-3xl`}
+              style={{ maxHeight: '80%' }}
+              onPress={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <View className={`flex-row items-center justify-between ${sheetPx} pb-3 pt-5`}>
+                <Text className={`text-lg font-bold ${textColor}`}>
+                  {t('shared.selectCountry')}
+                </Text>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.close')}
+                  onPress={() => setPickerVisible(false)}>
+                  <Ionicons name="close" size={24} color={placeholderColor} />
+                </TouchableOpacity>
               </View>
-            </View>
 
-            <FlatList
-              data={filtered}
-              keyExtractor={(c) => c.iso}
-              keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => {
-                const selected = item.iso === country.iso;
-                return (
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => selectCountry(item)}
-                    className={`flex-row items-center ${sheetPx} py-3`}>
-                    <CountryFlag iso={item.iso} width={30} />
-                    <Text className={`ml-3 flex-1 ${textColor}`}>{item.name}</Text>
-                    <Text className={`${subtextColor} mr-2`}>{item.dialCode}</Text>
-                    {selected && <Ionicons name="checkmark" size={18} color={BRAND_GREEN} />}
-                  </TouchableOpacity>
-                );
-              }}
-              ListEmptyComponent={
-                <Text className={`py-8 text-center ${subtextColor}`}>{t('common.noResults')}</Text>
-              }
-            />
+              {countryList}
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
+        </Modal>
+      )}
     </View>
   );
 }

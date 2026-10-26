@@ -11,21 +11,23 @@ import { useResponsive } from '../../hooks/useResponsive';
  * 2026-10-21), on the screens a customer browses while adding the next service: Home, Search, a
  * service and a provider. Renders nothing while the cart is empty.
  *
- * Floats over the page: fixed to the window's corner on the web design (the page itself scrolls
- * there), across the bottom of the screen on the phone design (above the tab bar, where the screen
- * ends).
+ * Floats across the bottom of the screen, above the tab bar. The phone design only: on the web
+ * the booking form goes straight to Review (feedback 2026-10-21), so nothing waits in a cart.
  */
 export default function BookingCartPill({ bottomOffset = 0 }: { bottomOffset?: number }) {
   const cart = useBookingCart();
   const navigation = useNavigation();
   const { t } = useLocale();
   const { isWebLayout } = useResponsive();
-  if (cart.count === 0) return null;
+  // The web design has no cart: its booking form checks out what is selected, straight away.
+  if (cart.count === 0 || isWebLayout) return null;
 
-  // The web design scrolls the page itself, so an absolute pill would scroll away with it.
-  const position = isWebLayout
-    ? ({ position: 'fixed', bottom: 24 + bottomOffset, right: 32 } as any)
-    : { position: 'absolute' as const, bottom: 16 + bottomOffset, left: 16, right: 16 };
+  const position = {
+    position: 'absolute' as const,
+    bottom: 16 + bottomOffset,
+    left: 16,
+    right: 16,
+  };
 
   return (
     <View style={[position, { zIndex: 50, elevation: 12 }]} pointerEvents="box-none">

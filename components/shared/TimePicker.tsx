@@ -11,6 +11,8 @@ interface TimePickerProps {
   isDarkMode: boolean;
   /** When provided, the picker will not allow selecting a time before this moment. */
   minDate?: Date;
+  /** No card of its own — for a container that already draws one (a dropdown panel). */
+  bare?: boolean;
 }
 
 // Total minutes since midnight at the top of the range: 24:00 (end of day).
@@ -38,6 +40,7 @@ export default function TimePicker({
   onClose,
   isDarkMode,
   minDate,
+  bare = false,
 }: TimePickerProps) {
   const { t } = useLocale();
   // Clamp initial value to minDate if it is in the past
@@ -155,14 +158,18 @@ export default function TimePicker({
 
   return (
     <View
-      style={{
-        marginTop: 12,
-        backgroundColor: cardBg,
-        borderWidth: 1,
-        borderColor,
-        borderRadius: 16,
-        padding: 16,
-      }}>
+      style={
+        bare
+          ? { padding: 16 }
+          : {
+              marginTop: 12,
+              backgroundColor: cardBg,
+              borderWidth: 1,
+              borderColor,
+              borderRadius: 16,
+              padding: 16,
+            }
+      }>
       <Text
         style={{
           color: subtextColor,
