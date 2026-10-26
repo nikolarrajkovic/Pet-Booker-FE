@@ -13,6 +13,8 @@ type Props = {
   /** Handed to the form: the filters the user is browsing with, so "every matching provider"
    *  means the providers they are looking at. */
   params?: CreateGroupRequestParams;
+  /** `banner` only: take the height of the row it sits in (Home's web row beside the pet card). */
+  fill?: boolean;
 };
 
 /**
@@ -20,7 +22,7 @@ type Props = {
  * request to many and let the first who can take it. Shown wherever a user browses providers —
  * above the Search results (carrying the current filters) and on Home.
  */
-export default function GroupRequestCta({ variant = 'bar', params }: Props) {
+export default function GroupRequestCta({ variant = 'bar', params, fill = false }: Props) {
   const navigation = useNavigation<any>();
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
@@ -50,7 +52,7 @@ export default function GroupRequestCta({ variant = 'bar', params }: Props) {
 
   if (variant === 'banner') {
     return (
-      <View className="rounded-2xl bg-brand-500 p-4">
+      <View className={`rounded-2xl bg-brand-500 p-4 ${fill ? 'flex-1 justify-center' : ''}`}>
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel={t('groupRequest.ctaTitle')}

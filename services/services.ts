@@ -80,26 +80,59 @@ export const AdditionalServiceChargeType = { Flat: 0, PerDistance: 1 } as const;
 export const DistanceLeg = { Pickup: 0, DropOff: 1, RoundTrip: 2 } as const;
 
 /**
+ * What an extra is, from the preset list (backend `AdditionalServiceKind`, feedback 2026-10-26):
+ * partners choose one rather than typing a name, and every screen shows its translation
+ * (`tEnum('additionalServiceKind', kind)`). FLAGS, so a filter can ask for several in one value;
+ * one extra is exactly one kind. `None` is only an extra saved before the list, known by its name.
+ */
+export const AdditionalServiceKind = {
+  None: 0,
+  Pickup: 1,
+  DropOff: 2,
+  PetTaxi: 4,
+  ExtraWalk: 8,
+  ExtraPlaytime: 16,
+  Treats: 32,
+  Medication: 64,
+  SpecialNeedsCare: 128,
+  Bath: 256,
+  Brushing: 512,
+  NailTrim: 1024,
+  EarCleaning: 2048,
+  TeethCleaning: 4096,
+  PhotoUpdates: 8192,
+} as const;
+
+/** Every kind a partner can offer, in the order the apps list them. */
+export const ADDITIONAL_SERVICE_KINDS: number[] = Object.values(AdditionalServiceKind).filter(
+  (k) => k !== AdditionalServiceKind.None
+);
+
+/**
  * One optional extra a service offers — an open-ended catalog, not the three fixed
  * flags this replaced. Writable nested on the service POST/PUT as
  * `additionalServices` (upsert by id: known ids update in place, id-less items are
  * created, omitted rows are removed) or standalone via /api/service-additional-services.
  *
- * `chargeType` decides which price field applies, and the two must agree — a
- * PerDistance entry needs `distancePrice` and a `distanceLeg`, a Flat one needs
- * neither (the API 422s the mismatch).
+ * `kind` says what it is (the server names it after its kind). `chargeType` decides which
+ * price field applies, and the two must agree — a PerDistance entry (a pickup, drop-off or
+ * pet taxi only) needs `distancePrice`, a Flat one doesn't (the API 422s the mismatch). The
+ * trip a per-distance extra bills follows from its kind, so `distanceLeg` need not be sent.
  */
 export type AdditionalServiceDto = {
   id?: number | null;
   serviceId?: number;
-  name: string;
+  /** AdditionalServiceKind — one value; 0 only on an extra saved before the preset list. */
+  kind?: number;
+  /** READ: the kind's English name, or the partner's own on an extra from before the list. Not sent. */
+  name?: string;
   description?: string | null;
   chargeType: number;
   /** Flat surcharge. Only meaningful when chargeType is Flat. */
   price?: number;
   /** Per-km price. Required when chargeType is PerDistance. */
   distancePrice?: LocationBasedPriceDto | null;
-  /** Required when chargeType is PerDistance — see DistanceLeg. */
+  /** READ: the trip a PerDistance extra bills — see DistanceLeg. Follows from `kind`. */
   distanceLeg?: number | null;
   /** Deactivate to stop offering it on new bookings without deleting it. */
   isActive?: boolean;
@@ -425,8 +458,10 @@ export type GetServicesParams = {
   minRating?: number;
   /** PetSpeciesType FLAGS, OR-ed together. A service matches if it accepts ANY of them. */
   acceptedSpecies?: number;
-  /** Names of extras the service must offer — ALL of them, not any. */
+  /** Names of extras the service must offer — ALL of them, not any. Older builds; use the kinds. */
   additionalServiceNames?: string[];
+  /** `AdditionalServiceKind` FLAGS OR-ed: kinds of extra the service must offer — ALL of them. */
+  additionalServiceKinds?: number;
   /** True → only services with a promotion running right now. */
   onSaleOnly?: boolean;
   /** Row order. See `ServiceSortBy`. */
@@ -475,6 +510,7 @@ function servicesRequest(params?: GetServicesParams): ApiRequestOptions {
       AdditionalServiceNames: params?.additionalServiceNames?.length
         ? params.additionalServiceNames
         : undefined,
+      AdditionalServiceKinds: params?.additionalServiceKinds || undefined,
       OnSaleOnly: params?.onSaleOnly,
       SortBy: params?.sortBy,
       AvailableOn: params?.availableOn,
@@ -504,6 +540,8 @@ export type ServiceFacets = {
   currency: string;
   /** Every active extra on offer, de-duplicated case-insensitively and sorted. */
   additionalServiceNames: string[];
+  /** The kinds of the active extras on offer (`AdditionalServiceKind`), in the preset order. */
+  additionalServiceKinds?: number[];
 };
 
 /**

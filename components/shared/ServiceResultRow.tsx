@@ -13,7 +13,7 @@ import {
   type ServiceDto,
 } from '../../services/services';
 import { DiscountType } from '../../services/service-discounts';
-import { getEnabledServiceAddons } from '../../services/service-addons';
+import { addonLabel, getEnabledServiceAddons } from '../../services/service-addons';
 import { PetSpecies, isOfferedSpecies } from '../../services/pets';
 
 /**
@@ -275,7 +275,11 @@ export default function ServiceResultRow({
             <View className="mt-2.5 flex-row flex-wrap gap-1.5">
               {speciesLabels.slice(0, 3).map((label) => chip(label, `species-${label}`, 'paw'))}
               {shownAddOns.map((addon) =>
-                chip(addon.name, `addon-${addon.id ?? addon.name}`, 'add-circle-outline')
+                chip(
+                  addonLabel(tEnum, addon),
+                  `addon-${addon.id ?? addon.name}`,
+                  'add-circle-outline'
+                )
               )}
               {extraAddOnCount > 0 &&
                 chip(t('card.morePlus', { count: extraAddOnCount }), 'addon-more')}

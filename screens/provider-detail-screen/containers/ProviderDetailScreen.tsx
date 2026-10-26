@@ -25,6 +25,7 @@ import {
   providerToViewModel,
 } from '../../../services/service-providers';
 import { useLocale } from '../../../context/LocaleContext';
+import { addonLabel } from '../../../services/service-addons';
 import { useTopInset } from '../../../hooks/useSafeAreaSpacing';
 import type { ProviderViewModel } from '../../../services/service-providers';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -56,7 +57,7 @@ export default function ProviderDetailScreen() {
   const providerId = Number(route.params?.providerId ?? route.params?.provider?.id ?? 0);
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const topInset = useTopInset();
-  const { t, tPlural } = useLocale();
+  const { t, tPlural, tEnum } = useLocale();
 
   // Both lists come from the shared cache, so this profile reflects a service the provider just
   // edited or a review that was just approved — it used to hold whatever it fetched the first
@@ -292,13 +293,12 @@ export default function ProviderDetailScreen() {
                               {svc.description ?? svc.about}
                             </Text>
                           ) : null}
-                          {/* The extras this service offers, by the provider's own names — there
-                            are no longer fixed pickup/return flags to check. */}
+                          {/* The extras this service offers, in the reader's language. */}
                           {(svc.additionalServices ?? [])
-                            .filter((a) => a.isActive !== false && a.name)
+                            .filter((a) => a.isActive !== false && (a.kind || a.name))
                             .map((a) => (
                               <Text key={a.id ?? a.name} className="mt-1 text-xs text-brand-600">
-                                {a.name}
+                                {addonLabel(tEnum, a)}
                               </Text>
                             ))}
                         </View>

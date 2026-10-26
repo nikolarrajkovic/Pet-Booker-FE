@@ -13,7 +13,7 @@ import {
   secondaryNavGroups,
   type NavItem,
 } from '../../navigation/navItems';
-import { navigateToNavItem } from '../../navigation/navigateToNavItem';
+import { navItemHref, pressNavItem } from '../../navigation/navigateToNavItem';
 import BrandMark from '../shared/BrandMark';
 
 /**
@@ -79,7 +79,9 @@ export default function SideNav({ activeRoute }: SideNavProps) {
     return (
       <Pressable
         key={item.route}
-        onPress={() => navigateToNavItem(item)}
+        // A real link on web (an <a href>), so an entry opens in a new tab like any other link.
+        {...({ href: navItemHref(item) } as object)}
+        onPress={(e) => pressNavItem(item, e)}
         accessibilityRole="link"
         accessibilityLabel={t(item.labelKey)}
         accessibilityState={{ selected: isSelected }}
@@ -163,7 +165,8 @@ export default function SideNav({ activeRoute }: SideNavProps) {
           Labelled with the app's name, not "Home": the Home item is right below it, and two
           links announcing the same word is worse for a screen reader than an unlabelled logo. */}
       <Pressable
-        onPress={() => navigateToNavItem(primary[0])}
+        {...({ href: primary[0] ? navItemHref(primary[0]) : undefined } as object)}
+        onPress={(e) => pressNavItem(primary[0], e)}
         accessibilityRole="link"
         accessibilityLabel="PetBooker"
         style={({ hovered }: any) => ({

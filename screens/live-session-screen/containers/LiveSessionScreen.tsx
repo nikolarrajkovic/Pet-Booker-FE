@@ -35,7 +35,7 @@ import ReasonPromptModal from '../../../components/shared/ReasonPromptModal';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import { getPet, PetResponse } from '../../../services/pets';
 import { getService, ServiceDto } from '../../../services/services';
-import { DistanceLeg } from '../../../services/service-addons';
+import { addonLabel, DistanceLeg } from '../../../services/service-addons';
 import { customerName, getUser } from '../../../services/users';
 import {
   addressLabel,
@@ -427,10 +427,11 @@ export default function LiveSessionScreen() {
     for (const line of dto.additionalServices ?? []) {
       if (!('name' in line)) continue;
       const leg = line.distanceLeg ?? null;
-      if (leg === DistanceLeg.Pickup || leg === DistanceLeg.RoundTrip) pickupFor.push(line.name);
-      if (leg === DistanceLeg.DropOff || leg === DistanceLeg.RoundTrip) dropoffFor.push(line.name);
+      const label = addonLabel(tEnum, line);
+      if (leg === DistanceLeg.Pickup || leg === DistanceLeg.RoundTrip) pickupFor.push(label);
+      if (leg === DistanceLeg.DropOff || leg === DistanceLeg.RoundTrip) dropoffFor.push(label);
       if (leg === null) {
-        flatLines.push({ key: `extra-${line.id ?? line.name}`, label: line.name });
+        flatLines.push({ key: `extra-${line.id ?? line.name}`, label });
       }
     }
 
@@ -466,7 +467,7 @@ export default function LiveSessionScreen() {
       items.push({ ...flat, icon: 'medkit-outline', completed: false, toggleable: false });
     }
     return items;
-  }, [dto, bookerAddr, completion.pickup, completion.dropoff]);
+  }, [dto, bookerAddr, completion.pickup, completion.dropoff, tEnum]);
 
   // Only the actionable (pickup/drop-off) tasks gate ending the service.
   const canEnd = addOns.filter((a) => a.toggleable !== false).every((a) => a.completed);

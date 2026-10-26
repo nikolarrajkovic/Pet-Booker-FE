@@ -16,7 +16,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { useLocale } from '../../../context/LocaleContext';
-import TwoColumn from '../../../components/shared/TwoColumn';
 import ServicePhoto from '../../../components/shared/ServicePhoto';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import BookingCartPill from '../../../components/shared/BookingCartPill';
@@ -39,6 +38,7 @@ import {
 } from '../../../services/service-providers';
 import {
   getEnabledServiceAddons,
+  addonLabel,
   addonPriceLabel,
   isPerDistance,
 } from '../../../services/service-addons';
@@ -121,6 +121,8 @@ export default function ServiceDetailScreen() {
   // The gallery pages by its own width. On the web design that is the details card beside the
   // booking panel, so it is measured rather than derived from the window.
   const [galleryWidth, setGalleryWidth] = useState<number | null>(null);
+  // The web details card's width: the photo sits beside the summary when there is room for both.
+  const [cardWidth, setCardWidth] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -341,7 +343,7 @@ export default function ServiceDetailScreen() {
   // 3.5:1, so a portrait phone photo kept a third of its height. ServicePhoto now shows the whole
   // photo (blurred fill around it), and a taller frame gives it room to be seen.
   const galleryHeight = Math.round(Math.min(pageWidth * 0.75, isWebLayout ? 440 : 340));
-  const details = (
+  const phoneGallery = (
     <>
       {/* Photo gallery — profile photo first, swipe through the rest */}
       {photoUris.length > 0 ? (
@@ -380,57 +382,131 @@ export default function ServiceDetailScreen() {
           <Ionicons name="paw" size={48} color="#9CA3AF" />
         </View>
       )}
+    </>
+  );
 
-      {/* Title / type / rating / price */}
-      <View className={`${gutter.px} py-5`}>
-        <Text className={`text-2xl font-bold ${textColor}`}>{svc.name ?? 'Service'}</Text>
-        {serviceTypeLabel ? (
-          <Text className="mt-1 text-base text-brand-600">{serviceTypeLabel}</Text>
-        ) : null}
-
-        <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-2">
-          {rating > 0 && (
-            <View className="flex-row items-center">
-              <View className="flex-row items-center rounded-lg bg-brand-50 px-2 py-1">
-                <Ionicons name="star" size={16} color={BRAND_GREEN} />
-                <Text className="ml-1 font-semibold text-brand-700">{rating.toFixed(1)}</Text>
-              </View>
-              <Text className={`${subtextColor} ml-2`}>
-                {reviewCount}{' '}
-                {tPlural(reviewCount, {
-                  one: 'serviceDetail.reviewSingular',
-                  few: 'serviceDetail.reviewFew',
-                  many: 'serviceDetail.reviewPlural',
-                })}
-              </Text>
-            </View>
-          )}
-          {provider?.isApproved && (
-            <View className="flex-row items-center">
-              <Ionicons name="checkmark-circle" size={16} color={BRAND_GREEN} />
-              <Text className="ml-1 text-sm text-brand-600">
-                {t('serviceDetail.verifiedProvider')}
-              </Text>
-            </View>
-          )}
+  /**
+   * The web design's photo: the whole photo in a 4:3 frame beside the summary, with the others as
+   * thumbnails under it. It used to be a banner the width of the card (780×440 at 1440px), which
+   * letterboxed every photo a phone takes: a landscape one between two blurred bars, a portrait
+   * one as a strip down the middle of a mostly blurred frame.
+   */
+  const webGallery = (
+    <View>
+      <ServicePhoto
+        uri={photoUris[activePhoto] ?? photoUris[0]}
+        iconSize={48}
+        style={{ width: '100%', aspectRatio: 4 / 3 }}
+      />
+      {photoUris.length > 1 ? (
+        <View className="mt-3 flex-row flex-wrap gap-2">
+          {photoUris.map((uri, i) => (
+            <TouchableOpacity
+              key={i}
+              accessibilityRole="button"
+              accessibilityLabel={t('serviceDetail.photoN', { n: i + 1, total: photoUris.length })}
+              aria-pressed={i === activePhoto}
+              onPress={() => setActivePhoto(i)}
+              className={`rounded-xl border-2 p-0.5 ${
+                i === activePhoto ? 'border-brand-500' : 'border-transparent'
+              }`}>
+              <ServicePhoto
+                uri={uri}
+                fit="cover"
+                thumbWidth={240}
+                radiusClass="rounded-lg"
+                iconSize={18}
+                style={{ width: 64, height: 64 }}
+              />
+            </TouchableOpacity>
+          ))}
         </View>
+      ) : null}
+    </View>
+  );
 
-        {!isWebLayout && (
-          // "starting from 1,200 RSD": the label leads, in every language. As a suffix it read
-          // "1,200 RSD starting from" (and "1 200 RSD от" in Russian).
-          <View className="mt-4 flex-row items-baseline">
-            <Text className={`${subtextColor} mr-2`}>{t('serviceDetail.startingFrom')}</Text>
-            <Text className="text-3xl font-bold text-brand-600">{money(effective)}</Text>
-            <Text className={`${subtextColor} ml-1`}>{priceSuffix(t, svc)}</Text>
-            {hasDiscount ? (
-              <Text className={`${subtextColor} ml-2 line-through`}>{money(base)}</Text>
-            ) : null}
+  const speciesContent =
+    species.length === 0 ? (
+      <Text className={subtextColor}>{t('serviceDetail.allPetsWelcome')}</Text>
+    ) : (
+      <View className="flex-row flex-wrap gap-2">
+        {species.map((s) => (
+          <View
+            key={s}
+            className={`rounded-full px-3 py-1.5 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
+            <Text className={`text-sm ${textColor}`}>{t(s as any)}</Text>
+          </View>
+        ))}
+      </View>
+    );
+  const factsContent = (
+    <View className="flex-row flex-wrap gap-2">
+      {facts.map((f) => (
+        <View
+          key={f.label}
+          className={`flex-row items-center rounded-xl px-3 py-2 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
+          <Ionicons name={f.icon} size={16} color={BRAND_GREEN} />
+          <Text className={`text-sm ${textColor} ml-2`}>{f.label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+
+  const titleBlock = (
+    <>
+      <Text className={`${isWebLayout ? 'text-3xl' : 'text-2xl'} font-bold ${textColor}`}>
+        {svc.name ?? 'Service'}
+      </Text>
+      {serviceTypeLabel ? (
+        <Text className="mt-1 text-base text-brand-600">{serviceTypeLabel}</Text>
+      ) : null}
+
+      <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-2">
+        {rating > 0 && (
+          <View className="flex-row items-center">
+            <View className="flex-row items-center rounded-lg bg-brand-50 px-2 py-1">
+              <Ionicons name="star" size={16} color={BRAND_GREEN} />
+              <Text className="ml-1 font-semibold text-brand-700">{rating.toFixed(1)}</Text>
+            </View>
+            <Text className={`${subtextColor} ml-2`}>
+              {reviewCount}{' '}
+              {tPlural(reviewCount, {
+                one: 'serviceDetail.reviewSingular',
+                few: 'serviceDetail.reviewFew',
+                many: 'serviceDetail.reviewPlural',
+              })}
+            </Text>
+          </View>
+        )}
+        {provider?.isApproved && (
+          <View className="flex-row items-center">
+            <Ionicons name="checkmark-circle" size={16} color={BRAND_GREEN} />
+            <Text className="ml-1 text-sm text-brand-600">
+              {t('serviceDetail.verifiedProvider')}
+            </Text>
           </View>
         )}
       </View>
 
-      {unavailable && !isWebLayout ? unavailableBox(`mb-4 ${gutter.mx}`) : null}
+      {!isWebLayout && (
+        // "starting from 1,200 RSD": the label leads, in every language. As a suffix it read
+        // "1,200 RSD starting from" (and "1 200 RSD от" in Russian).
+        <View className="mt-4 flex-row items-baseline">
+          <Text className={`${subtextColor} mr-2`}>{t('serviceDetail.startingFrom')}</Text>
+          <Text className="text-3xl font-bold text-brand-600">{money(effective)}</Text>
+          <Text className={`${subtextColor} ml-1`}>{priceSuffix(t, svc)}</Text>
+          {hasDiscount ? (
+            <Text className={`${subtextColor} ml-2 line-through`}>{money(base)}</Text>
+          ) : null}
+        </View>
+      )}
+    </>
+  );
 
+  // Everything after the photo and the title, in reading order. On the web design the accepted
+  // pets and the facts sit in the summary beside the photo instead (`inSummary`).
+  const sections = (
+    <>
       {/* About */}
       {(svc.description || svc.about) &&
         section(
@@ -547,8 +623,8 @@ export default function ServiceDetailScreen() {
                   />
                 </View>
                 <View className="flex-1">
-                  {/* Provider-authored text — shown verbatim, nothing to translate. */}
-                  <Text className={`font-medium ${textColor}`}>{addon.name}</Text>
+                  {/* The kind in the reader's language; the description is the partner's own. */}
+                  <Text className={`font-medium ${textColor}`}>{addonLabel(tEnum, addon)}</Text>
                   {addon.description ? (
                     <Text className={`text-xs ${subtextColor} mt-0.5`}>{addon.description}</Text>
                   ) : null}
@@ -564,38 +640,10 @@ export default function ServiceDetailScreen() {
         )}
 
       {/* Accepted pets */}
-      {section(
-        t('serviceDetail.acceptedPets'),
-        species.length === 0 ? (
-          <Text className={subtextColor}>{t('serviceDetail.allPetsWelcome')}</Text>
-        ) : (
-          <View className="flex-row flex-wrap gap-2">
-            {species.map((s) => (
-              <View
-                key={s}
-                className={`rounded-full px-3 py-1.5 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
-                <Text className={`text-sm ${textColor}`}>{t(s as any)}</Text>
-              </View>
-            ))}
-          </View>
-        )
-      )}
+      {!isWebLayout && section(t('serviceDetail.acceptedPets'), speciesContent)}
 
       {/* Extra facts */}
-      {facts.length > 0 &&
-        section(
-          t('serviceDetail.goodToKnow'),
-          <View className="flex-row flex-wrap gap-2">
-            {facts.map((f) => (
-              <View
-                key={f.label}
-                className={`flex-row items-center rounded-xl px-3 py-2 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
-                <Ionicons name={f.icon} size={16} color={BRAND_GREEN} />
-                <Text className={`text-sm ${textColor} ml-2`}>{f.label}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+      {!isWebLayout && facts.length > 0 && section(t('serviceDetail.goodToKnow'), factsContent)}
 
       {/* Working hours */}
       {openDays.length > 0 &&
@@ -647,6 +695,47 @@ export default function ServiceDetailScreen() {
     </>
   );
 
+  // The photo beside the summary once the card has room for both (a 1440px window gives it
+  // ~780px); a narrower card stacks them.
+  const sideBySide = (cardWidth ?? 0) >= 640;
+  const summaryLabel = (text: string) => (
+    <Text className={`mb-2 mt-5 text-sm font-semibold ${textColor}`}>{text}</Text>
+  );
+  const details = isWebLayout ? (
+    <>
+      <View
+        className={`p-6 ${sideBySide ? 'flex-row items-start' : ''}`}
+        style={sideBySide ? { gap: 28 } : undefined}>
+        <View style={sideBySide ? { width: '48%' } : { marginBottom: 20 }}>{webGallery}</View>
+        <View style={{ flex: sideBySide ? 1 : undefined, minWidth: 0 }}>
+          {titleBlock}
+          {address ? (
+            <View className="mt-3 flex-row items-center">
+              <Ionicons name="location-outline" size={16} color="#6B7280" />
+              <Text className={`${subtextColor} ml-1 flex-1 text-sm`}>{address}</Text>
+            </View>
+          ) : null}
+          {summaryLabel(t('serviceDetail.acceptedPets'))}
+          {speciesContent}
+          {facts.length > 0 ? (
+            <>
+              {summaryLabel(t('serviceDetail.goodToKnow'))}
+              {factsContent}
+            </>
+          ) : null}
+        </View>
+      </View>
+      {sections}
+    </>
+  ) : (
+    <>
+      {phoneGallery}
+      <View className={`${gutter.px} py-5`}>{titleBlock}</View>
+      {unavailable ? unavailableBox(`mb-4 ${gutter.mx}`) : null}
+      {sections}
+    </>
+  );
+
   const unavailableNote = unavailableBox('mt-4');
 
   const bookingPanel = (
@@ -687,6 +776,7 @@ export default function ServiceDetailScreen() {
     <ScreenLayout
       headerVariant="standard"
       showBackButton
+      webFixed
       contentBg={contentBg}
       headerTitle={isWebLayout ? t('serviceDetail.title') : undefined}
       headerSubtitle={isWebLayout ? t('serviceDetail.subtitle') : undefined}
@@ -706,16 +796,21 @@ export default function ServiceDetailScreen() {
           <ActivityIndicator size="large" color={BRAND_GREEN} />
         </View>
       ) : isWebLayout ? (
-        // No scroll view of its own on the web design: the page scrolls, and the booking card stays
-        // in view beside the details (TwoColumn makes it sticky). Even flattened, a ScrollView is
-        // still an overflow container, which pinned the card to the top of the details and let it
-        // scroll away with them (feedback 2026-10-21).
-        <View className={gutter.px} style={{ paddingBottom: 24 }}>
-          <TwoColumn aside={bookingPanel}>
-            <View className={`${cardBg} overflow-hidden rounded-2xl border ${borderColor}`}>
+        // Only the details scroll on the web design: the page title and the booking card stay
+        // where they are, so the price and Book Now are always beside whatever is being read
+        // (`webFixed` stops the page itself from scrolling). The booking card used to be sticky
+        // inside a scrolling page, and before that scrolled away with the details.
+        <View className={`${gutter.px} flex-row`} style={{ flex: 1, minHeight: 0 }}>
+          <View
+            style={{ flex: 1, minWidth: 0, overflowY: 'auto', paddingBottom: 24 } as any}
+            {...({ dataSet: { detailsScroll: 'true' } } as any)}>
+            <View
+              onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
+              className={`${cardBg} overflow-hidden rounded-2xl border ${borderColor}`}>
               {details}
             </View>
-          </TwoColumn>
+          </View>
+          <View style={{ width: 360, marginLeft: 32 }}>{bookingPanel}</View>
         </View>
       ) : (
         <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 110 }}>

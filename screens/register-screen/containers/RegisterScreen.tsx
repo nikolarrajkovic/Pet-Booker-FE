@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Text, View, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '../../../hooks/useThemeColors';
@@ -16,6 +17,13 @@ import { ApiError } from '../../../services/http';
 import AuthLayout from '../../../components/layout/AuthLayout';
 import { formatBirthDate } from '../../../i18n/dates';
 import { formatDateOnly } from '../../../services/date-only';
+import Avatar from '../../../components/shared/Avatar';
+import MapAddressPicker from '../../../components/shared/MapAddressPicker';
+import { AddressDto } from '../../../services/service-providers';
+import { addressLabel } from '../../../services/geocoding';
+import { showAlert } from '../../../services/alert';
+import { DEFAULT_LOCATION } from '../../../hooks/useLocation';
+import { savePendingProfile, type PendingPhoto } from '../../../services/pending-profile';
 
 type RootStackParamList = {
   Login: undefined;
@@ -72,6 +80,10 @@ function validateConfirmPassword(v: string, pw: string) {
   return '';
 }
 
+function validateAddress(a: AddressDto | null) {
+  return a?.line1?.trim() || a?.city?.trim() ? '' : 'register.errAddressRequired';
+}
+
 function validateDateOfBirth(d: Date | null) {
   if (!d) return 'register.errDobRequired';
   const today = new Date();
@@ -119,6 +131,12 @@ export default function RegisterScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [emailInUse, setEmailInUse] = useState(false);
+  // The home address (required) and a profile photo (optional). The account can only store them
+  // once the email is confirmed, so they wait on the device until its first sign-in
+  // (services/pending-profile.ts).
+  const [address, setAddress] = useState<AddressDto | null>(null);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [photo, setPhoto] = useState<PendingPhoto | null>(null);
 
   // ─── Theme ────────────────────────────────────────────────────────────────
   const inputBg = isDarkMode ? '#243447' : '#ffffff';
@@ -134,6 +152,7 @@ export default function RegisterScreen() {
     lastName: validateName(lastName),
     phone: validatePhone(phone),
     dateOfBirth: validateDateOfBirth(dateOfBirth),
+    address: validateAddress(address),
     password: validatePassword(password),
     confirmPassword: validateConfirmPassword(confirmPassword, password),
   };
@@ -158,6 +177,7 @@ export default function RegisterScreen() {
       lastName: true,
       phone: true,
       dateOfBirth: true,
+      address: true,
       password: true,
       confirmPassword: true,
     });
@@ -180,6 +200,7 @@ export default function RegisterScreen() {
         phone: phone.trim(),
         dateOfBirth: formatDateOnly(dateOfBirth!),
       });
+      await savePendingProfile(email, { address: address!, photo });
       navigation.navigate('VerifyEmail', { email: email.trim() });
     } catch (error) {
       const message = error instanceof Error ? error.message : t('register.registrationFailed');
@@ -192,6 +213,36 @@ export default function RegisterScreen() {
   };
 
   const strength = getPasswordStrength(password);
+
+  const pickPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      showAlert(t('account.permissionNeededTitle'), t('account.permissionPhotoMsg'));
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+      base64: true,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      // The photo waits on the device until the account exists, so it needs an address that lasts:
+      // a browser hands back a `blob:` URL that dies with the page, so there it travels as a data
+      // URI; a phone's file URI lasts, and is small enough for secure storage.
+      const lasting = !asset.uri.startsWith('blob:');
+      setPhoto({
+        uri:
+          lasting || !asset.base64
+            ? asset.uri
+            : `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`,
+        fileName: asset.fileName ?? undefined,
+        mimeType: asset.mimeType ?? undefined,
+      });
+    }
+  };
 
   const inputStyle = (field: keyof typeof errors) => ({
     backgroundColor: inputBg,
@@ -214,6 +265,43 @@ export default function RegisterScreen() {
 
   return (
     <AuthLayout title={t('login.appName')} subtitle={t('register.subtitle')}>
+      {/* Profile photo — optional */}
+      <View className="mb-5 flex-row items-center">
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={photo ? t('register.changePhoto') : t('register.addPhoto')}
+          onPress={pickPhoto}>
+          <Avatar
+            uri={photo?.uri}
+            name={firstName}
+            size={72}
+            placeholderClassName={isDarkMode ? 'bg-[#243447]' : 'bg-brand-100'}
+            textClassName="text-2xl font-bold text-brand-600"
+          />
+          <View className="absolute -bottom-1 -right-1 h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-brand-500">
+            <Ionicons name="camera" size={14} color="white" />
+          </View>
+        </TouchableOpacity>
+        <View className="ml-4 flex-1">
+          <View className="flex-row items-center">
+            <Text className={`text-sm font-semibold ${textColor}`}>{t('register.photo')}</Text>
+            <Text className={`ml-2 text-xs ${subtextColor}`}>{t('register.photoOptional')}</Text>
+          </View>
+          <View className="mt-1 flex-row items-center gap-4">
+            <TouchableOpacity accessibilityRole="button" onPress={pickPhoto}>
+              <Text className="text-sm font-semibold text-brand-600">
+                {photo ? t('register.changePhoto') : t('register.addPhoto')}
+              </Text>
+            </TouchableOpacity>
+            {photo ? (
+              <TouchableOpacity accessibilityRole="button" onPress={() => setPhoto(null)}>
+                <Text className={`text-sm ${subtextColor}`}>{t('register.removePhoto')}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+      </View>
+
       {/* Username */}
       <View className="mb-4">
         <View className="mb-1 flex-row items-center">
@@ -396,6 +484,44 @@ export default function RegisterScreen() {
         )}
       </View>
 
+      {/* Home address — picked on a map */}
+      <View className="mb-4">
+        <View className="mb-1 flex-row items-center">
+          <Text className={`text-sm font-semibold ${textColor}`}>{t('register.homeAddress')}</Text>
+          <Text className="ml-1 text-sm font-semibold text-red-500">*</Text>
+        </View>
+        <Text className={`text-xs ${subtextColor} mb-2`}>{t('register.homeAddressHint')}</Text>
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => setPickerVisible(true)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: inputBg,
+            borderRadius: 12,
+            borderWidth: 2,
+            borderColor: borderFor('address'),
+            paddingHorizontal: 16,
+            paddingVertical: 13,
+          }}>
+          <Ionicons name="location-outline" size={20} color="#00A85A" />
+          <Text
+            numberOfLines={2}
+            style={{
+              marginLeft: 10,
+              fontSize: 15,
+              color: address ? inputTextColor : placeholderColor,
+              flex: 1,
+            }}>
+            {address ? addressLabel(address) : t('bookService.pickOnMap')}
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+        </TouchableOpacity>
+        {touched.address && errors.address ? (
+          <Text className="mt-1 text-xs text-red-500">{t(errors.address as any)}</Text>
+        ) : null}
+      </View>
+
       {/* Password */}
       <View className="mb-2">
         <View className="mb-2 flex-row items-center">
@@ -536,9 +662,11 @@ export default function RegisterScreen() {
           {emailInUse ? (
             <TouchableOpacity
               accessibilityRole="button"
-              onPress={() =>
-                navigation.navigate('VerifyEmail', { email: email.trim(), resend: true })
-              }>
+              onPress={async () => {
+                // Finishing an earlier sign-up: what was entered here is what the profile gets.
+                if (address) await savePendingProfile(email, { address, photo });
+                navigation.navigate('VerifyEmail', { email: email.trim(), resend: true });
+              }}>
               <Text className="mt-1 text-center text-sm font-semibold text-brand-600">
                 {t('register.verifyInstead')}
               </Text>
@@ -575,6 +703,21 @@ export default function RegisterScreen() {
           <Text className="text-sm font-semibold text-brand-600">{t('register.signIn')}</Text>
         </TouchableOpacity>
       </View>
+
+      {pickerVisible && (
+        <MapAddressPicker
+          visible
+          title={t('register.homeAddress')}
+          initialRegion={address?.location ?? DEFAULT_LOCATION}
+          locateOnOpen={!address?.location}
+          isDarkMode={isDarkMode}
+          onClose={() => setPickerVisible(false)}
+          onSelect={(picked) => {
+            setAddress(picked);
+            touch('address');
+          }}
+        />
+      )}
     </AuthLayout>
   );
 }

@@ -46,10 +46,13 @@ import {
   MAX_BATCH_APPOINTMENTS,
   parseBookingDate,
   formatBookingDate,
+  toBookingLocation,
   type BookingAdditionalServiceReadDto,
 } from '../../../services/bookings';
+import { getUser } from '../../../services/users';
 import {
   getEnabledServiceAddons,
+  addonLabel,
   addonPriceLabel,
   isPerDistance,
   requiredAddresses,
@@ -264,6 +267,14 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
   const [pickupAddr, setPickupAddr] = useState<AddressDto | null>(null);
   const [dropoffAddr, setDropoffAddr] = useState<AddressDto | null>(null);
   const [pickerFor, setPickerFor] = useState<'pickup' | 'dropoff' | null>(null);
+  // The home address saved on the customer's profile: one tap instead of finding it on the map.
+  // Sent by id (toBookingLocation), so the booking links that address rather than copying it.
+  const { data: profile } = useResource(
+    ['users', currentUser?.id],
+    () => getUser(currentUser?.id as number),
+    { enabled: currentUser?.id != null, revalidate: false }
+  );
+  const homeAddress = profile?.address?.id ? profile.address : null;
   // Date only (the slot picks the time). Opens on the day the customer searched for, when that is
   // still ahead — a day in the past (an old link) starts empty instead.
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => {
@@ -760,13 +771,10 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
       additionalServices: toBookingSelection(selectedAddonDefs),
       // Addresses only — never a distance. The server measures each leg from these; sending a
       // client-measured value would override the measurement that sets the price.
-      location:
-        pickupSelected || dropoffSelected
-          ? {
-              pickupAddress: pickupSelected ? (pickupAddr ?? undefined) : undefined,
-              leaveOverAddress: dropoffSelected ? (dropoffAddr ?? undefined) : undefined,
-            }
-          : undefined,
+      location: toBookingLocation(
+        pickupSelected ? pickupAddr : null,
+        dropoffSelected ? dropoffAddr : null
+      ),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -1187,6 +1195,57 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
       )}
     </>
   );
+  /**
+   * Where one leg starts or ends: the home address saved on the profile (when there is one) or a
+   * place picked on the map. The home row is a radio; the map row shows the picked place, or the
+   * prompt to pick one while the home address is chosen.
+   */
+  const addressChoices = (
+    side: 'pickup' | 'dropoff',
+    current: AddressDto | null,
+    choose: (a: AddressDto | null) => void
+  ) => {
+    const isHome = homeAddress != null && current?.id === homeAddress.id;
+    const onMap = current != null && !isHome;
+    const row = (selected: boolean) =>
+      `mb-2 flex-row items-center rounded-2xl border-2 px-4 py-3 ${
+        selected
+          ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+          : `${borderColor} ${cardBg}`
+      }`;
+    return (
+      <>
+        {homeAddress ? (
+          <TouchableOpacity
+            accessibilityRole="radio"
+            accessibilityState={{ checked: isHome }}
+            aria-checked={isHome}
+            onPress={() => choose(homeAddress)}
+            className={row(isHome)}>
+            <Ionicons name={isHome ? 'home' : 'home-outline'} size={20} color={BRAND_GREEN} />
+            <View className="ml-3 flex-1">
+              <Text className={`text-sm font-medium ${textColor}`}>
+                {t('bookService.homeAddress')}
+              </Text>
+              <Text numberOfLines={2} className={`text-xs ${subtextColor}`}>
+                {addressLabel(homeAddress)}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ) : null}
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => setPickerFor(side)}
+          className={row(onMap)}>
+          <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
+          <Text className={`ml-3 flex-1 ${onMap ? textColor : subtextColor}`} numberOfLines={2}>
+            {onMap ? addressLabel(current) : t('bookService.pickOnMap')}
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+        </TouchableOpacity>
+      </>
+    );
+  };
   const extrasBlock = (
     <>
       {' '}
@@ -1210,8 +1269,10 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
               }`}>
               <View className="flex-row items-center justify-between">
                 <View className="flex-1">
-                  {/* Provider-authored name/description — shown verbatim. */}
-                  <Text className={`text-base font-semibold ${textColor}`}>{addon.name}</Text>
+                  {/* The kind in the reader's language; the description is the partner's own. */}
+                  <Text className={`text-base font-semibold ${textColor}`}>
+                    {addonLabel(tEnum, addon)}
+                  </Text>
                   {addon.description ? (
                     <Text className={`text-sm ${subtextColor} mt-1`}>{addon.description}</Text>
                   ) : null}
@@ -1226,24 +1287,13 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
           );
         })
       )}
-      {/* Location required when Pickup / Drop-off is selected — picked on a map */}
+      {/* Location required when Pickup / Drop-off is selected — the home address, or a place on the map */}
       {pickupSelected && (
         <View className="mb-3 mt-1">
           <Text className={`text-sm font-semibold ${textColor} mb-2`}>
             {t('bookService.pickupAddress')}
           </Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => setPickerFor('pickup')}
-            className={`rounded-2xl border px-4 py-3 ${borderColor} ${cardBg} flex-row items-center`}>
-            <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
-            <Text
-              className={`ml-3 flex-1 ${pickupAddr ? textColor : subtextColor}`}
-              numberOfLines={2}>
-              {pickupAddr ? addressLabel(pickupAddr) : t('bookService.pickOnMap')}
-            </Text>
-            <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
-          </TouchableOpacity>
+          {addressChoices('pickup', pickupAddr, setPickupAddr)}
           {/* Price check: measured distance + estimated per-km surcharge. */}
           {pickupAddr
             ? addonsOnPickupLeg.map((a) => (
@@ -1269,18 +1319,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
           <Text className={`text-sm font-semibold ${textColor} mb-2`}>
             {t('bookService.dropoffAddress')}
           </Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => setPickerFor('dropoff')}
-            className={`rounded-2xl border px-4 py-3 ${borderColor} ${cardBg} flex-row items-center`}>
-            <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
-            <Text
-              className={`ml-3 flex-1 ${dropoffAddr ? textColor : subtextColor}`}
-              numberOfLines={2}>
-              {dropoffAddr ? addressLabel(dropoffAddr) : t('bookService.pickOnMap')}
-            </Text>
-            <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
-          </TouchableOpacity>
+          {addressChoices('dropoff', dropoffAddr, setDropoffAddr)}
           {/* Price check: measured distance + estimated per-km surcharge. */}
           {dropoffAddr
             ? addonsOnDropoffLeg.map((a) => (
@@ -1759,7 +1798,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
                   )}
                   {apt.addons.length > 0 && (
                     <Text className={`text-xs ${subtextColor} mt-1`}>
-                      + {apt.addons.map((a) => a.name).join(', ')}
+                      + {apt.addons.map((a) => addonLabel(tEnum, a)).join(', ')}
                     </Text>
                   )}
                 </View>

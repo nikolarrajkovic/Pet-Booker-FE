@@ -6,6 +6,7 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
+import { addonLabel } from '../../../services/service-addons';
 import { formatFullDate } from '../../../i18n/dates';
 import { durationDisplayLabel } from '../../my-services-screen/serviceModel';
 import { getErrorMessage } from '../../../services/http';
@@ -84,7 +85,7 @@ function priceSection(
     appointments
       .flatMap((a) => a.addons)
       .reduce<Record<string, AddonLine>>((acc, ad) => {
-        const cur = acc[ad.name] ?? { name: ad.name, price: 0 };
+        const cur = acc[ad.name] ?? { kind: ad.kind, name: ad.name, price: 0 };
         cur.price += ad.price;
         // A per-distance line reports the fees and the leg's distance behind its amount. The
         // per-km portion is derived as price − baseFee so the sub-lines always reconcile to what
@@ -125,7 +126,7 @@ export default function ReviewBookingScreen() {
   const cart = useBookingCart();
   const { currentUser } = useAuth();
   const { showError } = useToast();
-  const { t } = useLocale();
+  const { t, tEnum } = useLocale();
   const imageOf = (service: ServiceDto) =>
     resolveImageUrl(
       service.imageUrl ?? (service.photos?.find((p) => p.isSelected) ?? service.photos?.[0])?.src
@@ -379,7 +380,7 @@ export default function ReviewBookingScreen() {
                           )}
                           {apt.addons.length > 0 && (
                             <Text className={`text-xs ${subtextColor} mt-1`}>
-                              + {apt.addons.map((a) => a.name).join(', ')}
+                              + {apt.addons.map((a) => addonLabel(tEnum, a)).join(', ')}
                             </Text>
                           )}
                           {apt.pickupAddress ? (

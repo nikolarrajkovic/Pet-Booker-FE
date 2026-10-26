@@ -4,6 +4,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
+import { addonLabel } from '../../../services/service-addons';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ReviewModal from '../../../components/shared/ReviewModal';
 import ReasonPromptModal from '../../../components/shared/ReasonPromptModal';
@@ -431,7 +432,9 @@ export default function BookingDetailsScreen() {
             return (
               <View key={line.id ?? `${line.name}-${i}`} className={`border-b py-3 ${borderColor}`}>
                 <View className="flex-row items-center justify-between">
-                  <Text className={`text-sm ${subtextColor} flex-1 pr-2`}>{line.name}</Text>
+                  <Text className={`text-sm ${subtextColor} flex-1 pr-2`}>
+                    {addonLabel(tEnum, line)}
+                  </Text>
                   <Text className={`text-sm ${textColor}`}>
                     {formatMoney(line.price, dto.priceCurrency)}
                   </Text>

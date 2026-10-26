@@ -237,7 +237,7 @@ export default function SearchScreen() {
   // offers Pickup, so the chip list collapses to that one chip and there is no way back. (They
   // used to be sampled from the 100 most expensive services: ~190 KB per visit, and an extra only
   // cheaper services offer never became a chip.)
-  const [facets, setFacets] = useState<{ maxPrice: number; addOns: string[] }>({
+  const [facets, setFacets] = useState<{ maxPrice: number; addOns: number[] }>({
     maxPrice: DEFAULT_MAX_PRICE,
     addOns: [],
   });
@@ -251,7 +251,7 @@ export default function SearchScreen() {
         setFacets({
           maxPrice:
             top > 0 ? Math.max(DEFAULT_MAX_PRICE, Math.ceil(top / 10) * 10) : DEFAULT_MAX_PRICE,
-          addOns: f.additionalServiceNames,
+          addOns: f.additionalServiceKinds ?? [],
         });
       })
       .catch(() => {
@@ -382,7 +382,10 @@ export default function SearchScreen() {
         acceptedSpecies: f.petTypes.length
           ? f.petTypes.reduce((all, flag) => all | flag, 0)
           : undefined,
-        additionalServiceNames: f.addOns.length ? f.addOns : undefined,
+        // Kinds of extra are FLAGS too — every selected one must be offered.
+        additionalServiceKinds: f.addOns.length
+          ? f.addOns.reduce((all, kind) => all | kind, 0)
+          : undefined,
         minPrice: priceTouched && f.priceRange[0] > 0 ? f.priceRange[0] : undefined,
         maxPrice: priceTouched && f.priceRange[1] < maxPrice ? f.priceRange[1] : undefined,
         // The bounds are in whatever currency the prices are displayed in, so the server is told
@@ -542,8 +545,8 @@ export default function SearchScreen() {
       if (filters.addOns.length > 0) {
         const offered = (svc.additionalServices ?? [])
           .filter((a) => a.isActive !== false)
-          .map((a) => (a.name ?? '').toLowerCase());
-        if (!filters.addOns.every((name) => offered.includes(name.toLowerCase()))) return false;
+          .map((a) => a.kind ?? 0);
+        if (!filters.addOns.every((kind) => offered.includes(kind))) return false;
       }
       if (filters.onSaleOnly && svc.appliedDiscountAmount == null) return false;
       if (item.price > 0) {
@@ -776,39 +779,54 @@ export default function SearchScreen() {
     />
   );
 
-  const body = isLoading ? (
-    <View className="flex-1 items-center justify-center py-20">
-      <PetLoader label={t('search.findingServices')} />
-    </View>
-  ) : loadError ? (
-    <View className="flex-1 items-center justify-center px-8 py-20">
-      <Ionicons name="alert-circle-outline" size={56} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
-      <Text className={`${subtextColor} mt-4 text-center`}>{loadError}</Text>
-    </View>
-  ) : viewMode === 'list' ? (
-    listContent
-  ) : (
-    // The TabBar overlays the bottom of the content area (absolute bottom-0), so inset the map
-    // by its height — otherwise the map's bottom strip and Google's attribution hide behind it
-    // and the map centre sits too low. The web design has no such bar, and the inset there
-    // would just be a strip of dead space under the map.
-    //
-    // Beside the rail the map also needs a definite height: TwoColumn lays its columns out
-    // top-aligned with auto height, so a `flex-1` map collapses to its 400px minimum and reads as
-    // a letterbox strip under the header. And not `flex-1` there: its 0 flex-basis outranks the
-    // height inside that content-sized column, which is how the map stayed 400px tall anyway.
-    <View
-      className={`${showFilterRail ? '' : 'flex-1'} ${isWebLayout ? 'px-8 pb-4' : 'pb-20'}`}
-      style={showFilterRail ? { height: 680 } : undefined}>
-      {queryChip}
-      <MapViewComponent
-        services={mapServices}
-        date={filters.date}
-        location={location}
-        isDarkMode={isDarkMode}
-      />
-    </View>
-  );
+  // Beside the rail a filter applies as it is touched, so the results it replaces stay on screen,
+  // dimmed, until the new ones arrive. Swapping them for the loader collapsed the page to one
+  // spinner and threw the reader back to the top on every chip.
+  const updatingInPlace = showFilterRail && isLoading && serviceDtos.length > 0 && !loadError;
+  const body =
+    isLoading && !updatingInPlace ? (
+      <View className="flex-1 items-center justify-center py-20">
+        <PetLoader label={t('search.findingServices')} />
+      </View>
+    ) : loadError ? (
+      <View className="flex-1 items-center justify-center px-8 py-20">
+        <Ionicons
+          name="alert-circle-outline"
+          size={56}
+          color={isDarkMode ? '#6B7280' : '#9CA3AF'}
+        />
+        <Text className={`${subtextColor} mt-4 text-center`}>{loadError}</Text>
+      </View>
+    ) : viewMode === 'list' ? (
+      updatingInPlace ? (
+        <View style={{ opacity: 0.5 }} pointerEvents="none" aria-busy>
+          {listContent}
+        </View>
+      ) : (
+        listContent
+      )
+    ) : (
+      // The TabBar overlays the bottom of the content area (absolute bottom-0), so inset the map
+      // by its height — otherwise the map's bottom strip and Google's attribution hide behind it
+      // and the map centre sits too low. The web design has no such bar, and the inset there
+      // would just be a strip of dead space under the map.
+      //
+      // Beside the rail the map also needs a definite height: TwoColumn lays its columns out
+      // top-aligned with auto height, so a `flex-1` map collapses to its 400px minimum and reads as
+      // a letterbox strip under the header. And not `flex-1` there: its 0 flex-basis outranks the
+      // height inside that content-sized column, which is how the map stayed 400px tall anyway.
+      <View
+        className={`${showFilterRail ? '' : 'flex-1'} ${isWebLayout ? 'px-8 pb-4' : 'pb-20'}`}
+        style={showFilterRail ? { height: 680 } : undefined}>
+        {queryChip}
+        <MapViewComponent
+          services={mapServices}
+          date={filters.date}
+          location={location}
+          isDarkMode={isDarkMode}
+        />
+      </View>
+    );
 
   return (
     <ScreenLayout
@@ -862,7 +880,10 @@ export default function SearchScreen() {
       {/* The rail accompanies BOTH views: filters narrow the map's pins exactly as they narrow the
           list, and hiding the controls on the map made it the one place you could not act on what
           you were looking at. */}
-      {showFilterRail && !isLoading && !loadError ? (
+      {/* The rail stays while the results reload: a filter is applied as it is touched, and
+          unmounting the rail for the loader swapped the whole page out under the pointer, so a
+          second part of the day could only be picked once the first search had finished. */}
+      {showFilterRail ? (
         // The results column carries its own 24px gutter (see ListView), so the gap here only has
         // to separate the two columns; the rail takes the page gutter on its outer edge.
         <TwoColumn

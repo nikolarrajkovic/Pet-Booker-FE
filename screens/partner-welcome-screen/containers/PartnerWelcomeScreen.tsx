@@ -5,6 +5,7 @@ import {
   PanResponder,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native';
@@ -32,7 +33,12 @@ type Slide = {
   Scene: React.ComponentType;
   titleKey: string;
   subtitleKey: string;
+  /** The web design's illustration half — a shade of the scene's own gradient. */
+  tint: string;
 };
+
+/** The web design draws each scene on a square card of this size, scaled to the window. */
+const STAGE = 420;
 
 // The tour, in the order a partner lives it. Slide 0 is the celebration hero
 // (rendered specially below); these are the split illustration/card slides.
@@ -40,30 +46,35 @@ type Slide = {
 const SLIDES: Slide[] = [
   {
     id: 'requests',
+    tint: '#fde8e8',
     Scene: RequestsScene,
     titleKey: 'partnerWelcome.slide1Title',
     subtitleKey: 'partnerWelcome.slide1Text',
   },
   {
     id: 'schedule',
+    tint: '#ebe7fd',
     Scene: ScheduleScene,
     titleKey: 'partnerWelcome.slide2Title',
     subtitleKey: 'partnerWelcome.slide2Text',
   },
   {
     id: 'services',
+    tint: '#f8e3fd',
     Scene: ServicesScene,
     titleKey: 'partnerWelcome.slide3Title',
     subtitleKey: 'partnerWelcome.slide3Text',
   },
   {
     id: 'promotions',
+    tint: '#feead3',
     Scene: PromotionsScene,
     titleKey: 'partnerWelcome.slide4Title',
     subtitleKey: 'partnerWelcome.slide4Text',
   },
   {
     id: 'live',
+    tint: '#d5f7ef',
     Scene: LiveSessionScene,
     titleKey: 'partnerWelcome.slide5Title',
     subtitleKey: 'partnerWelcome.slide5Text',
@@ -170,6 +181,7 @@ function PulsingRing({ size }: { size: number }) {
  */
 export default function PartnerWelcomeScreen() {
   const { isWebLayout } = useResponsive();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const { resetToTab, resetToScreen } = useAppNavigation();
   const { currentUser } = useAuth();
   const { t } = useLocale();
@@ -238,12 +250,12 @@ export default function PartnerWelcomeScreen() {
   const slide = isHero ? null : SLIDES[index - 1];
   const next = () => (isLast ? finish() : goTo(index + 1));
 
-  const renderDots = () => (
+  const renderDots = (align: 'center' | 'flex-start' = 'center') => (
     <View
       accessible
       accessibilityRole="progressbar"
       accessibilityLabel={t('partnerWelcome.stepOf', { current: index + 1, total: TOTAL })}
-      style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
+      style={{ flexDirection: 'row', justifyContent: align, alignItems: 'center', gap: 6 }}>
       {Array.from({ length: TOTAL }).map((_, i) => {
         const active = i === index;
         return (
@@ -267,15 +279,191 @@ export default function PartnerWelcomeScreen() {
     </View>
   );
 
-  // The coloured background stays full-bleed — that is the point of a celebration screen — but
-  // the copy inside it is capped, or the headline runs the full width of a monitor.
-  const page = isWebLayout
-    ? { width: '100%' as const, maxWidth: 560, alignSelf: 'center' as const }
-    : undefined;
+  const skipButton = !isLast && (
+    // Frosted Skip — hidden on the last page.
+    <TouchableOpacity
+      onPress={goToHub}
+      accessibilityRole="button"
+      accessibilityLabel={t('partnerWelcome.skipTour')}
+      activeOpacity={0.8}
+      style={{
+        position: 'absolute',
+        top: insets.top + (isWebLayout ? 24 : 10),
+        right: isWebLayout ? 32 : 16,
+        backgroundColor: 'rgba(0,0,0,0.26)',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 999,
+      }}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>
+        {t('partnerWelcome.skip')}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  // ── The web design: the whole window ────────────────────────────────────────────────────────
+  // The phone layout (illustration on top, copy and a full-width button pinned under it) centred
+  // in a 560px column read as the mobile app pasted into a browser. Here the hero keeps its
+  // full-bleed green with the button under the copy, and each slide splits the window: the
+  // illustration as a large card on a tinted half, the copy and the controls beside it.
+  if (isWebLayout) {
+    const stageScale = Math.max(
+      1,
+      Math.min(1.6, (Math.min(windowWidth * 0.55, windowHeight) * 0.72) / STAGE)
+    );
+    return (
+      <View style={{ flex: 1, backgroundColor: isHero ? GREEN : '#fff' }}>
+        {isHero ? (
+          <AnimatedPage
+            key={index}
+            dir={dir}
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingHorizontal: 48,
+            }}>
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+              <PulsingRing size={190} />
+              <AnimatedCheckmark size={132} color="white" ringColor="rgba(255,255,255,0.25)" />
+            </View>
+            <Text
+              accessibilityRole="header"
+              style={{
+                marginTop: 44,
+                textAlign: 'center',
+                fontSize: 44,
+                fontWeight: '800',
+                color: '#fff',
+              }}>
+              {t('partnerWelcome.approved')}
+            </Text>
+            <Text
+              style={{
+                marginTop: 16,
+                maxWidth: 620,
+                textAlign: 'center',
+                fontSize: 19,
+                lineHeight: 29,
+                color: 'rgba(255,255,255,0.92)',
+              }}>
+              {t('partnerWelcome.welcomeText', { name: firstName })}
+            </Text>
+            <TouchableOpacity
+              onPress={next}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={t('partnerWelcome.startTour')}
+              style={{
+                marginTop: 40,
+                minWidth: 280,
+                paddingHorizontal: 40,
+                backgroundColor: '#fff',
+                paddingVertical: 16,
+                borderRadius: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}>
+              <Text style={{ color: GREEN, fontSize: 17, fontWeight: '800' }}>
+                {t('partnerWelcome.getStarted')}
+              </Text>
+              <Ionicons name="chevron-forward" size={18} color={GREEN} />
+            </TouchableOpacity>
+            <View style={{ marginTop: 28 }}>{renderDots()}</View>
+          </AnimatedPage>
+        ) : (
+          <View style={{ flex: 1, flexDirection: 'row' }}>
+            <View
+              style={{
+                flex: 55,
+                backgroundColor: slide!.tint,
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+              }}>
+              <AnimatedPage key={index} dir={dir}>
+                <View
+                  style={{
+                    width: STAGE,
+                    height: STAGE,
+                    borderRadius: 28,
+                    overflow: 'hidden',
+                    transform: [{ scale: stageScale }],
+                    boxShadow: '0 24px 60px rgba(15, 23, 42, 0.12)',
+                  }}>
+                  {React.createElement(slide!.Scene)}
+                </View>
+              </AnimatedPage>
+            </View>
+            <View style={{ flex: 45, justifyContent: 'center', paddingHorizontal: 64 }}>
+              <View style={{ maxWidth: 480 }}>
+                <AnimatedPage key={index} dir={dir}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: GREEN }}>
+                    {t('partnerWelcome.stepOf', { current: index + 1, total: TOTAL })}
+                  </Text>
+                  <Text
+                    accessibilityRole="header"
+                    style={{ marginTop: 10, fontSize: 36, fontWeight: '800', color: '#111827' }}>
+                    {t(slide!.titleKey as any)}
+                  </Text>
+                  <Text style={{ marginTop: 14, fontSize: 18, lineHeight: 28, color: '#6b7280' }}>
+                    {t(slide!.subtitleKey as any)}
+                  </Text>
+                </AnimatedPage>
+                <View style={{ marginTop: 40, flexDirection: 'row', gap: 12 }}>
+                  <TouchableOpacity
+                    onPress={() => goTo(index - 1)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('partnerWelcome.prevStep')}
+                    style={{
+                      width: 52,
+                      borderRadius: 16,
+                      backgroundColor: '#f3f4f6',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                    <Ionicons name="chevron-back" size={20} color="#6b7280" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={next}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={isLast ? finishLabel : t('partnerWelcome.nextStep')}
+                    style={{
+                      minWidth: 200,
+                      paddingHorizontal: 32,
+                      backgroundColor: GREEN,
+                      paddingVertical: 16,
+                      borderRadius: 16,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                    }}>
+                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>
+                      {isLast ? finishLabel : t('partnerWelcome.next')}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={18} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+                <View style={{ marginTop: 32 }}>{renderDots('flex-start')}</View>
+              </View>
+            </View>
+          </View>
+        )}
+        {skipButton}
+        {isHero && <Confetti />}
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: isHero ? GREEN : '#fff' }}>
-      <View style={{ flex: 1, ...page }} {...pan.panHandlers}>
+      <View style={{ flex: 1 }} {...pan.panHandlers}>
         {isHero ? (
           /* ── Celebration hero ── */
           <AnimatedPage
@@ -409,28 +597,7 @@ export default function PartnerWelcomeScreen() {
         )}
       </View>
 
-      {/* Frosted Skip — hidden on the last page. */}
-      {!isLast && (
-        <TouchableOpacity
-          onPress={goToHub}
-          accessibilityRole="button"
-          accessibilityLabel={t('partnerWelcome.skipTour')}
-          activeOpacity={0.8}
-          style={{
-            position: 'absolute',
-            top: insets.top + 10,
-            right: 16,
-            backgroundColor: 'rgba(0,0,0,0.26)',
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderRadius: 999,
-          }}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>
-            {t('partnerWelcome.skip')}
-          </Text>
-        </TouchableOpacity>
-      )}
+      {skipButton}
 
       {/* Confetti rains over the celebration hero only. */}
       {isHero && <Confetti />}

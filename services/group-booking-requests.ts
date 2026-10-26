@@ -104,6 +104,8 @@ export type GroupBookingRequestDto = {
   acceptedSpecies?: number | null;
   onSaleOnly: boolean;
   requiredAddOnNames: string[];
+  /** `AdditionalServiceKind` FLAGS: kinds of extra every provider's service must offer. */
+  requiredAddOnKinds?: number | null;
   acceptedServiceProviderId?: number | null;
   acceptedServiceProviderName?: string | null;
   bookingId?: number | null;
@@ -155,6 +157,8 @@ export type CreateGroupBookingRequestInput = {
   acceptedSpecies?: number;
   onSaleOnly?: boolean;
   requiredAddOnNames?: string[];
+  /** `AdditionalServiceKind` FLAGS OR-ed: kinds of extra the provider's service must offer. */
+  requiredAddOnKinds?: number;
   /**
    * AnyEligible: ask only providers within this many km (1–100) of the place, else of the
    * owner's home address. Dropped by the server when neither is on the map.
