@@ -8,6 +8,7 @@
 // distance only the server can measure, so the booking flow asks POST /api/bookings/quote
 // (services/booking-quote.ts) instead of computing an estimate.
 import { formatMoney } from './currency';
+import type { EnumEntry } from './enums';
 import {
   AdditionalServiceChargeType,
   AdditionalServiceKind,
@@ -36,39 +37,31 @@ export function addonLabel(tEnum: TEnum, addon: { kind: number }): string {
   return tEnum('additionalServiceKind', addon.kind);
 }
 
-const { Pickup, DropOff, PetTaxi, ExtraWalk, ExtraPlaytime, Treats, Medication } =
-  AdditionalServiceKind;
-const { SpecialNeedsCare, Bath, Brushing, NailTrim, EarCleaning, TeethCleaning, PhotoUpdates } =
-  AdditionalServiceKind;
-const JOURNEYS = Pickup | DropOff | PetTaxi;
-const CARE = ExtraWalk | ExtraPlaytime | Treats | Medication | SpecialNeedsCare | PhotoUpdates;
-const GROOMING = Bath | Brushing | NailTrim;
-
 /**
- * The kinds that fit each type of service (`ServiceProviderType` → mask) — the editor offers only
- * these. Mirrors the backend's `AdditionalServiceKinds.AllowedFor`, which refuses the rest: a
- * sitter or boarder takes the journeys, care and a basic groom; a pet hotel everything; a walk no
- * taxi and no grooming; a groomer the journeys and the whole groom; a transporter (whose service
- * is the journey) only care.
+ * The kinds of extra a type of service offers, as the API publishes them on `/enums`
+ * (`serviceProviderType[].additionalServiceKinds`, the mask its validators enforce): a sitter or
+ * boarder the journeys, care and a basic groom; a pet hotel everything; a walk pickup, drop-off
+ * and care; a groomer the journeys and the whole groom; a transporter only care. The app kept its
+ * own copy of this table until 2026-10-29, which could drift from the API's. Null while the enums
+ * load, or with no type chosen: the editor then doesn't narrow, and the API still decides.
  */
-const KINDS_BY_TYPE: Record<number, number> = {
-  0: JOURNEYS | CARE | GROOMING, // Sitter
-  1: Pickup | DropOff | CARE, // Walker
-  2: JOURNEYS | CARE | GROOMING, // Boarder
-  3: ADDITIONAL_SERVICE_KINDS.reduce((all, kind) => all | kind, 0), // Pet hotel
-  4: JOURNEYS | GROOMING | EarCleaning | TeethCleaning | Treats | SpecialNeedsCare | PhotoUpdates, // Groomer
-  5: Treats | Medication | SpecialNeedsCare | PhotoUpdates, // Transporter
-};
-
-/** Whether a kind of extra may be offered with a type of service (`ServiceProviderType`). */
-export function kindFitsType(kind: number, type: number | null | undefined): boolean {
-  if (type == null) return true;
-  return ((KINDS_BY_TYPE[type] ?? 0) & kind) === kind && kind !== 0;
+export function offeredKindsMask(
+  serviceTypes: EnumEntry[] | null | undefined,
+  type: number | null | undefined
+): number | null {
+  if (type == null) return null;
+  return serviceTypes?.find((t) => t.value === type)?.additionalServiceKinds ?? null;
 }
 
-/** The kinds a partner can add to a service of this type, in the preset order. */
-export function kindsForType(type: number | null | undefined): number[] {
-  return ADDITIONAL_SERVICE_KINDS.filter((kind) => kindFitsType(kind, type));
+/** Whether a kind of extra fits a type of service, given what it offers (`offeredKindsMask`). */
+export function kindFitsType(kind: number, offered: number | null): boolean {
+  if (kind === 0) return false;
+  return offered == null || (offered & kind) === kind;
+}
+
+/** The kinds a partner can add to a service, given what its type offers, in the preset order. */
+export function kindsForType(offered: number | null): number[] {
+  return ADDITIONAL_SERVICE_KINDS.filter((kind) => kindFitsType(kind, offered));
 }
 
 /** The trip a transport kind performs (it is the leg such an extra bills), else null. */

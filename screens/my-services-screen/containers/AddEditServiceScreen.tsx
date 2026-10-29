@@ -55,6 +55,7 @@ import {
   isTransportKind,
   kindFitsType,
   kindsForType,
+  offeredKindsMask,
 } from '../../../services/service-addons';
 import { clearServiceSchedules } from '../../../services/service-schedules';
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
@@ -190,6 +191,8 @@ export default function AddEditServiceScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [serviceType, setServiceType] = useState(existingService?.type || '');
+  // The kinds of extra this type of service offers, as the API publishes them (/enums).
+  const offeredKinds = offeredKindsMask(enums?.serviceProviderType, providerTypeValue(serviceType));
   const [showServiceTypeModal, setShowServiceTypeModal] = useState(false);
   const [showDurationModal, setShowDurationModal] = useState(false);
   // The extra whose "Type of extra" menu is open.
@@ -592,7 +595,7 @@ export default function AddEditServiceScreen() {
       );
       return;
     }
-    if (additionalServices.some((a) => !kindFitsType(a.kind, providerTypeValue(serviceType)))) {
+    if (additionalServices.some((a) => !kindFitsType(a.kind, offeredKinds))) {
       showAlert(
         t('addEditService.extraKindRequiredTitle'),
         t('addEditService.extraNotForType', { type: typeLabel(serviceType) })
@@ -1132,7 +1135,7 @@ export default function AddEditServiceScreen() {
                       color={isDarkMode ? '#9CA3AF' : '#6B7280'}
                     />
                   </TouchableOpacity>
-                  {service.kind && !kindFitsType(service.kind, providerTypeValue(serviceType)) ? (
+                  {service.kind && !kindFitsType(service.kind, offeredKinds) ? (
                     <Text className="mb-2 text-xs text-red-500">
                       {t('addEditService.extraNotForType', { type: typeLabel(serviceType) })}
                     </Text>
@@ -1553,7 +1556,7 @@ export default function AddEditServiceScreen() {
         onClose={() => setKindMenuIndex(null)}
         anchor={pickerAnchor}
         title={t('addEditService.extraKind')}
-        options={kindsForType(providerTypeValue(serviceType))
+        options={kindsForType(offeredKinds)
           .filter(
             (kind) =>
               kindMenuIndex === null ||
