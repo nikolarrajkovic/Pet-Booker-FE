@@ -2089,6 +2089,7 @@ const sr: TranslationDict = {
     withService: 'Sa kojom uslugom',
     pickedByOwner: 'Vlasnik vas je izabrao preko ove',
     acceptNote: 'Ovo pravi potvrđenu rezervaciju po vašoj ceni za ovu uslugu.',
+    requiredExtras: 'Vlasnik je tražio i (dodaje se rezervaciji)',
     acceptConfirm: 'Prihvati',
     accepted: 'Prihvaćeno — rezervacija je potvrđena.',
     acceptFailed: 'Prihvatanje zahteva nije uspelo.',

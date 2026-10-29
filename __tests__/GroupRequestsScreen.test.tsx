@@ -97,6 +97,7 @@ const request = (id: number, petName: string, services = [{ serviceId: 5, name: 
     price: 900,
     currency: 'RSD',
     isPreselected: false,
+    requiredExtras: [],
     pricingOptions: [],
   })),
 });

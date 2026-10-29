@@ -7,6 +7,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
 import type { GroupBookingRequestDto } from '../../../services/group-booking-requests';
 import { parseBookingDate } from '../../../services/bookings';
+import { addonLabel, addonPriceLabel } from '../../../services/service-addons';
 import { formatRequestWhen } from '../groupRequestFormat';
 
 type Props = {
@@ -31,7 +32,7 @@ const START_IN_CHOICES = [0, 15, 30, 45, 60, 90, 120, 180];
  */
 export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }: Props) {
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
-  const { t } = useLocale();
+  const { t, tEnum } = useLocale();
   const services = request?.myEligibleServices ?? [];
   const [serviceId, setServiceId] = useState<number | null>(null);
   const [optionId, setOptionId] = useState<number | null>(null);
@@ -176,6 +177,23 @@ export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }
                   formatMoney(o.price, chosen!.currency)
                 )
               )}
+            </>
+          )}
+          {/* What the owner asked for goes on the bill too: say so, with its price, before the
+              provider commits to it. */}
+          {(chosen?.requiredExtras.length ?? 0) > 0 && (
+            <>
+              <Text className={`mb-1 mt-3 text-sm font-semibold ${textColor}`}>
+                {t('groupRequest.requiredExtras')}
+              </Text>
+              {chosen!.requiredExtras.map((e) => (
+                <View key={e.id ?? e.kind} className="flex-row items-center justify-between py-1">
+                  <Text className={`text-sm ${textColor}`}>{addonLabel(tEnum, e)}</Text>
+                  <Text className={`text-sm ${subtextColor}`}>
+                    {addonPriceLabel(t, e, chosen!.currency) ?? t('addons.included')}
+                  </Text>
+                </View>
+              ))}
             </>
           )}
         </ScrollView>

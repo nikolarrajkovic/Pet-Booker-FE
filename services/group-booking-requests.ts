@@ -1,6 +1,7 @@
 import { apiJson, apiPage, type PagedResult } from './http';
 import { declaredWriteCurrency } from './currency';
 import type { AddressDto } from './service-providers';
+import type { AdditionalServiceDto } from './services';
 
 /**
  * Group requests — "ask several providers at once" (`/api/group-booking-requests`).
@@ -66,6 +67,11 @@ export type GroupBookingEligibleServiceReadDto = {
   isPreselected: boolean;
   /** Non-empty → one must be picked to accept (the booking's end follows its duration). */
   pricingOptions: GroupBookingPricingOptionReadDto[];
+  /**
+   * The extras the owner asked for, as this service offers them. Accepting puts them on the
+   * booking's bill (a per-distance one priced from the trip once the address is known).
+   */
+  requiredExtras: AdditionalServiceDto[];
 };
 
 export type GroupBookingRequestDto = {

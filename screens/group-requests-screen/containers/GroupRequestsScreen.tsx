@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { linkTo } from '../../../navigation/links';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ListState from '../../../components/shared/ListState';
 import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
@@ -212,9 +213,7 @@ export default function GroupRequestsScreen() {
                         }
                       : undefined
                   }
-                  onOpenBooking={(bookingId) =>
-                    navigation.navigate('BookingDetails', { bookingId })
-                  }
+                  bookingLink={(bookingId) => linkTo(navigation, 'BookingDetails', { bookingId })}
                 />
               ))}
             </ResponsiveGrid>

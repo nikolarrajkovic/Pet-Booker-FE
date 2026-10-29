@@ -2110,6 +2110,7 @@ const en = {
     withService: 'With which service',
     pickedByOwner: 'The owner picked you from this one',
     acceptNote: 'This creates a confirmed booking at your price for this service.',
+    requiredExtras: 'The owner also asked for (added to the booking)',
     acceptConfirm: 'Accept',
     accepted: 'Accepted — the booking is confirmed.',
     acceptFailed: "Couldn't accept this request.",

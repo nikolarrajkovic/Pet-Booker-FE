@@ -11,6 +11,7 @@ import {
   Linking,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { linkTo } from '../../../navigation/links';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -863,7 +864,7 @@ export default function PartnerDetailsScreen() {
                   key={booking.id}
                   booking={booking}
                   stateLabel={tEnum('bookingState', booking.state, '')}
-                  onPress={() => navigation.navigate('BookingDetails', { bookingId: booking.id })}
+                  link={linkTo(navigation, 'BookingDetails', { bookingId: booking.id })}
                   cardBg={cardBg}
                   textColor={textColor}
                   subTextColor={subTextColor}
@@ -1165,7 +1166,7 @@ function EmptyDoc({ text, subTextColor }: { text: string; subTextColor: string }
 function RecentBookingRow({
   booking,
   stateLabel,
-  onPress,
+  link,
   cardBg,
   textColor,
   subTextColor,
@@ -1173,7 +1174,8 @@ function RecentBookingRow({
 }: {
   booking: BookingDto;
   stateLabel: string;
-  onPress: () => void;
+  /** Opens the booking: `linkTo`, so the row is a link on the web. */
+  link: ReturnType<typeof linkTo>;
   cardBg: string;
   textColor: string;
   subTextColor: string;
@@ -1183,9 +1185,9 @@ function RecentBookingRow({
   const color = BOOKING_STATE_COLORS[booking.state] ?? subTextColor;
   return (
     <TouchableOpacity
-      accessibilityRole="button"
+      {...(link as object)}
+      accessibilityRole="link"
       activeOpacity={0.85}
-      onPress={onPress}
       style={{
         backgroundColor: cardBg,
         borderRadius: 12,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, View, ViewStyle } from 'react-native';
+import { TouchableOpacity, Text, View, ViewStyle, type GestureResponderEvent } from 'react-native';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
 type IconPosition = 'left' | 'right' | 'center';
@@ -7,7 +7,12 @@ type IconPosition = 'left' | 'right' | 'center';
 type Props = {
   text?: string;
   children?: React.ReactNode;
-  onPress: () => void;
+  onPress: (event?: GestureResponderEvent) => void;
+  /**
+   * The page it opens, on the web (`linkTo` gives both this and `onPress`): the button is then a
+   * real link, which Ctrl/Cmd or middle click opens in a new tab.
+   */
+  href?: string;
   icon?: React.ReactNode;
   iconPosition?: IconPosition;
   variant?: ButtonVariant;
@@ -58,6 +63,7 @@ export default function Button({
   accessibilityLabel,
   accessibilityHint,
   selected,
+  href,
 }: Props) {
   const variantClass = variantStyles[variant];
   const textColorClass = textColorMap[variant];
@@ -89,13 +95,14 @@ export default function Button({
 
   return (
     <TouchableOpacity
+      {...({ href } as object)}
       onPress={onPress}
       disabled={isDisabled}
       activeOpacity={activeOpacity}
       // A TouchableOpacity renders as a plain <div> on web with no role and no name, so every
       // button in the app was invisible to assistive tech and unreachable by keyboard. `role`
       // makes it a button; the label falls back to the visible text so callers get this for free.
-      accessibilityRole="button"
+      accessibilityRole={href ? 'link' : 'button'}
       accessibilityLabel={accessibilityLabel ?? text}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: isDisabled, selected }}

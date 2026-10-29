@@ -10,6 +10,7 @@ import { haversineKm } from '../../../services/distance';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 import { serviceDetailParams } from '../../../navigation/linking';
+import { followLink, screenHref } from '../../../navigation/links';
 interface LocationData {
   latitude: number;
   longitude: number;
@@ -78,17 +79,42 @@ const USER_DOT_SVG =
   '</svg>';
 
 /**
+ * An element that opens `onView` when clicked: a real link when the page has an address (`href`),
+ * so Ctrl/Cmd or middle click opens it in a new tab and a plain click stays in the app
+ * (`followLink`), else a button.
+ */
+function clickable(href: string | undefined, onView: () => void): HTMLElement {
+  if (!href) {
+    const button = document.createElement('div');
+    button.setAttribute('role', 'button');
+    button.onclick = onView;
+    return button;
+  }
+  const link = document.createElement('a');
+  link.href = href;
+  Object.assign(link.style, { textDecoration: 'none', color: 'inherit' });
+  link.onclick = (event) => followLink(event as never, onView);
+  return link;
+}
+
+/**
  * Builds the info-window card shown when a service pin is clicked: photo on top,
  * then name / type / rating / price. Built with DOM APIs (textContent), so a
- * service name can never inject HTML. The whole card is a button → onView().
+ * service name can never inject HTML. The whole card is a link to the service → onView().
  */
-function buildInfoCard(s: ServiceSearchItem, isDarkMode: boolean, onView: () => void): HTMLElement {
+function buildInfoCard(
+  s: ServiceSearchItem,
+  isDarkMode: boolean,
+  onView: () => void,
+  href?: string
+): HTMLElement {
   const bg = isDarkMode ? '#1a2332' : '#ffffff';
   const text = isDarkMode ? '#ffffff' : '#111827';
   const subtext = isDarkMode ? '#9ca3af' : '#6b7280';
 
-  const card = document.createElement('div');
+  const card = clickable(href, onView);
   Object.assign(card.style, {
+    display: 'block',
     width: '220px',
     background: bg,
     borderRadius: '14px',
@@ -96,8 +122,6 @@ function buildInfoCard(s: ServiceSearchItem, isDarkMode: boolean, onView: () => 
     cursor: 'pointer',
     fontFamily: 'system-ui, -apple-system, Arial, sans-serif',
   });
-  card.setAttribute('role', 'button');
-  card.onclick = onView;
 
   // Photo
   const img = document.createElement('img');
@@ -171,7 +195,9 @@ function buildGroupCard(
   isDarkMode: boolean,
   selectMode: boolean,
   isPicked: (id: number) => boolean,
-  onRow: (item: ServiceSearchItem) => void
+  onRow: (item: ServiceSearchItem) => void,
+  /** The page a row opens (a link, outside selection mode, where a row ticks instead). */
+  hrefOf?: (item: ServiceSearchItem) => string | undefined
 ): { element: HTMLElement; refresh: (isPicked: (id: number) => boolean) => void } {
   const bg = isDarkMode ? '#1a2332' : '#ffffff';
   const text = isDarkMode ? '#ffffff' : '#111827';
@@ -213,10 +239,15 @@ function buildGroupCard(
   };
 
   for (const item of group.items) {
-    const row = document.createElement('div');
-    row.setAttribute('role', selectMode ? 'checkbox' : 'button');
+    let row: HTMLElement;
+    if (selectMode) {
+      row = document.createElement('div');
+      row.setAttribute('role', 'checkbox');
+      row.onclick = () => onRow(item);
+    } else {
+      row = clickable(hrefOf?.(item), () => onRow(item));
+    }
     row.setAttribute('title', item.name);
-    row.onclick = () => onRow(item);
     row.onmouseenter = () => (row.style.background = hover);
     row.onmouseleave = () => (row.style.background = 'transparent');
     Object.assign(row.style, {
@@ -366,6 +397,9 @@ export default function MapViewComponent({
         const groups = groupByLocation(services);
         const open = (s: ServiceSearchItem) =>
           (navigation as any).navigate('ServiceDetail', serviceDetailParams(s.dto, date));
+        // The page a pin's card opens, so the card is a link a new tab can open.
+        const hrefOf = (s: ServiceSearchItem) =>
+          screenHref('ServiceDetail', serviceDetailParams(s.dto, date));
         const isPicked = (id: number) => pickedRef.current.has(id);
         groups.forEach((group) => {
           const only = group.items.length === 1 ? group.items[0] : null;
@@ -380,7 +414,7 @@ export default function MapViewComponent({
                 else
                   m.openPopup(
                     marker,
-                    buildInfoCard(only, isDarkMode, () => open(only))
+                    buildInfoCard(only, isDarkMode, () => open(only), hrefOf(only))
                   );
                 return;
               }
@@ -390,7 +424,8 @@ export default function MapViewComponent({
                 isDarkMode,
                 selectMode,
                 isPicked,
-                (item) => (toggleRef.current ? toggleRef.current(item) : open(item))
+                (item) => (toggleRef.current ? toggleRef.current(item) : open(item)),
+                toggleRef.current ? undefined : hrefOf
               );
               openGroupRefresh.current = card.refresh;
               m.openPopup(marker, card.element);
