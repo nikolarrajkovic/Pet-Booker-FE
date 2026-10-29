@@ -67,7 +67,7 @@ describe('the catalogue browse filters', () => {
       isActive: true,
       types: [1, 2],
       acceptedSpecies: 3,
-      additionalServiceNames: ['Pickup'],
+      additionalServiceKinds: 1 | 4,
       minPrice: 500,
       maxPrice: 4000,
       priceCurrency: 'EUR',
@@ -80,7 +80,7 @@ describe('the catalogue browse filters', () => {
 
     expect(params.getAll('Types')).toEqual(['1', '2']);
     expect(params.get('AcceptedSpecies')).toBe('3');
-    expect(params.getAll('AdditionalServiceNames')).toEqual(['Pickup']);
+    expect(params.get('AdditionalServiceKinds')).toBe('5');
     expect(params.get('MinPrice')).toBe('500');
     expect(params.get('MaxPrice')).toBe('4000');
     expect(params.get('MinRating')).toBe('4');
@@ -109,7 +109,7 @@ describe('the catalogue browse filters', () => {
       'PriceCurrency',
       'MinRating',
       'AcceptedSpecies',
-      'AdditionalServiceNames',
+      'AdditionalServiceKinds',
       'OnSaleOnly',
       'SortBy',
     ]) {
@@ -119,8 +119,8 @@ describe('the catalogue browse filters', () => {
   });
 
   it('drops an empty multi-select rather than sending an empty filter', async () => {
-    const params = await sentQuery({ types: [], additionalServiceNames: [] });
+    const params = await sentQuery({ types: [], additionalServiceKinds: 0 });
     expect(params.has('Types')).toBe(false);
-    expect(params.has('AdditionalServiceNames')).toBe(false);
+    expect(params.has('AdditionalServiceKinds')).toBe(false);
   });
 });

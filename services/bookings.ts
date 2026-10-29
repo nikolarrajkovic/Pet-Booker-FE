@@ -204,7 +204,8 @@ export type BookingAdditionalServiceReadDto = {
   id?: number | null;
   /** The service's catalog entry; null if the provider has since removed it. */
   additionalServiceId?: number | null;
-  name: string;
+  /** AdditionalServiceKind as booked — show it with `addonLabel`. */
+  kind: number;
   chargeType: number;
   /** Which journey this line paid for (see DistanceLeg); null for a flat line. */
   distanceLeg?: number | null;
@@ -613,15 +614,31 @@ function toCreateBody(input: CreateBookingInput): WritableBookingCreate {
     note: input.note?.trim() || null,
   };
 
-  // Pickup/Drop-off addresses are sent INLINE in this POST (never /api/addresses).
-  if (input.pickupAddress || input.leaveOverAddress) {
-    body.location = {
-      pickupAddress: input.pickupAddress ?? null,
-      leaveOverAddress: input.leaveOverAddress ?? null,
-    };
-  }
+  const location = toBookingLocation(input.pickupAddress, input.leaveOverAddress);
+  if (location) body.location = location;
 
   return body;
+}
+
+/**
+ * The write-side `location` for a booking or a quote. A saved address (one with an id: the
+ * customer's home address from their profile) is sent by id and the server stores a copy of it on
+ * the booking, so editing the profile later moves no booking; a place picked on the map has no id
+ * and goes inline (never through /api/addresses). The server accepts an id only for an address
+ * the account may use.
+ */
+export function toBookingLocation(
+  pickup: AddressDto | null | undefined,
+  leaveOver: AddressDto | null | undefined
+): BookingLocationDto | undefined {
+  if (!pickup && !leaveOver) return undefined;
+  const saved = (a: AddressDto | null | undefined) => (a?.id && a.id > 0 ? a.id : null);
+  return {
+    pickupAddressId: saved(pickup),
+    pickupAddress: saved(pickup) ? null : (pickup ?? null),
+    leaveOverAddressId: saved(leaveOver),
+    leaveOverAddress: saved(leaveOver) ? null : (leaveOver ?? null),
+  };
 }
 
 export async function createBooking(input: CreateBookingInput): Promise<BookingDto> {

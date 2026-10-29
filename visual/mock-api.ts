@@ -104,7 +104,7 @@ export async function mockApi(page: Page, overrides: Record<string, unknown> = {
     '/api/user-notification-settings': { items: [], totalItems: 0 },
     '/api/chat/conversations': { items: [], totalItems: 0 },
     '/api/services': { items: [], totalItems: 0 },
-    '/api/services/facets': { maxPrice: 0, currency: 'RSD', additionalServiceNames: [] },
+    '/api/services/facets': { maxPrice: 0, currency: 'RSD', additionalServiceKinds: [] },
     '/enums': {},
     ...overrides,
   };

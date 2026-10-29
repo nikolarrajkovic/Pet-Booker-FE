@@ -31,6 +31,7 @@ import { DiscountType } from '../../../services/service-discounts';
 import { formatOfferAmount } from '../../../screens/promotions-screen/components';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { serviceDetailParams } from '../../../navigation/linking';
+import { linkTo } from '../../../navigation/links';
 import { useResource } from '../../../hooks/useResource';
 import { getPets } from '../../../services/pets';
 import { dismissPetPrompt, isPetPromptDismissed } from '../../../services/pet-prompt-storage';
@@ -304,11 +305,10 @@ export default function HomeScreen() {
     }, [isLoggedIn, refreshUnreadCount, refreshUnreadMessages])
   );
 
-  const handleServicePress = (item: ServiceItem) => {
-    // Open the service detail screen first — the booker reads everything about
-    // the service there, then proceeds to BookService from its "Book Now" CTA.
-    (navigation as any).navigate('ServiceDetail', serviceDetailParams(item.dto));
-  };
+  // Open the service detail screen first — the booker reads everything about the service there,
+  // then proceeds to BookService from its "Book Now" CTA. A link on the web (a new tab opens it).
+  const serviceLink = (item: ServiceItem) =>
+    linkTo(navigation, 'ServiceDetail', serviceDetailParams(item.dto));
 
   const handleServiceTypePress = (serviceType: string) => {
     (navigation as any).navigate('Search', { serviceType, category: undefined });
@@ -366,7 +366,7 @@ export default function HomeScreen() {
             unavailable={item.dto.isBookable === false}
             // Fills its grid cell on the web design; keeps the 200px rail width on a phone.
             fill={isWebLayout}
-            onPress={() => handleServicePress(item)}
+            {...serviceLink(item)}
           />
         ));
 
@@ -463,6 +463,47 @@ export default function HomeScreen() {
     popular: t('home.mostPopular'),
     deals: t('home.specialDeals'),
   };
+
+  // "Welcome! Tell us about your pet" — for an account with no pet yet, until "Not now". `fill`
+  // stretches it to the height of the card beside it (the web design's row).
+  const petPromptCard = (fill: boolean) => (
+    <View
+      className={`${fill ? 'flex-1 ' : ''}flex-row items-center rounded-2xl border p-4 ${
+        isDarkMode ? 'border-[#243447] bg-[#1a2332]' : 'border-brand-200 bg-brand-50'
+      }`}>
+      <Image
+        source={require('../../../assets/empty-pets.png')}
+        accessibilityRole="none"
+        alt=""
+        style={{ width: 72, height: 72 }}
+        resizeMode="contain"
+      />
+      <View className="ml-3 flex-1">
+        <Text className={`text-base font-bold ${textColor}`}>{t('home.petPromptTitle')}</Text>
+        <Text className={`mt-1 text-sm ${subtextColor}`}>{t('home.petPromptBody')}</Text>
+        <View className="mt-3 flex-row flex-wrap items-center gap-2">
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => (navigation as any).navigate('AddPet', { goBackOnSave: true })}
+            className="flex-row items-center rounded-xl bg-brand-500 px-4 py-2">
+            <Ionicons name="add" size={16} color="white" />
+            <Text className="ml-1 text-sm font-bold text-white">{t('home.petPromptAdd')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => {
+              setPetPromptDismissed(true);
+              if (userId != null) dismissPetPrompt(userId);
+            }}
+            className="px-3 py-2">
+            <Text className={`text-sm font-medium ${subtextColor}`}>
+              {t('home.petPromptLater')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
 
   return (
     <ScreenLayout
@@ -610,56 +651,27 @@ export default function HomeScreen() {
           </PillRow>
         </View>
 
-        {showPetPrompt && (
-          <View className={`${gutter.px} pb-4`}>
-            <View
-              className={`flex-row items-center rounded-2xl border p-4 ${
-                isDarkMode ? 'border-[#243447] bg-[#1a2332]' : 'border-brand-200 bg-brand-50'
-              }`}>
-              <Image
-                source={require('../../../assets/empty-pets.png')}
-                accessibilityRole="none"
-                alt=""
-                style={{ width: 72, height: 72 }}
-                resizeMode="contain"
-              />
-              <View className="ml-3 flex-1">
-                <Text className={`text-base font-bold ${textColor}`}>
-                  {t('home.petPromptTitle')}
-                </Text>
-                <Text className={`mt-1 text-sm ${subtextColor}`}>{t('home.petPromptBody')}</Text>
-                <View className="mt-3 flex-row flex-wrap items-center gap-2">
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => (navigation as any).navigate('AddPet', { goBackOnSave: true })}
-                    className="flex-row items-center rounded-xl bg-brand-500 px-4 py-2">
-                    <Ionicons name="add" size={16} color="white" />
-                    <Text className="ml-1 text-sm font-bold text-white">
-                      {t('home.petPromptAdd')}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => {
-                      setPetPromptDismissed(true);
-                      if (userId != null) dismissPetPrompt(userId);
-                    }}
-                    className="px-3 py-2">
-                    <Text className={`text-sm font-medium ${subtextColor}`}>
-                      {t('home.petPromptLater')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+        {/* "Ask several providers" sits with the category pills — both are ways to start looking —
+            and above the rails, so it is seen before the reader has committed to one listing.
+            On the web design it shares a row with the pet card: one above the other, each the full
+            width of the page, they were two long strips of mostly empty card. */}
+        {showPetPrompt && isWebLayout ? (
+          <View className={`${gutter.px} flex-row pb-4`} style={{ gap: 16 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>{petPromptCard(true)}</View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <GroupRequestCta variant="banner" fill />
             </View>
           </View>
+        ) : (
+          <>
+            {showPetPrompt ? (
+              <View className={`${gutter.px} pb-4`}>{petPromptCard(false)}</View>
+            ) : null}
+            <View className={`${gutter.px} pb-4`}>
+              <GroupRequestCta variant="banner" />
+            </View>
+          </>
         )}
-
-        {/* "Ask several providers" sits with the category pills — both are ways to start looking —
-            and above the rails, so it is seen before the reader has committed to one listing. */}
-        <View className={`${gutter.px} pb-4`}>
-          <GroupRequestCta variant="banner" />
-        </View>
 
         {/* A guest has no bookings to show (app review G7). */}
         {isLoggedIn

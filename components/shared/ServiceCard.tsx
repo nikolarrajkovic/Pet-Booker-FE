@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, type GestureResponderEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import ServicePhoto from './ServicePhoto';
@@ -36,7 +36,9 @@ type ServiceCardProps = {
   fill?: boolean;
   /** The service has no working hours (or is paused): shown, but marked as not bookable. */
   unavailable?: boolean;
-  onPress: () => void;
+  onPress: (event?: GestureResponderEvent) => void;
+  /** The page it opens, on the web (`linkTo`): the card is then a link a new tab can open. */
+  href?: string;
 };
 
 export default function ServiceCard({
@@ -54,6 +56,7 @@ export default function ServiceCard({
   fill = false,
   unavailable = false,
   onPress,
+  href,
 }: ServiceCardProps) {
   const { cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
@@ -78,8 +81,9 @@ export default function ServiceCard({
 
   return (
     <TouchableOpacity
+      {...({ href } as object)}
       onPress={onPress}
-      accessibilityRole="button"
+      accessibilityRole={href ? 'link' : 'button'}
       accessibilityLabel={label}
       accessible
       className={`${cardBg} overflow-hidden rounded-2xl border ${borderColor}`}

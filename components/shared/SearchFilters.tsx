@@ -25,7 +25,7 @@ import DatePicker from './DatePicker';
 export interface FilterState {
   serviceTypes: number[]; // ServiceProviderType enum values
   petTypes: number[]; // PetSpeciesType FLAGS values (a service's acceptedSpecies must include one)
-  addOns: string[]; // names of extras a service must offer (ALL of them)
+  addOns: number[]; // AdditionalServiceKind values a service must offer (ALL of them)
   priceRange: [number, number];
   minimumRating: string; // 'Any' | '3+' | '4+' | '5+'
   /** Only services with a promotion running right now. */
@@ -74,7 +74,8 @@ interface SearchFiltersProps {
    * Distinct extra names to offer as chips. Extras are provider-named free text, so there is no
    * fixed catalog — the options come from the data.
    */
-  availableAddOns?: string[];
+  /** The kinds of extra on offer (`AdditionalServiceKind`), from the facets. */
+  availableAddOns?: number[];
   /**
    * Leaves out the service-type chips. The group-request form picks exactly one type itself (a
    * request names one kind of service), so a multi-select of types beside it would contradict it.
@@ -150,12 +151,12 @@ export default function SearchFilters({
     { key: 'tomorrow', label: t('shared.tomorrow'), date: tomorrowKey },
   ];
 
-  const toggleAddOn = (name: string) => {
+  const toggleAddOn = (kind: number) => {
     onChange({
       ...value,
-      addOns: value.addOns.includes(name)
-        ? value.addOns.filter((a) => a !== name)
-        : [...value.addOns, name],
+      addOns: value.addOns.includes(kind)
+        ? value.addOns.filter((a) => a !== kind)
+        : [...value.addOns, kind],
     });
   };
 
@@ -332,22 +333,25 @@ export default function SearchFilters({
         </View>
       </View>
 
-      {/* Additional Services. Names are provider-authored, so they're shown verbatim rather than
-          translated. Selecting two asks for a service that offers both. */}
+      {/* Additional Services: the kinds on offer, from the preset list, in the reader's language.
+          Selecting two asks for a service that offers both. */}
       {availableAddOns.length > 0 && (
         <View className="mb-6">
           {sectionTitle(t('shared.additionalServices'))}
           <View className="flex-row flex-wrap gap-2">
-            {availableAddOns.map((name) => {
-              const active = value.addOns.includes(name);
+            {availableAddOns.map((kind) => {
+              const active = value.addOns.includes(kind);
               return (
                 <TouchableOpacity
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
-                  key={name}
-                  onPress={() => toggleAddOn(name)}
+                  aria-pressed={active}
+                  key={kind}
+                  onPress={() => toggleAddOn(kind)}
                   className={chipClass(active)}>
-                  <Text className={chipTextClass(active)}>{name}</Text>
+                  <Text className={chipTextClass(active)}>
+                    {tEnum('additionalServiceKind', kind)}
+                  </Text>
                 </TouchableOpacity>
               );
             })}

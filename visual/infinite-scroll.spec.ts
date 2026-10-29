@@ -89,7 +89,7 @@ async function mockPagedServices(
     if (url.pathname === '/enums') return json(ENUMS);
 
     if (url.pathname === '/api/services/facets') {
-      return json({ maxPrice: 1000 + TOTAL, currency: 'RSD', additionalServiceNames: [] });
+      return json({ maxPrice: 1000 + TOTAL, currency: 'RSD', additionalServiceKinds: [] });
     }
     if (url.pathname === '/api/services') {
       const pageNo = Number(url.searchParams.get('Page') ?? '1');

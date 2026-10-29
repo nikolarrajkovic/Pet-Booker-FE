@@ -1,4 +1,5 @@
 import { ApiError, apiFetch, apiJson, apiRequest, apiVoid, getApiBaseUrl } from './http';
+import type { AddressDto } from './service-providers';
 
 export type CurrentUser = {
   id: number;
@@ -119,6 +120,11 @@ export type RegisterPayload = {
   userName: string;
   phone: string;
   dateOfBirth: string; // date only, "1995-06-15" (formatDateOnly; a UTC instant moved it a day early)
+  /**
+   * The home address (required). The server holds it with the email and gives it to the profile
+   * the confirmation creates, so it reaches the account whichever device the code is typed on.
+   */
+  address: AddressDto;
 };
 
 export function getMe(): Promise<CurrentUser> {

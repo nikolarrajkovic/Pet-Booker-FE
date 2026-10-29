@@ -1,24 +1,87 @@
 // Helpers for a service's "Additional Services" — the optional extras a provider offers.
 //
-// These used to be a fixed catalog of three (Pickup / Drop-off / Special Needs Care), each
-// hardcoded here with its own read/write mapping onto `service.details.is*Provided` and
-// `service.pricing.*Price`. The API replaced that with an open-ended `service.additionalServices`
-// array, so there is no catalog to define any more — a provider names their own extras and this
-// module only interprets what the server returns.
+// Each extra is one KIND from a preset list (`AdditionalServiceKind`, feedback 2026-10-26): the
+// partner picks what it is and how it is priced, and every screen shows the kind's translation
+// (`addonLabel`). There is no name of the partner's own.
 //
 // Pricing is NOT mirrored here on purpose. A per-distance extra's real charge depends on a road
 // distance only the server can measure, so the booking flow asks POST /api/bookings/quote
 // (services/booking-quote.ts) instead of computing an estimate.
 import { formatMoney } from './currency';
+import type { EnumEntry } from './enums';
 import {
   AdditionalServiceChargeType,
+  AdditionalServiceKind,
+  ADDITIONAL_SERVICE_KINDS,
   DistanceLeg,
   type AdditionalServiceDto,
   type ServiceDto,
 } from './services';
 
-export { AdditionalServiceChargeType, DistanceLeg };
+export {
+  AdditionalServiceChargeType,
+  AdditionalServiceKind,
+  ADDITIONAL_SERVICE_KINDS,
+  DistanceLeg,
+};
 export type { AdditionalServiceDto };
+
+type TEnum = (
+  enumName: 'additionalServiceKind',
+  value: number | null | undefined,
+  fallback?: string
+) => string;
+
+/** What to call an extra — or a booking's bill line for one — in the reader's language. */
+export function addonLabel(tEnum: TEnum, addon: { kind: number }): string {
+  return tEnum('additionalServiceKind', addon.kind);
+}
+
+/**
+ * The kinds of extra a type of service offers, as the API publishes them on `/enums`
+ * (`serviceProviderType[].additionalServiceKinds`, the mask its validators enforce): a sitter or
+ * boarder the journeys, care and a basic groom; a pet hotel everything; a walk pickup, drop-off
+ * and care; a groomer the journeys and the whole groom; a transporter only care. The app kept its
+ * own copy of this table until 2026-10-29, which could drift from the API's. Null while the enums
+ * load, or with no type chosen: the editor then doesn't narrow, and the API still decides.
+ */
+export function offeredKindsMask(
+  serviceTypes: EnumEntry[] | null | undefined,
+  type: number | null | undefined
+): number | null {
+  if (type == null) return null;
+  return serviceTypes?.find((t) => t.value === type)?.additionalServiceKinds ?? null;
+}
+
+/** Whether a kind of extra fits a type of service, given what it offers (`offeredKindsMask`). */
+export function kindFitsType(kind: number, offered: number | null): boolean {
+  if (kind === 0) return false;
+  return offered == null || (offered & kind) === kind;
+}
+
+/** The kinds a partner can add to a service, given what its type offers, in the preset order. */
+export function kindsForType(offered: number | null): number[] {
+  return ADDITIONAL_SERVICE_KINDS.filter((kind) => kindFitsType(kind, offered));
+}
+
+/** The trip a transport kind performs (it is the leg such an extra bills), else null. */
+export function legOfKind(kind: number | null | undefined): number | null {
+  switch (kind) {
+    case AdditionalServiceKind.Pickup:
+      return DistanceLeg.Pickup;
+    case AdditionalServiceKind.DropOff:
+      return DistanceLeg.DropOff;
+    case AdditionalServiceKind.PetTaxi:
+      return DistanceLeg.RoundTrip;
+    default:
+      return null;
+  }
+}
+
+/** A pickup, drop-off or pet taxi — the only kinds that may be priced by distance. */
+export function isTransportKind(kind: number | null | undefined): boolean {
+  return legOfKind(kind) !== null;
+}
 
 /** Extras a booker can actually select: the ones the provider currently offers. */
 export function getEnabledServiceAddons(dto: ServiceDto): AdditionalServiceDto[] {
@@ -31,16 +94,16 @@ export function isPerDistance(addon: AdditionalServiceDto): boolean {
 }
 
 /**
- * Which of the booking's addresses an extra needs the booker to supply. A pickup extra needs a
- * collection address, a drop-off extra a return address, and a round-trip extra both. A flat
- * extra needs none. Drives which address pickers the booking flow shows.
+ * Which of the booking's addresses an extra needs the booker to supply. A pickup needs a
+ * collection address, a drop-off a return address, and a pet taxi both — however it is priced,
+ * since the partner has to know where to go either way (the API refuses the booking without).
+ * Drives which address pickers the booking flow shows.
  */
 export function requiredAddresses(addon: AdditionalServiceDto): {
   pickup: boolean;
   dropoff: boolean;
 } {
-  if (!isPerDistance(addon)) return { pickup: false, dropoff: false };
-  switch (addon.distanceLeg) {
+  switch (legOfKind(addon.kind)) {
     case DistanceLeg.Pickup:
       return { pickup: true, dropoff: false };
     case DistanceLeg.DropOff:
@@ -95,7 +158,7 @@ export function addonPriceLabel(
 
 /** A stable key for an extra in lists / selection state. */
 export function addonKey(addon: AdditionalServiceDto): string {
-  return String(addon.id ?? addon.name);
+  return String(addon.id ?? addon.kind);
 }
 
 /**

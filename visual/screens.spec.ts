@@ -151,8 +151,8 @@ test.describe('search results', () => {
         price: 2500,
         details: { supportsLiveTracking: true, acceptedSpecies: 1, maxConcurrentBookings: 3 },
         additionalServices: [
-          { id: 1, name: 'Pickup', chargeType: 0, price: 300, isActive: true },
-          { id: 2, name: 'Pet taxi', chargeType: 0, price: 600, isActive: true },
+          { id: 1, kind: 1, chargeType: 0, price: 300, isActive: true },
+          { id: 2, kind: 2, chargeType: 0, price: 600, isActive: true },
         ],
         pricingOptions: [
           { id: 1, serviceId: 101, name: '30 min', durationMinutes: 30, price: 2500 },
@@ -203,7 +203,7 @@ test.describe('search results', () => {
       '/api/services/facets': {
         maxPrice: 4000,
         currency: 'RSD',
-        additionalServiceNames: ['Pet taxi', 'Pickup'],
+        additionalServiceKinds: [1, 2],
       },
       '/enums': ENUMS,
     });

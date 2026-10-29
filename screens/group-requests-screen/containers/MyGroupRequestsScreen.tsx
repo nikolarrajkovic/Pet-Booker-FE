@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { linkTo } from '../../../navigation/links';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import ListState from '../../../components/shared/ListState';
@@ -243,7 +244,7 @@ export default function MyGroupRequestsScreen() {
               <Button
                 text={t('groupRequest.viewBooking')}
                 variant="primary"
-                onPress={() => navigation.navigate('BookingDetails', { bookingId: r.bookingId })}
+                {...linkTo(navigation, 'BookingDetails', { bookingId: r.bookingId })}
               />
             ) : null}
             {isOpen ? (
