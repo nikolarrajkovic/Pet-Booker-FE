@@ -103,7 +103,6 @@ export type GroupBookingRequestDto = {
   minRating?: number | null;
   acceptedSpecies?: number | null;
   onSaleOnly: boolean;
-  requiredAddOnNames: string[];
   /** `AdditionalServiceKind` FLAGS: kinds of extra every provider's service must offer. */
   requiredAddOnKinds?: number | null;
   acceptedServiceProviderId?: number | null;
@@ -156,7 +155,6 @@ export type CreateGroupBookingRequestInput = {
   minRating?: number;
   acceptedSpecies?: number;
   onSaleOnly?: boolean;
-  requiredAddOnNames?: string[];
   /** `AdditionalServiceKind` FLAGS OR-ed: kinds of extra the provider's service must offer. */
   requiredAddOnKinds?: number;
   /**
@@ -185,7 +183,6 @@ export function createGroupBookingRequest(
       userId: 0, // bound from the session server-side
       ...input,
       providers: input.providers ?? [],
-      requiredAddOnNames: input.requiredAddOnNames ?? [],
       onSaleOnly: input.onSaleOnly ?? false,
       currency: declaredWriteCurrency(),
     },

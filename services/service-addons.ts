@@ -1,9 +1,8 @@
 // Helpers for a service's "Additional Services" — the optional extras a provider offers.
 //
 // Each extra is one KIND from a preset list (`AdditionalServiceKind`, feedback 2026-10-26): the
-// partner picks what it is and how it is priced, the server names it after its kind, and every
-// screen shows the kind's translation (`addonLabel`). Only an extra saved before the list has a
-// name of its partner's own (kind None).
+// partner picks what it is and how it is priced, and every screen shows the kind's translation
+// (`addonLabel`). There is no name of the partner's own.
 //
 // Pricing is NOT mirrored here on purpose. A per-distance extra's real charge depends on a road
 // distance only the server can measure, so the booking flow asks POST /api/bookings/quote
@@ -32,17 +31,44 @@ type TEnum = (
   fallback?: string
 ) => string;
 
+/** What to call an extra — or a booking's bill line for one — in the reader's language. */
+export function addonLabel(tEnum: TEnum, addon: { kind: number }): string {
+  return tEnum('additionalServiceKind', addon.kind);
+}
+
+const { Pickup, DropOff, PetTaxi, ExtraWalk, ExtraPlaytime, Treats, Medication } =
+  AdditionalServiceKind;
+const { SpecialNeedsCare, Bath, Brushing, NailTrim, EarCleaning, TeethCleaning, PhotoUpdates } =
+  AdditionalServiceKind;
+const JOURNEYS = Pickup | DropOff | PetTaxi;
+const CARE = ExtraWalk | ExtraPlaytime | Treats | Medication | SpecialNeedsCare | PhotoUpdates;
+const GROOMING = Bath | Brushing | NailTrim;
+
 /**
- * What to call an extra — or a booking's bill line for one — in the reader's language: its
- * kind's translation, else (an extra saved before the preset list) the name it was saved with.
+ * The kinds that fit each type of service (`ServiceProviderType` → mask) — the editor offers only
+ * these. Mirrors the backend's `AdditionalServiceKinds.AllowedFor`, which refuses the rest: a
+ * sitter or boarder takes the journeys, care and a basic groom; a pet hotel everything; a walk no
+ * taxi and no grooming; a groomer the journeys and the whole groom; a transporter (whose service
+ * is the journey) only care.
  */
-export function addonLabel(
-  tEnum: TEnum,
-  addon: { kind?: number | null; name?: string | null }
-): string {
-  return addon.kind
-    ? tEnum('additionalServiceKind', addon.kind, addon.name ?? '')
-    : (addon.name ?? '');
+const KINDS_BY_TYPE: Record<number, number> = {
+  0: JOURNEYS | CARE | GROOMING, // Sitter
+  1: Pickup | DropOff | CARE, // Walker
+  2: JOURNEYS | CARE | GROOMING, // Boarder
+  3: ADDITIONAL_SERVICE_KINDS.reduce((all, kind) => all | kind, 0), // Pet hotel
+  4: JOURNEYS | GROOMING | EarCleaning | TeethCleaning | Treats | SpecialNeedsCare | PhotoUpdates, // Groomer
+  5: Treats | Medication | SpecialNeedsCare | PhotoUpdates, // Transporter
+};
+
+/** Whether a kind of extra may be offered with a type of service (`ServiceProviderType`). */
+export function kindFitsType(kind: number, type: number | null | undefined): boolean {
+  if (type == null) return true;
+  return ((KINDS_BY_TYPE[type] ?? 0) & kind) === kind && kind !== 0;
+}
+
+/** The kinds a partner can add to a service of this type, in the preset order. */
+export function kindsForType(type: number | null | undefined): number[] {
+  return ADDITIONAL_SERVICE_KINDS.filter((kind) => kindFitsType(kind, type));
 }
 
 /** The trip a transport kind performs (it is the leg such an extra bills), else null. */
@@ -77,15 +103,14 @@ export function isPerDistance(addon: AdditionalServiceDto): boolean {
 /**
  * Which of the booking's addresses an extra needs the booker to supply. A pickup needs a
  * collection address, a drop-off a return address, and a pet taxi both — however it is priced,
- * since the partner has to know where to go either way. An extra from before the preset list
- * goes by the trip it bills (none when flat). Drives which address pickers the booking flow shows.
+ * since the partner has to know where to go either way (the API refuses the booking without).
+ * Drives which address pickers the booking flow shows.
  */
 export function requiredAddresses(addon: AdditionalServiceDto): {
   pickup: boolean;
   dropoff: boolean;
 } {
-  const leg = addon.kind ? legOfKind(addon.kind) : isPerDistance(addon) ? addon.distanceLeg : null;
-  switch (leg) {
+  switch (legOfKind(addon.kind)) {
     case DistanceLeg.Pickup:
       return { pickup: true, dropoff: false };
     case DistanceLeg.DropOff:
@@ -140,7 +165,7 @@ export function addonPriceLabel(
 
 /** A stable key for an extra in lists / selection state. */
 export function addonKey(addon: AdditionalServiceDto): string {
-  return String(addon.id ?? addon.kind ?? addon.name);
+  return String(addon.id ?? addon.kind);
 }
 
 /**

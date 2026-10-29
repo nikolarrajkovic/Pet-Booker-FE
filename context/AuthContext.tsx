@@ -139,9 +139,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const user = await getMe();
     setCurrentUser(user);
     setIsLoggedIn(true);
-    // The home address and photo given at sign-up wait on the device for the account's first
-    // sign-in, when there is a profile to save them to (services/pending-profile.ts). Not
-    // awaited: signing in never waits on it, and a failure leaves them for the next sign-in.
+    // The photo given at sign-up waits on the device for the account's first sign-in, when it
+    // can be uploaded (services/pending-profile.ts; the address went with the registration). Not
+    // awaited: signing in never waits on it, and a failure leaves it for the next sign-in.
     if (user?.id && user.email) {
       applyPendingProfile(user.id, user.email)
         .then(async (saved) => {

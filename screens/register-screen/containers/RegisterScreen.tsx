@@ -131,9 +131,9 @@ export default function RegisterScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [emailInUse, setEmailInUse] = useState(false);
-  // The home address (required) and a profile photo (optional). The account can only store them
-  // once the email is confirmed, so they wait on the device until its first sign-in
-  // (services/pending-profile.ts).
+  // The home address (required) goes with the registration and the server holds it until the
+  // profile exists. The profile photo (optional) needs a signed-in account to upload, so it waits
+  // on the device until the first sign-in (services/pending-profile.ts).
   const [address, setAddress] = useState<AddressDto | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [photo, setPhoto] = useState<PendingPhoto | null>(null);
@@ -199,8 +199,9 @@ export default function RegisterScreen() {
         userName: username.trim(),
         phone: phone.trim(),
         dateOfBirth: formatDateOnly(dateOfBirth!),
+        address: address!,
       });
-      await savePendingProfile(email, { address: address!, photo });
+      if (photo) await savePendingProfile(email, { photo });
       navigation.navigate('VerifyEmail', { email: email.trim() });
     } catch (error) {
       const message = error instanceof Error ? error.message : t('register.registrationFailed');
@@ -663,8 +664,9 @@ export default function RegisterScreen() {
             <TouchableOpacity
               accessibilityRole="button"
               onPress={async () => {
-                // Finishing an earlier sign-up: what was entered here is what the profile gets.
-                if (address) await savePendingProfile(email, { address, photo });
+                // Finishing an earlier sign-up: the server holds the address that one sent. This
+                // one is kept on the device too, for a profile that ends up with none.
+                if (address || photo) await savePendingProfile(email, { address, photo });
                 navigation.navigate('VerifyEmail', { email: email.trim(), resend: true });
               }}>
               <Text className="mt-1 text-center text-sm font-semibold text-brand-600">

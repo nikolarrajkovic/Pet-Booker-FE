@@ -3,6 +3,7 @@ import { Platform, type GestureResponderEvent } from 'react-native';
 import { getPathFromState } from '@react-navigation/native';
 import { navigateFromOutside, resetFromOutside, navigationRef } from './navigationRef';
 import { linking } from './linking';
+import { followLink } from './links';
 import type { NavItem } from './navItems';
 
 /**
@@ -24,19 +25,9 @@ export function navItemHref(item: NavItem): string | undefined {
   }
 }
 
-/**
- * `onPress` for a nav link: a plain click moves within the app (and stops the browser following
- * the href, which would reload the page); a click the browser means for a new tab or window —
- * Ctrl/Cmd or Shift held — is left to the browser. A middle click never reaches here (it is an
- * `auxclick`, not a `click`), so the browser opens the href for that one too.
- */
+/** `onPress` for a nav link (`followLink`: a click meant for a new tab is left to the browser). */
 export function pressNavItem(item: NavItem | undefined, event?: GestureResponderEvent): void {
-  if (Platform.OS === 'web' && event) {
-    const click = event as unknown as MouseEvent;
-    if (click.metaKey || click.ctrlKey || click.shiftKey) return;
-    event.preventDefault();
-  }
-  navigateToNavItem(item);
+  followLink(event, () => navigateToNavItem(item));
 }
 
 /**

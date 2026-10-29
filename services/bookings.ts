@@ -204,9 +204,8 @@ export type BookingAdditionalServiceReadDto = {
   id?: number | null;
   /** The service's catalog entry; null if the provider has since removed it. */
   additionalServiceId?: number | null;
-  /** AdditionalServiceKind as booked (0 on a line from before the preset list) — show `addonLabel`. */
-  kind?: number;
-  name: string;
+  /** AdditionalServiceKind as booked — show it with `addonLabel`. */
+  kind: number;
   chargeType: number;
   /** Which journey this line paid for (see DistanceLeg); null for a flat line. */
   distanceLeg?: number | null;
@@ -623,9 +622,10 @@ function toCreateBody(input: CreateBookingInput): WritableBookingCreate {
 
 /**
  * The write-side `location` for a booking or a quote. A saved address (one with an id: the
- * customer's home address from their profile) is linked by id, so the booking points at that row
- * rather than copying it; a place picked on the map has no id and goes inline (never through
- * /api/addresses). The server accepts an id only for an address the account may use.
+ * customer's home address from their profile) is sent by id and the server stores a copy of it on
+ * the booking, so editing the profile later moves no booking; a place picked on the map has no id
+ * and goes inline (never through /api/addresses). The server accepts an id only for an address
+ * the account may use.
  */
 export function toBookingLocation(
   pickup: AddressDto | null | undefined,

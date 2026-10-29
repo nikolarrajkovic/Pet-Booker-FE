@@ -41,13 +41,8 @@ export interface AdditionalServiceEntry {
   // The service write upserts by id, so keeping it is what stops an edit from churning the row
   // (and orphaning the bookings whose bill lines reference it).
   id?: number | null;
-  /** AdditionalServiceKind. 0 until the partner picks one — and on an extra from before the list. */
+  /** AdditionalServiceKind. 0 only on a row just added, until the partner picks one. */
   kind: number;
-  /**
-   * The name an extra saved before the preset list carries (kind 0). Shown so the partner knows
-   * which extra it is while choosing its kind, which the API now requires to save it.
-   */
-  legacyName?: string;
   description?: string;
   /** AdditionalServiceChargeType: 0 = Flat, 1 = PerDistance. */
   chargeType: number;
@@ -136,7 +131,6 @@ export function additionalServiceToEntry(dto: AdditionalServiceDto): AdditionalS
   return {
     id: dto.id ?? undefined,
     kind: dto.kind ?? 0,
-    legacyName: dto.kind ? undefined : dto.name?.trim() || undefined,
     description: dto.description ?? '',
     chargeType: dto.chargeType ?? AdditionalServiceChargeType.Flat,
     price: perDistance ? '' : String(dto.price ?? 0),
@@ -191,16 +185,16 @@ export function entryToAdditionalService(entry: AdditionalServiceEntry): Additio
 
 /**
  * On-screen title for an extra in the editor and on the provider's own service card: its kind as
- * every customer reads it, else the name an extra from before the list was saved with, else (a
- * new row) the prompt to choose one.
+ * every customer reads it, or (a row just added) the prompt to choose one.
  */
 export function additionalServiceTitle(
   t: (key: any, params?: Record<string, string | number>) => string,
   tEnum: (enumName: 'additionalServiceKind', value: number | null | undefined) => string,
-  entry: Pick<AdditionalServiceEntry, 'kind' | 'legacyName'>
+  entry: Pick<AdditionalServiceEntry, 'kind'>
 ): string {
-  if (entry.kind) return tEnum('additionalServiceKind', entry.kind);
-  return entry.legacyName || t('addEditService.extraChooseKind');
+  return entry.kind
+    ? tEnum('additionalServiceKind', entry.kind)
+    : t('addEditService.extraChooseKind');
 }
 
 // --- Pricing tiers <-> service pricing options ----------------------------

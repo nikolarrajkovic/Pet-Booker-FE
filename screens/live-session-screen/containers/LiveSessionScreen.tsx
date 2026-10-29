@@ -425,13 +425,13 @@ export default function LiveSessionScreen() {
     const flatLines: { key: string; label: string }[] = [];
 
     for (const line of dto.additionalServices ?? []) {
-      if (!('name' in line)) continue;
+      if (!('kind' in line)) continue;
       const leg = line.distanceLeg ?? null;
       const label = addonLabel(tEnum, line);
       if (leg === DistanceLeg.Pickup || leg === DistanceLeg.RoundTrip) pickupFor.push(label);
       if (leg === DistanceLeg.DropOff || leg === DistanceLeg.RoundTrip) dropoffFor.push(label);
       if (leg === null) {
-        flatLines.push({ key: `extra-${line.id ?? line.name}`, label });
+        flatLines.push({ key: `extra-${line.id ?? line.kind}`, label });
       }
     }
 

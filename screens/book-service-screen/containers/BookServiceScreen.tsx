@@ -1260,7 +1260,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
           return (
             <TouchableOpacity
               accessibilityRole="button"
-              key={addon.id ?? addon.name}
+              key={addon.id ?? addon.kind}
               onPress={() => addon.id != null && toggleAddon(addon.id)}
               className={`mb-3 rounded-2xl border-2 p-4 ${
                 selected
@@ -1297,7 +1297,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
           {/* Price check: measured distance + estimated per-km surcharge. */}
           {pickupAddr
             ? addonsOnPickupLeg.map((a) => (
-                <View key={a.id ?? a.name}>{renderDistanceEstimate(a)}</View>
+                <View key={a.id ?? a.kind}>{renderDistanceEstimate(a)}</View>
               ))
             : null}
           {/* Copy the drop-off address into pickup (explicit, not auto-filled). */}
@@ -1323,7 +1323,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
           {/* Price check: measured distance + estimated per-km surcharge. */}
           {dropoffAddr
             ? addonsOnDropoffLeg.map((a) => (
-                <View key={a.id ?? a.name}>{renderDistanceEstimate(a)}</View>
+                <View key={a.id ?? a.kind}>{renderDistanceEstimate(a)}</View>
               ))
             : null}
           {/* Copy the pickup address into drop-off (explicit, not auto-filled). */}

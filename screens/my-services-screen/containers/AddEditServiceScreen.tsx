@@ -50,10 +50,11 @@ import { getErrorMessage } from '../../../services/http';
 import { providerTypeValue } from '../../../services/service-providers';
 import {
   AdditionalServiceChargeType,
-  ADDITIONAL_SERVICE_KINDS,
   AdditionalServiceKind,
   addonLabel,
   isTransportKind,
+  kindFitsType,
+  kindsForType,
 } from '../../../services/service-addons';
 import { clearServiceSchedules } from '../../../services/service-schedules';
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
@@ -183,7 +184,6 @@ export default function AddEditServiceScreen() {
     const v = providerTypeValue(label);
     return v != null ? tEnum('serviceProviderType', v, label) : label;
   };
-  // Extra names are free text the provider typed, so there's nothing to translate — show as-is.
 
   // Provider id comes from the nav param, falling back to /auth/me (0 → none).
   const serviceProviderId = params?.serviceProviderId ?? (currentUser?.serviceProviderId || null);
@@ -583,12 +583,19 @@ export default function AddEditServiceScreen() {
       showAlert(t('addEditService.hoursRequiredTitle'), t('addEditService.hoursRequiredMsg'));
       return;
     }
-    // Every extra is one kind from the list (the API refuses one without): a new row, or one saved
-    // before the list, has to be given one.
+    // Every extra is one kind from the list (the API refuses one without), and one that fits the
+    // service's type (a walk takes no bath): the API refuses the rest too.
     if (additionalServices.some((a) => !a.kind)) {
       showAlert(
         t('addEditService.extraKindRequiredTitle'),
         t('addEditService.extraKindRequiredMsg')
+      );
+      return;
+    }
+    if (additionalServices.some((a) => !kindFitsType(a.kind, providerTypeValue(serviceType)))) {
+      showAlert(
+        t('addEditService.extraKindRequiredTitle'),
+        t('addEditService.extraNotForType', { type: typeLabel(serviceType) })
       );
       return;
     }
@@ -1125,9 +1132,9 @@ export default function AddEditServiceScreen() {
                       color={isDarkMode ? '#9CA3AF' : '#6B7280'}
                     />
                   </TouchableOpacity>
-                  {!service.kind && service.legacyName ? (
-                    <Text className="mb-2 text-xs text-amber-600">
-                      {t('addEditService.extraSavedAs', { name: service.legacyName })}
+                  {service.kind && !kindFitsType(service.kind, providerTypeValue(serviceType)) ? (
+                    <Text className="mb-2 text-xs text-red-500">
+                      {t('addEditService.extraNotForType', { type: typeLabel(serviceType) })}
                     </Text>
                   ) : null}
 
@@ -1539,23 +1546,26 @@ export default function AddEditServiceScreen() {
           onSelect: () => setServiceType(type),
         }))}
       />
-      {/* What an extra is: the preset kinds, less those another row of this service already offers. */}
+      {/* What an extra is: the kinds that fit the service's type, less those another row of this
+          service already offers. */}
       <SelectMenu
         visible={kindMenuIndex !== null}
         onClose={() => setKindMenuIndex(null)}
         anchor={pickerAnchor}
         title={t('addEditService.extraKind')}
-        options={ADDITIONAL_SERVICE_KINDS.filter(
-          (kind) =>
-            kindMenuIndex === null ||
-            additionalServices[kindMenuIndex]?.kind === kind ||
-            !additionalServices.some((a, i) => i !== kindMenuIndex && a.kind === kind)
-        ).map((kind) => ({
-          key: String(kind),
-          label: tEnum('additionalServiceKind', kind),
-          selected: kindMenuIndex !== null && additionalServices[kindMenuIndex]?.kind === kind,
-          onSelect: () => kindMenuIndex !== null && setKind(kindMenuIndex, kind),
-        }))}
+        options={kindsForType(providerTypeValue(serviceType))
+          .filter(
+            (kind) =>
+              kindMenuIndex === null ||
+              additionalServices[kindMenuIndex]?.kind === kind ||
+              !additionalServices.some((a, i) => i !== kindMenuIndex && a.kind === kind)
+          )
+          .map((kind) => ({
+            key: String(kind),
+            label: tEnum('additionalServiceKind', kind),
+            selected: kindMenuIndex !== null && additionalServices[kindMenuIndex]?.kind === kind,
+            onSelect: () => kindMenuIndex !== null && setKind(kindMenuIndex, kind),
+          }))}
       />
       <SelectMenu
         visible={showDurationModal}

@@ -12,6 +12,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { linkTo } from '../../../navigation/links';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useCurrency } from '../../../hooks/useCurrency';
@@ -521,15 +522,13 @@ export default function ServiceDetailScreen() {
           // Opens the provider's page (all their services and reviews). The card used to be
           // the only place a customer saw who they were booking, and it went nowhere.
           <TouchableOpacity
+            {...(linkTo(navigation, 'ProviderDetail', {
+              providerId: provider.id ?? svc.serviceProviderId,
+            }) as object)}
             accessibilityRole="link"
             accessibilityLabel={provider.name}
             activeOpacity={0.8}
             disabled={!(provider.id ?? svc.serviceProviderId)}
-            onPress={() =>
-              (navigation as any).navigate('ProviderDetail', {
-                providerId: provider.id ?? svc.serviceProviderId,
-              })
-            }
             className="flex-row items-center">
             {providerAvatar ? (
               <Image
@@ -610,7 +609,7 @@ export default function ServiceDetailScreen() {
           t('serviceDetail.additionalServices'),
           addons.map((addon) => (
             <View
-              key={addon.id ?? addon.name}
+              key={addon.id ?? addon.kind}
               className={`mb-2 flex-row items-center justify-between rounded-2xl p-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`}>
               <View className="mr-3 flex-1 flex-row items-center">
                 <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-100">

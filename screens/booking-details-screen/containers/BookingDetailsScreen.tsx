@@ -430,7 +430,7 @@ export default function BookingDetailsScreen() {
           {addOnLines.map((line, i) => {
             const perKmCharge = line.price - (line.baseFee ?? 0);
             return (
-              <View key={line.id ?? `${line.name}-${i}`} className={`border-b py-3 ${borderColor}`}>
+              <View key={line.id ?? `${line.kind}-${i}`} className={`border-b py-3 ${borderColor}`}>
                 <View className="flex-row items-center justify-between">
                   <Text className={`text-sm ${subtextColor} flex-1 pr-2`}>
                     {addonLabel(tEnum, line)}

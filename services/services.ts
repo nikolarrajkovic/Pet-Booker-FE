@@ -82,8 +82,8 @@ export const DistanceLeg = { Pickup: 0, DropOff: 1, RoundTrip: 2 } as const;
 /**
  * What an extra is, from the preset list (backend `AdditionalServiceKind`, feedback 2026-10-26):
  * partners choose one rather than typing a name, and every screen shows its translation
- * (`tEnum('additionalServiceKind', kind)`). FLAGS, so a filter can ask for several in one value;
- * one extra is exactly one kind. `None` is only an extra saved before the list, known by its name.
+ * (`addonLabel`). FLAGS, so a filter can ask for several in one value; one extra is exactly one
+ * kind, and `None` is only the empty filter.
  */
 export const AdditionalServiceKind = {
   None: 0,
@@ -122,10 +122,8 @@ export const ADDITIONAL_SERVICE_KINDS: number[] = Object.values(AdditionalServic
 export type AdditionalServiceDto = {
   id?: number | null;
   serviceId?: number;
-  /** AdditionalServiceKind — one value; 0 only on an extra saved before the preset list. */
-  kind?: number;
-  /** READ: the kind's English name, or the partner's own on an extra from before the list. Not sent. */
-  name?: string;
+  /** AdditionalServiceKind — exactly one value from the preset list. */
+  kind: number;
   description?: string | null;
   chargeType: number;
   /** Flat surcharge. Only meaningful when chargeType is Flat. */
@@ -458,8 +456,6 @@ export type GetServicesParams = {
   minRating?: number;
   /** PetSpeciesType FLAGS, OR-ed together. A service matches if it accepts ANY of them. */
   acceptedSpecies?: number;
-  /** Names of extras the service must offer — ALL of them, not any. Older builds; use the kinds. */
-  additionalServiceNames?: string[];
   /** `AdditionalServiceKind` FLAGS OR-ed: kinds of extra the service must offer — ALL of them. */
   additionalServiceKinds?: number;
   /** True → only services with a promotion running right now. */
@@ -483,7 +479,6 @@ export type GetServicesParams = {
    * query params bind to nothing), so a filtered search quietly returned everything.
    */
   hasAdditionalServices?: boolean;
-  additionalServiceName?: string;
   page?: number;
   perPage?: number;
 };
@@ -499,7 +494,6 @@ function servicesRequest(params?: GetServicesParams): ApiRequestOptions {
       IsActive: params?.isActive,
       ProviderType: params?.providerType,
       HasAdditionalServices: params?.hasAdditionalServices,
-      AdditionalServiceName: params?.additionalServiceName,
       // Arrays go out as one repeated key each (`Types=1&Types=2`) — see buildQuery.
       Types: params?.types?.length ? params.types : undefined,
       MinPrice: params?.minPrice,
@@ -507,9 +501,6 @@ function servicesRequest(params?: GetServicesParams): ApiRequestOptions {
       PriceCurrency: params?.priceCurrency,
       MinRating: params?.minRating,
       AcceptedSpecies: params?.acceptedSpecies,
-      AdditionalServiceNames: params?.additionalServiceNames?.length
-        ? params.additionalServiceNames
-        : undefined,
       AdditionalServiceKinds: params?.additionalServiceKinds || undefined,
       OnSaleOnly: params?.onSaleOnly,
       SortBy: params?.sortBy,
@@ -538,10 +529,8 @@ export type ServiceFacets = {
   /** The highest base price, in the caller's display currency (`currency`). 0 when there is none. */
   maxPrice: number;
   currency: string;
-  /** Every active extra on offer, de-duplicated case-insensitively and sorted. */
-  additionalServiceNames: string[];
   /** The kinds of the active extras on offer (`AdditionalServiceKind`), in the preset order. */
-  additionalServiceKinds?: number[];
+  additionalServiceKinds: number[];
 };
 
 /**

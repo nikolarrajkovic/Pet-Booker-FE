@@ -1492,7 +1492,7 @@ const sr: TranslationDict = {
       'Opcione dodatne usluge koje kupac može dodati rezervaciji. Svaku izaberite sa liste (unesite 0 za besplatno).',
     extraKind: 'Vrsta dodatne usluge',
     extraChooseKind: 'Izaberite vrstu dodatne usluge',
-    extraSavedAs: 'Ranije sačuvano kao „{name}” — izaberite vrstu da biste je i dalje nudili.',
+    extraNotForType: 'Ova dodatna usluga se ne nudi uz uslugu tipa {type}.',
     extraKindRequiredTitle: 'Izaberite vrstu za svaku dodatnu uslugu',
     extraKindRequiredMsg:
       'Svaka dodatna usluga mora imati vrstu sa liste pre nego što sačuvate uslugu.',
@@ -2150,7 +2150,6 @@ const sr: TranslationDict = {
   },
   enums: {
     additionalServiceKind: {
-      0: 'Ostalo',
       1: 'Preuzimanje',
       2: 'Vraćanje kući',
       4: 'Pet taksi',

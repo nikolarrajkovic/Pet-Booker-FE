@@ -1513,7 +1513,7 @@ const en = {
       'Optional extras a customer can add to a booking. Choose each from the list (enter 0 for free).',
     extraKind: 'Type of extra',
     extraChooseKind: 'Choose a type of extra',
-    extraSavedAs: 'Saved before as “{name}” — choose its type to keep offering it.',
+    extraNotForType: 'This extra isn’t offered with a {type} service.',
     extraKindRequiredTitle: 'Choose a type for every extra',
     extraKindRequiredMsg:
       'Each additional service needs a type from the list before the service can be saved.',
@@ -2171,7 +2171,6 @@ const en = {
   },
   enums: {
     additionalServiceKind: {
-      0: 'Other',
       1: 'Pickup',
       2: 'Drop-off',
       4: 'Pet taxi',

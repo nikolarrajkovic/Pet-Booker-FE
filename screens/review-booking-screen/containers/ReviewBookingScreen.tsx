@@ -84,8 +84,8 @@ function priceSection(
   const addonLines: AddonLine[] = Object.values(
     appointments
       .flatMap((a) => a.addons)
-      .reduce<Record<string, AddonLine>>((acc, ad) => {
-        const cur = acc[ad.name] ?? { kind: ad.kind, name: ad.name, price: 0 };
+      .reduce<Record<number, AddonLine>>((acc, ad) => {
+        const cur = acc[ad.kind] ?? { kind: ad.kind, price: 0 };
         cur.price += ad.price;
         // A per-distance line reports the fees and the leg's distance behind its amount. The
         // per-km portion is derived as price − baseFee so the sub-lines always reconcile to what
@@ -105,7 +105,7 @@ function priceSection(
           agg.count += 1;
           cur.breakdown = agg;
         }
-        acc[ad.name] = cur;
+        acc[ad.kind] = cur;
         return acc;
       }, {})
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, type GestureResponderEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../hooks/useThemeColors';
 import ServicePhoto from './ServicePhoto';
@@ -45,7 +45,9 @@ type ServiceResultRowProps = {
   distance?: string;
   /** Category banner, when the list is scoped to a Home rail. */
   badge?: 'popular' | 'deal';
-  onPress: () => void;
+  onPress: (event?: GestureResponderEvent) => void;
+  /** The page it opens, on the web (`linkTo`): the card is then a link a new tab can open. */
+  href?: string;
 };
 
 /** Species flags → chip labels, in the enum's own order so two rows never disagree on it. */
@@ -78,6 +80,7 @@ export default function ServiceResultRow({
   distance,
   badge,
   onPress,
+  href,
 }: ServiceResultRowProps) {
   const { isDarkMode, cardBg, textColor, subtextColor } = useThemeColors();
   const { t, tPlural, tEnum } = useLocale();
@@ -193,7 +196,8 @@ export default function ServiceResultRow({
 
   return (
     <TouchableOpacity
-      accessibilityRole="button"
+      {...({ href } as object)}
+      accessibilityRole={href ? 'link' : 'button'}
       accessibilityLabel={a11yLabel}
       accessible
       onPress={onPress}
@@ -277,7 +281,7 @@ export default function ServiceResultRow({
               {shownAddOns.map((addon) =>
                 chip(
                   addonLabel(tEnum, addon),
-                  `addon-${addon.id ?? addon.name}`,
+                  `addon-${addon.id ?? addon.kind}`,
                   'add-circle-outline'
                 )
               )}

@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useResource } from '../../../hooks/useResource';
 import { serviceDetailParams } from '../../../navigation/linking';
+import { linkTo } from '../../../navigation/links';
 import ServicePhoto from '../../../components/shared/ServicePhoto';
 import {
   priceSuffix,
@@ -269,19 +270,17 @@ export default function ProviderDetailScreen() {
                   // No working hours yet: not bookable. Say so, and open the service page (which
                   // explains it) rather than a booking form with no slots — as Search and Home do.
                   const unavailable = svc.isBookable === false;
+                  // A guest reads the service first; booking it asks them to sign in (G7). A link
+                  // on the web, so a new tab can open it.
+                  const link =
+                    unavailable || !isLoggedIn
+                      ? linkTo(navigation, 'ServiceDetail', serviceDetailParams(svc))
+                      : linkTo(navigation, 'BookService', { serviceId: svc.id, service: svc });
                   return (
                     <TouchableOpacity
-                      accessibilityRole="button"
                       key={svc.id ?? idx}
-                      onPress={() =>
-                        // A guest reads the service first; booking it asks them to sign in (G7).
-                        unavailable || !isLoggedIn
-                          ? (navigation as any).navigate('ServiceDetail', serviceDetailParams(svc))
-                          : (navigation as any).navigate('BookService', {
-                              serviceId: svc.id,
-                              service: svc,
-                            })
-                      }
+                      {...(link as object)}
+                      accessibilityRole="link"
                       className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>
                       <View className="flex-row items-start justify-between">
                         <View className="mr-3 flex-1">
@@ -295,9 +294,9 @@ export default function ProviderDetailScreen() {
                           ) : null}
                           {/* The extras this service offers, in the reader's language. */}
                           {(svc.additionalServices ?? [])
-                            .filter((a) => a.isActive !== false && (a.kind || a.name))
+                            .filter((a) => a.isActive !== false)
                             .map((a) => (
-                              <Text key={a.id ?? a.name} className="mt-1 text-xs text-brand-600">
+                              <Text key={a.id ?? a.kind} className="mt-1 text-xs text-brand-600">
                                 {addonLabel(tEnum, a)}
                               </Text>
                             ))}

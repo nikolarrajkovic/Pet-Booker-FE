@@ -31,6 +31,7 @@ import { DiscountType } from '../../../services/service-discounts';
 import { formatOfferAmount } from '../../../screens/promotions-screen/components';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { serviceDetailParams } from '../../../navigation/linking';
+import { linkTo } from '../../../navigation/links';
 import { useResource } from '../../../hooks/useResource';
 import { getPets } from '../../../services/pets';
 import { dismissPetPrompt, isPetPromptDismissed } from '../../../services/pet-prompt-storage';
@@ -304,11 +305,10 @@ export default function HomeScreen() {
     }, [isLoggedIn, refreshUnreadCount, refreshUnreadMessages])
   );
 
-  const handleServicePress = (item: ServiceItem) => {
-    // Open the service detail screen first — the booker reads everything about
-    // the service there, then proceeds to BookService from its "Book Now" CTA.
-    (navigation as any).navigate('ServiceDetail', serviceDetailParams(item.dto));
-  };
+  // Open the service detail screen first — the booker reads everything about the service there,
+  // then proceeds to BookService from its "Book Now" CTA. A link on the web (a new tab opens it).
+  const serviceLink = (item: ServiceItem) =>
+    linkTo(navigation, 'ServiceDetail', serviceDetailParams(item.dto));
 
   const handleServiceTypePress = (serviceType: string) => {
     (navigation as any).navigate('Search', { serviceType, category: undefined });
@@ -366,7 +366,7 @@ export default function HomeScreen() {
             unavailable={item.dto.isBookable === false}
             // Fills its grid cell on the web design; keeps the 200px rail width on a phone.
             fill={isWebLayout}
-            onPress={() => handleServicePress(item)}
+            {...serviceLink(item)}
           />
         ));
 

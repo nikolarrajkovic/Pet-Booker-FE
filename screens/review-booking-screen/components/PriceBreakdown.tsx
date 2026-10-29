@@ -28,9 +28,8 @@ export interface AddonBreakdown {
 }
 
 export interface AddonLine {
-  /** AdditionalServiceKind (0 on an extra from before the preset list, labelled by `name`). */
-  kind?: number;
-  name: string;
+  /** AdditionalServiceKind — one line per kind, summed across the appointments. */
+  kind: number;
   price: number;
   breakdown?: AddonBreakdown;
 }
@@ -98,7 +97,7 @@ export default function PriceBreakdown({
         </View>
       )}
       {addons.map((addon) => (
-        <View key={addon.name} className="mb-3">
+        <View key={addon.kind} className="mb-3">
           <View className="flex-row justify-between">
             <Text className={`text-sm ${subtextColor}`}>{addonLabel(tEnum, addon)}</Text>
             <Text className={`text-sm ${textColor}`}>{money(addon.price)}</Text>

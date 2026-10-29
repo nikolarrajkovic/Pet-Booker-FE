@@ -87,7 +87,6 @@ const request = (id: number, petName: string, services = [{ serviceId: 5, name: 
   status: GroupBookingStatus.Open,
   priceCurrency: 'RSD',
   onSaleOnly: false,
-  requiredAddOnNames: [],
   createdAt: '2026-11-01T08:00:00Z',
   recipients: [],
   invitedCount: 0,

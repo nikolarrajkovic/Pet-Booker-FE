@@ -62,7 +62,7 @@ function petTypeOf(pet: any): ServiceRequest['petType'] {
 // priced the booking.
 function selectedAddOns(tEnum: TEnumFn, b: BookingDto): string[] {
   return (b.additionalServices ?? []).map((line) => {
-    const named = 'name' in line ? addonLabel(tEnum, line) : '';
+    const named = 'kind' in line ? addonLabel(tEnum, line) : '';
     const price = 'price' in line ? line.price : 0;
     return price > 0 ? `${named} • ${formatMoney(price, b.priceCurrency)}` : named;
   });
