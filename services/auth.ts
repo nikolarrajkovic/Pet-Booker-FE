@@ -186,8 +186,36 @@ export function registerUser(payload: RegisterPayload): Promise<void> {
   });
 }
 
+/** The server's code for a confirmation typed with a password other than the latest sign-up's. */
+export const SIGN_UP_PASSWORD_MISMATCH = 'Auth_SignUpPasswordMismatch';
+
+let heldSignUp: { email: string; password: string } | null = null;
+
 /**
- * Confirms the emailed code and returns the token pair the API issues with it.
+ * The password just typed for an account still waiting for its email code. Confirming needs it:
+ * the code proves the inbox, the password proves the sign-up, since anyone can start a sign-up
+ * for any address and a code alone would confirm whoever signed up last. Held in memory only,
+ * never stored or put in a URL, so after a reload Verify Email asks for it. `email` may be empty
+ * (a sign-in by username), and then it is offered for whichever email the screen is told.
+ */
+export function holdSignUpPassword(email: string, password: string): void {
+  heldSignUp = { email: email.trim().toLowerCase(), password };
+}
+
+/** The held password for this email, or '' when none is held for it. */
+export function heldSignUpPassword(email: string): string {
+  if (!heldSignUp) return '';
+  const wanted = email.trim().toLowerCase();
+  return !heldSignUp.email || !wanted || heldSignUp.email === wanted ? heldSignUp.password : '';
+}
+
+export function forgetSignUpPassword(): void {
+  heldSignUp = null;
+}
+
+/**
+ * Confirms the emailed code, with the sign-up's password, and returns the token pair the API
+ * issues with it.
  *
  * `/auth/confirm-email` deliberately answers with an access + refresh token and the profile, so
  * the client is signed in straight after confirming without a second `/auth/login` round trip.
@@ -199,11 +227,12 @@ export function registerUser(payload: RegisterPayload): Promise<void> {
  */
 export async function confirmEmail(
   email: string,
-  code: string
+  code: string,
+  password: string
 ): Promise<{ accessToken?: string; refreshToken?: string }> {
   const response = await apiRequest('/auth/confirm-email', {
     method: 'POST',
-    body: { email, code },
+    body: { email, code, password },
     isPublic: true,
     fallback: 'Email verification failed. Please try again.',
     context: 'confirmEmail',
@@ -214,24 +243,6 @@ export async function confirmEmail(
     accessToken: extractAccessToken(body),
     refreshToken: extractRefreshToken(body),
   };
-}
-
-export type UpdateProfilePayload = {
-  userName: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  email: string;
-};
-
-/** Updates the signed-in user's profile. */
-export function updateProfile(payload: UpdateProfilePayload): Promise<void> {
-  return apiVoid('/auth/profile', {
-    method: 'PUT',
-    body: payload,
-    fallback: 'Failed to update profile.',
-    context: 'updateProfile',
-  });
 }
 
 /** Changes the signed-in user's password. */

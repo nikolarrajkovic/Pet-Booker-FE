@@ -1,6 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
-import { AddressDto } from './service-providers';
 import { uploadFile } from './files';
 import { getUser, updateUser } from './users';
 
@@ -8,10 +7,10 @@ import { getUser, updateUser } from './users';
 export type PendingPhoto = { uri: string; fileName?: string; mimeType?: string };
 
 /**
- * What sign-up collected that the new account cannot hold yet: the photo, and — only when an
- * earlier sign-up is being finished — the address entered this time, used if the profile has none.
+ * What sign-up collected that the new account cannot hold yet: the photo. (The home address goes
+ * with the registration, and a sign-up over an unfinished one replaces it on the server.)
  */
-export type PendingProfile = { address?: AddressDto | null; photo?: PendingPhoto | null };
+export type PendingProfile = { photo?: PendingPhoto | null };
 
 // Mirrors services/theme-storage.ts: SecureStore on native, localStorage on web.
 const webStore = {
@@ -41,19 +40,14 @@ const keyFor = (email: string) =>
  * Storage rather than navigation params, because the code may be typed in a later session: after
  * the app restarted, or from Verify Email reached by signing in to an account that was never
  * confirmed. The home address goes with the registration instead and the server holds it, so it
- * reaches the profile on any device.
+ * reaches the profile on any device. Only the photo is kept here.
  */
 export async function savePendingProfile(email: string, profile: PendingProfile): Promise<void> {
   try {
     await store.setItemAsync(keyFor(email), JSON.stringify(profile));
   } catch {
-    // A photo too large for the browser's storage: keep the address, if there is one.
-    try {
-      if (profile.address)
-        await store.setItemAsync(keyFor(email), JSON.stringify({ address: profile.address }));
-    } catch {
-      // Storage unavailable (a private window): the profile can still be completed in Account.
-    }
+    // A photo too large for the browser's storage, or no storage (a private window): Account can
+    // still add one.
   }
 }
 
@@ -75,9 +69,8 @@ async function forget(email: string): Promise<void> {
 }
 
 /**
- * Saves what sign-up collected to the profile of the account that just signed in, once. Returns
- * whether anything was saved. The address is used only when the profile has none (the server's
- * copy wins); a failed photo upload is dropped (the photo is optional, and Account can add one);
+ * Saves sign-up's photo to the profile of the account that just signed in, once. Returns whether
+ * anything was saved. A failed upload is dropped (the photo is optional, and Account can add one);
  * a failed save keeps the entry, so the next sign-in tries again.
  */
 export async function applyPendingProfile(userId: number, email: string): Promise<boolean> {
@@ -94,18 +87,12 @@ export async function applyPendingProfile(userId: number, email: string): Promis
     }
   }
 
-  const user = await getUser(userId);
-  const address = !user.addressId && pending.address ? pending.address : null;
-  if (!avatarUrl && !address) {
+  if (!avatarUrl) {
     await forget(email);
     return false;
   }
-  await updateUser({
-    ...user,
-    // A new address row for the profile (id 0 = new, as the Account screen sends it).
-    ...(address ? { addressId: null, address: { ...address, id: 0 } } : {}),
-    ...(avatarUrl ? { avatarUrl } : {}),
-  });
+  const user = await getUser(userId);
+  await updateUser({ ...user, avatarUrl });
   await forget(email);
   return true;
 }

@@ -10,7 +10,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import Button from '../../../components/shared/Button';
 import DatePicker from '../../../components/shared/DatePicker';
 import PhoneInput from '../../../components/shared/PhoneInput';
-import { registerUser } from '../../../services/auth';
+import { holdSignUpPassword, registerUser } from '../../../services/auth';
 import LegalAgreement from '../../../components/shared/LegalAgreement';
 import { LEGAL_VERSION } from '../../../services/legal';
 import { ApiError } from '../../../services/http';
@@ -26,9 +26,10 @@ import { DEFAULT_LOCATION } from '../../../hooks/useLocation';
 import { savePendingProfile, type PendingPhoto } from '../../../services/pending-profile';
 
 type RootStackParamList = {
-  Login: undefined;
+  Login: { email?: string } | undefined;
   Register: undefined;
   VerifyEmail: { email: string; resend?: boolean };
+  ForgotPassword: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -202,11 +203,13 @@ export default function RegisterScreen() {
         address: address!,
       });
       if (photo) await savePendingProfile(email, { photo });
+      holdSignUpPassword(email, password);
       navigation.navigate('VerifyEmail', { email: email.trim() });
     } catch (error) {
       const message = error instanceof Error ? error.message : t('register.registrationFailed');
       setSubmitError(message);
-      // Registered before but never confirmed? Offer to finish that instead of a dead end.
+      // Only a confirmed account holds an email now (a sign-up nobody finished is replaced by
+      // this one), so the way on is signing in, or resetting a forgotten password.
       setEmailInUse(error instanceof ApiError && error.code === 'Auth_EmailInUse');
     } finally {
       setIsSubmitting(false);
@@ -661,18 +664,23 @@ export default function RegisterScreen() {
         <View className="mb-3">
           <Text className="text-center text-sm text-red-500">{submitError}</Text>
           {emailInUse ? (
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={async () => {
-                // Finishing an earlier sign-up: the server holds the address that one sent. This
-                // one is kept on the device too, for a profile that ends up with none.
-                if (address || photo) await savePendingProfile(email, { address, photo });
-                navigation.navigate('VerifyEmail', { email: email.trim(), resend: true });
-              }}>
-              <Text className="mt-1 text-center text-sm font-semibold text-brand-600">
-                {t('register.verifyInstead')}
-              </Text>
-            </TouchableOpacity>
+            <View className="mt-1 flex-row flex-wrap justify-center">
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => navigation.navigate('Login', { email: email.trim() })}>
+                <Text className="text-sm font-semibold text-brand-600">
+                  {t('register.emailTakenSignIn')}
+                </Text>
+              </TouchableOpacity>
+              <Text className={`mx-2 text-sm ${subtextColor}`}>·</Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => navigation.navigate('ForgotPassword')}>
+                <Text className="text-sm font-semibold text-brand-600">
+                  {t('register.emailTakenReset')}
+                </Text>
+              </TouchableOpacity>
+            </View>
           ) : null}
         </View>
       ) : null}

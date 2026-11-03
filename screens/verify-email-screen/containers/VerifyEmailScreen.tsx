@@ -1,12 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Text, View, TouchableOpacity, TextInput, Platform } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import Button from '../../../components/shared/Button';
-import { confirmEmail, resendConfirmation } from '../../../services/auth';
+import {
+  SIGN_UP_PASSWORD_MISMATCH,
+  confirmEmail,
+  forgetSignUpPassword,
+  heldSignUpPassword,
+  resendConfirmation,
+} from '../../../services/auth';
+import { ApiError } from '../../../services/http';
 import { useAuth } from '../../../context/AuthContext';
 import AuthLayout from '../../../components/layout/AuthLayout';
 
@@ -33,6 +40,14 @@ export default function VerifyEmailScreen() {
   const [emailDraft, setEmailDraft] = useState('');
   const needsEmail = !email;
 
+  // The sign-up's password goes with the code (services/auth.ts holdSignUpPassword says why).
+  // Arriving from Register or a sign-in it was just typed and is held; after a reload, or when
+  // the server says it isn't the latest sign-up's, the screen asks for it.
+  const [password, setPassword] = useState(() => heldSignUpPassword(route.params?.email ?? ''));
+  const [askPassword, setAskPassword] = useState(!password);
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordMismatch, setPasswordMismatch] = useState(false);
+
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verifyError, setVerifyError] = useState('');
@@ -47,6 +62,7 @@ export default function VerifyEmailScreen() {
   const tipText = isDarkMode ? 'text-amber-400' : 'text-amber-700';
 
   const isFilled = code.every((d) => d.length === 1);
+  const canVerify = isFilled && password.length > 0;
 
   const focusBox = (i: number) =>
     inputRefs.current[Math.max(0, Math.min(i, CODE_LENGTH - 1))]?.focus();
@@ -112,13 +128,15 @@ export default function VerifyEmailScreen() {
   };
 
   const handleVerify = async () => {
-    if (!isFilled) return;
+    if (!canVerify) return;
     const fullCode = code.join('');
 
     try {
       setIsSubmitting(true);
       setVerifyError('');
-      const { accessToken, refreshToken } = await confirmEmail(email, fullCode);
+      setPasswordMismatch(false);
+      const { accessToken, refreshToken } = await confirmEmail(email, fullCode, password);
+      forgetSignUpPassword();
 
       if (accessToken) {
         // The API signs the account in as part of confirming, so go straight into the app.
@@ -135,6 +153,12 @@ export default function VerifyEmailScreen() {
     } catch (error) {
       const message = error instanceof Error ? error.message : t('verifyEmail.verificationFailed');
       setVerifyError(message);
+      // The code was right but the password isn't this sign-up's: a typo, or someone signed up
+      // with this email after them. Let them retype it, or start over.
+      if (error instanceof ApiError && error.code === SIGN_UP_PASSWORD_MISMATCH) {
+        setPasswordMismatch(true);
+        setAskPassword(true);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -162,6 +186,11 @@ export default function VerifyEmailScreen() {
     try {
       await resendConfirmation(typed);
       setEmail(typed);
+      if (!password) {
+        const held = heldSignUpPassword(typed);
+        setPassword(held);
+        setAskPassword(!held);
+      }
       setResendMessage(t('verifyEmail.newCodeSent'));
     } catch (error) {
       setVerifyError(error instanceof Error ? error.message : t('verifyEmail.resendFailed'));
@@ -276,17 +305,78 @@ export default function VerifyEmailScreen() {
         ))}
       </View>
 
+      {askPassword ? (
+        <View className="mb-6">
+          <Text className={`text-sm font-semibold ${textColor} mb-1`}>
+            {t('verifyEmail.password')}
+          </Text>
+          <Text className={`text-xs ${subtextColor} mb-2`}>{t('verifyEmail.passwordHint')}</Text>
+          <View>
+            <TextInput
+              value={password}
+              onChangeText={(v) => {
+                setPassword(v);
+                setVerifyError('');
+              }}
+              placeholder={t('verifyEmail.passwordPlaceholder')}
+              placeholderTextColor="#9CA3AF"
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoComplete="current-password"
+              textContentType="password"
+              accessibilityLabel={t('verifyEmail.password')}
+              onSubmitEditing={handleVerify}
+              style={{
+                backgroundColor: isDarkMode ? '#243447' : '#ffffff',
+                color: isDarkMode ? '#ffffff' : '#111827',
+                borderRadius: 12,
+                borderWidth: 2,
+                borderColor: passwordMismatch ? '#EF4444' : borderColor,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                paddingRight: 48,
+                fontSize: 15,
+              }}
+            />
+            <TouchableOpacity
+              accessibilityLabel={
+                showPassword ? t('common.hidePassword') : t('common.showPassword')
+              }
+              accessibilityRole="button"
+              onPress={() => setShowPassword(!showPassword)}
+              style={{ position: 'absolute', right: 16, top: 13 }}>
+              <Ionicons
+                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                size={22}
+                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
       {/* Verify button */}
       <Button
         text={isSubmitting ? t('verifyEmail.verifying') : t('verifyEmail.verify')}
         onPress={handleVerify}
         variant="primary"
         className="mb-4 rounded-2xl py-4"
-        disabled={isSubmitting || !isFilled}
+        disabled={isSubmitting || !canVerify}
       />
 
       {verifyError ? (
         <Text className="mb-4 text-center text-sm text-red-500">{verifyError}</Text>
+      ) : null}
+
+      {passwordMismatch ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => navigation.navigate('Register')}
+          className="mb-4 items-center">
+          <Text className="text-sm font-semibold text-brand-600">
+            {t('verifyEmail.signUpAgain')}
+          </Text>
+        </TouchableOpacity>
       ) : null}
 
       {resendMessage ? (
