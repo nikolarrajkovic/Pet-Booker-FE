@@ -520,6 +520,8 @@ App-wide transient-message host. `ToastProvider` is mounted in `App.tsx` directl
 
 ### `useBookingCart()` — `context/BookingCartContext.tsx`
 Several services in one checkout (feedback 2026-10-21) — **the phone design only**: a walk from one partner and a grooming from another, sent together as **one** all-or-nothing `createBookings` batch. The web design has no cart: its booking form sends what is selected straight to Review (see BookService below), and `BookingCartPill` renders nothing there. `BookingCartProvider` sits in `App.tsx` under `EnumsProvider` (it reads `useAuth()` for the account). Outside the provider the hook returns an empty cart that keeps nothing, so screens rendered on their own (tests) behave as single-service checkouts.
+
+**The API limits requests waiting for an answer** (backend `BookingRequestLimits`, 2026-11-04): one pet may have 3 waiting for the same partner on one day, one customer 6 (whatever the pets), and 100 in all; repeating over days is fine (the weekly repeat makes one per pet per day). A refusal is a 422 with a translated message, which in a checkout names `Bookings[i]`. Signed-in writes are limited to 120 a minute per account: a 429 carries `retryAfterSeconds` and code `Error_TooManyRequests`, which `parseApiError` already shows.
 | Value | Type | Notes |
 |---|---|---|
 | `sections` | `CheckoutSection[]` | `{ service, appointments }` per service, in the order added (`screens/book-service-screen/appointment.ts`) |
