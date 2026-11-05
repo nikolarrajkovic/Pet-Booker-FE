@@ -1,4 +1,5 @@
 import { ApiError, apiFetch, apiJson, apiRequest, apiVoid, getApiBaseUrl } from './http';
+import { saveTokens } from './token-storage';
 import type { AddressDto } from './service-providers';
 
 export type CurrentUser = {
@@ -245,18 +246,26 @@ export async function confirmEmail(
   };
 }
 
-/** Changes the signed-in user's password. */
-export function changePassword(payload: {
+/**
+ * Changes the signed-in user's password. The server ends every sign-in, this one's refresh token
+ * included, and answers with a new session for this device, which is stored here. Before
+ * 2026-11-05 the reply carried nothing, so the app was signed out at its next refresh, up to half
+ * an hour after a successful change.
+ */
+export async function changePassword(payload: {
   currentPassword: string;
   newPassword: string;
   confirmPassword: string;
 }): Promise<void> {
-  return apiVoid('/auth/change-password', {
+  const response = await apiRequest('/auth/change-password', {
     method: 'POST',
     body: payload,
     fallback: 'Failed to change password.',
     context: 'changePassword',
   });
+  const body = parseResponseBody(await response.text());
+  const accessToken = extractAccessToken(body);
+  if (accessToken) await saveTokens(accessToken, extractRefreshToken(body));
 }
 
 /** Requests a password-reset email/code for the given address (public). */

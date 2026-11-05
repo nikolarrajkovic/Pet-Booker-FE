@@ -942,6 +942,7 @@ Filter *options* have the mirror-image trap: derive them from the current result
 - **Restore renews.** `AuthContext` treats a stored refresh token as a session even when the access token has expired (a reload after 30 minutes used to land on Login).
 - **Permissions follow the account.** A 401 on a token older than a minute renews once and retries; the `ServiceProviderApproved` / `ProviderBanned` / `ProviderUnbanned` notifications renew the token and re-read the user at once (an approved partner kept the customer view and 401s until signing in again; a ban now ends the session immediately).
 - **Logout ends this device only** — `signOut()` sends its refresh token.
+- **A password change keeps this device signed in.** The server ends every sign-in, this one's included, and answers with a new session, which `changePassword()` stores (`__tests__/changePassword.test.ts`). Before 2026-11-05 it discarded that reply and the app was signed out at its next refresh.
 
 ### Enums/lookups
 - Always use `useEnums()` from `EnumsContext` — never call `fetchEnums()` directly
