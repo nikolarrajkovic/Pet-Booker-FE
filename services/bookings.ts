@@ -118,8 +118,7 @@ export type BookingDto = {
   totalPrice: number;
   // The chosen service pricing option (duration/price variant). REQUIRED when
   // the booked service defines pricingOptions (else 422 "This service defines
-  // pricing options; PricingOptionId is required." — on PUT too, so
-  // toWritableBooking round-trips it); must be null for option-less services.
+  // pricing options; PricingOptionId is required."); must be null for option-less services.
   // With an option set the server derives bookingTo (= bookingFrom +
   // durationMinutes) and basePrice (= option price, discount applied) itself.
   pricingOptionId?: number | null;
@@ -139,7 +138,7 @@ export type BookingDto = {
   // recomputed server-side).
   addOnsTotal?: number | null;
   depositAmount?: number | null;
-  // Populated on GET (read-only nested includes — stripped by toWritableBooking):
+  // Populated on GET (read-only nested includes):
   serviceProvider?: NestedEntity | null;
   service?: NestedEntity | null;
   pet?: NestedEntity | null;
@@ -204,7 +203,8 @@ export type BookingAdditionalServiceReadDto = {
   id?: number | null;
   /** The service's catalog entry; null if the provider has since removed it. */
   additionalServiceId?: number | null;
-  name: string;
+  /** AdditionalServiceKind as booked — show it with `addonLabel`. */
+  kind: number;
   chargeType: number;
   /** Which journey this line paid for (see DistanceLeg); null for a flat line. */
   distanceLeg?: number | null;
@@ -613,15 +613,31 @@ function toCreateBody(input: CreateBookingInput): WritableBookingCreate {
     note: input.note?.trim() || null,
   };
 
-  // Pickup/Drop-off addresses are sent INLINE in this POST (never /api/addresses).
-  if (input.pickupAddress || input.leaveOverAddress) {
-    body.location = {
-      pickupAddress: input.pickupAddress ?? null,
-      leaveOverAddress: input.leaveOverAddress ?? null,
-    };
-  }
+  const location = toBookingLocation(input.pickupAddress, input.leaveOverAddress);
+  if (location) body.location = location;
 
   return body;
+}
+
+/**
+ * The write-side `location` for a booking or a quote. A saved address (one with an id: the
+ * customer's home address from their profile) is sent by id and the server stores a copy of it on
+ * the booking, so editing the profile later moves no booking; a place picked on the map has no id
+ * and goes inline (never through /api/addresses). The server accepts an id only for an address
+ * the account may use.
+ */
+export function toBookingLocation(
+  pickup: AddressDto | null | undefined,
+  leaveOver: AddressDto | null | undefined
+): BookingLocationDto | undefined {
+  if (!pickup && !leaveOver) return undefined;
+  const saved = (a: AddressDto | null | undefined) => (a?.id && a.id > 0 ? a.id : null);
+  return {
+    pickupAddressId: saved(pickup),
+    pickupAddress: saved(pickup) ? null : (pickup ?? null),
+    leaveOverAddressId: saved(leaveOver),
+    leaveOverAddress: saved(leaveOver) ? null : (leaveOver ?? null),
+  };
 }
 
 export async function createBooking(input: CreateBookingInput): Promise<BookingDto> {
@@ -651,64 +667,6 @@ export async function createBookings(inputs: CreateBookingInput[]): Promise<Book
     context: 'createBookings',
   });
   return created.map(withResolvedAddresses);
-}
-
-/**
- * Picks only the writable scalar fields for a PUT. The booking GET returns
- * nested read-only includes (serviceProvider/service/pet/user/addresses); PUTing
- * those back 500s, so they must be stripped before update.
- */
-function toWritableBooking(b: BookingDto): BookingDto {
-  return {
-    id: b.id,
-    userId: b.userId,
-    serviceProviderId: b.serviceProviderId,
-    serviceId: b.serviceId,
-    petId: b.petId,
-    priceCurrency: b.priceCurrency,
-    state: b.state,
-    cancelReason: b.cancelReason,
-    bookingFrom: b.bookingFrom,
-    bookingTo: b.bookingTo,
-    basePrice: b.basePrice,
-    discountAmount: b.discountAmount,
-    totalPrice: b.totalPrice,
-    // Round-trip the pricing option — the coexist rule runs on PUT too, so a
-    // status/scalar PUT on an option booking 422s without it.
-    pricingOptionId: b.pricingOptionId ?? null,
-    paymentType: b.paymentType,
-    paymentMethodId: b.paymentMethodId,
-    currentStatus: b.currentStatus,
-    // Round-trip the extras selection as ids: a PUT's `additionalServices` is the desired FULL
-    // set, so omitting it on a status/cancel edit would silently drop every extra off the bill.
-    // Read DTOs come back enriched (name/price/distance) — reduce them to the id-only write shape.
-    additionalServices: (b.additionalServices ?? [])
-      .map((a) =>
-        'additionalServiceId' in a && typeof a.additionalServiceId === 'number'
-          ? { additionalServiceId: a.additionalServiceId }
-          : null
-      )
-      .filter((a): a is { additionalServiceId: number } => a !== null),
-    // Distances are NOT round-tripped: the server re-measures each leg from the addresses it
-    // already has. Echoing a stored value back would turn a measurement into a client override.
-  };
-}
-
-/**
- * @deprecated The booking write DTO no longer carries `state`/`currentStatus`,
- * so the generic PUT can NOT change a booking's lifecycle — use the dedicated
- * endpoints instead (confirmBooking / declineBooking / startBookingService /
- * endBookingService / cancelBooking). Kept only for non-lifecycle scalar edits.
- */
-export function setBookingStatus(booking: BookingDto, currentStatus: number): Promise<BookingDto> {
-  const body: BookingDto = { ...toWritableBooking(booking), currentStatus };
-
-  return apiJson<BookingDto>(`/api/bookings/${booking.id}`, {
-    method: 'PUT',
-    body: round2Payload(body),
-    fallback: 'Failed to update booking.',
-    context: 'setBookingStatus',
-  });
 }
 
 /**
@@ -780,8 +738,7 @@ export function endBookingService(booking: BookingDto): Promise<BookingDto> {
  * Sets currentStatus = ServiceConfirmedByProvider and returns the full booking.
  * GUARD (verified live): only bookings still in ServiceRequestedByUser can be
  * confirmed — anything else 422s ("Only bookings with status
- * ServiceRequestedByUser can be decided on."). Unlike the setBookingStatus PUT,
- * this does not 500 on recipients with invalid emails (BACKEND_GAPS B4).
+ * ServiceRequestedByUser can be decided on.").
  */
 export function confirmBooking(id: number): Promise<BookingDto> {
   return bookingTransition(id, 'confirm', 'Failed to accept booking.', 'confirmBooking');

@@ -13,6 +13,7 @@ import { resetShownOnce } from '../hooks/useShowOnce';
 import { registerDisplayCurrency, DEFAULT_CURRENCY } from '../services/currency';
 import { savePreferredLanguage } from '../services/notifications';
 import { useLocale } from './LocaleContext';
+import { applyPendingProfile } from '../services/pending-profile';
 
 type AuthContextType = {
   isLoggedIn: boolean;
@@ -138,6 +139,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const user = await getMe();
     setCurrentUser(user);
     setIsLoggedIn(true);
+    // The photo given at sign-up waits on the device for the account's first sign-in, when it
+    // can be uploaded (services/pending-profile.ts; the address went with the registration). Not
+    // awaited: signing in never waits on it, and a failure leaves it for the next sign-in.
+    if (user?.id && user.email) {
+      applyPendingProfile(user.id, user.email)
+        .then(async (saved) => {
+          if (saved) setCurrentUser(await getMe());
+        })
+        .catch(() => {});
+    }
   };
 
   const signInWithCredentials = async (identifier: string, password: string) => {

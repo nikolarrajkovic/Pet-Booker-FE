@@ -8,7 +8,7 @@ interface Appointment {
   id: number;
   service: { name: string; price: number };
   pet: { name: string };
-  addons: { name: string; price: number }[];
+  addons: { price: number }[];
   total: number;
 }
 
@@ -56,7 +56,7 @@ export default function BookingSummary({
             <View className="mt-1 flex-row justify-between">
               <Text className={`text-xs ${subtextColor}`}>{t('bookService.addonsLabel')}</Text>
               <Text className={`text-xs ${subtextColor}`}>
-                {money(apt.addons.reduce((sum: number, a: any) => sum + a.price, 0))}
+                {money(apt.addons.reduce((sum, a) => sum + a.price, 0))}
               </Text>
             </View>
           )}

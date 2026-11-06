@@ -7,6 +7,9 @@ export type EnumEntry = {
   // Human-readable, spaced label, e.g. "Pet Hotel", "Bank Transfer" (added by
   // the API). Prefer this over `name` when rendering an enum value to the user.
   displayName?: string;
+  // ServiceProviderType entries only: the kinds of extra that type of service offers, an
+  // AdditionalServiceKind mask — the rule the API's validators enforce (`offeredKindsMask`).
+  additionalServiceKinds?: number;
 };
 
 export type EnumsData = {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { useLocale } from '../../../context/LocaleContext';
+import { addonLabel } from '../../../services/service-addons';
 import { formatMoney } from '../../../services/currency';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { formatKm } from '../../../i18n/numbers';
@@ -27,7 +28,8 @@ export interface AddonBreakdown {
 }
 
 export interface AddonLine {
-  name: string;
+  /** AdditionalServiceKind — one line per kind, summed across the appointments. */
+  kind: number;
   price: number;
   breakdown?: AddonBreakdown;
 }
@@ -76,7 +78,7 @@ export default function PriceBreakdown({
   totalLabel,
 }: PriceBreakdownProps) {
   const gutter = usePageGutter();
-  const { t } = useLocale();
+  const { t, tEnum } = useLocale();
   // Also trims float artifacts from price subtraction (e.g. 9.999999 → "10").
   const money = (n: number) => formatMoney(n, currency);
   return (
@@ -95,9 +97,9 @@ export default function PriceBreakdown({
         </View>
       )}
       {addons.map((addon) => (
-        <View key={addon.name} className="mb-3">
+        <View key={addon.kind} className="mb-3">
           <View className="flex-row justify-between">
-            <Text className={`text-sm ${subtextColor}`}>{addon.name}</Text>
+            <Text className={`text-sm ${subtextColor}`}>{addonLabel(tEnum, addon)}</Text>
             <Text className={`text-sm ${textColor}`}>{money(addon.price)}</Text>
           </View>
           {/* Distance-pricing sub-lines: start fee + per-km charge − free-km credit. */}

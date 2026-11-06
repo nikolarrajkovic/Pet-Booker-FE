@@ -53,6 +53,12 @@ type ScreenLayoutProps = {
    * (a full-bleed map, a chat thread).
    */
   webBare?: boolean;
+  /**
+   * The page itself does not scroll: the title stays at the top and the body fills the rest of
+   * the window, scrolling its own parts. For a detail page whose side panel (the price and Book
+   * Now) stays put while only the content beside it moves.
+   */
+  webFixed?: boolean;
 };
 
 /**
@@ -100,6 +106,7 @@ export default function ScreenLayout({
   avoidKeyboard = true,
   webHeaderRight,
   webBare = false,
+  webFixed = false,
   narrow = false,
 }: ScreenLayoutProps) {
   const { bgColor } = useThemeColors();
@@ -155,6 +162,33 @@ export default function ScreenLayout({
       );
     }
 
+    const pageHeader = (
+      <ContentContainer narrow={narrow}>
+        <PageHeader
+          title={headerTitle}
+          subtitle={headerSubtitle}
+          showBackButton={backButtonVisible}
+          onBackPress={onBackPress}
+          actions={webHeaderRight ?? rightAction}>
+          {headerChildren}
+        </PageHeader>
+      </ContentContainer>
+    );
+
+    if (webFixed) {
+      // No page scroller (and no `pageScroll` marker, so the screen's own scroll panes are not
+      // flattened into one): the body gets the height left under the title.
+      return (
+        <View style={{ flex: 1, minHeight: 0 }}>
+          {pageHeader}
+          <ContentContainer narrow={narrow} noPadding style={{ flex: 1, minHeight: 0 }}>
+            {children}
+          </ContentContainer>
+          {footer}
+        </View>
+      );
+    }
+
     return (
       // Transparent: the shell paints the page ground and the pattern texture behind this, and
       // an opaque screen root would cover both. Content that must stay readable paints its own
@@ -176,16 +210,7 @@ export default function ScreenLayout({
           gets the column without the padding, and screens keep owning their own.
 
         */}
-        <ContentContainer narrow={narrow}>
-          <PageHeader
-            title={headerTitle}
-            subtitle={headerSubtitle}
-            showBackButton={backButtonVisible}
-            onBackPress={onBackPress}
-            actions={webHeaderRight ?? rightAction}>
-            {headerChildren}
-          </PageHeader>
-        </ContentContainer>
+        {pageHeader}
 
         <ContentContainer narrow={narrow} noPadding>
           {children}

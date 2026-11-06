@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useResource } from '../../../hooks/useResource';
 import { serviceDetailParams } from '../../../navigation/linking';
+import { linkTo } from '../../../navigation/links';
 import ServicePhoto from '../../../components/shared/ServicePhoto';
 import {
   priceSuffix,
@@ -25,6 +26,7 @@ import {
   providerToViewModel,
 } from '../../../services/service-providers';
 import { useLocale } from '../../../context/LocaleContext';
+import { addonLabel } from '../../../services/service-addons';
 import { useTopInset } from '../../../hooks/useSafeAreaSpacing';
 import type { ProviderViewModel } from '../../../services/service-providers';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -56,7 +58,7 @@ export default function ProviderDetailScreen() {
   const providerId = Number(route.params?.providerId ?? route.params?.provider?.id ?? 0);
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const topInset = useTopInset();
-  const { t, tPlural } = useLocale();
+  const { t, tPlural, tEnum } = useLocale();
 
   // Both lists come from the shared cache, so this profile reflects a service the provider just
   // edited or a review that was just approved — it used to hold whatever it fetched the first
@@ -268,19 +270,17 @@ export default function ProviderDetailScreen() {
                   // No working hours yet: not bookable. Say so, and open the service page (which
                   // explains it) rather than a booking form with no slots — as Search and Home do.
                   const unavailable = svc.isBookable === false;
+                  // A guest reads the service first; booking it asks them to sign in (G7). A link
+                  // on the web, so a new tab can open it.
+                  const link =
+                    unavailable || !isLoggedIn
+                      ? linkTo(navigation, 'ServiceDetail', serviceDetailParams(svc))
+                      : linkTo(navigation, 'BookService', { serviceId: svc.id, service: svc });
                   return (
                     <TouchableOpacity
-                      accessibilityRole="button"
                       key={svc.id ?? idx}
-                      onPress={() =>
-                        // A guest reads the service first; booking it asks them to sign in (G7).
-                        unavailable || !isLoggedIn
-                          ? (navigation as any).navigate('ServiceDetail', serviceDetailParams(svc))
-                          : (navigation as any).navigate('BookService', {
-                              serviceId: svc.id,
-                              service: svc,
-                            })
-                      }
+                      {...(link as object)}
+                      accessibilityRole="link"
                       className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>
                       <View className="flex-row items-start justify-between">
                         <View className="mr-3 flex-1">
@@ -292,13 +292,12 @@ export default function ProviderDetailScreen() {
                               {svc.description ?? svc.about}
                             </Text>
                           ) : null}
-                          {/* The extras this service offers, by the provider's own names — there
-                            are no longer fixed pickup/return flags to check. */}
+                          {/* The extras this service offers, in the reader's language. */}
                           {(svc.additionalServices ?? [])
-                            .filter((a) => a.isActive !== false && a.name)
+                            .filter((a) => a.isActive !== false)
                             .map((a) => (
-                              <Text key={a.id ?? a.name} className="mt-1 text-xs text-brand-600">
-                                {a.name}
+                              <Text key={a.id ?? a.kind} className="mt-1 text-xs text-brand-600">
+                                {addonLabel(tEnum, a)}
                               </Text>
                             ))}
                         </View>

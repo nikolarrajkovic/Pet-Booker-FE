@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Image, type GestureResponderEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocale } from '../../../context/LocaleContext';
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
@@ -26,7 +26,9 @@ interface BookingCardProps {
   textColor: string;
   subtextColor: string;
   borderColor: string;
-  onViewDetails?: () => void;
+  onViewDetails?: (event?: GestureResponderEvent) => void;
+  /** The booking's page, on the web (`linkTo`): "View details" is then a link a new tab can open. */
+  detailsHref?: string;
   onLeaveReview?: () => void;
   /** Omit to hide the chat action — the parent decides which bookings are still messageable. */
   onMessage?: () => void;
@@ -77,6 +79,7 @@ export default function BookingCard({
   subtextColor,
   borderColor,
   onViewDetails,
+  detailsHref,
   onLeaveReview,
   onMessage,
 }: BookingCardProps) {
@@ -155,7 +158,10 @@ export default function BookingCard({
                   <Ionicons name="chatbubble-outline" size={15} color={BRAND_GREEN} />
                 </TouchableOpacity>
               ) : null}
-              <TouchableOpacity accessibilityRole="button" onPress={onViewDetails}>
+              <TouchableOpacity
+                {...({ href: detailsHref } as object)}
+                accessibilityRole={detailsHref ? 'link' : 'button'}
+                onPress={onViewDetails}>
                 <Text className="text-sm font-semibold text-brand-600">
                   {t('myBookings.viewDetails')}
                 </Text>

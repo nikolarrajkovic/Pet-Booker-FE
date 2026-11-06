@@ -33,7 +33,7 @@ interface FilterModalProps {
    * Distinct extra names offered across the loaded services. Extras are provider-named free text
    * now, so there is no fixed catalog to render as chips — the options come from the data.
    */
-  availableAddOns?: string[];
+  availableAddOns?: number[];
   /** Passed to SearchFilters — see its prop of the same name. */
   hideServiceTypes?: boolean;
   /** Leaves out "When" — see SearchFilters. */

@@ -8,6 +8,7 @@ import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useFormChain } from '../../../hooks/useFormChain';
 import { useAuth } from '../../../context/AuthContext';
 import { ApiError, getErrorMessage, isNetworkError, statusOf } from '../../../services/http';
+import { holdSignUpPassword } from '../../../services/auth';
 
 import { useLocale } from '../../../context/LocaleContext';
 import Button from '../../../components/shared/Button';
@@ -116,6 +117,8 @@ export default function LoginScreen() {
       if (error instanceof ApiError && error.code === EMAIL_NOT_CONFIRMED) {
         const typed = identifier.trim();
         const email = typed.includes('@') ? typed : '';
+        // Confirming needs the sign-up's password too, and it was just typed: it was right.
+        holdSignUpPassword(email, password);
         navigation.navigate('VerifyEmail', { email, resend: !!email });
         return;
       }

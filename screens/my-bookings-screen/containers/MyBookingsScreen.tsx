@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { ScrollView, Text, View, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { linkTo } from '../../../navigation/links';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
 import { useLocale } from '../../../context/LocaleContext';
@@ -108,56 +109,58 @@ export default function MyBookingsScreen() {
           proportions and halves the scrolling.
         */}
         <ResponsiveGrid columns={{ mobile: 1, tablet: 1, desktop: 2 }} gap={12} rowGap={0}>
-          {visible.map((booking) => (
-            <BookingCard
-              key={booking.id}
-              booking={{
-                id: booking.id,
-                providerName: booking.providerName,
-                serviceType: booking.serviceName,
-                date: booking.date,
-                time: booking.time,
-                price: booking.price,
-                currency: booking.currency,
-                status: booking.statusLabel,
-                image: booking.image,
-                rating: booking.rating,
-              }}
-              isDarkMode={isDarkMode}
-              cardBg={cardBg}
-              textColor={textColor}
-              subtextColor={subtextColor}
-              borderColor={borderColor}
-              onViewDetails={() =>
-                (navigation as any).navigate('BookingDetails', { bookingId: booking.id })
-              }
-              // Chat only on the Upcoming tab — there is nothing left to coordinate about a job
-              // that has already happened (or expired).
-              onMessage={
-                activeTab === 'upcoming'
-                  ? () =>
-                      (navigation as any).navigate('Chat', {
-                        serviceProviderId: booking.providerId,
-                        // Names the booking the chat is about, so the message carries that
-                        // context and the thread's subject follows the right service.
-                        bookingId: booking.id,
-                        serviceId: booking.serviceId,
-                        providerName: booking.providerName,
-                        providerAvatar: booking.image,
-                        subtitle: booking.serviceName,
-                      })
-                  : undefined
-              }
-              onLeaveReview={() =>
-                review.open({
-                  bookingId: booking.id,
-                  serviceProviderId: booking.providerId,
-                  serviceId: booking.serviceId,
-                  serviceName: booking.serviceName,
-                })
-              }
-            />
-          ))}
+          {visible.map((booking) => {
+            const details = linkTo(navigation, 'BookingDetails', { bookingId: booking.id });
+            return (
+              <BookingCard
+                key={booking.id}
+                booking={{
+                  id: booking.id,
+                  providerName: booking.providerName,
+                  serviceType: booking.serviceName,
+                  date: booking.date,
+                  time: booking.time,
+                  price: booking.price,
+                  currency: booking.currency,
+                  status: booking.statusLabel,
+                  image: booking.image,
+                  rating: booking.rating,
+                }}
+                isDarkMode={isDarkMode}
+                cardBg={cardBg}
+                textColor={textColor}
+                subtextColor={subtextColor}
+                borderColor={borderColor}
+                onViewDetails={details.onPress}
+                detailsHref={details.href}
+                // Chat only on the Upcoming tab — there is nothing left to coordinate about a job
+                // that has already happened (or expired).
+                onMessage={
+                  activeTab === 'upcoming'
+                    ? () =>
+                        (navigation as any).navigate('Chat', {
+                          serviceProviderId: booking.providerId,
+                          // Names the booking the chat is about, so the message carries that
+                          // context and the thread's subject follows the right service.
+                          bookingId: booking.id,
+                          serviceId: booking.serviceId,
+                          providerName: booking.providerName,
+                          providerAvatar: booking.image,
+                          subtitle: booking.serviceName,
+                        })
+                    : undefined
+                }
+                onLeaveReview={() =>
+                  review.open({
+                    bookingId: booking.id,
+                    serviceProviderId: booking.providerId,
+                    serviceId: booking.serviceId,
+                    serviceName: booking.serviceName,
+                  })
+                }
+              />
+            );
+          })}
         </ResponsiveGrid>
         {visible.length > 0 && (
           <LoadMoreFooter

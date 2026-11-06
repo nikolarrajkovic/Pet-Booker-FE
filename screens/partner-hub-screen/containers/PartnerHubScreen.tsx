@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { linkTo } from '../../../navigation/links';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -958,16 +959,13 @@ export default function PartnerHubScreen() {
               ) : (
                 hub.recent.map((item, index) => (
                   <TouchableOpacity
-                    accessibilityRole="button"
                     key={item.id}
+                    // An item about a booking opens it, as a link on the web.
+                    {...((item.bookingId
+                      ? linkTo(navigation, 'BookingDetails', { bookingId: item.bookingId })
+                      : {}) as object)}
+                    accessibilityRole={item.bookingId ? 'link' : 'button'}
                     activeOpacity={0.8}
-                    onPress={() =>
-                      item.bookingId
-                        ? (navigation as any).navigate('BookingDetails', {
-                            bookingId: item.bookingId,
-                          })
-                        : undefined
-                    }
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',

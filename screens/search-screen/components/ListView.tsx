@@ -21,6 +21,7 @@ import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
 import { useNearBottomLoader } from '../../../hooks/useNearBottomLoader';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { serviceDetailParams } from '../../../navigation/linking';
+import { linkTo } from '../../../navigation/links';
 
 export interface ServiceSearchItem {
   id: number;
@@ -134,13 +135,15 @@ export default function ListView({ services, badge, paging, sort, header, date }
    * The phone's result card: a wide, short row with a thumbnail. Unchanged from the design that
    * ships today — see the note above for why the width-hungry web row is not used here.
    */
+  // A result opens its service page, as a link on the web (a new tab can open it).
+  const serviceLink = (item: ServiceSearchItem) =>
+    linkTo(navigation, 'ServiceDetail', serviceDetailParams(item.dto, date));
+
   const compactCard = (item: ServiceSearchItem) => (
     <TouchableOpacity
-      accessibilityRole="button"
       key={item.id}
-      onPress={() =>
-        (navigation as any).navigate('ServiceDetail', serviceDetailParams(item.dto, date))
-      }
+      {...(serviceLink(item) as object)}
+      accessibilityRole="link"
       className={`${cardBg} mb-3 flex-row rounded-2xl border p-3 shadow-sm ${borderColor}`}
       activeOpacity={0.9}>
       {/* Service image + category banner (Popular / Deal) */}
@@ -310,9 +313,7 @@ export default function ListView({ services, badge, paging, sort, header, date }
               typeLabel={item.service}
               distance={item.distance}
               badge={badge}
-              onPress={() =>
-                (navigation as any).navigate('ServiceDetail', serviceDetailParams(item.dto, date))
-              }
+              {...serviceLink(item)}
             />
           ) : (
             compactCard(item)

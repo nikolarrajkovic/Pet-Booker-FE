@@ -217,7 +217,7 @@ export default function CreateGroupRequestScreen() {
    *  the server stores filters, not a name, so it never narrows who gets the request. */
   const [nameQuery, setNameQuery] = useState('');
   const debouncedName = useDebouncedValue(nameQuery.trim(), 300);
-  const [facets, setFacets] = useState<{ maxPrice: number; addOns: string[] }>({
+  const [facets, setFacets] = useState<{ maxPrice: number; addOns: number[] }>({
     maxPrice: Math.max(DEFAULT_MAX_PRICE, route.params?.filters?.priceRange?.[1] ?? 0),
     addOns: [],
   });
@@ -266,19 +266,20 @@ export default function CreateGroupRequestScreen() {
     }, [currentUser?.id, showError, t, setAccountAddress])
   );
 
-  // Filter options for the chosen type: the price ceiling and the extras on offer, from the facets
-  // endpoint rather than the rows on screen — see SearchScreen's `facets`.
+  // Filter options for the chosen type (the whole catalogue until one is chosen): the price ceiling
+  // and the extras on offer, from the facets endpoint rather than the rows on screen — see
+  // SearchScreen's `facets`. Filters opens before a type is picked, and waiting for one left the
+  // slider at the 200 default, a ceiling below almost every price in RSD.
   useEffect(() => {
-    if (serviceType == null) return;
     let cancelled = false;
-    getServiceFacets([serviceType])
+    getServiceFacets(serviceType != null ? [serviceType] : undefined)
       .then((f) => {
         if (cancelled) return;
         const top = f.maxPrice;
         setFacets({
           maxPrice:
             top > 0 ? Math.max(DEFAULT_MAX_PRICE, Math.ceil(top / 10) * 10) : DEFAULT_MAX_PRICE,
-          addOns: f.additionalServiceNames,
+          addOns: f.additionalServiceKinds ?? [],
         });
       })
       .catch(() => {
@@ -312,7 +313,9 @@ export default function CreateGroupRequestScreen() {
       acceptedSpecies: filters.petTypes.length
         ? filters.petTypes.reduce((all, f) => all | f, 0)
         : undefined,
-      additionalServiceNames: filters.addOns.length ? filters.addOns : undefined,
+      additionalServiceKinds: filters.addOns.length
+        ? filters.addOns.reduce((all, kind) => all | kind, 0)
+        : undefined,
       minPrice: priceBounded && filters.priceRange[0] > 0 ? filters.priceRange[0] : undefined,
       maxPrice:
         priceBounded && filters.priceRange[1] < facets.maxPrice ? filters.priceRange[1] : undefined,
@@ -425,7 +428,7 @@ export default function CreateGroupRequestScreen() {
               minRating: filterParams.minRating,
               acceptedSpecies: filterParams.acceptedSpecies,
               onSaleOnly: filters.onSaleOnly,
-              requiredAddOnNames: filters.addOns,
+              requiredAddOnKinds: filterParams.additionalServiceKinds,
               maxDistanceKm,
             }
           : {}),

@@ -3,6 +3,27 @@
 @tailwind utilities;
 
 /*
+ * Web only. A focused text field showed the browser's own focus ring: a black rectangle drawn
+ * around the bare <input> INSIDE the app's rounded field (icon, padding and border around it),
+ * so it never lined up with anything. The field itself shows focus instead — its border turns
+ * brand green — whether the border is on the input or on the row that wraps it (an icon and the
+ * input side by side). A row without a border of its own shows no change, the input still has
+ * the caret, and keyboard focus on buttons and links keeps the browser's ring.
+ */
+input:not([type='checkbox']):not([type='radio']),
+textarea,
+select {
+  outline: none;
+}
+input:not([type='checkbox']):not([type='radio']):focus,
+textarea:focus,
+select:focus,
+div:has(> input:not([type='checkbox']):not([type='radio']):focus),
+div:has(> textarea:focus) {
+  border-color: #00c870 !important;
+}
+
+/*
  * Web only — NativeWind compiles the directives above into native styles and ignores plain
  * CSS selectors like these, which have no meaning outside a DOM.
  *

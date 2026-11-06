@@ -17,7 +17,8 @@ type Props = {
   /** Absent on the history tabs — there is nothing left to decide. */
   onAccept?: (request: GroupBookingRequestDto) => void;
   onDecline?: (request: GroupBookingRequestDto) => void;
-  onOpenBooking?: (bookingId: number) => void;
+  /** Opens the booking an accepted request became (`linkTo`, so it is a link on the web). */
+  bookingLink?: (bookingId: number) => { href?: string; onPress: () => void };
 };
 
 /**
@@ -30,7 +31,7 @@ export default function GroupRequestCard({
   busy,
   onAccept,
   onDecline,
-  onOpenBooking,
+  bookingLink,
 }: Props) {
   const { isDarkMode, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
   const { t, tEnum } = useLocale();
@@ -150,10 +151,10 @@ export default function GroupRequestCard({
             </TouchableOpacity>
           </View>
         </View>
-      ) : r.bookingId && onOpenBooking ? (
+      ) : r.bookingId && bookingLink ? (
         <TouchableOpacity
-          accessibilityRole="button"
-          onPress={() => onOpenBooking(r.bookingId!)}
+          {...(bookingLink(r.bookingId) as object)}
+          accessibilityRole="link"
           className="mt-4 flex-row items-center self-start">
           <Text className="text-sm font-semibold text-brand-600">
             {t('groupRequest.viewBooking')}

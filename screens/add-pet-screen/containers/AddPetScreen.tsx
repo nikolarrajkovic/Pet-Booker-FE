@@ -85,7 +85,7 @@ export default function AddPetScreen() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          console.log('Location permission denied, defaulting to metric');
+          if (__DEV__) console.log('Location permission denied, defaulting to metric');
           return;
         }
 
@@ -104,10 +104,10 @@ export default function AddPetScreen() {
           setWeightUnit(useMetric ? 'kg' : 'lbs');
           setHeightUnit(useMetric ? 'cm' : 'in');
 
-          console.log('Country:', countryCode, 'isMetric:', useMetric);
+          if (__DEV__) console.log('Country:', countryCode, 'isMetric:', useMetric);
         }
       } catch (error) {
-        console.log('Error getting location:', error);
+        if (__DEV__) console.log('Error getting location:', error);
       }
     })();
   }, []);

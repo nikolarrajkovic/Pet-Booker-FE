@@ -1,6 +1,7 @@
 import { apiJson, apiPage, type PagedResult } from './http';
 import { declaredWriteCurrency } from './currency';
 import type { AddressDto } from './service-providers';
+import type { AdditionalServiceDto } from './services';
 
 /**
  * Group requests — "ask several providers at once" (`/api/group-booking-requests`).
@@ -66,6 +67,11 @@ export type GroupBookingEligibleServiceReadDto = {
   isPreselected: boolean;
   /** Non-empty → one must be picked to accept (the booking's end follows its duration). */
   pricingOptions: GroupBookingPricingOptionReadDto[];
+  /**
+   * The extras the owner asked for, as this service offers them. Accepting puts them on the
+   * booking's bill (a per-distance one priced from the trip once the address is known).
+   */
+  requiredExtras: AdditionalServiceDto[];
 };
 
 export type GroupBookingRequestDto = {
@@ -103,7 +109,8 @@ export type GroupBookingRequestDto = {
   minRating?: number | null;
   acceptedSpecies?: number | null;
   onSaleOnly: boolean;
-  requiredAddOnNames: string[];
+  /** `AdditionalServiceKind` FLAGS: kinds of extra every provider's service must offer. */
+  requiredAddOnKinds?: number | null;
   acceptedServiceProviderId?: number | null;
   acceptedServiceProviderName?: string | null;
   bookingId?: number | null;
@@ -154,7 +161,8 @@ export type CreateGroupBookingRequestInput = {
   minRating?: number;
   acceptedSpecies?: number;
   onSaleOnly?: boolean;
-  requiredAddOnNames?: string[];
+  /** `AdditionalServiceKind` FLAGS OR-ed: kinds of extra the provider's service must offer. */
+  requiredAddOnKinds?: number;
   /**
    * AnyEligible: ask only providers within this many km (1–100) of the place, else of the
    * owner's home address. Dropped by the server when neither is on the map.
@@ -181,7 +189,6 @@ export function createGroupBookingRequest(
       userId: 0, // bound from the session server-side
       ...input,
       providers: input.providers ?? [],
-      requiredAddOnNames: input.requiredAddOnNames ?? [],
       onSaleOnly: input.onSaleOnly ?? false,
       currency: declaredWriteCurrency(),
     },

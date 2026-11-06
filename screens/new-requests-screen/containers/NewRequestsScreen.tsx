@@ -34,10 +34,12 @@ import ResponsiveGrid from '../../../components/shared/ResponsiveGrid';
 import ResponsiveModal from '../../../components/shared/ResponsiveModal';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { formatLongDate } from '../../../i18n/dates';
+import { addonLabel } from '../../../services/service-addons';
 
 // Translate function shape shared by the helpers below (labels follow the
 // active language; the container passes its useLocale().t down).
 type TFn = (key: any, params?: Record<string, string | number>) => string;
+type TEnumFn = Parameters<typeof addonLabel>[0];
 
 function relativeTime(t: TFn, iso?: string): string {
   if (!iso) return '';
@@ -55,12 +57,12 @@ function petTypeOf(pet: any): ServiceRequest['petType'] {
   return 'other';
 }
 
-// The extras charged on this booking, straight off its frozen bill lines. Names are the
-// provider's own (shown verbatim) and the amount is what was actually charged — no derivation
-// from flags, and no recomputing: the server froze both when it priced the booking.
-function selectedAddOns(_t: TFn, b: BookingDto): string[] {
+// The extras charged on this booking, straight off its frozen bill lines: each one's kind in the
+// reader's language and the amount actually charged — no recomputing, the server froze it when it
+// priced the booking.
+function selectedAddOns(tEnum: TEnumFn, b: BookingDto): string[] {
   return (b.additionalServices ?? []).map((line) => {
-    const named = 'name' in line ? line.name : '';
+    const named = 'kind' in line ? addonLabel(tEnum, line) : '';
     const price = 'price' in line ? line.price : 0;
     return price > 0 ? `${named} • ${formatMoney(price, b.priceCurrency)}` : named;
   });
@@ -70,7 +72,7 @@ function selectedAddOns(_t: TFn, b: BookingDto): string[] {
 // Add-ons come from the booking's include* flags (selectedAddOns). Fields the
 // booking API still doesn't carry (client phone, location, owner notes, pet
 // age/weight) are blank — see BACKEND_GAPS.md.
-function bookingToRequest(t: TFn, b: BookingDto): ServiceRequest {
+function bookingToRequest(t: TFn, tEnum: TEnumFn, b: BookingDto): ServiceRequest {
   const from = parseBookingDate(b.bookingFrom);
   const to = parseBookingDate(b.bookingTo);
   const hours = Math.max(0, Math.round(((to.getTime() - from.getTime()) / 3600000) * 10) / 10);
@@ -107,7 +109,7 @@ function bookingToRequest(t: TFn, b: BookingDto): ServiceRequest {
     totalPrice: b.totalPrice,
     basePrice: b.basePrice,
     currency: b.priceCurrency ?? null,
-    additionalServices: selectedAddOns(t, b), // pickup / drop-off / special-needs the booker picked
+    additionalServices: selectedAddOns(tEnum, b), // pickup / drop-off / special-needs the booker picked
     // The customer's note for the provider (feedback 2026-10-21; there was no field for it).
     notesFromOwner: b.note ?? '',
     status,
@@ -160,7 +162,7 @@ export default function NewRequestsScreen() {
     placeholderColor,
   } = useThemeColors();
   const { showError, showSuccess } = useToast();
-  const { t, tPlural } = useLocale();
+  const { t, tPlural, tEnum } = useLocale();
   const [activeTab, setActiveTab] = useState<FilterTab>('new');
   const [busyId, setBusyId] = useState<number | null>(null);
   // Decline-reason modal: the request being declined + the partner's reason text.
@@ -221,7 +223,10 @@ export default function NewRequestsScreen() {
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-[#F5F7FA]';
   const tabBg = cardBg;
 
-  const filtered = useMemo(() => list.items.map((b) => bookingToRequest(t, b)), [list.items, t]);
+  const filtered = useMemo(
+    () => list.items.map((b) => bookingToRequest(t, tEnum, b)),
+    [list.items, t, tEnum]
+  );
   const newCount = counts.new;
 
   // A decided request leaves the tab it was in (New to Accepted or Declined); on All it stays, updated.

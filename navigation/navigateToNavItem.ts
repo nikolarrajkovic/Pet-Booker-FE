@@ -1,6 +1,34 @@
 import { useEffect, useState } from 'react';
+import { Platform, type GestureResponderEvent } from 'react-native';
+import { getPathFromState } from '@react-navigation/native';
 import { navigateFromOutside, resetFromOutside, navigationRef } from './navigationRef';
+import { linking } from './linking';
+import { followLink } from './links';
 import type { NavItem } from './navItems';
+
+/**
+ * The web address a nav item opens — the `href` that makes a sidebar entry a real link, so it can
+ * be middle-clicked, Ctrl/Cmd-clicked or opened from the context menu in a new tab. The entries
+ * used to be press handlers only: the browser saw no link at all, and none of that worked.
+ * Undefined off the web.
+ */
+export function navItemHref(item: NavItem): string | undefined {
+  if (Platform.OS !== 'web' || !linking.config) return undefined;
+  const route = { name: item.route, params: item.params };
+  const state = item.isTab
+    ? { routes: [{ name: 'MainTabs', state: { routes: [route] } }] }
+    : { index: 1, routes: [{ name: 'MainTabs' }, route] };
+  try {
+    return getPathFromState(state as any, linking.config);
+  } catch {
+    return undefined;
+  }
+}
+
+/** `onPress` for a nav link (`followLink`: a click meant for a new tab is left to the browser). */
+export function pressNavItem(item: NavItem | undefined, event?: GestureResponderEvent): void {
+  followLink(event, () => navigateToNavItem(item));
+}
 
 /**
  * Navigates to a nav item from the shell, which sits **outside** the navigator.

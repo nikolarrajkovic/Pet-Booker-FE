@@ -379,7 +379,7 @@ function ServiceListCard({
                 <View key={i} className={`flex-row items-center ${pricingBg} rounded-lg px-2 py-1`}>
                   <Ionicons name={addonIcon(svc.chargeType) as any} size={13} color="#6B7280" />
                   <Text className={`text-xs ${subtextColor} ml-1`}>
-                    {additionalServiceTitle(t, svc, service.name)}
+                    {additionalServiceTitle(t, tEnum, svc)}
                     {/* A per-distance extra has no single price until a trip is known, so show
                         its base fee with a "+" to signal the per-km part. */}
                     {svc.chargeType === AdditionalServiceChargeType.PerDistance
