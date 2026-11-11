@@ -9,6 +9,24 @@ import { declaredWriteCurrency } from './currency';
 // server-side (a provider can only manage options on their own services).
 export type { ServicePricingOptionDto };
 
+type SortableOption = { id?: number | null; durationMinutes: number; price: number };
+
+/**
+ * A service's options in the order they are offered: shortest first, then the cheaper of two the
+ * same length, then the older (lower id). A partner enters them in any order, and the booking form
+ * listed "2 hours, 1 hour, 3 hours" as entered. The API sorts its reads the same way
+ * (`Domain.PricingOptionOrder`); sorting here too keeps the screens right against an API that
+ * doesn't yet. Returns a new array.
+ */
+export function sortPricingOptions<T extends SortableOption>(options: readonly T[]): T[] {
+  return [...options].sort(
+    (a, b) =>
+      a.durationMinutes - b.durationMinutes ||
+      a.price - b.price ||
+      (a.id ?? Number.MAX_SAFE_INTEGER) - (b.id ?? Number.MAX_SAFE_INTEGER)
+  );
+}
+
 /**
  * Declares the currency `price` is entered in. Unlike the options nested on a service
  * write (where the aggregate root's currency governs), this standalone CRUD carries its

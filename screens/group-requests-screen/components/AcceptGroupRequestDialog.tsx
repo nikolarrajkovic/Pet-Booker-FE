@@ -8,6 +8,7 @@ import { formatMoney } from '../../../services/currency';
 import type { GroupBookingRequestDto } from '../../../services/group-booking-requests';
 import { parseBookingDate } from '../../../services/bookings';
 import { addonLabel, addonPriceLabel } from '../../../services/service-addons';
+import { sortPricingOptions } from '../../../services/service-pricing-options';
 import { formatRequestWhen } from '../groupRequestFormat';
 
 type Props = {
@@ -168,7 +169,7 @@ export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }
               <Text className={`mb-2 mt-3 text-sm font-semibold ${textColor}`}>
                 {t('bookService.chooseDuration')}
               </Text>
-              {chosen!.pricingOptions.map((o) =>
+              {sortPricingOptions(chosen!.pricingOptions).map((o) =>
                 choice(
                   o.id === optionId,
                   () => setOptionId(o.id),
