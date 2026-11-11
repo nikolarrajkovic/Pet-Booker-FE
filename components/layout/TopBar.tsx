@@ -74,7 +74,8 @@ export default function TopBar() {
     placeholderColor,
     hex,
   } = useThemeColors();
-  const { currentUser, signOut, isProviderProfile, isLoggedIn } = useAuth();
+  const { currentUser, signOut, isProviderProfile, isLoggedIn, isPartner, isAdmin } = useAuth();
+  const canBecomePartner = isLoggedIn && !isPartner && !isProviderProfile && !isAdmin;
   const { t } = useLocale();
   const { unreadCount } = useNotifications();
   const { unreadCount: unreadMessages } = useMessages();
@@ -121,7 +122,7 @@ export default function TopBar() {
     icon: React.ComponentProps<typeof Ionicons>['name'],
     label: string,
     onPress: () => void,
-    danger = false
+    tone: 'default' | 'brand' | 'danger' = 'default'
   ) => (
     <Pressable
       onPress={onPress}
@@ -139,8 +140,21 @@ export default function TopBar() {
           : 'transparent',
         cursor: 'pointer',
       })}>
-      <Ionicons name={icon} size={18} color={danger ? '#EF4444' : hex.subtext} />
-      <Text className={`ml-3 text-sm ${danger ? 'text-red-500' : textColor}`}>{label}</Text>
+      <Ionicons
+        name={icon}
+        size={18}
+        color={tone === 'danger' ? '#EF4444' : tone === 'brand' ? BRAND_GREEN : hex.subtext}
+      />
+      <Text
+        className={`ml-3 text-sm ${
+          tone === 'danger'
+            ? 'text-red-500'
+            : tone === 'brand'
+              ? 'font-semibold text-brand-600'
+              : textColor
+        }`}>
+        {label}
+      </Text>
     </Pressable>
   );
 
@@ -289,6 +303,19 @@ export default function TopBar() {
               go(isProviderProfile ? 'BusinessProfile' : 'Account')
             )}
             {menuItem('settings-outline', t('profile.settings'), () => go('Settings'))}
+            {/* The way in for a customer who wants to offer services; Profile shows the same as a
+                banner. Not for partners, managed partners or admins, who have nothing to apply for. */}
+            {canBecomePartner ? (
+              <>
+                <View className={`my-1 border-t ${borderColor}`} />
+                {menuItem(
+                  'briefcase-outline',
+                  t('profile.becomePartner'),
+                  () => go('BecomePartner'),
+                  'brand'
+                )}
+              </>
+            ) : null}
             <View className={`my-1 border-t ${borderColor}`} />
             {menuItem(
               'log-out-outline',
@@ -297,7 +324,7 @@ export default function TopBar() {
                 setMenuOpen(false);
                 void signOut();
               },
-              true
+              'danger'
             )}
           </View>
         </Pressable>
