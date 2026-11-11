@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  type ViewStyle,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { linkTo } from '../../../navigation/links';
@@ -795,21 +796,31 @@ export default function ServiceDetailScreen() {
           <ActivityIndicator size="large" color={BRAND_GREEN} />
         </View>
       ) : isWebLayout ? (
-        // Only the details scroll on the web design: the page title and the booking card stay
-        // where they are, so the price and Book Now are always beside whatever is being read
-        // (`webFixed` stops the page itself from scrolling). The booking card used to be sticky
-        // inside a scrolling page, and before that scrolled away with the details.
-        <View className={`${gutter.px} flex-row`} style={{ flex: 1, minHeight: 0 }}>
-          <View
-            style={{ flex: 1, minWidth: 0, overflowY: 'auto', paddingBottom: 24 } as any}
-            {...({ dataSet: { detailsScroll: 'true' } } as any)}>
+        // Only the details move on the web design: the page title and the booking card stay where
+        // they are, so the price and Book Now are always beside whatever is being read (`webFixed`
+        // stops the page itself from scrolling). The scroll pane spans the whole width under the
+        // title, so its scrollbar sits on the window edge and the wheel works anywhere on the page,
+        // and the booking card is sticky at its top. The pane used to be the details column alone,
+        // which put the scrollbar in the middle of the page, between the details and the card.
+        <View
+          style={{ flex: 1, minHeight: 0, overflowY: 'auto' } as unknown as ViewStyle}
+          {...({ dataSet: { detailsScroll: 'true' } } as any)}>
+          <View className={`${gutter.px} flex-row items-start`} style={{ paddingBottom: 24 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View
+                onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
+                className={`${cardBg} overflow-hidden rounded-2xl border ${borderColor}`}>
+                {details}
+              </View>
+            </View>
+            {/* `position: sticky` is web-only CSS; react-native-web passes it straight through. */}
             <View
-              onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
-              className={`${cardBg} overflow-hidden rounded-2xl border ${borderColor}`}>
-              {details}
+              style={
+                { width: 360, marginLeft: 32, position: 'sticky', top: 0 } as unknown as ViewStyle
+              }>
+              {bookingPanel}
             </View>
           </View>
-          <View style={{ width: 360, marginLeft: 32 }}>{bookingPanel}</View>
         </View>
       ) : (
         <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 110 }}>
