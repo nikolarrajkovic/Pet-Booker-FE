@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ResponsiveModal from '../../../components/shared/ResponsiveModal';
+import FormIssues from '../../../components/shared/FormIssues';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
@@ -38,12 +39,15 @@ export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }
   const [serviceId, setServiceId] = useState<number | null>(null);
   const [optionId, setOptionId] = useState<number | null>(null);
   const [startIn, setStartIn] = useState<number | null>(null);
+  // Accept was pressed before every choice was made: list what is left.
+  const [tried, setTried] = useState(false);
 
   useEffect(() => {
     const preselected = services.find((s) => s.isPreselected) ?? services[0];
     setServiceId(preselected?.serviceId ?? null);
     setOptionId(null);
     setStartIn(null);
+    setTried(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request?.id]);
 
@@ -66,6 +70,15 @@ export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }
   const clock = (d: Date) =>
     d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
   const ready = chosen != null && (!needsOption || optionId != null) && (!asap || startIn != null);
+  // Which choice Accept is still waiting for. It used to be greyed out and unpressable with no
+  // reason given; now it stays grey but pressing it lists these, the dialog's own questions.
+  const unanswered = [
+    chosen == null ? t('groupRequest.withService') : null,
+    chosen != null && needsOption && optionId == null
+      ? t('bookService.chooseDuration').replace(/\s*\*$/, '')
+      : null,
+    asap && startIn == null ? t('groupRequest.startInTitle') : null,
+  ].filter((q): q is string => !!q);
 
   const choice = (
     active: boolean,
@@ -199,6 +212,7 @@ export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }
           )}
         </ScrollView>
         <Text className={`mb-4 mt-3 text-xs ${subtextColor}`}>{t('groupRequest.acceptNote')}</Text>
+        <FormIssues issues={tried ? unanswered : []} compact className="mb-3" />
         <View className="flex-row" style={{ gap: 12 }}>
           <TouchableOpacity
             accessibilityRole="button"
@@ -208,11 +222,14 @@ export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }
           </TouchableOpacity>
           <TouchableOpacity
             accessibilityRole="button"
-            disabled={!ready}
-            onPress={() =>
-              chosen &&
-              onConfirm(chosen.serviceId, needsOption ? optionId : null, asap ? startIn : null)
-            }
+            aria-disabled={!ready}
+            onPress={() => {
+              if (!ready || !chosen) {
+                setTried(true);
+                return;
+              }
+              onConfirm(chosen.serviceId, needsOption ? optionId : null, asap ? startIn : null);
+            }}
             className={`flex-1 items-center rounded-xl py-3 ${ready ? 'bg-brand-500' : 'bg-gray-300'}`}>
             <Text className="font-semibold text-white">{t('groupRequest.acceptConfirm')}</Text>
           </TouchableOpacity>

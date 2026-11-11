@@ -32,6 +32,7 @@ const sr: TranslationDict = {
     select: 'Izaberi',
     optional: 'Opciono',
     required: 'Obavezno',
+    toContinue: 'Da biste nastavili:',
     saving: 'Čuvanje…',
     somethingWentWrong: 'Došlo je do greške. Pokušajte ponovo.',
     noResults: 'Nema rezultata',

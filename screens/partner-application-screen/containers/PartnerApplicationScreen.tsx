@@ -19,7 +19,14 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { PersonalInfoStep, ServiceInfoStep, DocumentsStep } from '../components';
 import type { CertificateEntry } from '../components/DocumentsStep';
-import { applicationStepErrors, firstIncompleteStep } from '../applicationValidation';
+import {
+  applicationStepErrors,
+  firstIncompleteStep,
+  type ApplicationErrors,
+  type ApplicationField,
+} from '../applicationValidation';
+import FormIssues, { type FormIssue } from '../../../components/shared/FormIssues';
+import type { TranslationKey } from '../../../i18n';
 import {
   createServiceProvider,
   AddressDto,
@@ -33,6 +40,22 @@ import { showAlert } from '../../../services/alert';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import StepProgress from '../../../components/shared/StepProgress';
 import { useResponsive } from '../../../hooks/useResponsive';
+
+/** Each checked field's label on the form, for naming what is missing. */
+const FIELD_LABELS: Record<ApplicationField, TranslationKey> = {
+  fullName: 'partnerApplication.fullName',
+  email: 'partnerApplication.emailAddress',
+  phone: 'partnerApplication.phoneNumber',
+  streetAddress: 'partnerApplication.streetAddress',
+  city: 'partnerApplication.city',
+  zipCode: 'partnerApplication.zipCode',
+  serviceTypes: 'partnerApplication.serviceTypesLabel',
+  yearsOfExperience: 'partnerApplication.yearsOfExperience',
+  aboutYou: 'partnerApplication.aboutMe',
+  motivation: 'partnerApplication.motivation',
+  profilePhoto: 'partnerApplication.profilePhoto',
+  governmentIdFront: 'partnerApplication.governmentId',
+};
 
 // Reads a native File object as a base64 data URI using FileReader — pure memory, no network.
 function fileToDataUri(file: File): Promise<string> {
@@ -309,10 +332,22 @@ export default function PartnerApplicationScreen() {
   const [attemptedSteps, setAttemptedSteps] = useState<number[]>([]);
   const stepErrors = (s: number) =>
     attemptedSteps.includes(s) ? applicationStepErrors(s, formData, validationExtras) : {};
+  // The missing fields by name, beside Continue and in the toast: "fill in the highlighted
+  // fields" left the reader hunting for the outline, often above the fold.
+  const issuesFrom = (errors: ApplicationErrors): FormIssue[] =>
+    (Object.keys(errors) as ApplicationField[]).map((field) => ({
+      label: t(FIELD_LABELS[field]),
+      message: t(errors[field] as TranslationKey),
+    }));
   const blockStep = (s: number) => {
     setAttemptedSteps((prev) => (prev.includes(s) ? prev : [...prev, s]));
     setStep(s);
-    showError(t('partnerApplication.fixHighlighted'));
+    const missing = issuesFrom(applicationStepErrors(s, formData, validationExtras));
+    showError(
+      missing.length > 0
+        ? `${t('common.toContinue')} ${missing.map((m) => m.label).join(', ')}`
+        : t('partnerApplication.fixHighlighted')
+    );
   };
 
   const handleContinue = async () => {
@@ -390,22 +425,26 @@ export default function PartnerApplicationScreen() {
   };
 
   const actions = (
-    <TouchableOpacity
-      accessibilityRole="button"
-      disabled={isSubmitting}
-      onPress={handleContinue}
-      className="items-center rounded-2xl bg-brand-500 py-4"
-      style={{ opacity: isSubmitting ? 0.7 : 1 }}>
-      {isSubmitting ? (
-        <ActivityIndicator color="white" />
-      ) : (
-        <Text className="text-lg font-bold text-white">
-          {step === totalSteps
-            ? t('partnerApplication.submitApplication')
-            : t('partnerApplication.continue')}
-        </Text>
-      )}
-    </TouchableOpacity>
+    <View>
+      {/* On a phone this sits in the pinned footer, where a list would cover the form. */}
+      <FormIssues issues={issuesFrom(stepErrors(step))} compact={!isWebLayout} className="mb-3" />
+      <TouchableOpacity
+        accessibilityRole="button"
+        disabled={isSubmitting}
+        onPress={handleContinue}
+        className="items-center rounded-2xl bg-brand-500 py-4"
+        style={{ opacity: isSubmitting ? 0.7 : 1 }}>
+        {isSubmitting ? (
+          <ActivityIndicator color="white" />
+        ) : (
+          <Text className="text-lg font-bold text-white">
+            {step === totalSteps
+              ? t('partnerApplication.submitApplication')
+              : t('partnerApplication.continue')}
+          </Text>
+        )}
+      </TouchableOpacity>
+    </View>
   );
 
   return (

@@ -32,6 +32,7 @@ const ru: TranslationDict = {
     select: 'Выбрать',
     optional: 'Необязательно',
     required: 'Обязательно',
+    toContinue: 'Чтобы продолжить:',
     saving: 'Сохранение…',
     somethingWentWrong: 'Что-то пошло не так. Попробуйте снова.',
     noResults: 'Ничего не найдено',
