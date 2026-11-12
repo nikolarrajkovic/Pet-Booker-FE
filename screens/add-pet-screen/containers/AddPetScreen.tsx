@@ -19,7 +19,9 @@ import ScreenLayout from '../../../components/shared/ScreenLayout';
 import FormCard from '../../../components/shared/FormCard';
 import { PetPhotoUploader, PetTypeSelector, SexSelector } from '../components';
 import DatePicker from '../../../components/shared/DatePicker';
-import { createPet, updatePet } from '../../../services/pets';
+import { createPet, getPet, updatePet } from '../../../services/pets';
+import { LoadingState, MessageState } from '../../../components/shared/ListState';
+import { toPetFormValues, type PetFormValues } from '../petForm';
 import { getErrorMessage } from '../../../services/http';
 import { useAuth } from '../../../context/AuthContext';
 import { showAlert } from '../../../services/alert';
@@ -31,38 +33,92 @@ type AddPetRouteParams = {
   // Set by flows that push AddPet mid-task (e.g. BookService with no pets):
   // after a successful save, pop back to the caller instead of going to MyPets.
   goBackOnSave?: boolean;
-  pet?: {
-    id: string;
-    name: string;
-    petTypeNum?: number;
-    sexNum?: number;
-    breed: string;
-    dateOfBirth?: string;
-    weight: string;
-    height: string;
-    dietaryNotes?: string;
-    favoriteFood?: string;
-    additionalNotes?: string;
-    image: string | null;
-    photos?: {
-      id: number;
-      src: string;
-      alt: string;
-      name: string;
-      fileUploadId: number;
-      isSelected: boolean;
-      contentType: number;
-      uploadedAt: string;
-    }[];
-  };
+  /** EditPet: the pet being edited. Its address (`/pets/{id}/edit`) carries only this. */
+  petId?: number | string;
+  /** EditPet opened from My Pets: the pet's values in memory, so the form opens at once. */
+  pet?: PetFormValues;
 };
 
+/**
+ * Add Pet (`/pets/new`) and Edit Pet (`/pets/{id}/edit`): one form. Opened from My Pets, Edit Pet
+ * starts from the values handed over in memory; opened from its address (a reload, a bookmark,
+ * the browser's back and forward) it has only the id, so it loads the pet first. Edit Pet used to
+ * share Add Pet's route with the whole pet as a param, which the web wrote into the address as
+ * `/pets/new?pet=[object Object]` and a reload handed back as that string: an empty form.
+ */
 export default function AddPetScreen() {
+  const navigation = useNavigation();
+  const route = useRoute<RouteProp<{ params: AddPetRouteParams }, 'params'>>();
+  const { bgColor } = useThemeColors();
+  const { t } = useLocale();
+  const handedOver = route.params?.pet;
+  const petId = route.params?.petId;
+  const needsLoad = !handedOver && petId != null;
+  const [loaded, setLoaded] = useState<PetFormValues | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!needsLoad) return;
+    let cancelled = false;
+    setLoadError(null);
+    getPet(petId)
+      .then((pet) => {
+        if (!cancelled) setLoaded(toPetFormValues(pet));
+      })
+      .catch((error) => {
+        if (!cancelled) setLoadError(getErrorMessage(error, t('pets.loadError')));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsLoad, petId, t]);
+
+  if (needsLoad && !loaded) {
+    return (
+      <ScreenLayout
+        narrow
+        headerVariant="standard"
+        showBackButton
+        headerTitle={t('addPet.titleEdit')}
+        contentBg={bgColor}>
+        {loadError ? (
+          <MessageState
+            icon="alert-circle-outline"
+            tone="error"
+            message={loadError}
+            action={{
+              label: t('profile.pets'),
+              onPress: () => (navigation as any).navigate('MyPets'),
+            }}
+          />
+        ) : (
+          <LoadingState />
+        )}
+      </ScreenLayout>
+    );
+  }
+
+  const existingPet = handedOver ?? loaded ?? undefined;
+  return (
+    <PetForm
+      // A fresh form per pet: its fields take their starting values once, when they mount.
+      key={existingPet?.id ?? 'new'}
+      existingPet={existingPet}
+      goBackOnSave={route.params?.goBackOnSave}
+    />
+  );
+}
+
+function PetForm({
+  existingPet,
+  goBackOnSave,
+}: {
+  existingPet?: PetFormValues;
+  goBackOnSave?: boolean;
+}) {
   const gutter = usePageGutter();
   const { isWebLayout } = useResponsive();
   const navigation = useNavigation();
-  const route = useRoute<RouteProp<{ params: AddPetRouteParams }, 'params'>>();
-  const existingPet = route.params?.pet;
   const {
     isDarkMode,
     bgColor: contentBg,
@@ -238,7 +294,7 @@ export default function AddPetScreen() {
       } else {
         await createPet(input);
       }
-      if (route.params?.goBackOnSave && navigation.canGoBack()) {
+      if (goBackOnSave && navigation.canGoBack()) {
         navigation.goBack();
       } else {
         // popTo, not navigate: in React Navigation v7 `navigate` no longer
