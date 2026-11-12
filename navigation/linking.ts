@@ -105,6 +105,15 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       // ── Account ───────────────────────────────────────────────────────────────────────────
       MyPets: 'pets',
       AddPet: 'pets/new',
+      // Editing has an address of its own. It used to be AddPet with the whole pet as a param,
+      // which read `/pets/new?pet=[object Object]` and came back from a reload as that string —
+      // an empty form. The pet's values are a head start from My Pets and stay out of the URL;
+      // opened from it, the screen loads the pet by id.
+      EditPet: {
+        path: 'pets/:petId/edit',
+        parse: { petId: Number },
+        stringify: { petId: (id: number | string) => String(id), pet: () => 'undefined' },
+      },
       MyBookings: 'bookings',
       // Group requests ("ask several providers"). The create form's browse-filter hand-off is a
       // convenience, not an address: opened from a URL it simply starts unfiltered.

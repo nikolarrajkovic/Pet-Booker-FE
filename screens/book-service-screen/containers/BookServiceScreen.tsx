@@ -62,6 +62,7 @@ import {
 } from '../../../services/service-addons';
 import { addressLabel } from '../../../services/geocoding';
 import { getBookingQuote, type BookingQuote } from '../../../services/booking-quote';
+import { sortPricingOptions } from '../../../services/service-pricing-options';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useResource } from '../../../hooks/useResource';
 import { LoadingState, MessageState } from '../../../components/shared/ListState';
@@ -233,7 +234,11 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
   // Pricing options (duration/price variants). A service that defines any
   // REQUIRES the booker to pick one — the server derives bookingTo and the
   // price from it. An option-less service keeps the classic 1h-slot booking.
-  const pricingOptions = selectedService.pricingOptions ?? [];
+  // Shortest first, however the partner entered them.
+  const pricingOptions = useMemo(
+    () => sortPricingOptions(selectedService.pricingOptions ?? []),
+    [selectedService.pricingOptions]
+  );
   const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
   const selectedOption = pricingOptions.find((o) => o.id === selectedOptionId) ?? null;
   const optionChosen = pricingOptions.length === 0 || selectedOption != null;

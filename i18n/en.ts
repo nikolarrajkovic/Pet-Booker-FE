@@ -36,6 +36,7 @@ const en = {
     select: 'Select',
     optional: 'Optional',
     required: 'Required',
+    toContinue: 'To continue:',
     saving: 'Saving…',
     somethingWentWrong: 'Something went wrong. Please try again.',
     noResults: 'No results found',

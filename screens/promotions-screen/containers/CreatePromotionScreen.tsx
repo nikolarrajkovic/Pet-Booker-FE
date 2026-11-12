@@ -81,13 +81,10 @@ export default function CreatePromotionScreen() {
   }, [providerId, showError, t]);
 
   const amountNum = useMemo(() => parseFloat(amount), [amount]);
-  const canSubmit =
-    serviceId != null &&
-    !isNaN(amountNum) &&
-    amountNum > 0 &&
-    (!isPercent || amountNum <= 100) &&
-    (!endDate || endDate >= startDate);
 
+  // Create stays pressable while the form is incomplete: each check below says what is missing.
+  // It used to be greyed out until all of them passed, so none of these messages could ever show
+  // and the button just did nothing.
   const handleCreate = async () => {
     if (serviceId == null) {
       showAlert(t('promotions.pickServiceTitle'), t('promotions.pickServiceMsg'));
@@ -363,10 +360,10 @@ export default function CreatePromotionScreen() {
           <TouchableOpacity
             accessibilityRole="button"
             onPress={handleCreate}
-            disabled={isSubmitting || !canSubmit}
+            disabled={isSubmitting}
             activeOpacity={0.8}
             className="mt-4 items-center rounded-2xl bg-brand-500 py-4"
-            style={{ opacity: isSubmitting || !canSubmit ? 0.6 : 1 }}>
+            style={{ opacity: isSubmitting ? 0.6 : 1 }}>
             {isSubmitting ? (
               <ActivityIndicator color="white" />
             ) : (

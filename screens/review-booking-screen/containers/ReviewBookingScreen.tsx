@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
-import { ScrollView, Text, View, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import {
+  ScrollView,
+  Text,
+  View,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  type ViewStyle,
+} from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -11,7 +19,9 @@ import { formatFullDate } from '../../../i18n/dates';
 import { durationDisplayLabel } from '../../my-services-screen/serviceModel';
 import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
+import PageHeader from '../../../components/shared/PageHeader';
 import StickyFooter from '../../../components/shared/StickyFooter';
+import { TOPBAR_HEIGHT } from '../../../components/layout/topBarMetrics';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { PriceBreakdown, PaymentMethodSelector, AddonLine } from '../components';
 import type { Appointment, CheckoutSection } from '../../book-service-screen/appointment';
@@ -260,260 +270,293 @@ export default function ReviewBookingScreen() {
     </TouchableOpacity>
   );
 
+  // The booking itself: what, when, for which pet, where, and how it is paid. The phone
+  // scrolls it above a pinned Confirm bar; the web design sets it beside the price card.
+  const details = (
+    <>
+      {sections.map((section, sectionIndex) => {
+        const service = section.service;
+        const image = imageOf(service);
+        return (
+          <View
+            key={service.id ?? sectionIndex}
+            className={sectionIndex > 0 ? `border-t ${borderColor}` : ''}>
+            {/* Service Info */}
+            <View className={`flex-row items-center ${gutter.px} py-5`}>
+              {image ? (
+                <Image
+                  source={{ uri: image }}
+                  className="mr-4 h-16 w-16 rounded-xl"
+                  resizeMode="cover"
+                />
+              ) : (
+                <View
+                  className={`mr-4 h-16 w-16 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
+                  <Ionicons name="paw" size={26} color="#9CA3AF" />
+                </View>
+              )}
+              <View className="flex-1">
+                <Text className={`text-lg font-bold ${textColor}`}>
+                  {service.name ?? 'Service'}
+                </Text>
+                {service.basicServiceName ? (
+                  <Text className="mt-1 text-sm text-brand-600">{service.basicServiceName}</Text>
+                ) : null}
+              </View>
+            </View>
+
+            {/* Booking Details — one block per appointment */}
+            <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
+              <Text className={`text-base font-semibold ${textColor} mb-4`}>
+                {t('reviewBooking.bookingDetails')}
+                {section.appointments.length > 1 ? ` (${section.appointments.length})` : ''}
+              </Text>
+              {section.appointments.map((apt, i) => {
+                const start = parseBookingDate(apt.bookingFrom);
+                const clock = (d: Date) =>
+                  d.toLocaleTimeString(undefined, {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false,
+                  });
+                return (
+                  <View key={apt.id} className={i > 0 ? `mt-4 border-t pt-4 ${borderColor}` : ''}>
+                    <Text className={`text-base font-semibold ${textColor}`}>
+                      {apt.service.name}{' '}
+                      <Text className={`${subtextColor} font-normal`}>
+                        {t('bookService.forPet', { name: apt.pet.name })}
+                      </Text>
+                    </Text>
+                    <View className="mt-1.5 flex-row items-center">
+                      <Ionicons
+                        name="calendar-outline"
+                        size={14}
+                        color={BRAND_GREEN}
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text className={`text-sm ${subtextColor}`}>{formatFullDate(start)}</Text>
+                    </View>
+                    <View className="mt-1 flex-row items-center">
+                      <Ionicons
+                        name="time-outline"
+                        size={14}
+                        color={BRAND_GREEN}
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text className={`text-sm ${subtextColor}`}>
+                        {/* The window, not just its start: "10:00 – 11:00", as Booking Details reads. */}
+                        {`${clock(start)} – ${clock(parseBookingDate(apt.bookingTo))}`}
+                      </Text>
+                    </View>
+                    {apt.pricingOptionName && (
+                      <View className="mt-1 flex-row items-center">
+                        <Ionicons
+                          name="pricetag-outline"
+                          size={14}
+                          color={BRAND_GREEN}
+                          style={{ marginRight: 6 }}
+                        />
+                        <Text className={`text-sm ${subtextColor}`}>
+                          {t('bookService.option', {
+                            name: durationDisplayLabel(t, apt.pricingOptionName),
+                          })}
+                        </Text>
+                      </View>
+                    )}
+                    {apt.addons.length > 0 && (
+                      <Text className={`text-xs ${subtextColor} mt-1`}>
+                        + {apt.addons.map((a) => addonLabel(tEnum, a)).join(', ')}
+                      </Text>
+                    )}
+                    {apt.pickupAddress ? (
+                      <View className="mt-1 flex-row items-start">
+                        <Ionicons
+                          name="car-outline"
+                          size={14}
+                          color={BRAND_GREEN}
+                          style={{ marginRight: 6, marginTop: 1 }}
+                        />
+                        <Text className={`text-xs ${subtextColor} flex-1`}>
+                          {t('reviewBooking.pickupLine', {
+                            address: addressLabel(apt.pickupAddress),
+                          })}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {apt.leaveOverAddress ? (
+                      <View className="mt-1 flex-row items-start">
+                        <Ionicons
+                          name="home-outline"
+                          size={14}
+                          color={BRAND_GREEN}
+                          style={{ marginRight: 6, marginTop: 1 }}
+                        />
+                        <Text className={`text-xs ${subtextColor} flex-1`}>
+                          {t('reviewBooking.dropoffLine', {
+                            address: addressLabel(apt.leaveOverAddress),
+                          })}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {apt.note ? (
+                      <View className="mt-1 flex-row items-start">
+                        <Ionicons
+                          name="chatbox-ellipses-outline"
+                          size={14}
+                          color={BRAND_GREEN}
+                          style={{ marginRight: 6, marginTop: 1 }}
+                        />
+                        <Text className={`text-xs ${subtextColor} flex-1`}>
+                          {t('reviewBooking.noteLine', { note: apt.note })}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        );
+      })}
+
+      {!isWebLayout && priceBreakdown}
+
+      <PaymentMethodSelector
+        isDarkMode={isDarkMode}
+        textColor={textColor}
+        subtextColor={subtextColor}
+        borderColor={borderColor}
+        selectedMethod={selectedPaymentMethod}
+        onSelectMethod={setSelectedPaymentMethod}
+      />
+      {/* Choosing "online" charges nothing here; the pay sheet is on the booking, once the
+        provider has confirmed. Without this the next screen's "sent to the provider" read
+        as if a payment had gone missing. */}
+      <Text className={`${gutter.px} -mt-2 pb-4 text-xs ${subtextColor}`}>
+        {payingCash ? t('reviewBooking.cashNote') : t('reviewBooking.payLaterNote')}
+        {asksDeposit ? ` ${t('reviewBooking.depositNote')}` : ''}
+      </Text>
+
+      {/* Cancellation Policy */}
+      <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
+        <Text className={`text-base font-semibold ${textColor} mb-3`}>
+          {t('reviewBooking.cancellationPolicy')}
+        </Text>
+        <Text className={`text-sm ${subtextColor} leading-6`}>
+          {asksDeposit
+            ? t('reviewBooking.cancellationPolicyDeposit')
+            : t('reviewBooking.cancellationPolicyText')}
+        </Text>
+        <TouchableOpacity
+          accessibilityRole="link"
+          onPress={() => (navigation as any).navigate('Legal', { doc: 'terms' })}
+          className="mt-2 self-start">
+          <Text className="text-sm font-semibold text-brand-600">{t('legal.fullTerms')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* What happens after Confirm. "Request sent" used to be the last thing the checkout
+        said, and nothing told the customer that the provider still has to accept, when they
+        pay, or where to talk to them. */}
+      <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
+        <Text className={`text-base font-semibold ${textColor} mb-3`}>
+          {t('reviewBooking.nextStepsTitle')}
+        </Text>
+        {[
+          t('reviewBooking.nextStep1'),
+          payingCash ? t('reviewBooking.nextStep2Cash') : t('reviewBooking.nextStep2Card'),
+          t('reviewBooking.nextStep3'),
+        ].map((step, i) => (
+          <View key={i} className="mb-3 flex-row items-start">
+            <View className="mr-3 h-6 w-6 items-center justify-center rounded-full bg-brand-500">
+              <Text className="text-xs font-bold text-white">{i + 1}</Text>
+            </View>
+            <Text className={`flex-1 text-sm leading-5 ${subtextColor}`}>{step}</Text>
+          </View>
+        ))}
+      </View>
+    </>
+  );
+
   return (
     <ScreenLayout
       headerVariant="standard"
       showBackButton
       headerTitle={t('reviewBooking.title')}
-      contentBg={contentBg}>
-      {/*
-        The checkout shape. On a phone the total and the confirm button are at the bottom of a
-        long scroll, with the button pinned so it is reachable at any offset. On a desktop that
-        same content fits beside the booking rather than under it: the price stays in view while
-        the user checks the dates and add-ons above it, which is what every checkout page does and
-        what a pinned bar is a small-screen substitute for.
-      */}
-      <View style={{ flex: 1, flexDirection: isWebLayout ? 'row' : 'column' }}>
-        {/* The main column, beside the aside on the web design. The page flattens every screen
-            ScrollView on the web (`flex: none`, styles/document-scroll.web.ts), so in this row the
-            scroll view sized itself to its longest line of text and pushed the total and Confirm
-            past the right edge of the window. A shrinkable column around it takes the width left
-            beside the aside instead. */}
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <ScrollView
-            className="flex-1"
-            contentContainerStyle={{ paddingBottom: isWebLayout ? 32 : 100 }}>
-            {sections.map((section, sectionIndex) => {
-              const service = section.service;
-              const image = imageOf(service);
-              return (
+      contentBg={contentBg}
+      // The web design lays the page out itself (below), so the price card can sit level with the
+      // title. Inert on the phone design.
+      webBare>
+      {isWebLayout ? (
+        /*
+          The checkout shape on a desktop: the price and Confirm beside the booking, staying in view
+          while the user checks the dates and add-ons, which is what every checkout page does and
+          what the phone's pinned bar is a small-screen substitute for.
+
+          One scroll pane spans the width under the top bar, so its scrollbar is on the window edge
+          and the wheel works anywhere on the page; the title and the details move in it, and the
+          card is sticky at its top, level with the Back link. The whole page used to scroll, which
+          took the card (and Confirm) away with the details, and the card began under the title,
+          well down the window (feedback 2026-11-08).
+        */
+        <View
+          style={{ flex: 1, minHeight: 0, overflowY: 'auto' } as unknown as ViewStyle}
+          {...({ dataSet: { checkoutScroll: 'true' } } as any)}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+            {/* The column pads its own rows; only the title needs the page gutter here. */}
+            <View style={{ flex: 1, minWidth: 0, paddingBottom: 32 }}>
+              <View className={gutter.px}>
+                <PageHeader title={t('reviewBooking.title')} showBackButton />
+              </View>
+              {details}
+            </View>
+
+            <View
+              // mr-8: the page gutter on the window side, as every page has (the column pads itself).
+              className="mr-8"
+              style={
+                {
+                  width: 360,
+                  marginLeft: 24,
+                  marginTop: 32,
+                  // `position: sticky` is web-only CSS; react-native-web passes it straight through.
+                  position: 'sticky',
+                  top: 32,
+                } as unknown as ViewStyle
+              }>
+              <View
+                className={`${cardBg} border ${borderColor} rounded-2xl`}
+                // Never taller than the window: a checkout of several services has a breakdown each,
+                // and a sticky card longer than the window would hold Confirm below the fold until the
+                // very end of the page. The breakdown scrolls instead; Confirm stays.
+                style={
+                  {
+                    padding: 20,
+                    maxHeight: `calc(100vh - ${TOPBAR_HEIGHT + 64}px)`,
+                  } as unknown as ViewStyle
+                }>
                 <View
-                  key={service.id ?? sectionIndex}
-                  className={sectionIndex > 0 ? `border-t ${borderColor}` : ''}>
-                  {/* Service Info */}
-                  <View className={`flex-row items-center ${gutter.px} py-5`}>
-                    {image ? (
-                      <Image
-                        source={{ uri: image }}
-                        className="mr-4 h-16 w-16 rounded-xl"
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View
-                        className={`mr-4 h-16 w-16 rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
-                        <Ionicons name="paw" size={26} color="#9CA3AF" />
-                      </View>
-                    )}
-                    <View className="flex-1">
-                      <Text className={`text-lg font-bold ${textColor}`}>
-                        {service.name ?? 'Service'}
-                      </Text>
-                      {service.basicServiceName ? (
-                        <Text className="mt-1 text-sm text-brand-600">
-                          {service.basicServiceName}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-
-                  {/* Booking Details — one block per appointment */}
-                  <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
-                    <Text className={`text-base font-semibold ${textColor} mb-4`}>
-                      {t('reviewBooking.bookingDetails')}
-                      {section.appointments.length > 1 ? ` (${section.appointments.length})` : ''}
-                    </Text>
-                    {section.appointments.map((apt, i) => {
-                      const start = parseBookingDate(apt.bookingFrom);
-                      const clock = (d: Date) =>
-                        d.toLocaleTimeString(undefined, {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          hour12: false,
-                        });
-                      return (
-                        <View
-                          key={apt.id}
-                          className={i > 0 ? `mt-4 border-t pt-4 ${borderColor}` : ''}>
-                          <Text className={`text-base font-semibold ${textColor}`}>
-                            {apt.service.name}{' '}
-                            <Text className={`${subtextColor} font-normal`}>
-                              {t('bookService.forPet', { name: apt.pet.name })}
-                            </Text>
-                          </Text>
-                          <View className="mt-1.5 flex-row items-center">
-                            <Ionicons
-                              name="calendar-outline"
-                              size={14}
-                              color={BRAND_GREEN}
-                              style={{ marginRight: 6 }}
-                            />
-                            <Text className={`text-sm ${subtextColor}`}>
-                              {formatFullDate(start)}
-                            </Text>
-                          </View>
-                          <View className="mt-1 flex-row items-center">
-                            <Ionicons
-                              name="time-outline"
-                              size={14}
-                              color={BRAND_GREEN}
-                              style={{ marginRight: 6 }}
-                            />
-                            <Text className={`text-sm ${subtextColor}`}>
-                              {/* The window, not just its start: "10:00 – 11:00", as Booking Details reads. */}
-                              {`${clock(start)} – ${clock(parseBookingDate(apt.bookingTo))}`}
-                            </Text>
-                          </View>
-                          {apt.pricingOptionName && (
-                            <View className="mt-1 flex-row items-center">
-                              <Ionicons
-                                name="pricetag-outline"
-                                size={14}
-                                color={BRAND_GREEN}
-                                style={{ marginRight: 6 }}
-                              />
-                              <Text className={`text-sm ${subtextColor}`}>
-                                {t('bookService.option', {
-                                  name: durationDisplayLabel(t, apt.pricingOptionName),
-                                })}
-                              </Text>
-                            </View>
-                          )}
-                          {apt.addons.length > 0 && (
-                            <Text className={`text-xs ${subtextColor} mt-1`}>
-                              + {apt.addons.map((a) => addonLabel(tEnum, a)).join(', ')}
-                            </Text>
-                          )}
-                          {apt.pickupAddress ? (
-                            <View className="mt-1 flex-row items-start">
-                              <Ionicons
-                                name="car-outline"
-                                size={14}
-                                color={BRAND_GREEN}
-                                style={{ marginRight: 6, marginTop: 1 }}
-                              />
-                              <Text className={`text-xs ${subtextColor} flex-1`}>
-                                {t('reviewBooking.pickupLine', {
-                                  address: addressLabel(apt.pickupAddress),
-                                })}
-                              </Text>
-                            </View>
-                          ) : null}
-                          {apt.leaveOverAddress ? (
-                            <View className="mt-1 flex-row items-start">
-                              <Ionicons
-                                name="home-outline"
-                                size={14}
-                                color={BRAND_GREEN}
-                                style={{ marginRight: 6, marginTop: 1 }}
-                              />
-                              <Text className={`text-xs ${subtextColor} flex-1`}>
-                                {t('reviewBooking.dropoffLine', {
-                                  address: addressLabel(apt.leaveOverAddress),
-                                })}
-                              </Text>
-                            </View>
-                          ) : null}
-                          {apt.note ? (
-                            <View className="mt-1 flex-row items-start">
-                              <Ionicons
-                                name="chatbox-ellipses-outline"
-                                size={14}
-                                color={BRAND_GREEN}
-                                style={{ marginRight: 6, marginTop: 1 }}
-                              />
-                              <Text className={`text-xs ${subtextColor} flex-1`}>
-                                {t('reviewBooking.noteLine', { note: apt.note })}
-                              </Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      );
-                    })}
-                  </View>
+                  style={
+                    { flexShrink: 1, minHeight: 0, overflowY: 'auto' } as unknown as ViewStyle
+                  }>
+                  {priceBreakdown}
                 </View>
-              );
-            })}
-
-            {!isWebLayout && priceBreakdown}
-
-            <PaymentMethodSelector
-              isDarkMode={isDarkMode}
-              textColor={textColor}
-              subtextColor={subtextColor}
-              borderColor={borderColor}
-              selectedMethod={selectedPaymentMethod}
-              onSelectMethod={setSelectedPaymentMethod}
-            />
-            {/* Choosing "online" charges nothing here; the pay sheet is on the booking, once the
-              provider has confirmed. Without this the next screen's "sent to the provider" read
-              as if a payment had gone missing. */}
-            <Text className={`${gutter.px} -mt-2 pb-4 text-xs ${subtextColor}`}>
-              {payingCash ? t('reviewBooking.cashNote') : t('reviewBooking.payLaterNote')}
-              {asksDeposit ? ` ${t('reviewBooking.depositNote')}` : ''}
-            </Text>
-
-            {/* Cancellation Policy */}
-            <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
-              <Text className={`text-base font-semibold ${textColor} mb-3`}>
-                {t('reviewBooking.cancellationPolicy')}
-              </Text>
-              <Text className={`text-sm ${subtextColor} leading-6`}>
-                {asksDeposit
-                  ? t('reviewBooking.cancellationPolicyDeposit')
-                  : t('reviewBooking.cancellationPolicyText')}
-              </Text>
-              <TouchableOpacity
-                accessibilityRole="link"
-                onPress={() => (navigation as any).navigate('Legal', { doc: 'terms' })}
-                className="mt-2 self-start">
-                <Text className="text-sm font-semibold text-brand-600">{t('legal.fullTerms')}</Text>
-              </TouchableOpacity>
+                <View className="mt-4">{confirmButton}</View>
+              </View>
             </View>
-
-            {/* What happens after Confirm. "Request sent" used to be the last thing the checkout
-              said, and nothing told the customer that the provider still has to accept, when they
-              pay, or where to talk to them. */}
-            <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
-              <Text className={`text-base font-semibold ${textColor} mb-3`}>
-                {t('reviewBooking.nextStepsTitle')}
-              </Text>
-              {[
-                t('reviewBooking.nextStep1'),
-                payingCash ? t('reviewBooking.nextStep2Cash') : t('reviewBooking.nextStep2Card'),
-                t('reviewBooking.nextStep3'),
-              ].map((step, i) => (
-                <View key={i} className="mb-3 flex-row items-start">
-                  <View className="mr-3 h-6 w-6 items-center justify-center rounded-full bg-brand-500">
-                    <Text className="text-xs font-bold text-white">{i + 1}</Text>
-                  </View>
-                  <Text className={`flex-1 text-sm leading-5 ${subtextColor}`}>{step}</Text>
-                </View>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-
-        {isWebLayout && (
-          <View
-            // mr-8: the page gutter on the window side, as every page has (the column pads itself).
-            className={`${cardBg} border ${borderColor} mr-8 rounded-2xl`}
-            style={{
-              width: 360,
-              marginLeft: 24,
-              marginTop: 20,
-              padding: 20,
-              alignSelf: 'flex-start',
-            }}>
-            {priceBreakdown}
-            <View className="mt-4">{confirmButton}</View>
           </View>
-        )}
-      </View>
-
-      {!isWebLayout && (
-        <StickyFooter className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
-          {confirmButton}
-        </StickyFooter>
+        </View>
+      ) : (
+        <>
+          <View style={{ flex: 1 }}>
+            <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
+              {details}
+            </ScrollView>
+          </View>
+          <StickyFooter className={`${cardBg} border-t ${borderColor} ${gutter.px} py-4`}>
+            {confirmButton}
+          </StickyFooter>
+        </>
       )}
     </ScreenLayout>
   );

@@ -317,6 +317,12 @@ function AppContent() {
                     component={AddPetScreen}
                     options={{ animation: 'slide_from_bottom' }}
                   />
+                  {/* The same form, editing: its own route so it has its own address. */}
+                  <Stack.Screen
+                    name="EditPet"
+                    component={AddPetScreen}
+                    options={{ animation: 'slide_from_bottom' }}
+                  />
                   <Stack.Screen name="Settings" component={SettingsScreen} />
                   <Stack.Screen name="Legal" component={LegalScreen} />
                   <Stack.Screen name="Help" component={HelpScreen} />
@@ -443,6 +449,7 @@ const SCREEN_TITLE_KEYS: Record<string, TranslationKey> = {
   // Account
   MyPets: 'profile.pets',
   AddPet: 'addPet.titleAdd',
+  EditPet: 'addPet.titleEdit',
   Account: 'account.title',
   ChangePassword: 'changePassword.title',
   Settings: 'settings.title',

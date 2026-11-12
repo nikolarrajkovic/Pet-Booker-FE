@@ -12,6 +12,7 @@ import DatePicker from '../../../components/shared/DatePicker';
 import PhoneInput from '../../../components/shared/PhoneInput';
 import { holdSignUpPassword, registerUser } from '../../../services/auth';
 import LegalAgreement from '../../../components/shared/LegalAgreement';
+import FormIssues, { type FormIssue } from '../../../components/shared/FormIssues';
 import { LEGAL_VERSION } from '../../../services/legal';
 import { ApiError } from '../../../services/http';
 import AuthLayout from '../../../components/layout/AuthLayout';
@@ -169,8 +170,36 @@ export default function RegisterScreen() {
   const [termsError, setTermsError] = useState('');
   const touch = (field: string) => setTouched((prev) => ({ ...prev, [field]: true }));
 
+  // What still stops the sign-up, listed above the button once it has been pressed: the fields
+  // mark themselves in red, but on this long form the one at fault was usually scrolled out of
+  // view, so Create Account looked like it did nothing. Clears itself as each one is fixed.
+  const [attempted, setAttempted] = useState(false);
+  const fieldLabels: Record<keyof typeof errors, string> = {
+    username: t('register.username'),
+    email: t('register.email'),
+    firstName: t('register.firstName'),
+    lastName: t('register.lastName'),
+    phone: t('register.phoneNumber'),
+    dateOfBirth: t('register.dateOfBirth'),
+    address: t('register.homeAddress'),
+    password: t('register.password'),
+    confirmPassword: t('register.confirmPassword'),
+  };
+  const issues: FormIssue[] = attempted
+    ? [
+        ...(Object.keys(errors) as (keyof typeof errors)[])
+          .filter((field) => errors[field])
+          .map((field) => ({
+            label: fieldLabels[field].replace(/\s*\*$/, ''),
+            message: t(errors[field] as any),
+          })),
+        ...(acceptedTerms ? [] : [{ message: t('legal.agreeRequired') }]),
+      ]
+    : [];
+
   // ─── Submit ───────────────────────────────────────────────────────────────
   const handleRegister = async () => {
+    setAttempted(true);
     setTouched({
       username: true,
       email: true,
@@ -696,6 +725,8 @@ export default function RegisterScreen() {
         error={termsError}
         className="mb-4"
       />
+
+      <FormIssues issues={issues} className="mb-4" />
 
       {/* Create Account Button */}
       <Button

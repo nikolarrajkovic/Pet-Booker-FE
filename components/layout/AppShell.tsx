@@ -37,8 +37,18 @@ const FULL_BLEED_ROUTES = new Set(['PartnerWelcome']);
 /**
  * Wraps the navigator in the web design's chrome: sidebar on the left, top bar above the content.
  *
- * **On mobile it renders `children` untouched** — the phone design is exactly what it was, and
- * this component adds one `useResponsive()` call to the tree.
+ * On the phone design, on the sign-in screens and on a full-bleed route there is no chrome: the
+ * wrappers are plain flex boxes that draw nothing, so those screens look exactly as they did when
+ * this returned bare `children` for them.
+ *
+ * ## The tree above the navigator never changes shape
+ *
+ * Every case renders the same three wrappers and only adds or removes the sidebar, the top bar and
+ * the pattern inside them. It used to return bare `children` for the chrome-less cases and the
+ * wrapped tree otherwise, and React reads a different parent as a different component: each move
+ * between the two (Register → the Legal page, Search → Sign in, a tab → the partner celebration,
+ * a window resized across the breakpoint) unmounted the whole navigator and built it again. Every
+ * screen in the stack lost its state on the way — a half-filled sign-up came back empty.
  *
  * ## Why the shell wraps the navigator instead of living in `ScreenLayout`
  *
@@ -63,22 +73,32 @@ export default function AppShell({ children, signedIn }: AppShellProps) {
   // single subscription on a ref the app already keeps.
   const activeRoute = useCurrentRouteName();
 
-  if (!isWebLayout) return <>{children}</>;
-  // Signed out, bare until the route is known (a cold start on /login must not flash the shell)
-  // and on the sign-in screens themselves.
-  if (!signedIn && (!activeRoute || AUTH_ROUTES.has(activeRoute))) return <>{children}</>;
-  // Same bare render as a signed-out screen: the route on screen wants the whole window.
-  if (activeRoute && FULL_BLEED_ROUTES.has(activeRoute)) return <>{children}</>;
+  const chrome =
+    isWebLayout &&
+    // Signed out, bare until the route is known (a cold start on /login must not flash the shell)
+    // and on the sign-in screens themselves.
+    !(!signedIn && (!activeRoute || AUTH_ROUTES.has(activeRoute))) &&
+    // The route on screen wants the whole window.
+    !(activeRoute && FULL_BLEED_ROUTES.has(activeRoute));
 
+  // One shape for every case (see "The tree above the navigator never changes shape" above): the
+  // chrome comes and goes as siblings *before* `children`, so the navigator keeps its place.
   return (
-    <View style={{ flex: 1, flexDirection: 'row', backgroundColor: hex.bg }}>
-      <SideNav activeRoute={activeRoute} />
+    <View
+      style={{
+        flex: 1,
+        flexDirection: 'row',
+        backgroundColor: chrome ? hex.bg : undefined,
+      }}>
+      {chrome ? <SideNav activeRoute={activeRoute} /> : null}
       <View style={{ flex: 1, minWidth: 0 }}>
-        <TopBar />
+        {chrome ? <TopBar /> : null}
         {/* `minHeight: 0` is what lets the navigator scroll inside this row instead of growing
             the page — without it a long screen pushes the whole shell taller than the window and
             the sidebar scrolls away with it. */}
-        <PatternBackground style={{ minHeight: 0 }}>{children}</PatternBackground>
+        <PatternBackground hidden={!chrome} style={{ minHeight: 0 }}>
+          {children}
+        </PatternBackground>
       </View>
     </View>
   );

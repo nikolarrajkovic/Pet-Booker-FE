@@ -299,6 +299,7 @@ describe('className only goes where NativeWind can see it', () => {
     'Button',
     'ServicePhoto',
     'LegalAgreement',
+    'FormIssues',
   ]);
 
   /**

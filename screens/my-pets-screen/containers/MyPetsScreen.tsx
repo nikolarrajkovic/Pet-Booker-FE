@@ -8,6 +8,7 @@ import { useLocale } from '../../../context/LocaleContext';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import { PetCard } from '../components';
 import { getPets, deletePet, PetResponse } from '../../../services/pets';
+import { toPetFormValues } from '../../add-pet-screen/petForm';
 import ActionPopup from '../../../components/shared/ActionPopup';
 import IllustratedEmptyState from '../../../components/shared/IllustratedEmptyState';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -155,20 +156,11 @@ export default function MyPetsScreen() {
               textColor={textColor}
               subtextColor={subtextColor}
               borderColor={borderColor}
+              // Its own address (/pets/{id}/edit); the values ride along so the form opens at once.
               onEdit={() =>
-                (navigation as any).navigate('AddPet', {
-                  pet: {
-                    ...toPetCardShape(pet),
-                    petTypeNum: pet.type,
-                    sexNum: pet.sex,
-                    weight: pet.weightKg ? String(pet.weightKg) : '',
-                    height: pet.heightCm ? String(pet.heightCm) : '',
-                    dateOfBirth: pet.dateOfBirth ?? undefined,
-                    dietaryNotes: pet.dietaryNotes ?? '',
-                    favoriteFood: pet.favoriteFood ?? '',
-                    additionalNotes: pet.additionalNotes ?? '',
-                    photos: pet.photos,
-                  },
+                (navigation as any).navigate('EditPet', {
+                  petId: pet.id,
+                  pet: toPetFormValues(pet),
                 })
               }
               onDelete={() => handleDelete(pet)}

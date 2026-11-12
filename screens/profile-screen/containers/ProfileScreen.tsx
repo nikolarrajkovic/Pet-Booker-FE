@@ -14,7 +14,7 @@ import { resolveImageUrl } from '../../../services/service-providers';
 import { getUser, UserDto } from '../../../services/users';
 import GuestProfile from '../components/GuestProfile';
 import { countBookings, BookingState } from '../../../services/bookings';
-import { MenuItem } from '../components';
+import { BecomePartnerBanner, MenuItem } from '../components';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import Constants from 'expo-constants';
 
@@ -256,18 +256,8 @@ export default function ProfileScreen() {
         contentContainerStyle={{ paddingTop: 24, paddingBottom: isWebLayout ? 32 : tabBarSpacing }}>
         {/* Become a Partner Banner — only for non-partners */}
         {!isPartner && (
-          <View className={`${gutter.mx} mb-6 rounded-2xl bg-brand-500 p-6`}>
-            <Text className="mb-2 text-xl font-bold text-white">{t('profile.becomePartner')}</Text>
-            <Text className="mb-4 text-sm text-brand-100">{t('profile.becomePartnerSub')}</Text>
-            <TouchableOpacity
-              accessibilityRole="button"
-              className="rounded-xl bg-white py-3"
-              activeOpacity={0.7}
-              onPress={() => (navigation as any).navigate('BecomePartner')}>
-              <Text className="text-center font-semibold text-brand-600">
-                {t('profile.learnMore')}
-              </Text>
-            </TouchableOpacity>
+          <View className={`${gutter.mx} mb-6`}>
+            <BecomePartnerBanner onPress={() => (navigation as any).navigate('BecomePartner')} />
           </View>
         )}
 

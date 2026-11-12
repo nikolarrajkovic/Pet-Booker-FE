@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Text, TextInput, View, TouchableOpacity, ScrollView } from 'react-native';
+import { Text, TextInput, View, TouchableOpacity, ScrollView, type ViewStyle } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Button from '../../../components/shared/Button';
@@ -782,7 +782,35 @@ export default function SearchScreen() {
   // Beside the rail a filter applies as it is touched, so the results it replaces stay on screen,
   // dimmed, until the new ones arrive. Swapping them for the loader collapsed the page to one
   // spinner and threw the reader back to the top on every chip.
+  //
+  // Dimming alone read as the page greying out rather than as a search running, so the loader
+  // dog sits on a card over the dimmed results. The card is `position: sticky` inside an overlay
+  // the height of the list: it starts over the first results and stays in view when the reader
+  // has scrolled down before touching a filter.
   const updatingInPlace = showFilterRail && isLoading && serviceDtos.length > 0 && !loadError;
+  const updatingOverlay = (
+    <View
+      pointerEvents="none"
+      style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center' }}>
+      <View
+        className={`${cardBg} rounded-2xl border px-8 pb-4 pt-2 ${borderColor}`}
+        // `position: sticky` is web-only CSS; the rail (and so this) is only drawn on the web
+        // design, and react-native-web passes the value straight through.
+        style={
+          {
+            position: 'sticky',
+            top: 140,
+            marginTop: 140,
+            shadowColor: '#000',
+            shadowOpacity: 0.12,
+            shadowRadius: 24,
+            shadowOffset: { width: 0, height: 8 },
+          } as unknown as ViewStyle
+        }>
+        <PetLoader size={104} label={t('search.findingServices')} />
+      </View>
+    </View>
+  );
   const body =
     isLoading && !updatingInPlace ? (
       <View className="flex-1 items-center justify-center py-20">
@@ -799,8 +827,11 @@ export default function SearchScreen() {
       </View>
     ) : viewMode === 'list' ? (
       updatingInPlace ? (
-        <View style={{ opacity: 0.5 }} pointerEvents="none" aria-busy>
-          {listContent}
+        <View style={{ position: 'relative' }} aria-busy>
+          <View style={{ opacity: 0.4 }} pointerEvents="none">
+            {listContent}
+          </View>
+          {updatingOverlay}
         </View>
       ) : (
         listContent

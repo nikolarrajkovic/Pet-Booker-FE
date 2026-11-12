@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import ServicePhoto from '../../../components/shared/ServicePhoto';
 import { useLocale } from '../../../context/LocaleContext';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useResponsive } from '../../../hooks/useResponsive';
@@ -70,7 +71,8 @@ export default function PetSelector({
 
       {/* A wrapping grid: two per row on a phone, three on the web design. One flex row of equal
           columns squeezed four pets into strips ~80px wide, and every further pet narrowed them
-          again. */}
+          again. A single pet keeps that size too: stretched across the row, its photo became a
+          wide band with the pet cut to its middle. */}
       <View className="flex-row flex-wrap gap-3">
         {pets.map((pet) => {
           const selected = selectedPets.includes(pet.id);
@@ -88,7 +90,7 @@ export default function PetSelector({
               disabled={pet.accepted === false}
               onPress={() => onTogglePet(pet.id)}
               style={[
-                { flexBasis: isWebLayout ? '31%' : '47%', flexGrow: pets.length === 1 ? 1 : 0 },
+                { flexBasis: isWebLayout ? '31%' : '47%', flexGrow: 0 },
                 pet.accepted === false ? { opacity: 0.5 } : null,
               ]}
               className={`rounded-2xl border-2 p-4 ${
@@ -96,18 +98,17 @@ export default function PetSelector({
                   ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
                   : `${borderColor} ${cardBg}`
               }`}>
-              {pet.image ? (
-                <Image
-                  source={{ uri: pet.image }}
-                  className="mb-3 h-32 w-full rounded-xl"
-                  resizeMode="cover"
-                />
-              ) : (
-                <View
-                  className={`mb-3 h-32 w-full rounded-xl ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'} items-center justify-center`}>
-                  <Ionicons name="image-outline" size={40} color="#9CA3AF" />
-                </View>
-              )}
+              {/* Shown like the service's photo above it: the whole picture in a fixed 4:3 frame,
+                  on a blurred copy of itself, with a paw when there is none (see ServicePhoto). */}
+              <ServicePhoto
+                uri={pet.image || null}
+                radiusClass="rounded-xl"
+                iconSize={32}
+                thumbWidth={480}
+                className="mb-3 w-full"
+                style={{ aspectRatio: 4 / 3 }}
+              />
+
               <View className="flex-row items-center justify-between">
                 <Text className={`flex-1 text-base font-semibold ${textColor}`} numberOfLines={1}>
                   {pet.name}

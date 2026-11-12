@@ -6,6 +6,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import Button from '../../../components/shared/Button';
+import FormIssues from '../../../components/shared/FormIssues';
 import {
   SIGN_UP_PASSWORD_MISMATCH,
   confirmEmail,
@@ -63,6 +64,15 @@ export default function VerifyEmailScreen() {
 
   const isFilled = code.every((d) => d.length === 1);
   const canVerify = isFilled && password.length > 0;
+  // Verify was pressed before the code (or the password) was in: say which. The button used to be
+  // greyed out until then, with nothing saying why.
+  const [tried, setTried] = useState(false);
+  const missing = tried
+    ? [
+        ...(isFilled ? [] : [t('verifyEmail.enterCode')]),
+        ...(password.length > 0 ? [] : [t('verifyEmail.password')]),
+      ]
+    : [];
 
   const focusBox = (i: number) =>
     inputRefs.current[Math.max(0, Math.min(i, CODE_LENGTH - 1))]?.focus();
@@ -128,7 +138,12 @@ export default function VerifyEmailScreen() {
   };
 
   const handleVerify = async () => {
-    if (!canVerify) return;
+    if (!canVerify) {
+      setTried(true);
+      // A held password that was cleared shows its field again, so it can be typed.
+      if (password.length === 0) setAskPassword(true);
+      return;
+    }
     const fullCode = code.join('');
 
     try {
@@ -355,13 +370,15 @@ export default function VerifyEmailScreen() {
         </View>
       ) : null}
 
+      <FormIssues issues={missing} compact className="mb-3" />
+
       {/* Verify button */}
       <Button
         text={isSubmitting ? t('verifyEmail.verifying') : t('verifyEmail.verify')}
         onPress={handleVerify}
         variant="primary"
         className="mb-4 rounded-2xl py-4"
-        disabled={isSubmitting || !canVerify}
+        disabled={isSubmitting}
       />
 
       {verifyError ? (
