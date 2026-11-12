@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import { BRAND_GREEN, useThemeColors } from '../../hooks/useThemeColors';
 import { useLocale } from '../../context/LocaleContext';
 import type { LegalDoc } from '../../services/legal';
+import LegalDocumentModal from './LegalDocumentModal';
 
 type Props = {
   /** With a checkbox the user must tick; without one it is a notice ("By … you agree to …"). */
@@ -22,6 +22,11 @@ type Props = {
 /**
  * "I agree to the Terms of Service and the Privacy Policy" — with the two names as links that open
  * the documents. The register screen showed the same words styled as links that did nothing.
+ *
+ * The documents open in a pop-up (`LegalDocumentModal`), not the Legal page: every caller is a
+ * form (sign-up, accepting an invite, the partner application), and reading the terms shouldn't
+ * take the user away from it. On the web, going to the Legal page from sign-up once came back to
+ * an empty form (see "The tree above the navigator never changes shape" in `AppShell`).
  */
 export default function LegalAgreement({
   checked,
@@ -33,9 +38,9 @@ export default function LegalAgreement({
 }: Props) {
   const { textColor, subtextColor } = useThemeColors();
   const { t } = useLocale();
-  const navigation = useNavigation<any>();
+  const [reading, setReading] = useState<LegalDoc | null>(null);
   const hasCheckbox = typeof checked === 'boolean' && !!onToggle;
-  const open = (doc: LegalDoc) => navigation.navigate('Legal', { doc });
+  const open = (doc: LegalDoc) => setReading(doc);
 
   // What the checkbox is announced as: the whole sentence, not just the first link's title.
   const label =
@@ -89,6 +94,7 @@ export default function LegalAgreement({
         <View className="flex-row">{sentence}</View>
       )}
       {error ? <Text className="mt-1 text-xs text-red-500">{error}</Text> : null}
+      <LegalDocumentModal doc={reading} onClose={() => setReading(null)} />
     </View>
   );
 }
