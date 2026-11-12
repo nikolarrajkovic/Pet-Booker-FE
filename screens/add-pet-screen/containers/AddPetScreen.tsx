@@ -28,6 +28,7 @@ import { showAlert } from '../../../services/alert';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { formatBirthDate } from '../../../i18n/dates';
+import { decimalInput } from '../../../services/decimal-input';
 
 type AddPetRouteParams = {
   // Set by flows that push AddPet mid-task (e.g. BookService with no pets):
@@ -471,8 +472,10 @@ function PetForm({
                 placeholder={t('addPet.egPlaceholder', { value: isMetric ? '20' : '50' })}
                 placeholderTextColor={placeholderColor}
                 value={weight}
-                onChangeText={setWeight}
-                keyboardType="numeric"
+                // A number and nothing else, on every keyboard (see services/decimal-input.ts).
+                onChangeText={(text) => setWeight(decimalInput(text))}
+                keyboardType="decimal-pad"
+                inputMode="decimal"
                 className={`${inputBg} rounded-xl border px-4 py-3 ${inputText} ${errors.weight ? 'border-red-500' : borderColor}`}
               />
               {errors.weight ? (
@@ -488,8 +491,9 @@ function PetForm({
                 placeholder={t('addPet.egPlaceholder', { value: isMetric ? '50' : '20' })}
                 placeholderTextColor={placeholderColor}
                 value={height}
-                onChangeText={setHeight}
-                keyboardType="numeric"
+                onChangeText={(text) => setHeight(decimalInput(text))}
+                keyboardType="decimal-pad"
+                inputMode="decimal"
                 className={`${inputBg} rounded-xl border px-4 py-3 ${inputText} ${errors.height ? 'border-red-500' : borderColor}`}
               />
               {errors.height ? (
