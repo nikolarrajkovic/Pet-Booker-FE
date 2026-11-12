@@ -754,13 +754,19 @@ a phone browser, which is where shared booking links get opened.
 **The shell** — `components/layout/AppShell.tsx` wraps `Stack.Navigator` in `App.tsx`, so `SideNav`
 and `TopBar` mount once and never animate in over themselves during a stack push. Being outside
 the navigator, neither can use `useNavigation`/`useNavigationState`; both go through
-`navigation/navigateToNavItem.ts` (container ref). It renders `children` untouched on the mobile
+`navigation/navigateToNavItem.ts` (container ref). It draws no chrome on the mobile
 design, on the sign-in screens (`AUTH_ROUTES`: Login, Register, Verify Email, Forgot Password,
 Accept Invite — and while a signed-out start has no route yet), and for the routes in **`FULL_BLEED_ROUTES`** — today just the
 partner celebration, which is a moment rather than a page and reads as a green panel in the
 corner of the app when the chrome frames it. Unmounting the chrome is how a screen gets the whole
 window; `position: fixed` is not, because a fixed box is positioned against the nearest
 transformed ancestor and the navigator puts transforms on its scenes whenever anything animates.
+**The wrappers around the navigator are the same in every case**; only the sidebar, top bar and
+pattern come and go inside them. It used to return bare `children` when it drew no chrome, and
+that change of parent rebuilt the whole navigator on every move between the two (a guest's
+half-filled sign-up came back from the Legal page empty, Search lost its filters on the way to
+Sign in, a resize across the breakpoint reset every screen; fixed 2026-11-12, pinned by
+`shell.test.tsx` "keeps the screens it wraps").
 
 **`navigation/navItems.ts` is the single source of truth for destinations.** `TabBar` takes the
 `primary` group; `SideNav` takes all four groups (`primary` / `manage` / `partner` / `admin`) with

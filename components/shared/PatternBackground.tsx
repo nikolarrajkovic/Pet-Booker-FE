@@ -29,6 +29,12 @@ type PatternBackgroundProps = {
    * beside it — all noise, no gap filled.
    */
   onMobile?: boolean;
+  /**
+   * Draw no pattern, but keep the wrapper. `AppShell` sets it when its chrome steps away for a
+   * sign-in or full-bleed screen: swapping this component for a plain `View` there would change
+   * the tree above the navigator, and React would rebuild every screen in it.
+   */
+  hidden?: boolean;
   style?: ViewStyle;
 };
 
@@ -61,12 +67,13 @@ type PatternBackgroundProps = {
 export default function PatternBackground({
   children,
   onMobile = false,
+  hidden = false,
   style,
 }: PatternBackgroundProps) {
   const { isWebLayout } = useResponsive();
   const { isDarkMode } = useTheme();
 
-  const show = isWebLayout || onMobile;
+  const show = !hidden && (isWebLayout || onMobile);
   const opacity = isDarkMode ? OPACITY.dark : OPACITY.light;
 
   return (

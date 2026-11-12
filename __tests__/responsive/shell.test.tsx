@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { render, screen, fireEvent, within } from '@testing-library/react-native';
+import { act, render, screen, fireEvent, within } from '@testing-library/react-native';
 import { withProviders, setViewport, setPlatform } from '../test-utils';
 
 /**
@@ -16,12 +16,17 @@ import { withProviders, setViewport, setPlatform } from '../test-utils';
 const mockNavigate = jest.fn();
 const mockReset = jest.fn();
 let mockCurrentRoute: string | undefined = 'Home';
+// The navigator's 'state' listeners, so a test can announce a navigation the way the real ref does.
+const mockStateListeners = new Set<() => void>();
 
 jest.mock('../../navigation/navigationRef', () => ({
   navigationRef: {
     isReady: () => true,
     getCurrentRoute: () => ({ name: mockCurrentRoute }),
-    addListener: () => () => undefined,
+    addListener: (_event: string, listener: () => void) => {
+      mockStateListeners.add(listener);
+      return () => mockStateListeners.delete(listener);
+    },
   },
   navigateFromOutside: (...args: unknown[]) => mockNavigate(...args),
   resetFromOutside: (...args: unknown[]) => mockReset(...args),
@@ -172,6 +177,60 @@ describe('AppShell', () => {
     expect(within(nav).queryByText('My Bookings')).toBeNull();
     expect(screen.queryByLabelText('Account')).toBeNull();
     expect(screen.getByLabelText('Sign In')).toBeTruthy();
+  });
+
+  it('keeps the screens it wraps when the chrome comes or goes', () => {
+    // The shell used to return bare children when it drew no chrome and a wrapped tree when it
+    // did. React reads a new parent as a new component, so every switch between the two rebuilt
+    // the whole navigator: a guest's half-filled sign-up came back from the Legal page empty.
+    const mounted = jest.fn();
+    const Stateful = () => {
+      React.useEffect(() => {
+        mounted();
+      }, []);
+      const [text, setText] = React.useState('');
+      return (
+        <View>
+          <Text>typed: {text || 'nothing'}</Text>
+          <Text onPress={() => setText('Ana')}>type</Text>
+        </View>
+      );
+    };
+    const navigateTo = (route: string) => {
+      mockCurrentRoute = route;
+      act(() => mockStateListeners.forEach((listener) => listener()));
+    };
+    const ui = () =>
+      withProviders(
+        <AppShell signedIn={false}>
+          <Stateful />
+        </AppShell>
+      );
+
+    mockRoles = { isPartner: false, isAdmin: false, isLoggedIn: false };
+    mockCurrentRoute = 'Register';
+    setViewport('desktop');
+    const { rerender } = render(ui());
+    fireEvent.press(screen.getByText('type'));
+    expect(screen.queryByLabelText('Main navigation')).toBeNull();
+
+    // A page with the guest chrome (the Legal page, Search, …), and back to the sign-in screen.
+    navigateTo('Legal');
+    expect(screen.getByLabelText('Main navigation')).toBeTruthy();
+    navigateTo('Register');
+    expect(screen.queryByLabelText('Main navigation')).toBeNull();
+
+    // A window resized across the breakpoint, both ways.
+    navigateTo('Home');
+    setViewport('mobile');
+    rerender(ui());
+    expect(screen.queryByLabelText('Main navigation')).toBeNull();
+    setViewport('desktop');
+    rerender(ui());
+    expect(screen.getByLabelText('Main navigation')).toBeTruthy();
+
+    expect(screen.getByText('typed: Ana')).toBeTruthy();
+    expect(mounted).toHaveBeenCalledTimes(1);
   });
 });
 

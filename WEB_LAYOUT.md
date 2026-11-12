@@ -74,7 +74,7 @@ a phone browser.
 ```
 App.tsx
 └── NavigationContainer
-    └── AppShell                  ← persistent; renders children bare on mobile
+    └── AppShell                  ← persistent; same wrappers always, no chrome on mobile
         ├── SideNav               ← web only
         ├── TopBar                ← web only
         └── Stack.Navigator       ← the screens
@@ -83,7 +83,10 @@ App.tsx
 
 **`components/layout/AppShell.tsx`** wraps the navigator, so the sidebar and top bar are mounted
 once and survive navigation. Rendering them per-screen would paint a second sidebar over the
-first during every stack transition.
+first during every stack transition. Where it draws no chrome (mobile, the sign-in screens, a
+full-bleed route) it keeps the same wrappers and only leaves the sidebar, top bar and pattern
+out: returning bare `children` there changed the navigator's parent, so React rebuilt every
+screen on each switch and a half-filled form came back empty.
 
 **`navigation/navItems.ts`** is the single source of truth for destinations. `TabBar` and
 `SideNav` both read it, so a new destination is added once and appears in both designs with the
