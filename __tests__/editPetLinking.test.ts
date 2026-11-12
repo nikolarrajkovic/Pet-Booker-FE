@@ -29,7 +29,9 @@ describe('Edit Pet URL', () => {
 
   it('is /pets/{id}/edit, with the pet values kept out of the query string', () => {
     const path = getPathFromState(
-      { routes: [{ name: 'EditPet', params: { petId: pet.id, pet: toPetFormValues(pet) } }] } as any,
+      {
+        routes: [{ name: 'EditPet', params: { petId: pet.id, pet: toPetFormValues(pet) } }],
+      } as any,
       config
     );
     expect(path).toBe('/pets/7/edit');

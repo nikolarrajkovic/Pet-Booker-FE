@@ -1,12 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import {
-  Text,
-  TextInput,
-  View,
-  TouchableOpacity,
-  ScrollView,
-  type ViewStyle,
-} from 'react-native';
+import { Text, TextInput, View, TouchableOpacity, ScrollView, type ViewStyle } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Button from '../../../components/shared/Button';

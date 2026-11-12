@@ -12,7 +12,12 @@ describe('sortPricingOptions', () => {
   });
 
   it('lists the shortest first, however they were entered', () => {
-    const entered = [option(1, 120, 200), option(2, 60, 100), option(3, 180, 300), option(4, 240, 400)];
+    const entered = [
+      option(1, 120, 200),
+      option(2, 60, 100),
+      option(3, 180, 300),
+      option(4, 240, 400),
+    ];
     expect(sortPricingOptions(entered).map((o) => o.durationMinutes)).toEqual([60, 120, 180, 240]);
   });
 

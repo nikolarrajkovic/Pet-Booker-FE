@@ -47,7 +47,9 @@ export default function BecomePartnerBanner({ onPress }: Props) {
         {isWebLayout ? (
           <View className="mt-4 flex-row flex-wrap" style={{ gap: 8 }}>
             {BENEFITS.map((b) => (
-              <View key={b.key} className="flex-row items-center rounded-full bg-white/15 px-3 py-1.5">
+              <View
+                key={b.key}
+                className="flex-row items-center rounded-full bg-white/15 px-3 py-1.5">
                 <Ionicons name={b.icon} size={14} color="white" />
                 <Text className="ml-1.5 text-xs font-semibold text-white">{t(b.key)}</Text>
               </View>
@@ -58,7 +60,12 @@ export default function BecomePartnerBanner({ onPress }: Props) {
         <View className="mt-4 flex-row">
           <View className="flex-row items-center rounded-full bg-white px-4 py-2">
             <Text className="text-sm font-bold text-brand-700">{t('profile.learnMore')}</Text>
-            <Ionicons name="arrow-forward" size={15} color={BRAND_GREEN} style={{ marginLeft: 6 }} />
+            <Ionicons
+              name="arrow-forward"
+              size={15}
+              color={BRAND_GREEN}
+              style={{ marginLeft: 6 }}
+            />
           </View>
         </View>
       </View>

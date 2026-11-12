@@ -60,7 +60,8 @@ export default function FormIssues({ issues, compact = false, className = '' }: 
         <Text className="ml-2 text-sm font-semibold text-red-600">{t('common.toContinue')}</Text>
       </View>
       {issues.map((issue, i) => {
-        const { label, message } = typeof issue === 'string' ? { label: undefined, message: issue } : issue;
+        const { label, message } =
+          typeof issue === 'string' ? { label: undefined, message: issue } : issue;
         return (
           <View key={`${label ?? ''}${message}${i}`} className="ml-[26px] mt-1 flex-row">
             <Text className={`text-sm ${textColor}`}>{'•  '}</Text>

@@ -257,9 +257,7 @@ export default function ProfileScreen() {
         {/* Become a Partner Banner — only for non-partners */}
         {!isPartner && (
           <View className={`${gutter.mx} mb-6`}>
-            <BecomePartnerBanner
-              onPress={() => (navigation as any).navigate('BecomePartner')}
-            />
+            <BecomePartnerBanner onPress={() => (navigation as any).navigate('BecomePartner')} />
           </View>
         )}
 
