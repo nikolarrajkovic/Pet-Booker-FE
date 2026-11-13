@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
   Linking,
 } from 'react-native';
-import { useRoute, RouteProp, useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
+import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useAuth } from '../../../context/AuthContext';
@@ -185,7 +186,7 @@ function firstPhoto(photos?: { src?: string | null; isSelected?: boolean }[] | n
 export default function LiveSessionScreen() {
   const gutter = usePageGutter();
   const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
-  const navigation = useNavigation();
+  const { goUp } = useAppNavigation();
   const mode = route.params?.mode ?? 'partner';
   const isPartner = mode === 'partner';
   const { currentUser } = useAuth();
@@ -798,7 +799,10 @@ export default function LiveSessionScreen() {
           </Text>
           <TouchableOpacity
             accessibilityRole="button"
-            onPress={() => navigation.goBack()}
+            // Back where it was opened from, else the partner's hub / Home. Opened from a reload, a
+            // link or a notification there is nothing to go back to, and a bare goBack() left the
+            // finished session on screen with a button that did nothing.
+            onPress={() => goUp(isPartner ? 'PartnerHub' : 'Home')}
             activeOpacity={0.85}
             className="w-full items-center rounded-2xl bg-brand-500 px-8 py-3.5">
             <Text className="text-base font-bold text-white">{t('liveSession.done')}</Text>

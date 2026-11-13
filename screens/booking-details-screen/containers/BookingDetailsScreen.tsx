@@ -86,11 +86,12 @@ export default function BookingDetailsScreen() {
   // Where the service happens (its own address, else the partner's). The page had no "where" at
   // all unless a pickup or drop-off was booked (app review G8).
   const serviceAddress = dto?.serviceAddress ?? null;
-  // The booking's frozen bill lines. On READ these come back enriched (name / price / baseFee /
-  // perKmFee / distanceKm); the id-only write shape has no `name`, so narrow to the read one
-  // rather than rendering "undefined" for a booking that was just submitted.
+  // The booking's frozen bill lines. On READ each carries its kind and price (plus the fees and
+  // distance of a per-distance one); the id-only write shape has neither, so narrow to the read
+  // one. This tested for `name` until 2026-11-13, a field the API stopped sending when extras
+  // became kinds, so every line was dropped and the bill jumped from the subtotal to the total.
   const addOnLines = (dto?.additionalServices ?? []).filter(
-    (line): line is BookingAdditionalServiceReadDto => 'name' in line
+    (line): line is BookingAdditionalServiceReadDto => 'kind' in line && 'price' in line
   );
   const reviewRating = dto?.review?.rating ?? null;
   const isNoShow = dto?.currentStatus === BookingStatusType.CustomerNoShow;
@@ -216,9 +217,9 @@ export default function BookingDetailsScreen() {
       </View>
       <View className="flex-1 flex-row items-center justify-end">
         {media}
-        <Text className={`text-sm font-semibold ${textColor} shrink text-right`} numberOfLines={2}>
-          {value}
-        </Text>
+        {/* Wraps in full: an address is the place the partner has to find, and two lines cut a
+            pickup street off mid-word on a phone (review 2026-11-13). */}
+        <Text className={`text-sm font-semibold ${textColor} shrink text-right`}>{value}</Text>
       </View>
     </View>
   );

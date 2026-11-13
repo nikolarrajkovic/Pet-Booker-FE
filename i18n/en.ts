@@ -202,7 +202,7 @@ const en = {
     errPasswordsNoMatch: 'Passwords do not match',
     errDobRequired: 'Date of birth is required',
     errAddressRequired: 'Pick your home address on the map',
-    errAgeMin: 'You must be at least 13 years old',
+    errAgeMin: 'You must be at least 18 years old',
     errDobInvalid: 'Enter a valid date of birth',
   },
   acceptInvite: {

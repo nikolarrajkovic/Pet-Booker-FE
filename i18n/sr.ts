@@ -196,7 +196,7 @@ const sr: TranslationDict = {
     errPasswordsNoMatch: 'Lozinke se ne poklapaju',
     errDobRequired: 'Datum rođenja je obavezan',
     errAddressRequired: 'Izaberite kućnu adresu na mapi',
-    errAgeMin: 'Morate imati najmanje 13 godina',
+    errAgeMin: 'Morate imati najmanje 18 godina',
     errDobInvalid: 'Unesite ispravan datum rođenja',
   },
   acceptInvite: {
@@ -2173,11 +2173,11 @@ const sr: TranslationDict = {
       8192: 'Fotografije tokom usluge',
     },
     serviceProviderType: {
-      0: 'Čuvar',
+      0: 'Čuvar ljubimaca',
       1: 'Šetač',
-      2: 'Smeštaj',
+      2: 'Pansion',
       3: 'Hotel za ljubimce',
-      4: 'Timaritelj',
+      4: 'Frizer za ljubimce',
       5: 'Prevoznik',
     },
     petSpeciesType: {

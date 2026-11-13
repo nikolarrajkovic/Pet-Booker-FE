@@ -87,7 +87,8 @@ export interface UiService {
   description: string;
   rating: number;
   reviews: number;
-  bookings: number;
+  /** Bookings taken on; null when the API didn't say (then the line is not shown). */
+  bookings: number | null;
   maxConcurrentBookings: number; // "Maximum pet capacity" — details.maxConcurrentBookings
   images: string[];
   selectedImageIndex: number; // index in `images` of the profile (isSelected) photo
@@ -403,7 +404,9 @@ export function serviceDtoToUi(dto: ServiceDto): UiService {
     description: dto.description ?? dto.about ?? '',
     rating: dto.rating ?? 0,
     reviews: dto.totalRatingNumber ?? 0,
-    bookings: 0, // BACKEND-GAP S5: not exposed per service
+    // The API counts it for the service's own partner (review 2026-11-13). This was a hardcoded
+    // 0, so every service read "0 bookings" however busy it was.
+    bookings: dto.bookingCount ?? null,
     maxConcurrentBookings: dto.details?.maxConcurrentBookings ?? 1,
     images: photoList.map((p) => p.uri),
     selectedImageIndex: Math.max(

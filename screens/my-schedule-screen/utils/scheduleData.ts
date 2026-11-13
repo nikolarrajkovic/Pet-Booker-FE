@@ -12,19 +12,26 @@ import {
   parseBookingDate,
 } from '../../../services/bookings';
 import { customerName } from '../../../services/users';
+import { formatDayMonth } from '../../../i18n/dates';
 
 export type ScheduleMode = 'partner' | 'user';
 
 export interface ServiceItem {
+  /** Unique per day: a stay is one item on each day it covers. */
   id: string;
+  /** The booking this appointment is, for opening it. */
+  bookingId: number;
   title: string;
   /** Who the appointment is with: the customer on a partner's schedule, the provider on a user's. */
   counterpart: string;
   petName: string;
   time: string;
   location: string;
+  /** The colour group. */
   type: 'walking' | 'grooming' | 'sitting';
-  duration: number; // in hours
+  /** The service's ServiceProviderType, labelled with tEnum; null for an older read without it. */
+  serviceType: number | null;
+  duration: number; // hours of this appointment that fall on this day
   isUserService: boolean; // true = user is booking this service for their pet
 }
 
@@ -50,13 +57,23 @@ const scheduleSource = (): { [key: string]: ServiceItem[] } => liveScheduleData 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const dateKey = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
-// BACKEND-GAP: bookings don't carry a service "type", so it's inferred from the name.
-function inferScheduleType(name?: string | null): ServiceItem['type'] {
+/**
+ * The colour group for a service: by its type (Walker and Transporter move, Groomer grooms, the
+ * rest look after the pet). Guessed from the English name only for a read without the type: that
+ * guess tagged a sitting service called "Deposit walk" as walking, and anything named in Serbian
+ * as sitting (review 2026-11-13).
+ */
+function scheduleGroup(serviceType: number | null, name?: string | null): ServiceItem['type'] {
+  if (serviceType === 1 || serviceType === 5) return 'walking';
+  if (serviceType === 4) return 'grooming';
+  if (serviceType != null) return 'sitting';
   const n = (name ?? '').toLowerCase();
   if (n.includes('walk')) return 'walking';
   if (n.includes('groom')) return 'grooming';
   return 'sitting';
 }
+
+const HOUR = 3600000;
 
 /**
  * Builds the date-keyed schedule map from real bookings. Skips cancelled
@@ -64,6 +81,10 @@ function inferScheduleType(name?: string | null): ServiceItem['type'] {
  * (currentStatus = ServiceRequestedByUser) — those belong in New Requests and
  * only enter the schedule once the partner accepts. Users keep seeing their
  * own pending requests on their schedule.
+ *
+ * A booking that runs over several days (a stay) is listed on EVERY day it covers, with its
+ * dates in the time and only that day's hours counted towards the day's workload. It used to be
+ * filed under its start date alone, so the days after it looked free (review 2026-11-13).
  */
 export function buildScheduleFromBookings(
   bookings: BookingDto[],
@@ -77,24 +98,43 @@ export function buildScheduleFromBookings(
     if (mode === 'partner' && b.currentStatus === BookingStatusType.ServiceRequestedByUser)
       continue;
     const from = parseBookingDate(b.bookingFrom);
-    const to = parseBookingDate(b.bookingTo);
+    const parsedTo = parseBookingDate(b.bookingTo);
     if (isNaN(from.getTime())) continue;
-    const hours = !isNaN(to.getTime())
-      ? Math.max(0, Math.round(((to.getTime() - from.getTime()) / 3600000) * 10) / 10)
-      : 1;
-    const item: ServiceItem = {
-      id: String(b.id ?? 0),
+    const to =
+      !isNaN(parsedTo.getTime()) && parsedTo > from ? parsedTo : new Date(from.getTime() + HOUR);
+    const multiDay = dateKey(from) !== dateKey(new Date(to.getTime() - 1));
+    const time = multiDay
+      ? `${formatDayMonth(from)} ${fmt(from)} – ${formatDayMonth(to)} ${fmt(to)}`
+      : `${fmt(from)} - ${fmt(to)}`;
+    const serviceType = b.service?.type ?? null;
+    const base = {
+      bookingId: b.id ?? 0,
       title: b.service?.name ?? 'Service',
       // A partner's schedule used to print the partner's own business name on every card.
       counterpart: mode === 'partner' ? customerName(b.user) : (b.serviceProvider?.name ?? ''),
       petName: b.pet?.name ?? '',
-      time: isNaN(to.getTime()) ? fmt(from) : `${fmt(from)} - ${fmt(to)}`,
-      location: '', // BACKEND-GAP: no location name on booking
-      type: inferScheduleType(b.service?.name),
-      duration: hours,
+      time,
+      location: '',
+      type: scheduleGroup(serviceType, b.service?.name),
+      serviceType,
       isUserService: mode === 'user',
     };
-    (map[dateKey(from)] ||= []).push(item);
+    // One entry per calendar day the booking touches, each counting its own hours.
+    for (
+      let day = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+      day < to;
+      day = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1)
+    ) {
+      const nextDay = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
+      const start = from > day ? from : day;
+      const end = to < nextDay ? to : nextDay;
+      const hours = Math.max(0, Math.round(((end.getTime() - start.getTime()) / HOUR) * 10) / 10);
+      (map[dateKey(day)] ||= []).push({
+        ...base,
+        id: `${b.id ?? 0}-${dateKey(day)}`,
+        duration: hours,
+      });
+    }
   }
   return map;
 }

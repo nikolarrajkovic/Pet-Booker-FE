@@ -197,7 +197,7 @@ const ru: TranslationDict = {
     errPasswordsNoMatch: 'Пароли не совпадают',
     errDobRequired: 'Дата рождения обязательна',
     errAddressRequired: 'Укажите домашний адрес на карте',
-    errAgeMin: 'Вам должно быть не менее 13 лет',
+    errAgeMin: 'Вам должно быть не менее 18 лет',
     errDobInvalid: 'Введите корректную дату рождения',
   },
   acceptInvite: {
@@ -2179,7 +2179,7 @@ const ru: TranslationDict = {
       8192: 'Фото во время услуги',
     },
     serviceProviderType: {
-      0: 'Няня',
+      0: 'Пет-ситтер',
       1: 'Выгульщик',
       2: 'Передержка',
       3: 'Отель для питомцев',
