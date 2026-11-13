@@ -140,7 +140,8 @@ export type BookingDto = {
   depositAmount?: number | null;
   // Populated on GET (read-only nested includes):
   serviceProvider?: NestedEntity | null;
-  service?: NestedEntity | null;
+  /** `type` is the service's ServiceProviderType (the calendar's label and colour). */
+  service?: (NestedEntity & { type?: number | null }) | null;
   pet?: NestedEntity | null;
   // The booker — populated on GET since the API update (was always null before)
   user?: {

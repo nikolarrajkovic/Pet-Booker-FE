@@ -1,5 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { getServicesForDate, ScheduleMode } from '../utils/scheduleData';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatFullDate } from '../../../i18n/dates';
@@ -16,6 +17,7 @@ interface DayViewProps {
 export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }: DayViewProps) {
   const gutter = usePageGutter();
   const { t } = useLocale();
+  const navigation = useNavigation();
 
   // Get services for the selected date, filtered by mode
   const all = getServicesForDate(selectedDate);
@@ -50,6 +52,16 @@ export default function DayView({ selectedDate, isDarkMode, onDateChange, mode }
                 key={service.id}
                 service={service}
                 isDarkMode={isDarkMode}
+                // The booking itself: where a partner starts, calls off, records cash or a no-show.
+                // A row used to do nothing, and an accepted booking had no way in from here.
+                onPress={
+                  service.bookingId
+                    ? () =>
+                        (navigation as any).navigate('BookingDetails', {
+                          bookingId: service.bookingId,
+                        })
+                    : undefined
+                }
                 last={i === servicesForDate.length - 1}
               />
             ))

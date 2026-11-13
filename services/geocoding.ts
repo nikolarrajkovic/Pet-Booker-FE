@@ -48,7 +48,7 @@ async function reverseGeocodeNative(point: GeoPoint): Promise<AddressDto> {
   if (!a) return { line1: '', line2: '', city: '', state: '', postalCode: '', country: '' };
   const streetNumber = a.streetNumber || a.name?.match(/^\d+/)?.[0] || '';
   return {
-    line1: [streetNumber, a.street].filter(Boolean).join(' ') || a.name || '',
+    line1: streetLine(a.street, streetNumber) || a.name || '',
     line2: '',
     city: a.city || a.subregion || a.district || '',
     state: a.region || '',
@@ -123,6 +123,41 @@ export async function getCurrentPosition(): Promise<GeoPoint | null> {
   }
 }
 
+/**
+ * "Bulevar kralja Aleksandra 73": the street, then the number, as addresses are written here.
+ * Both geocoders hand the parts back separately, and the number went first ("73 Bulevar…").
+ */
+export function streetLine(street?: string | null, houseNumber?: string | null): string {
+  return [street, houseNumber]
+    .map((part) => (part ?? '').trim())
+    .filter(Boolean)
+    .join(' ');
+}
+
+type NominatimAddress = {
+  city?: string;
+  town?: string;
+  village?: string;
+  hamlet?: string;
+  suburb?: string;
+  county?: string;
+};
+
+/**
+ * The city of a Nominatim address. In Serbian cities Nominatim puts the municipality in `city`
+ * ("Gradska opština Vračar") and the city itself in `county` ("Grad Beograd"), so Belgrade was
+ * stored under seventeen municipality names. The `Grad …` county names the city.
+ */
+export function cityOf(a: NominatimAddress): string {
+  const county = (a.county ?? '').trim();
+  const isMunicipality = /^(gradska opština|opština|градска општина|општина)\s/i.test(
+    (a.city ?? '').trim()
+  );
+  const countyCity = county.match(/^(grad|град)\s+(.+)$/i)?.[2];
+  if (isMunicipality && countyCity) return countyCity;
+  return a.city || a.town || a.village || a.hamlet || a.suburb || countyCity || '';
+}
+
 async function reverseGeocodeWeb(point: GeoPoint): Promise<AddressDto> {
   // External geocoding service (not the app API), so a direct fetch is correct
   // here — apiFetch/apiAuthFetch build URLs from the app's base URL.
@@ -137,9 +172,9 @@ async function reverseGeocodeWeb(point: GeoPoint): Promise<AddressDto> {
   const data = await res.json();
   const a = data.address ?? {};
   return {
-    line1: [a.house_number, a.road].filter(Boolean).join(' ') || data.name || '',
+    line1: streetLine(a.road, a.house_number) || data.name || '',
     line2: '',
-    city: a.city || a.town || a.village || a.hamlet || a.suburb || '',
+    city: cityOf(a),
     state: a.state || a.region || '',
     postalCode: a.postcode || '',
     country: a.country_code ? String(a.country_code).toUpperCase() : a.country || '',

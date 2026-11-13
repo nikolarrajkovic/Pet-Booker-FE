@@ -93,7 +93,8 @@ function validateDateOfBirth(d: Date | null) {
     today.getFullYear() -
     d.getFullYear() -
     (today < new Date(today.getFullYear(), d.getMonth(), d.getDate()) ? 1 : 0);
-  if (age < 13) return 'register.errAgeMin';
+  // The Terms of Service (§2) and the API both say 18; this asked for 13 until 2026-11-13.
+  if (age < 18) return 'register.errAgeMin';
   if (age > 120) return 'register.errDobInvalid';
   return '';
 }

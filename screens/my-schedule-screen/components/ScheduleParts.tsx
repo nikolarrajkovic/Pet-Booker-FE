@@ -166,9 +166,15 @@ export function ScheduleRow({
   /** No divider under the last row of a group. */
   last?: boolean;
 }) {
-  const { t } = useLocale();
+  const { t, tEnum } = useLocale();
   const { textColor, subtextColor, borderColor } = themeColors(isDarkMode);
   const meta = [service.counterpart, service.petName].filter(Boolean).join(' • ');
+  // The service's own type in the reader's language; the colour group's label only for a read
+  // that doesn't carry the type.
+  const typeLabel =
+    service.serviceType != null
+      ? tEnum('serviceProviderType', service.serviceType)
+      : t(`schedule.${service.type}` as any);
   const body = (
     <View className={`flex-row items-center py-3 ${last ? '' : `border-b ${borderColor}`}`}>
       <View
@@ -189,7 +195,7 @@ export function ScheduleRow({
       </View>
       <View className={`ml-3 rounded-full px-2.5 py-1 ${getTypeBg(service.type, isDarkMode)}`}>
         <Text className="text-xs font-semibold" style={{ color: getTypeColor(service.type) }}>
-          {t(`schedule.${service.type}` as any)}
+          {typeLabel}
         </Text>
       </View>
     </View>

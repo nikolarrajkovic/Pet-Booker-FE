@@ -330,14 +330,18 @@ function ServiceListCard({
             {service.rating.toFixed(1)}
           </Text>
           <Text className={`text-sm ${subtextColor} ml-0.5`}>({service.reviews})</Text>
-          <View className="mx-2 h-1 w-1 rounded-full bg-gray-400" />
-          <Text className={`text-sm ${subtextColor}`}>
-            {tPlural(service.bookings, {
-              one: 'myServices.bookingsCountOne',
-              few: 'myServices.bookingsCountFew',
-              many: 'myServices.bookingsCount',
-            })}
-          </Text>
+          {service.bookings != null ? (
+            <>
+              <View className="mx-2 h-1 w-1 rounded-full bg-gray-400" />
+              <Text className={`text-sm ${subtextColor}`}>
+                {tPlural(service.bookings, {
+                  one: 'myServices.bookingsCountOne',
+                  few: 'myServices.bookingsCountFew',
+                  many: 'myServices.bookingsCount',
+                })}
+              </Text>
+            </>
+          ) : null}
         </View>
 
         {/* Pricing section.

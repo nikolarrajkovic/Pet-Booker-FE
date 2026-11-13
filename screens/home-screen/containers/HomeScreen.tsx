@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import ServiceCard from '../../../components/shared/ServiceCard';
@@ -164,6 +164,10 @@ export default function HomeScreen() {
   const [failed, setFailed] = useState({ popular: false, deals: false, recent: false });
   const [nearYouFailed, setNearYouFailed] = useState(false);
   const [reloads, setReloads] = useState(0);
+  // Whether each clock has drawn its rows once. Coming back to Home refreshes them in place: a
+  // return used to swap every card for a spinner until the same rows came back (review 2026-11-13).
+  const railsLoaded = useRef(false);
+  const nearYouLoaded = useRef(false);
 
   // ── "Add your pet" welcome card ─────────────────────────────────────────────
   // A customer with no pet yet is greeted on Home by a card that leads to Add Pet. It stays until
@@ -214,7 +218,7 @@ export default function HomeScreen() {
       let cancelled = false;
 
       const load = async () => {
-        setIsLoading(true);
+        if (!railsLoaded.current) setIsLoading(true);
         setLoadError(null);
         // Each Home row is its own backend endpoint. Settle each independently so one failing
         // section doesn't blank the whole page — a row that answers with nothing keeps its
@@ -248,6 +252,7 @@ export default function HomeScreen() {
         // it has anything to show it in.
         const firstError = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
         setLoadError(firstError ? getErrorMessage(firstError.reason, t('home.loadError')) : null);
+        railsLoaded.current = true;
         setIsLoading(false);
       };
 
@@ -270,11 +275,12 @@ export default function HomeScreen() {
       if (locating) return;
       let cancelled = false;
       setNearYouFailed(false);
-      setNearYouLoading(true);
+      if (!nearYouLoaded.current) setNearYouLoading(true);
       getNearMe(hasPosition ? { lat: latitude, lng: longitude } : {})
         .then((rows) => {
           if (cancelled) return;
           setNearYou(toItems(rows));
+          nearYouLoaded.current = true;
           setNearYouLoading(false);
         })
         .catch(() => {

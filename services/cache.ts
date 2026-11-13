@@ -295,6 +295,10 @@ export function resourceForPath(path: string): string | null {
 
   // `/auth/*` is identity, not a CRUD resource: the only cached thing it moves is the profile.
   if (head === 'auth') return 'users';
+  // A price quote is a POST that changes nothing. Treated as a booking write, every change in the
+  // booking form refreshed bookings, services, Home, stats, notifications and payments, so the
+  // Search list mounted behind the form re-queried its page each time (review 2026-11-13).
+  if (head === 'bookings' && rest[0]?.toLowerCase() === 'quote') return null;
   // `/payments/bookings/{id}/pay` — the resource that changed is the booking and its money.
   if (head === 'payments') return 'payments';
   return head;

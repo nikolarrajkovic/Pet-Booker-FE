@@ -259,6 +259,9 @@ export type ServiceDto = {
   reviewCount?: number; // number of reviews backing `rating`
   reviews?: ReviewDto[]; // embedded reviews (may include all statuses — public screens still filter by approvalStatus)
   upcomingBookings?: ServiceBookedSlotReadDto[]; // booked slots for availability
+  /** Bookings this service has taken on (accepted, under way, completed). Sent to its own
+   *  partner and admins only; null/absent for anyone else. */
+  bookingCount?: number | null;
   // Every discount configured on the service, live or not — the raw rows behind the resolved
   // `appliedDiscountType`/`appliedDiscountAmount` above. Prefer those two for DISPLAY (the server
   // has already decided which promotion is active); read this when you need the configuration
