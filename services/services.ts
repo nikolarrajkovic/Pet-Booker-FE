@@ -150,6 +150,35 @@ export function serviceAsksDeposit(service: Pick<ServiceDto, 'pricing'>): boolea
     : (p.escrowAmount ?? 0) > 0;
 }
 
+/**
+ * The deposit one booking of this service asks, for a bill of `bookingTotal`. Mirrors
+ * `ServicePricing.CalculateDeposit`: a share of the total when percent escrow is on, else the
+ * flat amount; never more than the bill. An estimate for the checkout, which the server's own
+ * figure (`depositAmount` on the booking) replaces once it exists.
+ */
+export function serviceDeposit(service: Pick<ServiceDto, 'pricing'>, bookingTotal: number): number {
+  const p = service.pricing;
+  if (!p || bookingTotal <= 0) return 0;
+  const deposit =
+    p.isEscrowPercentEnabled && p.escrowPercent != null
+      ? (bookingTotal * p.escrowPercent) / 100
+      : (p.escrowAmount ?? 0);
+  return Math.min(Math.max(deposit, 0), bookingTotal);
+}
+
+/**
+ * What a card says under a service's name: its kind and whose it is ("Walker · Belgrade Pet
+ * Walkers"). The partner is left out when the service is named after them.
+ */
+export function serviceByline(
+  typeLabel: string,
+  service: Pick<ServiceDto, 'name' | 'serviceProviderName'>
+): string {
+  const partner = service.serviceProviderName?.trim() ?? '';
+  const named = partner && partner.toLowerCase() !== (service.name ?? '').trim().toLowerCase();
+  return [typeLabel, named ? partner : ''].filter(Boolean).join(' · ');
+}
+
 export type ServiceDto = {
   id?: number | null;
   serviceProviderId: number;
@@ -172,6 +201,11 @@ export type ServiceDto = {
    * and `discounts` are converted with it and must NOT declare their own.
    */
   currency?: string | null;
+  /**
+   * The partner's name (READ). A card named only the service ("Evening walk"), and a customer
+   * choosing between three of those could not tell whose they were without opening each.
+   */
+  serviceProviderName?: string | null;
   // NOTE: a service read carries NO provider record — only `serviceProviderId` above.
   // (Bookings and reviews embed a slim provider; the service does not.) A screen that
   // needs the provider's name/photo/address calls getServiceProvider(serviceProviderId)

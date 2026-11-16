@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Linking,
 } from 'react-native';
-import { useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
+import { useRoute, RouteProp, useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import { Ionicons } from '@expo/vector-icons';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -31,7 +31,9 @@ import {
   BookingDto,
   BookingState,
   BookingStatusType,
+  PaymentType,
 } from '../../../services/bookings';
+import { formatMoney } from '../../../services/currency';
 import ReasonPromptModal from '../../../components/shared/ReasonPromptModal';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
 import { getPet, PetResponse } from '../../../services/pets';
@@ -59,7 +61,8 @@ import { googleDirectionsUrl } from '../../../services/route-path';
 import { formatWeekdayDayMonth } from '../../../i18n/dates';
 import { formatKm } from '../../../i18n/numbers';
 
-type RouteParams = { mode?: 'partner' | 'user' };
+/** `bookingId` opens the screen on that session when several are running. */
+type RouteParams = { mode?: 'partner' | 'user'; bookingId?: number };
 type Completion = { pickup: boolean; dropoff: boolean };
 /**
  * Where the inline map routes to. Add-on keys cover the pickup/drop-off pins both
@@ -187,8 +190,10 @@ export default function LiveSessionScreen() {
   const gutter = usePageGutter();
   const route = useRoute<RouteProp<{ params: RouteParams }, 'params'>>();
   const { goUp } = useAppNavigation();
+  const navigation = useNavigation();
   const mode = route.params?.mode ?? 'partner';
   const isPartner = mode === 'partner';
+  const openOnBookingId = route.params?.bookingId;
   const { currentUser } = useAuth();
   const { showError, showInfo, showSuccess } = useToast();
   const { isDarkMode, bgColor, cardBg, textColor, subtextColor, borderColor } = useThemeColors();
@@ -210,6 +215,10 @@ export default function LiveSessionScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState<'start' | 'end' | null>(null);
   const [justCompleted, setJustCompleted] = useState(false);
+  // The cash job that was just ended: the partner still has to record the money on its booking.
+  const [cashToRecord, setCashToRecord] = useState<{ bookingId: number; amount: string } | null>(
+    null
+  );
   // Pickup/Drop-off completion — local-only, per booking (no backend field, B7).
   const [completedById, setCompletedById] = useState<Record<number, Completion>>({});
   // Where the inline live map routes to (resolved coordinate + localized label).
@@ -284,7 +293,12 @@ export default function LiveSessionScreen() {
         group = pickUserSessions(list);
       }
       setSessions(group);
-      setIndex(0);
+      setIndex(
+        Math.max(
+          0,
+          group.findIndex((b) => b.id === openOnBookingId)
+        )
+      );
       // Side-load full pet + service (+ the booker's saved address, for their own map) for
       // each session. Best-effort — a failure falls back to the shallow data.
       if (group.length) {
@@ -328,7 +342,7 @@ export default function LiveSessionScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser?.id, currentUser?.serviceProviderId, isPartner, t, showError]);
+  }, [currentUser?.id, currentUser?.serviceProviderId, isPartner, openOnBookingId, t, showError]);
 
   useFocusEffect(
     useCallback(() => {
@@ -694,6 +708,12 @@ export default function LiveSessionScreen() {
   };
 
   const finishEnd = (endedId: number) => {
+    const ended = sessions.find((s) => s.id === endedId);
+    setCashToRecord(
+      ended && ended.paymentType === PaymentType.Cash
+        ? { bookingId: endedId, amount: formatMoney(ended.totalPrice, ended.priceCurrency) }
+        : null
+    );
     const remaining = sessions.filter((s) => s.id !== endedId);
     if (remaining.length === 0) {
       setJustCompleted(true);
@@ -797,6 +817,32 @@ export default function LiveSessionScreen() {
           <Text className={`text-sm ${subtextColor} mb-8 text-center`}>
             {t('liveSession.serviceCompletedText')}
           </Text>
+          {/* Cash is recorded by the partner, on the booking: until then it reads as unpaid and
+              the customer gets no receipt. Nothing here said so. */}
+          {isPartner && cashToRecord ? (
+            <View
+              className={`mb-4 w-full rounded-2xl border p-4 ${
+                isDarkMode ? 'border-amber-500/40 bg-amber-500/10' : 'border-amber-200 bg-amber-50'
+              }`}>
+              <Text className={`text-sm ${isDarkMode ? 'text-amber-200' : 'text-amber-800'}`}>
+                {t('liveSession.cashReminder', { amount: cashToRecord.amount })}
+              </Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() =>
+                  (navigation as any).navigate('BookingDetails', {
+                    bookingId: cashToRecord.bookingId,
+                  })
+                }
+                activeOpacity={0.85}
+                className="mt-3 flex-row items-center justify-center rounded-xl bg-amber-500 py-3">
+                <Ionicons name="cash-outline" size={18} color="white" />
+                <Text className="ml-2 text-sm font-bold text-white">
+                  {t('liveSession.recordCash')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
           <TouchableOpacity
             accessibilityRole="button"
             // Back where it was opened from, else the partner's hub / Home. Opened from a reload, a
@@ -1109,10 +1155,47 @@ export default function LiveSessionScreen() {
                 color={BRAND_GREEN}
                 style={{ marginLeft: 16 }}
               />
-              <Text className={`text-sm ${subtextColor} ml-2`}>
-                {formatTime(dto.bookingFrom)} – {formatTime(dto.bookingTo)}
+              {/* A stay ends on another day: "10:00 – 10:00" hid that, so the end says its day. */}
+              <Text className={`text-sm ${subtextColor} ml-2 flex-1`}>
+                {formatTime(dto.bookingFrom)} –{' '}
+                {formatDate(dto.bookingTo) !== formatDate(dto.bookingFrom)
+                  ? `${formatDate(dto.bookingTo)}, `
+                  : ''}
+                {formatTime(dto.bookingTo)}
               </Text>
             </View>
+            {/* How it is paid. The partner learned at the door, or not at all, that a job was
+                cash; the customer sees the same line they chose. */}
+            <View className={`mt-4 flex-row items-start border-t pt-4 ${borderColor}`}>
+              <Ionicons
+                name={dto.paymentType === PaymentType.Cash ? 'cash-outline' : 'card-outline'}
+                size={18}
+                color={BRAND_GREEN}
+              />
+              <Text className={`text-sm ${subtextColor} ml-2 flex-1`}>
+                {dto.paymentType === PaymentType.Cash
+                  ? isPartner
+                    ? t('liveSession.cashToCollect', {
+                        amount: formatMoney(dto.totalPrice, dto.priceCurrency),
+                      })
+                    : t('payments.cashNote', {
+                        amount: formatMoney(dto.totalPrice, dto.priceCurrency),
+                      })
+                  : t('requests.payCard')}
+              </Text>
+            </View>
+            {/* What the customer wrote for the provider when booking. */}
+            {dto.note ? (
+              <View className={`mt-4 flex-row items-start border-t pt-4 ${borderColor}`}>
+                <Ionicons name="document-text-outline" size={18} color={BRAND_GREEN} />
+                <View className="ml-2 flex-1">
+                  <Text className={`text-xs ${subtextColor}`}>
+                    {isPartner ? t('bookingDetails.customerNote') : t('bookingDetails.yourNote')}
+                  </Text>
+                  <Text className={`text-sm ${textColor} mt-0.5`}>{dto.note}</Text>
+                </View>
+              </View>
+            ) : null}
           </View>
 
           {/* Add-ons — the additional services the client chose */}

@@ -7,6 +7,7 @@ import { useLocale } from '../../context/LocaleContext';
 import { formatMoney } from '../../services/currency';
 import {
   priceSuffix,
+  serviceByline,
   serviceCurrency,
   serviceFromBasePrice,
   serviceFromPrice,
@@ -244,7 +245,9 @@ export default function ServiceResultRow({
 
           {/* Type · city · distance — the one-line "what and where". */}
           <View className="mt-1 flex-row flex-wrap items-center">
-            <Text className="text-xs font-medium text-brand-600">{typeLabel}</Text>
+            <Text className="text-xs font-medium text-brand-600" numberOfLines={1}>
+              {serviceByline(typeLabel, service)}
+            </Text>
             {city ? (
               <>
                 <Text className={`text-xs ${subtextColor} mx-1.5`}>·</Text>

@@ -216,9 +216,15 @@ export default function BookingPaymentPanel({
       ) : null}
 
       {/* Cash: the customer pays in person, the provider says it arrived. */}
-      {cashOwed && !isProvider ? (
+      {cashOwed && isCustomer ? (
         <Notice icon="cash-outline">
           {t('payments.cashNote', { amount: formatMoney(summary.balanceDue, currency) })}
+        </Notice>
+      ) : null}
+      {/* An admin reading it is neither side: "You pay…" was the customer's line. */}
+      {cashOwed && !isCustomer && !isProvider ? (
+        <Notice icon="cash-outline">
+          {t('payments.cashNoteAdmin', { amount: formatMoney(summary.balanceDue, currency) })}
         </Notice>
       ) : null}
       {cashOwed && isProvider ? (

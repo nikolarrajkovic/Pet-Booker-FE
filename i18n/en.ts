@@ -456,6 +456,7 @@ const en = {
     verificationProgress: 'Verification Progress',
   },
   pets: {
+    ageMonths: '{n} mo',
     emptyTitle: 'No pets yet',
     emptyBody: 'Add your pets so you can book services for them.',
     addFirst: 'Add your first pet',
@@ -569,6 +570,11 @@ const en = {
     perKm: '{amount}/km',
   },
   serviceDetail: {
+    depositPercent: '{percent}% deposit by card',
+    depositFixed: '{amount} deposit by card',
+    cancelDeposit: 'Free cancellation until you pay the deposit',
+    cancelFree: 'Free cancellation until the service starts',
+    showAllReviews: 'Show all {count} reviews',
     reviewFew: 'reviews',
     unavailableCta: 'Currently unavailable',
     unavailableNote:
@@ -702,6 +708,8 @@ const en = {
     infoDuration: 'Each appointment lasts {duration}.',
   },
   reviewBooking: {
+    depositDue: 'Deposit, once the provider confirms',
+    restAfter: 'The rest, after the service',
     nServices: '{count} services',
     subtotal: 'Subtotal',
     grandTotal: 'Total for {count} appointments',
@@ -811,6 +819,34 @@ const en = {
     submitFailed: 'Could not submit your review. Please try again.',
   },
   bookingDetails: {
+    starts: 'Starts',
+    ends: 'Ends',
+    aboutPet: 'About the pet',
+    specialNeeds: 'Special needs',
+    history: 'History',
+    historyRequested: 'Requested',
+    historyConfirmed: 'Confirmed by the partner',
+    historyDeposit: 'Deposit paid',
+    historyStarted: 'Service started',
+    historyEnded: 'Service finished',
+    historyPaid: 'Paid in full',
+    historyDeclined: 'Called off by the partner',
+    historyCancelled: 'Cancelled by the customer',
+    historyNoShow: 'Customer did not show up',
+    contacts: 'Contact details',
+    followLive: 'Follow live on the map',
+    openLiveSession: 'Open the live session',
+    awaitingNotice:
+      "Waiting for the partner to confirm. If they don't answer by {when}, the request expires and nothing is charged.",
+    awaitingNoticeProvider:
+      "Waiting for your answer. If it isn't answered by {when}, the request expires.",
+    expiredUnanswered:
+      "The partner didn't answer before the start time, so this request expired. Nothing was charged.",
+    expiredUnansweredProvider: "This request wasn't answered before its start time, so it expired.",
+    expiredNotStarted:
+      'This booking was confirmed but the service was never started, so it expired. Anything you paid is refunded to your card automatically.',
+    expiredNotStartedProvider:
+      'This booking was confirmed but never started, so it expired. Anything the customer paid is refunded.',
     yourNote: 'Your note for the provider',
     customerNote: 'Note from the customer',
     noShowNoticeProvider: "You recorded that the customer didn't show up.",
@@ -988,6 +1024,12 @@ const en = {
     egPlaceholder: 'e.g. {value}',
   },
   requests: {
+    specialNeedsFlag: 'This pet has special needs',
+    payCash: 'Paid in cash at the service',
+    payCard: 'Paid by card in the app',
+    payCardDeposit: 'Paid by card · deposit of {amount} before the start',
+    answerBy: 'Answer before {when}, or the request expires.',
+    viewBooking: 'View booking',
     pendingFew: '{count} pending requests',
     expiredNotStartedBadge: 'Expired — accepted but never started',
     expiredBadge: 'Expired — not answered before its start time',
@@ -1093,6 +1135,8 @@ const en = {
     yesterday: 'Yesterday',
   },
   myServices: {
+    paused: 'Paused',
+    pausedNote: "Paused. Customers can't find or book it.",
     activeFew: '{count} active services',
     bookingsCountFew: '{count} bookings',
     bookingsCountOne: '{count} booking',
@@ -1369,6 +1413,10 @@ const en = {
       "An admin reviews your ID and certificates before approving your application. When it's approved, the certificates you added are approved with it.",
   },
   liveSession: {
+    cashToCollect: 'Paid in cash: collect {amount} from the customer.',
+    cashReminder:
+      'This booking is paid in cash. Once you have received {amount}, record it on the booking so the customer gets a receipt.',
+    recordCash: 'Record the cash payment',
     title: 'Live Session',
     partnerSubtitle: 'Run your current service',
     userSubtitle: 'Track your service',
@@ -1455,6 +1503,32 @@ const en = {
     specialNeedsWarning: 'Has special needs — please take extra care',
   },
   addEditService: {
+    takingBookings: 'Taking bookings',
+    takingBookingsHint:
+      "Switch off to pause this service. Customers can't find or book it while it is paused; bookings you already have stay.",
+    petSize: 'Pet size',
+    petSizeHint: 'Optional. Leave empty to take pets of any size.',
+    petSizeFrom: 'From',
+    petSizeTo: 'Up to',
+    petSizeInvalid: "The upper limit can't be below the lower one.",
+    notice: 'Booking notice',
+    noticeHint: 'How far ahead a customer has to book.',
+    noticeNone: 'None',
+    noticeHours: '{h} h',
+    noticeDay: '1 day',
+    noticeDays: '{d} days',
+    deposit: 'Deposit',
+    depositHint:
+      "Paid by card after you confirm. The service can't start until it is paid, and you keep it if the customer cancels after paying or doesn't show up. Cash bookings pay no deposit.",
+    depositNone: 'No deposit',
+    depositPercent: 'Percentage',
+    depositFixed: 'Fixed amount',
+    depositInvalidTitle: 'Check the deposit',
+    depositPercentInvalid: 'Enter a percentage between 1 and 100.',
+    depositFixedInvalid: 'Enter the deposit amount.',
+    liveTracking: 'Live tracking',
+    liveTrackingHint:
+      'Share your location while the service is under way, so the customer can follow it on a map.',
     lateHours: 'Late & overnight',
     presetLate: 'Until 02:00',
     presetOvernight: 'Overnight 20:00 → 08:00',
@@ -1823,6 +1897,8 @@ const en = {
     loadFailed: 'Could not load provider details. Please try again.',
   },
   payments: {
+    cashNoteAdmin:
+      'The customer pays {amount} in cash to the provider, who records it once received.',
     keptByProvider: 'Kept by the provider',
     statusPaidCash: 'Paid in cash',
     cashFailed: "Couldn't record the cash payment.",
@@ -2217,7 +2293,7 @@ const en = {
       2: 'Female',
     },
     bookingState: {
-      0: 'Upcoming',
+      0: 'Awaiting confirmation',
       1: 'Completed',
       2: 'Cancelled',
       3: 'Booked',

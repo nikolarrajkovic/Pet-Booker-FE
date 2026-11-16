@@ -5,7 +5,7 @@ import ServicePhoto from '../../../components/shared/ServicePhoto';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
-import { serviceCurrency } from '../../../services/services';
+import { serviceByline, serviceCurrency } from '../../../services/services';
 import type { ServiceSearchItem } from '../../search-screen/components/ListView';
 
 type Props = {
@@ -60,9 +60,10 @@ export default function ProviderPickRow({ item, selected, disabled, onToggle }: 
           {item.name}
         </Text>
         <View className="mt-0.5 flex-row items-center">
+          {/* Whose service it is: picking the row names that partner on the request. */}
           {!!item.service && (
-            <Text numberOfLines={1} className="text-xs text-brand-600">
-              {item.service}
+            <Text numberOfLines={1} className="shrink text-xs text-brand-600">
+              {serviceByline(item.service, item.dto)}
             </Text>
           )}
           {item.rating > 0 ? (

@@ -98,6 +98,26 @@ export function canMarkNoShow(b: LifecycleFields, now: number = Date.now()): boo
 type NestedPhoto = { src?: string | null; isSelected?: boolean };
 type NestedEntity = { name?: string | null; photos?: NestedPhoto[]; id?: number | null };
 
+/**
+ * The booked pet as a booking read carries it: what a partner needs to decide on a request and
+ * to do the job. Until 2026-11 it was a name and photos, so the request card could not say
+ * whether it was a dog or a cat (app review 2026-11-13, finding 30).
+ */
+export type BookingPet = NestedEntity & {
+  /** PetSpeciesType flag. */
+  type?: number | null;
+  breed?: string | null;
+  /** Sex: 1 male, 2 female, 3 unknown. */
+  sex?: number | null;
+  /** "YYYY-MM-DD". */
+  dateOfBirth?: string | null;
+  weightKg?: number | null;
+  dietaryNotes?: string | null;
+  favoriteFood?: string | null;
+  additionalNotes?: string | null;
+  hasSpecialNeeds?: boolean;
+};
+
 export type BookingDto = {
   id?: number | null;
   userId: number;
@@ -140,9 +160,12 @@ export type BookingDto = {
   depositAmount?: number | null;
   // Populated on GET (read-only nested includes):
   serviceProvider?: NestedEntity | null;
-  /** `type` is the service's ServiceProviderType (the calendar's label and colour). */
-  service?: (NestedEntity & { type?: number | null }) | null;
-  pet?: NestedEntity | null;
+  /**
+   * `type` is the service's ServiceProviderType (the calendar's label and colour);
+   * `supportsLiveTracking` says the customer can follow it on a map while it is under way.
+   */
+  service?: (NestedEntity & { type?: number | null; supportsLiveTracking?: boolean | null }) | null;
+  pet?: BookingPet | null;
   // The booker — populated on GET since the API update (was always null before)
   user?: {
     id?: number | null;
@@ -388,6 +411,31 @@ export function bookingToViewModel(dto: BookingDto): BookingViewModel {
     clientEmail: dto.user?.email ?? '',
     clientAvatar: firstPhoto(dto.user),
   };
+}
+
+/** One step of a booking's status trail (`GET /api/booking-statuses?BookingId=`). */
+export type BookingStatusEntry = {
+  id: number;
+  bookingId: number;
+  /** BookingStatusType. */
+  status: number;
+  /** A real instant (UTC), unlike the booking's own wall-clock times. */
+  changedAt: string;
+  notes?: string | null;
+};
+
+/**
+ * A booking's history, oldest first: requested, confirmed, paid, started, ended, called off.
+ * Readable by its customer, its provider and admins. The trail was always recorded; no screen
+ * showed it (app review 2026-11-13, finding 38).
+ */
+export async function getBookingHistory(bookingId: number): Promise<BookingStatusEntry[]> {
+  const items = await apiList<BookingStatusEntry>('/api/booking-statuses', {
+    query: { BookingId: bookingId, Page: 1, PerPage: 50 },
+    fallback: 'Failed to load the booking history.',
+    context: 'getBookingHistory',
+  });
+  return [...items].sort((a, b) => a.id - b.id);
 }
 
 export type GetBookingsParams = {

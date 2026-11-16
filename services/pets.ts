@@ -81,6 +81,80 @@ export function petSexLabel(sex: number): string {
   }
 }
 
+/**
+ * A pet's age from its date of birth ("YYYY-MM-DD"): whole years and the months past them.
+ * Null when the date is missing, malformed or in the future.
+ */
+export function petAge(
+  dateOfBirth?: string | null,
+  now: Date = new Date()
+): { years: number; months: number } | null {
+  if (!dateOfBirth) return null;
+  const [y, m, d] = dateOfBirth.slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const months =
+    (now.getFullYear() - y) * 12 + (now.getMonth() + 1 - m) - (now.getDate() < d ? 1 : 0);
+  if (months < 0) return null;
+  return { years: Math.floor(months / 12), months: months % 12 };
+}
+
+type PetFactsT = (key: any, params?: Record<string, string | number>) => string;
+type PetFactsTEnum = (enumName: any, value: number | null | undefined, fallback?: string) => string;
+
+/**
+ * What a pet is, for the side that doesn't know it: species, breed, sex, age and weight, each
+ * only when known. A partner reads this on a request before accepting it.
+ */
+export function petFacts(
+  t: PetFactsT,
+  tEnum: PetFactsTEnum,
+  pet:
+    | {
+        type?: number | null;
+        breed?: string | null;
+        sex?: number | null;
+        dateOfBirth?: string | null;
+        weightKg?: number | null;
+      }
+    | null
+    | undefined,
+  now: Date = new Date()
+): string[] {
+  if (!pet) return [];
+  const age = petAge(pet.dateOfBirth, now);
+  return [
+    pet.type ? tEnum('petSpeciesType', pet.type, '') : '',
+    pet.breed?.trim() ?? '',
+    pet.sex === 1 || pet.sex === 2 ? tEnum('sex', pet.sex, '') : '',
+    age == null
+      ? ''
+      : age.years >= 1
+        ? t(age.years === 1 ? 'liveSession.yearOne' : 'liveSession.yearsMany', { n: age.years })
+        : t('pets.ageMonths', { n: Math.max(1, age.months) }),
+    pet.weightKg ? `${pet.weightKg} kg` : '',
+  ].filter(Boolean);
+}
+
+/** The owner's care notes on a pet, labelled, only the ones written. */
+export function petCareNotes(
+  t: PetFactsT,
+  pet:
+    | {
+        dietaryNotes?: string | null;
+        favoriteFood?: string | null;
+        additionalNotes?: string | null;
+      }
+    | null
+    | undefined
+): { label: string; value: string }[] {
+  if (!pet) return [];
+  return [
+    { label: t('liveSession.dietaryNotes'), value: pet.dietaryNotes?.trim() ?? '' },
+    { label: t('liveSession.favoriteFood'), value: pet.favoriteFood?.trim() ?? '' },
+    { label: t('liveSession.additionalNotes'), value: pet.additionalNotes?.trim() ?? '' },
+  ].filter((note) => note.value);
+}
+
 export type PetResponse = {
   id: string;
   ownerUserId: number;

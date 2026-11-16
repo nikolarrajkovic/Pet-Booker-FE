@@ -20,6 +20,7 @@ import { getErrorMessage } from '../../../services/http';
 import {
   ServiceDto,
   priceSuffix,
+  serviceByline,
   serviceCurrency,
   serviceFromPrice,
 } from '../../../services/services';
@@ -358,10 +359,11 @@ export default function HomeScreen() {
             key={item.id}
             image={item.image}
             name={item.name}
-            service={
+            service={serviceByline(
               item.subtitle ||
-              (item.dto.type != null ? tEnum('serviceProviderType', item.dto.type) : '')
-            }
+                (item.dto.type != null ? tEnum('serviceProviderType', item.dto.type) : ''),
+              item.dto
+            )}
             rating={item.rating}
             reviews={item.reviews}
             price={item.price}
