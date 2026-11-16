@@ -28,7 +28,12 @@ import type { Appointment, CheckoutSection } from '../../book-service-screen/app
 import { useBookingCart } from '../../../context/BookingCartContext';
 import { resolveImageUrl } from '../../../services/service-providers';
 import { addressLabel } from '../../../services/geocoding';
-import { ServiceDto, serviceCurrency, serviceAsksDeposit } from '../../../services/services';
+import {
+  ServiceDto,
+  serviceCurrency,
+  serviceAsksDeposit,
+  serviceDeposit,
+} from '../../../services/services';
 import { DiscountType } from '../../../services/service-discounts';
 import { createBookings, parseBookingDate, PaymentType } from '../../../services/bookings';
 import { formatMoney } from '../../../services/currency';
@@ -159,6 +164,15 @@ export default function ReviewBookingScreen() {
   const priced = sections.map((section) => ({ section, ...priceSection(t, section) }));
   const grandTotal = priced.reduce((sum, p) => sum + p.total, 0);
   const appointmentCount = sections.reduce((n, sec) => n + sec.appointments.length, 0);
+  // What the deposits come to: each appointment is its own booking with its own deposit. The
+  // screen said a deposit would be needed and never how much.
+  const depositTotal = payingCash
+    ? 0
+    : sections.reduce(
+        (sum, sec) =>
+          sum + sec.appointments.reduce((s, a) => s + serviceDeposit(sec.service, a.total), 0),
+        0
+      );
 
   const handleConfirm = async () => {
     if (!currentUser?.id) {
@@ -250,6 +264,30 @@ export default function ReviewBookingScreen() {
           <Text className="text-2xl font-bold text-brand-600">
             {formatMoney(grandTotal, serviceCurrency(sections[0].service))}
           </Text>
+        </View>
+      ) : null}
+      {/* When the money moves: the deposit once the provider confirms, the rest afterwards. */}
+      {depositTotal > 0 ? (
+        <View className={`border-t ${gutter.px} py-4 ${borderColor}`}>
+          <View className="mb-2 flex-row justify-between">
+            <Text className={`mr-3 flex-1 text-sm ${subtextColor}`}>
+              {t('reviewBooking.depositDue')}
+            </Text>
+            <Text className={`text-sm font-semibold ${textColor}`}>
+              {formatMoney(depositTotal, serviceCurrency(sections[0].service))}
+            </Text>
+          </View>
+          <View className="flex-row justify-between">
+            <Text className={`mr-3 flex-1 text-sm ${subtextColor}`}>
+              {t('reviewBooking.restAfter')}
+            </Text>
+            <Text className={`text-sm font-semibold ${textColor}`}>
+              {formatMoney(
+                Math.max(0, grandTotal - depositTotal),
+                serviceCurrency(sections[0].service)
+              )}
+            </Text>
+          </View>
         </View>
       ) : null}
     </View>

@@ -47,7 +47,7 @@ import {
   serviceCurrency,
 } from '../../../services/services';
 import { getErrorMessage } from '../../../services/http';
-import { providerTypeValue } from '../../../services/service-providers';
+import { ServiceProviderType, providerTypeValue } from '../../../services/service-providers';
 import {
   AdditionalServiceChargeType,
   AdditionalServiceKind,
@@ -74,6 +74,8 @@ import {
   DURATION_OPTION_LABELS,
   PricingTier,
   isOvernightHours,
+  depositOf,
+  type ServiceDeposit,
 } from '../serviceModel';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useResponsive } from '../../../hooks/useResponsive';
@@ -230,6 +232,58 @@ export default function AddEditServiceScreen() {
   const [additionalServices, setAdditionalServices] = useState<AdditionalServiceEntry[]>(
     getInitialAdditionalServices(existingService)
   );
+
+  // ── Settings the API has always had and this form never set (app review 2026-11-13) ──────
+  // Whether the service takes bookings; off pauses it.
+  const [isActive, setIsActive] = useState<boolean>(params?.serviceDto?.isActive ?? true);
+  // The pet weights it takes, kg; empty leaves that side open.
+  const [minWeightKg, setMinWeightKg] = useState(
+    params?.serviceDto?.details?.minWeightKg != null
+      ? String(params.serviceDto.details.minWeightKg)
+      : ''
+  );
+  const [maxWeightKg, setMaxWeightKg] = useState(
+    params?.serviceDto?.details?.maxWeightKg != null
+      ? String(params.serviceDto.details.maxWeightKg)
+      : ''
+  );
+  const weightOf = (text: string) => {
+    const n = parseFloat(text.replace(',', '.'));
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+  const weightsInvalid =
+    weightOf(minWeightKg) != null &&
+    weightOf(maxWeightKg) != null &&
+    (weightOf(maxWeightKg) as number) < (weightOf(minWeightKg) as number);
+  // Hours of notice a booking needs; 0 = none.
+  const [noticeHours, setNoticeHours] = useState<number>(
+    params?.serviceDto?.details?.leadTimeHours ?? 0
+  );
+  // The usual choices, plus whatever the service already has when it is none of them.
+  const noticeOptions = [0, 1, 2, 4, 12, 24, 48];
+  if (!noticeOptions.includes(noticeHours)) noticeOptions.push(noticeHours);
+  const noticeLabel = (h: number) =>
+    h === 0
+      ? t('addEditService.noticeNone')
+      : h === 24
+        ? t('addEditService.noticeDay')
+        : h > 24 && h % 24 === 0
+          ? t('addEditService.noticeDays', { d: h / 24 })
+          : t('addEditService.noticeHours', { h });
+  // The deposit: none, a share of the bill, or a fixed amount.
+  const initialDeposit = depositOf(params?.serviceDto?.pricing);
+  const [depositKind, setDepositKind] = useState<ServiceDeposit['kind']>(initialDeposit.kind);
+  const [depositValue, setDepositValue] = useState(
+    initialDeposit.kind === 'none' ? '' : String(initialDeposit.value)
+  );
+  const depositNumber = parseFloat(depositValue.replace(',', '.'));
+  // Live location, for the two kinds of service that move.
+  const [supportsLiveTracking, setSupportsLiveTracking] = useState<boolean>(
+    params?.serviceDto?.details?.supportsLiveTracking ?? false
+  );
+  const selectedType = providerTypeValue(serviceType);
+  const canTrack =
+    selectedType === ServiceProviderType.Walker || selectedType === ServiceProviderType.Transporter;
   const [workingHours, setWorkingHours] = useState<WorkingHours>(
     existingService?.workingHours || DEFAULT_WORKING_HOURS
   );
@@ -581,7 +635,8 @@ export default function AddEditServiceScreen() {
     // A shared service needs hours customers can book. Without any it used to save, show up in
     // search with "Book Now", and dead-end at "hasn't set any working hours". The API refuses it
     // too; saying so here points at the section to fix.
-    if (!Object.values(workingHours).some((day) => day.enabled)) {
+    // A paused service takes none, so it may be saved without hours (as the API allows).
+    if (isActive && !Object.values(workingHours).some((day) => day.enabled)) {
       setShowHoursError(true);
       showAlert(t('addEditService.hoursRequiredTitle'), t('addEditService.hoursRequiredMsg'));
       return;
@@ -602,6 +657,20 @@ export default function AddEditServiceScreen() {
       );
       return;
     }
+    if (weightsInvalid) {
+      showAlert(t('addEditService.petSize'), t('addEditService.petSizeInvalid'));
+      return;
+    }
+    if (depositKind === 'percent' && !(depositNumber >= 1 && depositNumber <= 100)) {
+      showAlert(t('addEditService.depositInvalidTitle'), t('addEditService.depositPercentInvalid'));
+      return;
+    }
+    if (depositKind === 'fixed' && !(depositNumber > 0)) {
+      showAlert(t('addEditService.depositInvalidTitle'), t('addEditService.depositFixedInvalid'));
+      return;
+    }
+    const deposit: ServiceDeposit =
+      depositKind === 'none' ? { kind: 'none' } : { kind: depositKind, value: depositNumber };
     setIsSaving(true);
     try {
       // New local photos are bulk-uploaded first; already-uploaded ones keep
@@ -637,6 +706,12 @@ export default function AddEditServiceScreen() {
           workingHours,
           photos,
           address,
+          isActive,
+          supportsLiveTracking: canTrack && supportsLiveTracking,
+          leadTimeHours: noticeHours > 0 ? noticeHours : null,
+          minWeightKg: weightOf(minWeightKg),
+          maxWeightKg: weightOf(maxWeightKg),
+          deposit,
         },
         params?.serviceDto
       );
@@ -1076,6 +1151,210 @@ export default function AddEditServiceScreen() {
               />
             </View>
           </View>
+
+          {/* Pet size: the weights this service takes */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-1`}>
+              {t('addEditService.petSize')}
+            </Text>
+            <Text className={`${subtextColor} mb-2 text-sm`}>
+              {t('addEditService.petSizeHint')}
+            </Text>
+            <View className="flex-row gap-3">
+              {(
+                [
+                  ['petSizeFrom', minWeightKg, setMinWeightKg],
+                  ['petSizeTo', maxWeightKg, setMaxWeightKg],
+                ] as const
+              ).map(([labelKey, value, setValue]) => (
+                <View
+                  key={labelKey}
+                  className={`${inputBg} flex-1 flex-row items-center rounded-xl px-4 py-3`}>
+                  <Text className={`${subtextColor} mr-2 text-sm`}>
+                    {t(`addEditService.${labelKey}` as any)}
+                  </Text>
+                  <TextInput
+                    accessibilityLabel={`${t('addEditService.petSize')}: ${t(`addEditService.${labelKey}` as any)}`}
+                    placeholder="—"
+                    placeholderTextColor={placeholderColor}
+                    className={`${inputText} flex-1`}
+                    style={{ padding: 0, outlineStyle: 'none' } as any}
+                    value={value}
+                    onChangeText={(text) => setValue(text.replace(/[^0-9.,]/g, ''))}
+                    keyboardType="decimal-pad"
+                    maxLength={5}
+                    selectionColor={BRAND_GREEN}
+                    cursorColor={BRAND_GREEN}
+                  />
+                  <Text className={`${subtextColor} ml-1 text-sm`}>kg</Text>
+                </View>
+              ))}
+            </View>
+            {weightsInvalid ? (
+              <Text className="mt-1 text-xs text-red-500">
+                {t('addEditService.petSizeInvalid')}
+              </Text>
+            ) : null}
+          </View>
+
+          {/* Booking notice */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-1`}>
+              {t('addEditService.notice')}
+            </Text>
+            <Text className={`${subtextColor} mb-2 text-sm`}>{t('addEditService.noticeHint')}</Text>
+            <View accessibilityRole="radiogroup" className="flex-row flex-wrap gap-2">
+              {noticeOptions.map((h) => {
+                const active = noticeHours === h;
+                return (
+                  <TouchableOpacity
+                    key={h}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: active }}
+                    aria-checked={active}
+                    onPress={() => setNoticeHours(h)}
+                    className={`rounded-full border px-4 py-2 ${
+                      active
+                        ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                        : `${isDarkMode ? 'border-gray-700' : 'border-gray-300'} ${inputBg}`
+                    }`}>
+                    <Text
+                      className={`text-sm ${active ? 'font-semibold text-brand-600' : subtextColor}`}>
+                      {noticeLabel(h)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Deposit */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-1`}>
+              {t('addEditService.deposit')}
+            </Text>
+            <Text className={`${subtextColor} mb-2 text-sm`}>
+              {t('addEditService.depositHint')}
+            </Text>
+            <View accessibilityRole="radiogroup" className="flex-row flex-wrap gap-2">
+              {(
+                [
+                  ['none', 'depositNone'],
+                  ['percent', 'depositPercent'],
+                  ['fixed', 'depositFixed'],
+                ] as const
+              ).map(([kind, labelKey]) => {
+                const active = depositKind === kind;
+                return (
+                  <TouchableOpacity
+                    key={kind}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: active }}
+                    aria-checked={active}
+                    onPress={() => {
+                      // The number means something else under the other kind: start it again.
+                      if (kind !== depositKind) setDepositValue('');
+                      setDepositKind(kind);
+                    }}
+                    className={`rounded-full border px-4 py-2 ${
+                      active
+                        ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                        : `${isDarkMode ? 'border-gray-700' : 'border-gray-300'} ${inputBg}`
+                    }`}>
+                    <Text
+                      className={`text-sm ${active ? 'font-semibold text-brand-600' : subtextColor}`}>
+                      {t(`addEditService.${labelKey}` as any)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {depositKind === 'percent' ? (
+              <View className={`${inputBg} mt-2 flex-row items-center rounded-xl px-4 py-3`}>
+                <TextInput
+                  accessibilityLabel={t('addEditService.depositPercent')}
+                  placeholder="20"
+                  placeholderTextColor={placeholderColor}
+                  className={`${inputText} flex-1`}
+                  style={{ padding: 0, outlineStyle: 'none' } as any}
+                  value={depositValue}
+                  onChangeText={(text) => setDepositValue(text.replace(/[^0-9]/g, ''))}
+                  keyboardType="numeric"
+                  maxLength={3}
+                  selectionColor={BRAND_GREEN}
+                  cursorColor={BRAND_GREEN}
+                />
+                <Text className={`${subtextColor} ml-1 text-sm`}>%</Text>
+              </View>
+            ) : null}
+            {depositKind === 'fixed' ? (
+              <CurrencyInput
+                currency={currencyCode}
+                accessibilityLabel={t('addEditService.depositFixed')}
+                containerClassName={`${inputBg} mt-2 rounded-xl px-4 py-3`}
+                inputClassName={`${inputText} text-sm`}
+                affixClassName={subtextColor}
+                placeholder="300"
+                placeholderTextColor={placeholderColor}
+                style={{ padding: 0, outlineStyle: 'none' } as any}
+                value={depositValue}
+                onChangeText={(text: string) => setDepositValue(text.replace(/[^0-9.,]/g, ''))}
+                keyboardType="decimal-pad"
+              />
+            ) : null}
+          </View>
+
+          {/* Live tracking: only the kinds of service that move can share a location */}
+          {canTrack ? (
+            <TouchableOpacity
+              accessibilityRole="switch"
+              accessibilityState={{ checked: supportsLiveTracking }}
+              aria-checked={supportsLiveTracking}
+              onPress={() => setSupportsLiveTracking((on) => !on)}
+              className={`${cardBg} border ${borderColor} mb-4 flex-row items-center justify-between rounded-xl px-4 py-3`}>
+              <View className="mr-3 flex-1">
+                <Text className={`text-sm font-semibold ${textColor}`}>
+                  {t('addEditService.liveTracking')}
+                </Text>
+                <Text className={`${subtextColor} mt-0.5 text-xs`}>
+                  {t('addEditService.liveTrackingHint')}
+                </Text>
+              </View>
+              <View pointerEvents="none">
+                <Switch
+                  accessible={false}
+                  value={supportsLiveTracking}
+                  trackColor={{ false: '#D1D5DB', true: '#86EFAC' }}
+                  thumbColor={supportsLiveTracking ? BRAND_GREEN : '#f4f3f4'}
+                />
+              </View>
+            </TouchableOpacity>
+          ) : null}
+
+          {/* Taking bookings: off pauses the service without deleting it */}
+          <TouchableOpacity
+            accessibilityRole="switch"
+            accessibilityState={{ checked: isActive }}
+            aria-checked={isActive}
+            onPress={() => setIsActive((on) => !on)}
+            className={`${cardBg} border ${borderColor} mb-4 flex-row items-center justify-between rounded-xl px-4 py-3`}>
+            <View className="mr-3 flex-1">
+              <Text className={`text-sm font-semibold ${textColor}`}>
+                {t('addEditService.takingBookings')}
+              </Text>
+              <Text className={`${subtextColor} mt-0.5 text-xs`}>
+                {t('addEditService.takingBookingsHint')}
+              </Text>
+            </View>
+            <View pointerEvents="none">
+              <Switch
+                accessible={false}
+                value={isActive}
+                trackColor={{ false: '#D1D5DB', true: '#86EFAC' }}
+                thumbColor={isActive ? BRAND_GREEN : '#f4f3f4'}
+              />
+            </View>
+          </TouchableOpacity>
 
           {/* Additional Services */}
           <View className="mb-4">

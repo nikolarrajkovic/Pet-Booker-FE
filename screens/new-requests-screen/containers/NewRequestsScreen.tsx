@@ -24,7 +24,10 @@ import {
   BookingSortBy,
   BookingStatusType,
   GetBookingsParams,
+  PaymentType,
 } from '../../../services/bookings';
+import { petCareNotes, petFacts } from '../../../services/pets';
+import { addressLabel } from '../../../services/geocoding';
 import { usePagedList } from '../../../hooks/usePagedList';
 import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import { formatMoney } from '../../../services/currency';
@@ -68,10 +71,9 @@ function selectedAddOns(tEnum: TEnumFn, b: BookingDto): string[] {
   });
 }
 
-// BookingDto (with nested includes) → RequestCard's ServiceRequest shape.
-// Add-ons come from the booking's include* flags (selectedAddOns). Fields the
-// booking API still doesn't carry (client phone, location, owner notes, pet
-// age/weight) are blank — see BACKEND_GAPS.md.
+// BookingDto (with nested includes) → RequestCard's ServiceRequest shape. The booking read
+// carries the pet in full since 2026-11 (species, breed, sex, date of birth, weight, care notes),
+// so the card says what the partner is being asked to take before they answer.
 function bookingToRequest(t: TFn, tEnum: TEnumFn, b: BookingDto): ServiceRequest {
   const from = parseBookingDate(b.bookingFrom);
   const to = parseBookingDate(b.bookingTo);
@@ -84,7 +86,9 @@ function bookingToRequest(t: TFn, tEnum: TEnumFn, b: BookingDto): ServiceRequest
         : b.currentStatus === BookingStatusType.ServiceRequestedByUser
           ? 'new'
           : 'accepted';
-  const pet: any = b.pet;
+  const pet = b.pet;
+  const paidInCash = b.paymentType === PaymentType.Cash;
+  const deposit = b.depositAmount ?? 0;
   return {
     id: b.id ?? 0,
     clientName: customerName(b.user, t('requests.client')),
@@ -93,18 +97,30 @@ function bookingToRequest(t: TFn, tEnum: TEnumFn, b: BookingDto): ServiceRequest
     clientPhone: '', // BACKEND-GAP B1: no phone on the booking's user include
     postedAgo: relativeTime(t, b.createdAt),
     petName: pet?.name ?? t('requests.pet'),
-    petBreed: pet?.breed ?? '',
-    petAge: '',
-    petWeight: '',
-    petImage: resolveImageUrl(pet?.photos?.[0]?.src) || null,
-    petSpecialNeeds: null,
+    petFacts: petFacts(t, tEnum, pet),
+    petImage:
+      resolveImageUrl((pet?.photos?.find((p) => p.isSelected) ?? pet?.photos?.[0])?.src) || null,
+    petHasSpecialNeeds: !!pet?.hasSpecialNeeds,
+    petNotes: petCareNotes(t, pet),
     petType: petTypeOf(pet),
     serviceName: b.service?.name ?? t('requests.service'),
     serviceDate: isNaN(from.getTime()) ? '' : formatLongDate(from),
     serviceTime: isNaN(from.getTime())
       ? ''
       : from.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }),
-    serviceLocation: '', // BACKEND-GAP: no location name on booking
+    pickupAddress: b.pickupAddress ? addressLabel(b.pickupAddress) : '',
+    dropoffAddress: b.leaveOverAddress ? addressLabel(b.leaveOverAddress) : '',
+    paidInCash,
+    paymentLine: paidInCash
+      ? t('requests.payCash')
+      : deposit > 0
+        ? t('requests.payCardDeposit', { amount: formatMoney(deposit, b.priceCurrency) })
+        : t('requests.payCard'),
+    // An unanswered request expires when its start time arrives.
+    answerBy:
+      status === 'new' && !isNaN(from.getTime())
+        ? `${formatLongDate(from)}, ${from.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })}`
+        : '',
     duration: hours === 1 ? t('requests.hour', { h: hours }) : t('requests.hours', { h: hours }),
     totalPrice: b.totalPrice,
     basePrice: b.basePrice,
@@ -409,6 +425,11 @@ export default function NewRequestsScreen() {
                     bookingId,
                     subtitle: request.serviceName,
                   })
+                }
+                // The booking's page: the bill line by line, payments, calling it off, a no-show.
+                // Accepted and declined requests had no way to it from here.
+                onOpen={(bookingId) =>
+                  (navigation as any).navigate('BookingDetails', { bookingId })
                 }
               />
             ))}

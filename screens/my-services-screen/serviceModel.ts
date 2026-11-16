@@ -87,7 +87,8 @@ export interface UiService {
   description: string;
   rating: number;
   reviews: number;
-  bookings: number;
+  /** Bookings taken on; null when the API didn't say (then the line is not shown). */
+  bookings: number | null;
   maxConcurrentBookings: number; // "Maximum pet capacity" — details.maxConcurrentBookings
   images: string[];
   selectedImageIndex: number; // index in `images` of the profile (isSelected) photo
@@ -403,7 +404,9 @@ export function serviceDtoToUi(dto: ServiceDto): UiService {
     description: dto.description ?? dto.about ?? '',
     rating: dto.rating ?? 0,
     reviews: dto.totalRatingNumber ?? 0,
-    bookings: 0, // BACKEND-GAP S5: not exposed per service
+    // The API counts it for the service's own partner (review 2026-11-13). This was a hardcoded
+    // 0, so every service read "0 bookings" however busy it was.
+    bookings: dto.bookingCount ?? null,
     maxConcurrentBookings: dto.details?.maxConcurrentBookings ?? 1,
     images: photoList.map((p) => p.uri),
     selectedImageIndex: Math.max(
@@ -498,6 +501,19 @@ export async function buildServicePhotos(
   return all;
 }
 
+export type ServiceDeposit =
+  | { kind: 'none' }
+  | { kind: 'percent'; value: number }
+  | { kind: 'fixed'; value: number };
+
+/** The deposit a stored service asks, in the editor's terms. */
+export function depositOf(pricing: ServiceDto['pricing'] | null | undefined): ServiceDeposit {
+  if (pricing?.isEscrowPercentEnabled && (pricing.escrowPercent ?? 0) > 0)
+    return { kind: 'percent', value: pricing.escrowPercent as number };
+  if ((pricing?.escrowAmount ?? 0) > 0) return { kind: 'fixed', value: pricing!.escrowAmount };
+  return { kind: 'none' };
+}
+
 export type ServiceFormInput = {
   serviceProviderId: number;
   id?: number;
@@ -512,6 +528,23 @@ export type ServiceFormInput = {
    */
   pricingUnit?: number;
   maxPetCapacity?: number; // → details.maxConcurrentBookings
+  /**
+   * The settings below reached the API only from seed data until 2026-11 (app review
+   * 2026-11-13, findings 12–16): the form had no field for them, so a service made in the app
+   * could ask no deposit, share no location, need no notice and never be paused. Each is
+   * optional here: omitted keeps the original's value.
+   */
+  /** Whether the service takes bookings. false pauses it: not found, not bookable. */
+  isActive?: boolean;
+  /** Walker and Transporter only; ignored for the other types, which the API refuses. */
+  supportsLiveTracking?: boolean;
+  /** Hours of notice a booking needs; null for none. */
+  leadTimeHours?: number | null;
+  /** The pet weights the service takes, in kg; null leaves that side open. */
+  minWeightKg?: number | null;
+  maxWeightKg?: number | null;
+  /** The deposit: none, a share of the bill (1–100), or a fixed amount in the form's currency. */
+  deposit?: ServiceDeposit;
   // Which pets the service takes (PetSpeciesType FLAGS) → details.acceptedSpecies. The screen
   // refuses to save with none, as the API does.
   acceptedSpecies?: number;
@@ -600,15 +633,25 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
 
   const details: NonNullable<ServiceDto['details']> = {
     ...original?.details,
-    // Non-nullable booleans with no UI yet — round-trip from the original so a
-    // PUT doesn't reset them (default false on create).
+    // The form's switch (shown for the two types that may have it), else the original's.
     supportsLiveTracking: typeAllowsLiveTracking
-      ? (original?.details?.supportsLiveTracking ?? false)
+      ? (form.supportsLiveTracking ?? original?.details?.supportsLiveTracking ?? false)
       : false,
     // FLAGS, chosen on the form. The fallbacks only cover a caller that doesn't pass it.
     acceptedSpecies: form.acceptedSpecies || original?.details?.acceptedSpecies || 63,
     maxConcurrentBookings: form.maxPetCapacity ?? original?.details?.maxConcurrentBookings ?? 1,
+    leadTimeHours:
+      form.leadTimeHours !== undefined
+        ? form.leadTimeHours
+        : (original?.details?.leadTimeHours ?? null),
+    minWeightKg:
+      form.minWeightKg !== undefined ? form.minWeightKg : (original?.details?.minWeightKg ?? null),
+    maxWeightKg:
+      form.maxWeightKg !== undefined ? form.maxWeightKg : (original?.details?.maxWeightKg ?? null),
   };
+
+  // A percentage and a fixed amount are one choice on the form and two fields on the API.
+  const deposit = form.deposit ?? depositOf(original?.pricing);
 
   // `pricing` prices the service itself; add-on money lives on each extra's own row.
   const pricing: NonNullable<ServiceDto['pricing']> = {
@@ -616,9 +659,9 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
     unit: hasDurationTiers(form.pricingTiers)
       ? 0
       : (form.pricingUnit ?? original?.pricing?.unit ?? 0),
-    isEscrowPercentEnabled: original?.pricing?.isEscrowPercentEnabled ?? false,
-    escrowPercent: original?.pricing?.escrowPercent ?? null,
-    escrowAmount: original?.pricing?.escrowAmount ?? 0,
+    isEscrowPercentEnabled: deposit.kind === 'percent',
+    escrowPercent: deposit.kind === 'percent' ? deposit.value : null,
+    escrowAmount: deposit.kind === 'fixed' ? deposit.value : 0,
   };
 
   // The extras go over as one array, which the server treats as the desired FULL set: rows keep
@@ -642,7 +685,8 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
     name: form.serviceName,
     description: form.description,
     type,
-    isActive: true,
+    // Paused or not is the form's switch; it was always sent as true, so a save un-paused.
+    isActive: form.isActive ?? original?.isActive ?? true,
     pricing,
     details,
     additionalServices,

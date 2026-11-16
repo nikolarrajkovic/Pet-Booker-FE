@@ -142,7 +142,9 @@ export default function ServiceCard({
             <Text className="text-[11px] font-semibold text-gray-600">{t('card.unavailable')}</Text>
           </View>
         ) : null}
-        <Text className={`text-xs ${subtextColor} mb-2`}>{service}</Text>
+        <Text className={`text-xs ${subtextColor} mb-2`} numberOfLines={1}>
+          {service}
+        </Text>
 
         <View className="flex-row items-center justify-between">
           {reviews > 0 ? (

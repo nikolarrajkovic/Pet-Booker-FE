@@ -9,6 +9,7 @@ import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
 import { useResource } from '../../../hooks/useResource';
 import { serviceDetailParams } from '../../../navigation/linking';
 import { linkTo } from '../../../navigation/links';
+import { useAppNavigation } from '../../../hooks/useAppNavigation';
 import ServicePhoto from '../../../components/shared/ServicePhoto';
 import {
   priceSuffix,
@@ -50,6 +51,7 @@ const EMPTY_REVIEWS: ReviewDto[] = [];
 export default function ProviderDetailScreen() {
   const gutter = usePageGutter();
   const navigation = useNavigation();
+  const { goUp } = useAppNavigation();
   const { isLoggedIn } = useAuth();
   const route = useRoute<RouteProp<{ params: ProviderDetailRouteParams }, 'params'>>();
   // The id is what the URL (`/providers/:providerId`) carries; the view model is optional. Nothing
@@ -135,7 +137,8 @@ export default function ProviderDetailScreen() {
         <TouchableOpacity
           accessibilityLabel={t('common.back')}
           accessibilityRole="button"
-          onPress={() => navigation.goBack()}
+          // A partner's page has its own address, so it can be the first screen (a shared link).
+          onPress={() => goUp('Home')}
           className="absolute left-4 top-12 h-10 w-10 items-center justify-center rounded-full bg-white"
           style={{
             shadowColor: '#000',

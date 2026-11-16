@@ -18,17 +18,26 @@ export interface ServiceRequest {
   postedAgo: string;
   // Pet info
   petName: string;
-  petBreed: string;
-  petAge: string;
-  petWeight: string;
+  /** Species, breed, sex, age and weight, the ones known. */
+  petFacts: string[];
   petImage: string | null;
-  petSpecialNeeds: string | null;
+  /** The owner marked the pet as having special needs. */
+  petHasSpecialNeeds: boolean;
+  /** The owner's care notes, labelled. */
+  petNotes: { label: string; value: string }[];
   petType: 'dog' | 'cat' | 'other';
   // Service info
   serviceName: string;
   serviceDate: string;
   serviceTime: string;
-  serviceLocation: string;
+  /** Where to collect and return the pet, when the booking has a journey. */
+  pickupAddress: string;
+  dropoffAddress: string;
+  /** How it is paid: cash at the service, or by card (with its deposit, when one is asked). */
+  paymentLine: string;
+  paidInCash: boolean;
+  /** For a request still waiting: when it stops being answerable. */
+  answerBy: string;
   duration: string;
   totalPrice: number;
   /** The service price alone (the total also carries the extras) — what Adjust price edits. */
@@ -54,6 +63,8 @@ interface RequestCardProps {
   onAdjustPrice?: (id: number) => void;
   /** Open this booking's thread with the customer; omitted, the action is not offered. */
   onMessage?: (id: number) => void;
+  /** Open the booking's own page; omitted, the link is not offered. */
+  onOpen?: (id: number) => void;
 }
 
 const petTypeEmoji: Record<string, string> = {
@@ -73,11 +84,12 @@ export default function RequestCard({
   onDecline,
   onAdjustPrice,
   onMessage,
+  onOpen,
 }: RequestCardProps) {
   const { t } = useLocale();
   const sectionBg = isDarkMode ? 'bg-[#243447]' : 'bg-gray-50';
   const specialNeedsBg = isDarkMode ? 'bg-yellow-900/30' : 'bg-yellow-50';
-  const petFacts = [request.petBreed, request.petAge].filter(Boolean).join(' • ');
+  const petFacts = request.petFacts.join(' • ');
 
   return (
     <View className={`${cardBg} mb-4 rounded-2xl border ${borderColor} overflow-hidden`}>
@@ -135,21 +147,31 @@ export default function RequestCard({
           {/* Joined from whatever is known, so a pet with no breed/age on record doesn't render a
               lone "•" under its name. */}
           {petFacts ? <Text className={`text-xs ${subtextColor} mt-0.5`}>{petFacts}</Text> : null}
-          {request.petWeight ? (
-            <Text className={`text-xs ${subtextColor} mt-0.5`}>{request.petWeight}</Text>
-          ) : null}
         </View>
       </View>
 
-      {/* Special needs */}
-      {request.petSpecialNeeds && (
+      {/* Special needs: the owner's own flag, said before the partner decides. */}
+      {request.petHasSpecialNeeds ? (
         <View className={`mx-4 mb-3 ${specialNeedsBg} flex-row items-center rounded-xl p-3`}>
           <Ionicons name="warning-outline" size={16} color="#D97706" style={{ marginRight: 8 }} />
-          <Text className="flex-1 text-xs font-medium text-yellow-700">
-            {t('requests.specialNeeds', { text: request.petSpecialNeeds ?? '' })}
+          <Text
+            className={`flex-1 text-xs font-medium ${isDarkMode ? 'text-yellow-300' : 'text-yellow-700'}`}>
+            {t('requests.specialNeedsFlag')}
           </Text>
         </View>
-      )}
+      ) : null}
+
+      {/* The owner's care notes on the pet. */}
+      {request.petNotes.length > 0 ? (
+        <View className="mx-4 mb-3">
+          {request.petNotes.map((note) => (
+            <Text key={note.label} className={`text-xs ${subtextColor} mb-1 leading-4`}>
+              <Text className={`font-semibold ${textColor}`}>{note.label}: </Text>
+              {note.value}
+            </Text>
+          ))}
+        </View>
+      ) : null}
 
       {/* Service info */}
       <View className="mx-4 mb-3">
@@ -171,17 +193,43 @@ export default function RequestCard({
           <Ionicons name="time-outline" size={14} color={BRAND_GREEN} style={{ marginRight: 6 }} />
           <Text className={`text-sm ${subtextColor}`}>{request.serviceTime}</Text>
         </View>
-        {request.serviceLocation ? (
-          <View className="flex-row items-center">
+        {/* Where the journey goes, when the customer booked one. */}
+        {request.pickupAddress ? (
+          <View className="mb-1.5 flex-row items-start">
             <Ionicons
-              name="location-outline"
+              name="car-outline"
               size={14}
               color={BRAND_GREEN}
-              style={{ marginRight: 6 }}
+              style={{ marginRight: 6, marginTop: 2 }}
             />
-            <Text className={`text-sm ${subtextColor}`}>{request.serviceLocation}</Text>
+            <Text className={`flex-1 text-sm ${subtextColor}`}>
+              {t('bookingDetails.pickup')}: {request.pickupAddress}
+            </Text>
           </View>
         ) : null}
+        {request.dropoffAddress ? (
+          <View className="mb-1.5 flex-row items-start">
+            <Ionicons
+              name="home-outline"
+              size={14}
+              color={BRAND_GREEN}
+              style={{ marginRight: 6, marginTop: 2 }}
+            />
+            <Text className={`flex-1 text-sm ${subtextColor}`}>
+              {t('bookingDetails.dropoff')}: {request.dropoffAddress}
+            </Text>
+          </View>
+        ) : null}
+        {/* Cash or card: decides whether the partner collects money at the door. */}
+        <View className="flex-row items-start">
+          <Ionicons
+            name={request.paidInCash ? 'cash-outline' : 'card-outline'}
+            size={14}
+            color={BRAND_GREEN}
+            style={{ marginRight: 6, marginTop: 2 }}
+          />
+          <Text className={`flex-1 text-sm ${subtextColor}`}>{request.paymentLine}</Text>
+        </View>
       </View>
 
       {/* Duration & price */}
@@ -226,19 +274,44 @@ export default function RequestCard({
         </View>
       ) : null}
 
-      {/* Re-price before accepting (the server refuses once the booking is confirmed). */}
-      {request.status === 'new' && onAdjustPrice ? (
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={() => onAdjustPrice(request.id)}
-          activeOpacity={0.7}
-          className="mx-4 mb-3 flex-row items-center self-start">
-          <Ionicons name="pricetag-outline" size={15} color={BRAND_GREEN} />
-          <Text className="ml-1.5 text-sm font-semibold text-brand-600">
-            {t('requests.adjustPrice')}
+      {/* A request nobody answers expires at its start time: say so while it can be answered. */}
+      {request.status === 'new' && request.answerBy ? (
+        <View className="mx-4 mb-3 flex-row items-center">
+          <Ionicons name="hourglass-outline" size={14} color="#D97706" style={{ marginRight: 6 }} />
+          <Text className={`flex-1 text-xs ${subtextColor}`}>
+            {t('requests.answerBy', { when: request.answerBy })}
           </Text>
-        </TouchableOpacity>
+        </View>
       ) : null}
+
+      <View className="mx-4 mb-3 flex-row flex-wrap items-center" style={{ gap: 16 }}>
+        {/* Re-price before accepting (the server refuses once the booking is confirmed). */}
+        {request.status === 'new' && onAdjustPrice ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => onAdjustPrice(request.id)}
+            activeOpacity={0.7}
+            className="flex-row items-center">
+            <Ionicons name="pricetag-outline" size={15} color={BRAND_GREEN} />
+            <Text className="ml-1.5 text-sm font-semibold text-brand-600">
+              {t('requests.adjustPrice')}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+        {/* The booking's own page: its bill, its payments, calling it off, the no-show. */}
+        {onOpen ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => onOpen(request.id)}
+            activeOpacity={0.7}
+            className="flex-row items-center">
+            <Ionicons name="open-outline" size={15} color={BRAND_GREEN} />
+            <Text className="ml-1.5 text-sm font-semibold text-brand-600">
+              {t('requests.viewBooking')}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
 
       {/* Action buttons — only shown for new requests */}
       {request.status === 'new' && (

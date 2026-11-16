@@ -197,7 +197,7 @@ const ru: TranslationDict = {
     errPasswordsNoMatch: 'Пароли не совпадают',
     errDobRequired: 'Дата рождения обязательна',
     errAddressRequired: 'Укажите домашний адрес на карте',
-    errAgeMin: 'Вам должно быть не менее 13 лет',
+    errAgeMin: 'Вам должно быть не менее 18 лет',
     errDobInvalid: 'Введите корректную дату рождения',
   },
   acceptInvite: {
@@ -448,6 +448,7 @@ const ru: TranslationDict = {
     verificationProgress: 'Ход проверки',
   },
   pets: {
+    ageMonths: '{n} мес.',
     emptyTitle: 'Питомцев пока нет',
     emptyBody: 'Добавьте питомцев, чтобы бронировать для них услуги.',
     addFirst: 'Добавить первого питомца',
@@ -554,6 +555,11 @@ const ru: TranslationDict = {
     perKm: '{amount}/км',
   },
   serviceDetail: {
+    depositPercent: 'Депозит {percent}% картой',
+    depositFixed: 'Депозит {amount} картой',
+    cancelDeposit: 'Бесплатная отмена до оплаты депозита',
+    cancelFree: 'Бесплатная отмена до начала услуги',
+    showAllReviews: 'Показать все отзывы ({count})',
     reviewFew: 'отзыва',
     unavailableCta: 'Сейчас недоступно',
     unavailableNote:
@@ -684,6 +690,8 @@ const ru: TranslationDict = {
     infoDuration: 'Каждая запись длится {duration}.',
   },
   reviewBooking: {
+    depositDue: 'Депозит, после подтверждения исполнителем',
+    restAfter: 'Остаток, после услуги',
     nServices: 'услуг: {count}',
     subtotal: 'Промежуточный итог',
     grandTotal: 'Итого (записей: {count})',
@@ -790,6 +798,33 @@ const ru: TranslationDict = {
     submitFailed: 'Не удалось отправить отзыв. Попробуйте снова.',
   },
   bookingDetails: {
+    starts: 'Начало',
+    ends: 'Окончание',
+    aboutPet: 'О питомце',
+    specialNeeds: 'Особые потребности',
+    history: 'История',
+    historyRequested: 'Запрос отправлен',
+    historyConfirmed: 'Подтверждено партнёром',
+    historyDeposit: 'Депозит оплачен',
+    historyStarted: 'Услуга началась',
+    historyEnded: 'Услуга завершена',
+    historyPaid: 'Оплачено полностью',
+    historyDeclined: 'Отменено партнёром',
+    historyCancelled: 'Отменено клиентом',
+    historyNoShow: 'Клиент не пришёл',
+    contacts: 'Контактные данные',
+    followLive: 'Следить на карте',
+    openLiveSession: 'Открыть текущую сессию',
+    awaitingNotice:
+      'Ожидается подтверждение партнёра. Если он не ответит до {when}, запрос истечёт и ничего не будет списано.',
+    awaitingNoticeProvider: 'Ожидается ваш ответ. Если не ответить до {when}, запрос истечёт.',
+    expiredUnanswered:
+      'Партнёр не ответил до времени начала, поэтому запрос истёк. Ничего не списано.',
+    expiredUnansweredProvider: 'На этот запрос не ответили до времени начала, поэтому он истёк.',
+    expiredNotStarted:
+      'Бронирование было подтверждено, но услуга так и не началась, поэтому оно истекло. Всё, что вы оплатили, автоматически возвращается на карту.',
+    expiredNotStartedProvider:
+      'Бронирование было подтверждено, но не начато, поэтому оно истекло. Всё, что оплатил клиент, возвращается.',
     yourNote: 'Ваше примечание исполнителю',
     customerNote: 'Примечание клиента',
     noShowNoticeProvider: 'Вы отметили, что клиент не пришёл.',
@@ -968,6 +1003,12 @@ const ru: TranslationDict = {
     egPlaceholder: 'напр. {value}',
   },
   requests: {
+    specialNeedsFlag: 'У этого питомца особые потребности',
+    payCash: 'Оплата наличными на месте',
+    payCard: 'Оплата картой в приложении',
+    payCardDeposit: 'Оплата картой · депозит {amount} до начала',
+    answerBy: 'Ответьте до {when}, иначе запрос истечёт.',
+    viewBooking: 'Открыть бронирование',
     pendingFew: '{count} заявки в ожидании',
     expiredNotStartedBadge: 'Истёк — принят, но так и не начат',
     expiredBadge: 'Истёк — не получил ответа до времени начала',
@@ -1074,6 +1115,8 @@ const ru: TranslationDict = {
     yesterday: 'Вчера',
   },
   myServices: {
+    paused: 'Приостановлено',
+    pausedNote: 'Приостановлено. Клиенты не могут найти и забронировать её.',
     activeFew: '{count} активные услуги',
     bookingsCountFew: '{count} бронирования',
     bookingsCountOne: '{count} бронирование',
@@ -1352,6 +1395,10 @@ const ru: TranslationDict = {
       'Администратор проверяет ваш документ и сертификаты перед одобрением заявки. После одобрения заявки добавленные вами сертификаты также одобряются.',
   },
   liveSession: {
+    cashToCollect: 'Оплата наличными: получите {amount} от клиента.',
+    cashReminder:
+      'Это бронирование оплачивается наличными. Получив {amount}, отметьте это в бронировании, чтобы клиент получил квитанцию.',
+    recordCash: 'Отметить оплату наличными',
     title: 'Живая сессия',
     partnerSubtitle: 'Ведите текущую услугу',
     userSubtitle: 'Отслеживайте свою услугу',
@@ -1438,6 +1485,32 @@ const ru: TranslationDict = {
     specialNeedsWarning: 'Есть особые потребности — уделите больше внимания',
   },
   addEditService: {
+    takingBookings: 'Принимает бронирования',
+    takingBookingsHint:
+      'Выключите, чтобы приостановить услугу. Пока она приостановлена, клиенты не могут найти и забронировать её; уже принятые бронирования остаются.',
+    petSize: 'Размер питомца',
+    petSizeHint: 'Необязательно. Оставьте пустым, если принимаете питомцев любого размера.',
+    petSizeFrom: 'От',
+    petSizeTo: 'До',
+    petSizeInvalid: 'Верхняя граница не может быть меньше нижней.',
+    notice: 'Бронирование заранее',
+    noticeHint: 'За какое время клиент должен забронировать.',
+    noticeNone: 'Без ограничений',
+    noticeHours: '{h} ч',
+    noticeDay: '1 день',
+    noticeDays: '{d} дня',
+    deposit: 'Депозит',
+    depositHint:
+      'Оплачивается картой после вашего подтверждения. Услуга не может начаться, пока он не оплачен, и он остаётся у вас, если клиент отменит бронирование после оплаты или не придёт. При оплате наличными депозита нет.',
+    depositNone: 'Без депозита',
+    depositPercent: 'Процент',
+    depositFixed: 'Фиксированная сумма',
+    depositInvalidTitle: 'Проверьте депозит',
+    depositPercentInvalid: 'Введите процент от 1 до 100.',
+    depositFixedInvalid: 'Введите сумму депозита.',
+    liveTracking: 'Отслеживание в реальном времени',
+    liveTrackingHint:
+      'Делитесь своим местоположением во время услуги, чтобы клиент мог следить за ней на карте.',
     lateHours: 'Поздно и ночью',
     presetLate: 'До 02:00',
     presetOvernight: 'Ночь 20:00 → 08:00',
@@ -1805,6 +1878,8 @@ const ru: TranslationDict = {
     loadFailed: 'Не удалось загрузить данные исполнителя. Попробуйте ещё раз.',
   },
   payments: {
+    cashNoteAdmin:
+      'Клиент платит {amount} наличными исполнителю, который отмечает оплату после получения.',
     keptByProvider: 'Удержано партнёром',
     statusPaidCash: 'Оплачено наличными',
     cashFailed: 'Не удалось отметить оплату наличными.',
@@ -2179,7 +2254,7 @@ const ru: TranslationDict = {
       8192: 'Фото во время услуги',
     },
     serviceProviderType: {
-      0: 'Няня',
+      0: 'Пет-ситтер',
       1: 'Выгульщик',
       2: 'Передержка',
       3: 'Отель для питомцев',
@@ -2202,7 +2277,7 @@ const ru: TranslationDict = {
       2: 'Самка',
     },
     bookingState: {
-      0: 'Предстоящие',
+      0: 'Ожидает подтверждения',
       1: 'Завершено',
       2: 'Отменено',
       3: 'Забронировано',

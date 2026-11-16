@@ -117,7 +117,8 @@ export default function MyBookingsScreen() {
                 booking={{
                   id: booking.id,
                   providerName: booking.providerName,
-                  serviceType: booking.serviceName,
+                  // Which pet it is for: two walks on one day for two dogs read as duplicates.
+                  serviceType: [booking.serviceName, booking.petName].filter(Boolean).join(' · '),
                   date: booking.date,
                   time: booking.time,
                   price: booking.price,

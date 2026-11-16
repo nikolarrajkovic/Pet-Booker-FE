@@ -13,11 +13,13 @@ import { useReviewModal } from '../../../hooks/useReviewModal';
 import { useResource } from '../../../hooks/useResource';
 import {
   getBooking,
+  getBookingHistory,
   bookingToViewModel,
   cancelBooking,
   declineBooking,
   markNoShow,
   canMarkNoShow,
+  parseBookingDate,
   BookingStatusType,
   PaymentType,
   type BookingAdditionalServiceReadDto,
@@ -25,9 +27,11 @@ import {
 import { useToast } from '../../../context/ToastContext';
 import { getErrorMessage } from '../../../services/http';
 import { formatMoney } from '../../../services/currency';
-import { resolveImageUrl } from '../../../services/service-providers';
+import { getServiceProvider, resolveImageUrl } from '../../../services/service-providers';
 import { addressLabel, mapsSearchUrl } from '../../../services/geocoding';
-import { customerName } from '../../../services/users';
+import { customerName, getUser } from '../../../services/users';
+import { petCareNotes, petFacts } from '../../../services/pets';
+import { formatShortDate } from '../../../i18n/dates';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useAuth } from '../../../context/AuthContext';
 import BookingPaymentPanel from '../components/BookingPaymentPanel';
@@ -36,6 +40,26 @@ import { useResponsive } from '../../../hooks/useResponsive';
 import { formatKm } from '../../../i18n/numbers';
 
 type RouteParams = { bookingId: number };
+
+// One step of the booking's trail, in words a customer reads (BookingStatusType → key).
+const HISTORY_KEY: Record<number, string> = {
+  [BookingStatusType.ServiceRequestedByUser]: 'bookingDetails.historyRequested',
+  [BookingStatusType.ServiceConfirmedByProvider]: 'bookingDetails.historyConfirmed',
+  [BookingStatusType.PrePayment]: 'bookingDetails.historyDeposit',
+  [BookingStatusType.ServiceStarted]: 'bookingDetails.historyStarted',
+  [BookingStatusType.ServiceEnded]: 'bookingDetails.historyEnded',
+  [BookingStatusType.PostPayment]: 'bookingDetails.historyPaid',
+  [BookingStatusType.DeclinedByProvider]: 'bookingDetails.historyDeclined',
+  [BookingStatusType.CancelledByUser]: 'bookingDetails.historyCancelled',
+  [BookingStatusType.CustomerNoShow]: 'bookingDetails.historyNoShow',
+};
+
+/** A real instant (a status change), in the reader's own time: "18 Nov 2026, 14:05". */
+function formatInstant(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return `${formatShortDate(d)}, ${d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+}
 
 // statusLabel string → { badge style, BookingState enum value } (label via tEnum).
 // 'in-progress' gets the loudest badge — the service is happening right now.
@@ -57,7 +81,7 @@ export default function BookingDetailsScreen() {
   const { t, tEnum } = useLocale();
 
   const { showError, showSuccess } = useToast();
-  const { currentUser } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const navigation = useNavigation();
 
   // Read through the shared cache rather than a private `useState` seeded once on mount. This
@@ -86,11 +110,12 @@ export default function BookingDetailsScreen() {
   // Where the service happens (its own address, else the partner's). The page had no "where" at
   // all unless a pickup or drop-off was booked (app review G8).
   const serviceAddress = dto?.serviceAddress ?? null;
-  // The booking's frozen bill lines. On READ these come back enriched (name / price / baseFee /
-  // perKmFee / distanceKm); the id-only write shape has no `name`, so narrow to the read one
-  // rather than rendering "undefined" for a booking that was just submitted.
+  // The booking's frozen bill lines. On READ each carries its kind and price (plus the fees and
+  // distance of a per-distance one); the id-only write shape has neither, so narrow to the read
+  // one. This tested for `name` until 2026-11-13, a field the API stopped sending when extras
+  // became kinds, so every line was dropped and the bill jumped from the subtotal to the total.
   const addOnLines = (dto?.additionalServices ?? []).filter(
-    (line): line is BookingAdditionalServiceReadDto => 'name' in line
+    (line): line is BookingAdditionalServiceReadDto => 'kind' in line && 'price' in line
   );
   const reviewRating = dto?.review?.rating ?? null;
   const isNoShow = dto?.currentStatus === BookingStatusType.CustomerNoShow;
@@ -106,8 +131,73 @@ export default function BookingDetailsScreen() {
   // Either side can open the booking's thread (the server decides whether it is still writable).
   // A partner had no way at all to reach a customer; a customer only had the Upcoming card.
   // Not for an admin reading someone else's booking, and not once it was called off.
-  const canMessage =
-    (isCustomer || isProvider) && vm != null && vm.statusLabel !== 'cancelled' && !dto?.isExpired;
+  // An expired booking keeps it: "why didn't you answer?" is exactly what there is to ask, and
+  // the thread stays readable either way.
+  const canMessage = (isCustomer || isProvider) && vm != null && vm.statusLabel !== 'cancelled';
+
+  // The trail the server has always kept: requested, confirmed, paid, started, ended, called off.
+  const { data: statusTrail } = useResource(
+    ['bookings', bookingId, 'history'],
+    () => getBookingHistory(bookingId),
+    { enabled: dto != null }
+  );
+  // The trail starts at the first transition: making the request is not one, so it has no row.
+  // The booking's own creation time is when it was requested.
+  const history =
+    dto && statusTrail
+      ? [
+          ...(dto.createdAt &&
+          !statusTrail.some((e) => e.status === BookingStatusType.ServiceRequestedByUser)
+            ? [
+                {
+                  id: 0,
+                  bookingId,
+                  status: BookingStatusType.ServiceRequestedByUser as number,
+                  changedAt: dto.createdAt,
+                },
+              ]
+            : []),
+          ...statusTrail,
+        ]
+      : undefined;
+  // A stay covers several days: one date and "10:00 – 10:00" hid that it ends two days later.
+  const startsAt = dto ? parseBookingDate(dto.bookingFrom) : null;
+  const endsAt = dto?.bookingTo ? parseBookingDate(dto.bookingTo) : null;
+  const spansDays =
+    startsAt != null &&
+    endsAt != null &&
+    !isNaN(startsAt.getTime()) &&
+    !isNaN(endsAt.getTime()) &&
+    startsAt.toDateString() !== endsAt.toDateString();
+  const clock = (d: Date) =>
+    d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+
+  // An admin reading someone's booking is usually resolving something between the two sides, and
+  // had neither side's contact details here: the customer as "Ana P.", the partner as a name.
+  const adminView = isAdmin && !isCustomer && !isProvider;
+  const { data: adminCustomer } = useResource(
+    ['users', dto?.userId ?? 0, 'admin-contact'],
+    () => getUser(dto!.userId),
+    { enabled: adminView && dto != null }
+  );
+  const { data: adminProvider } = useResource(
+    ['service-providers', dto?.serviceProviderId ?? 0, 'admin-contact'],
+    () => getServiceProvider(dto!.serviceProviderId),
+    { enabled: adminView && dto != null }
+  );
+
+  // What the booked pet is, for the side that doesn't know it.
+  const aboutPet = isCustomer ? [] : petFacts(t, tEnum, dto?.pet);
+  const petNotes = isCustomer ? [] : petCareNotes(t, dto?.pet);
+
+  // While the service is under way either side can open its live session; the customer's shows
+  // the provider on a map when the service shares its location.
+  const isUnderWay = vm?.statusLabel === 'in-progress';
+  const openLiveSession = () =>
+    (navigation as any).navigate('LiveSession', {
+      mode: isProvider ? 'partner' : 'user',
+      bookingId: dto?.id ?? bookingId,
+    });
   const openChat = () => {
     if (!dto) return;
     (navigation as any).navigate('Chat', {
@@ -216,9 +306,9 @@ export default function BookingDetailsScreen() {
       </View>
       <View className="flex-1 flex-row items-center justify-end">
         {media}
-        <Text className={`text-sm font-semibold ${textColor} shrink text-right`} numberOfLines={2}>
-          {value}
-        </Text>
+        {/* Wraps in full: an address is the place the partner has to find, and two lines cut a
+            pickup street off mid-word on a phone (review 2026-11-13). */}
+        <Text className={`text-sm font-semibold ${textColor} shrink text-right`}>{value}</Text>
       </View>
     </View>
   );
@@ -265,11 +355,61 @@ export default function BookingDetailsScreen() {
             <View
               className={`flex-row items-center rounded-xl px-4 py-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
               <Ionicons name="time-outline" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
+              {/* Which of the two ways it expired, and what happens to money already paid. It
+                  used to say only "expired", over a deposit the customer had paid. */}
               <Text
                 className={`ml-2 flex-1 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                {t('bookingDetails.expiredNotice')}
+                {dto.currentStatus === BookingStatusType.ServiceRequestedByUser
+                  ? isCustomer
+                    ? t('bookingDetails.expiredUnanswered')
+                    : t('bookingDetails.expiredUnansweredProvider')
+                  : isCustomer
+                    ? t('bookingDetails.expiredNotStarted')
+                    : t('bookingDetails.expiredNotStartedProvider')}
               </Text>
             </View>
+          </View>
+        ) : null}
+
+        {/* Still waiting for the partner: say what happens next and until when. */}
+        {!dto.isExpired && dto.currentStatus === BookingStatusType.ServiceRequestedByUser ? (
+          <View className={`mt-4 ${gutter.px}`}>
+            <View
+              className={`flex-row items-center rounded-xl px-4 py-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-blue-50'}`}>
+              <Ionicons
+                name="hourglass-outline"
+                size={18}
+                color={isDarkMode ? '#93C5FD' : '#1D4ED8'}
+              />
+              <Text
+                className={`ml-2 flex-1 text-sm ${isDarkMode ? 'text-blue-200' : 'text-blue-800'}`}>
+                {isCustomer
+                  ? t('bookingDetails.awaitingNotice', { when: `${vm.date}, ${vm.time}` })
+                  : t('bookingDetails.awaitingNoticeProvider', { when: `${vm.date}, ${vm.time}` })}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Under way: the live session, with the provider on a map when the service shares it. */}
+        {isUnderWay && (isCustomer || isProvider) ? (
+          <View className={`mt-4 ${gutter.px}`}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={openLiveSession}
+              activeOpacity={0.85}
+              className="flex-row items-center justify-center rounded-2xl bg-brand-500 py-3.5">
+              <Ionicons
+                name={dto.service?.supportsLiveTracking ? 'navigate-outline' : 'pulse-outline'}
+                size={18}
+                color="white"
+              />
+              <Text className="ml-2 text-base font-bold text-white">
+                {isCustomer && dto.service?.supportsLiveTracking
+                  ? t('bookingDetails.followLive')
+                  : t('bookingDetails.openLiveSession')}
+              </Text>
+            </TouchableOpacity>
           </View>
         ) : null}
       </>
@@ -282,8 +422,25 @@ export default function BookingDetailsScreen() {
           <Text className={`text-base font-bold ${textColor} mb-1`}>
             {t('bookingDetails.appointment')}
           </Text>
-          <Row icon="calendar-outline" label={t('bookingDetails.date')} value={vm.date} />
-          <Row icon="time-outline" label={t('bookingDetails.time')} value={vm.timeRange} />
+          {spansDays && startsAt && endsAt ? (
+            <>
+              <Row
+                icon="calendar-outline"
+                label={t('bookingDetails.starts')}
+                value={`${formatShortDate(startsAt)}, ${clock(startsAt)}`}
+              />
+              <Row
+                icon="calendar-outline"
+                label={t('bookingDetails.ends')}
+                value={`${formatShortDate(endsAt)}, ${clock(endsAt)}`}
+              />
+            </>
+          ) : (
+            <>
+              <Row icon="calendar-outline" label={t('bookingDetails.date')} value={vm.date} />
+              <Row icon="time-outline" label={t('bookingDetails.time')} value={vm.timeRange} />
+            </>
+          )}
           {/* The pet's photo sits in its own row; it used to repeat below the section with
                   the name again, unlabelled. ServicePhoto layers a paw behind a photo that 404s. */}
           <Row
@@ -302,6 +459,23 @@ export default function BookingDetailsScreen() {
               ) : null
             }
           />
+          {aboutPet.length > 0 ? (
+            <Row
+              icon="information-circle-outline"
+              label={t('bookingDetails.aboutPet')}
+              value={aboutPet.join(' · ')}
+            />
+          ) : null}
+          {!isCustomer && dto.pet?.hasSpecialNeeds ? (
+            <Row
+              icon="warning-outline"
+              label={t('bookingDetails.specialNeeds')}
+              value={t('common.yes')}
+            />
+          ) : null}
+          {petNotes.map((note) => (
+            <Row key={note.label} icon="reader-outline" label={note.label} value={note.value} />
+          ))}
           {isCustomer ? (
             <Row
               icon="person-outline"
@@ -390,6 +564,92 @@ export default function BookingDetailsScreen() {
           </View>
         )}
       </>
+    ) : null;
+  const historyBlock =
+    dto && history && history.length > 0 ? (
+      <View className={`mt-6 ${gutter.px}`}>
+        <Text className={`text-base font-bold ${textColor} mb-2`}>
+          {t('bookingDetails.history')}
+        </Text>
+        {history.map((entry, i) => (
+          <View key={entry.id} className="flex-row">
+            <View className="mr-3 items-center" style={{ width: 12 }}>
+              <View
+                className={`mt-1.5 h-2.5 w-2.5 rounded-full ${
+                  i === history.length - 1
+                    ? 'bg-brand-500'
+                    : isDarkMode
+                      ? 'bg-gray-600'
+                      : 'bg-gray-300'
+                }`}
+              />
+              {i < history.length - 1 ? (
+                <View className={`w-px flex-1 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`} />
+              ) : null}
+            </View>
+            <View className="flex-1 pb-3">
+              <Text className={`text-sm font-semibold ${textColor}`}>
+                {HISTORY_KEY[entry.status]
+                  ? t(HISTORY_KEY[entry.status] as any)
+                  : tEnum('bookingStatusType', entry.status, '—')}
+              </Text>
+              <Text className={`text-xs ${subtextColor} mt-0.5`}>
+                {formatInstant(entry.changedAt)}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    ) : null;
+  const adminContact =
+    adminView && dto && (adminCustomer || adminProvider) ? (
+      <View className={`mt-6 ${gutter.px}`}>
+        <Text className={`text-base font-bold ${textColor} mb-1`}>
+          {t('bookingDetails.contacts')}
+        </Text>
+        {adminCustomer ? (
+          <>
+            <Row
+              icon="person-outline"
+              label={t('bookingDetails.customer')}
+              value={
+                [adminCustomer.firstName, adminCustomer.lastName].filter(Boolean).join(' ') ||
+                adminCustomer.userName ||
+                '—'
+              }
+            />
+            {adminCustomer.email ? (
+              <Row icon="mail-outline" label={t('admin.email')} value={adminCustomer.email} />
+            ) : null}
+            {adminCustomer.phone ? (
+              <Row icon="call-outline" label={t('admin.phone')} value={adminCustomer.phone} />
+            ) : null}
+          </>
+        ) : null}
+        {adminProvider ? (
+          <>
+            <Row
+              icon="briefcase-outline"
+              label={t('bookingDetails.provider')}
+              value={adminProvider.name ?? vm?.providerName ?? '—'}
+            />
+            {adminProvider.contactEmail ? (
+              <Row
+                icon="mail-outline"
+                label={t('admin.email')}
+                value={adminProvider.contactEmail}
+              />
+            ) : null}
+            {adminProvider.contactPhone ? (
+              <Row
+                icon="call-outline"
+                label={t('admin.phone')}
+                value={adminProvider.contactPhone}
+              />
+            ) : null}
+          </>
+        ) : null}
+      </View>
     ) : null;
   const payment =
     dto && vm ? (
@@ -636,7 +896,9 @@ export default function BookingDetailsScreen() {
                   <View className={`${cardBg} rounded-2xl border ${borderColor} pb-5`}>
                     {header}
                     {appointment}
+                    {adminContact}
                     {location}
+                    {historyBlock}
                     {reviewBlock}
                   </View>
                 </TwoColumn>
@@ -645,8 +907,10 @@ export default function BookingDetailsScreen() {
               <>
                 {header}
                 {appointment}
+                {adminContact}
                 {location}
                 {payment}
+                {historyBlock}
                 {reviewBlock}
                 {cancelBlock}
               </>

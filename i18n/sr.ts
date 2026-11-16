@@ -196,7 +196,7 @@ const sr: TranslationDict = {
     errPasswordsNoMatch: 'Lozinke se ne poklapaju',
     errDobRequired: 'Datum rođenja je obavezan',
     errAddressRequired: 'Izaberite kućnu adresu na mapi',
-    errAgeMin: 'Morate imati najmanje 13 godina',
+    errAgeMin: 'Morate imati najmanje 18 godina',
     errDobInvalid: 'Unesite ispravan datum rođenja',
   },
   acceptInvite: {
@@ -445,6 +445,7 @@ const sr: TranslationDict = {
     verificationProgress: 'Tok verifikacije',
   },
   pets: {
+    ageMonths: '{n} mes.',
     emptyTitle: 'Još nema ljubimaca',
     emptyBody: 'Dodajte svoje ljubimce da biste im rezervisali usluge.',
     addFirst: 'Dodajte prvog ljubimca',
@@ -552,6 +553,11 @@ const sr: TranslationDict = {
     perKm: '{amount}/km',
   },
   serviceDetail: {
+    depositPercent: 'Depozit {percent}% karticom',
+    depositFixed: 'Depozit {amount} karticom',
+    cancelDeposit: 'Besplatno otkazivanje dok ne platite depozit',
+    cancelFree: 'Besplatno otkazivanje do početka usluge',
+    showAllReviews: 'Prikaži svih {count} recenzija',
     reviewFew: 'recenzije',
     unavailableCta: 'Trenutno nedostupno',
     unavailableNote:
@@ -682,6 +688,8 @@ const sr: TranslationDict = {
     infoDuration: 'Svaki termin traje {duration}.',
   },
   reviewBooking: {
+    depositDue: 'Depozit, kada pružalac potvrdi',
+    restAfter: 'Ostatak, nakon usluge',
     nServices: 'usluge: {count}',
     subtotal: 'Međuzbir',
     grandTotal: 'Ukupno (termina: {count})',
@@ -787,6 +795,33 @@ const sr: TranslationDict = {
     submitFailed: 'Slanje recenzije nije uspelo. Pokušajte ponovo.',
   },
   bookingDetails: {
+    starts: 'Počinje',
+    ends: 'Završava se',
+    aboutPet: 'O ljubimcu',
+    specialNeeds: 'Posebne potrebe',
+    history: 'Istorija',
+    historyRequested: 'Zahtev poslat',
+    historyConfirmed: 'Partner je potvrdio',
+    historyDeposit: 'Depozit plaćen',
+    historyStarted: 'Usluga je počela',
+    historyEnded: 'Usluga je završena',
+    historyPaid: 'Plaćeno u celosti',
+    historyDeclined: 'Partner je otkazao',
+    historyCancelled: 'Klijent je otkazao',
+    historyNoShow: 'Klijent se nije pojavio',
+    contacts: 'Kontakt podaci',
+    followLive: 'Prati uživo na mapi',
+    openLiveSession: 'Otvori sesiju uživo',
+    awaitingNotice:
+      'Čeka se potvrda partnera. Ako ne odgovori do {when}, zahtev ističe i ništa se ne naplaćuje.',
+    awaitingNoticeProvider: 'Čeka se vaš odgovor. Ako ne odgovorite do {when}, zahtev ističe.',
+    expiredUnanswered:
+      'Partner nije odgovorio pre vremena početka, pa je zahtev istekao. Ništa nije naplaćeno.',
+    expiredUnansweredProvider: 'Na ovaj zahtev nije odgovoreno pre vremena početka, pa je istekao.',
+    expiredNotStarted:
+      'Ova rezervacija je potvrđena, ali usluga nije započeta, pa je istekla. Sve što ste platili automatski se vraća na karticu.',
+    expiredNotStartedProvider:
+      'Ova rezervacija je potvrđena, ali nije započeta, pa je istekla. Sve što je klijent platio se vraća.',
     yourNote: 'Vaša napomena pružaocu',
     customerNote: 'Napomena klijenta',
     noShowNoticeProvider: 'Evidentirali ste da se klijent nije pojavio.',
@@ -965,6 +1000,12 @@ const sr: TranslationDict = {
     egPlaceholder: 'npr. {value}',
   },
   requests: {
+    specialNeedsFlag: 'Ovaj ljubimac ima posebne potrebe',
+    payCash: 'Plaća se gotovinom na usluzi',
+    payCard: 'Plaća se karticom u aplikaciji',
+    payCardDeposit: 'Plaća se karticom · depozit {amount} pre početka',
+    answerBy: 'Odgovorite pre {when}, inače zahtev ističe.',
+    viewBooking: 'Pogledaj rezervaciju',
     pendingFew: '{count} zahteva na čekanju',
     expiredNotStartedBadge: 'Isteklo — prihvaćeno, ali nikad započeto',
     expiredBadge: 'Istekao — nije odgovoren pre vremena početka',
@@ -1070,6 +1111,8 @@ const sr: TranslationDict = {
     yesterday: 'Juče',
   },
   myServices: {
+    paused: 'Pauzirano',
+    pausedNote: 'Pauzirano. Klijenti je ne mogu pronaći ni rezervisati.',
     activeFew: '{count} aktivne usluge',
     bookingsCountFew: '{count} rezervacije',
     bookingsCountOne: '{count} rezervacija',
@@ -1348,6 +1391,10 @@ const sr: TranslationDict = {
       'Administrator pregleda vaš lični dokument i sertifikate pre odobravanja prijave. Kada prijava bude odobrena, odobravaju se i sertifikati koje ste dodali.',
   },
   liveSession: {
+    cashToCollect: 'Plaća se gotovinom: naplatite {amount} od klijenta.',
+    cashReminder:
+      'Ova rezervacija se plaća gotovinom. Kada primite {amount}, evidentirajte to na rezervaciji da klijent dobije potvrdu.',
+    recordCash: 'Evidentiraj gotovinsku uplatu',
     title: 'Sesija uživo',
     partnerSubtitle: 'Vodite trenutnu uslugu',
     userSubtitle: 'Pratite svoju uslugu',
@@ -1435,6 +1482,32 @@ const sr: TranslationDict = {
     specialNeedsWarning: 'Ima posebne potrebe — molimo za dodatnu pažnju',
   },
   addEditService: {
+    takingBookings: 'Prima rezervacije',
+    takingBookingsHint:
+      'Isključite da pauzirate ovu uslugu. Dok je pauzirana, klijenti je ne mogu pronaći ni rezervisati; postojeće rezervacije ostaju.',
+    petSize: 'Veličina ljubimca',
+    petSizeHint: 'Opciono. Ostavite prazno ako primate ljubimce svih veličina.',
+    petSizeFrom: 'Od',
+    petSizeTo: 'Do',
+    petSizeInvalid: 'Gornja granica ne sme biti manja od donje.',
+    notice: 'Najava rezervacije',
+    noticeHint: 'Koliko unapred klijent mora da rezerviše.',
+    noticeNone: 'Bez najave',
+    noticeHours: '{h} h',
+    noticeDay: '1 dan',
+    noticeDays: '{d} dana',
+    deposit: 'Depozit',
+    depositHint:
+      'Plaća se karticom nakon vaše potvrde. Usluga ne može da počne dok nije plaćen, a zadržavate ga ako klijent otkaže posle uplate ili se ne pojavi. Kod plaćanja gotovinom nema depozita.',
+    depositNone: 'Bez depozita',
+    depositPercent: 'Procenat',
+    depositFixed: 'Fiksni iznos',
+    depositInvalidTitle: 'Proverite depozit',
+    depositPercentInvalid: 'Unesite procenat između 1 i 100.',
+    depositFixedInvalid: 'Unesite iznos depozita.',
+    liveTracking: 'Praćenje uživo',
+    liveTrackingHint:
+      'Delite svoju lokaciju dok usluga traje, da klijent može da je prati na mapi.',
     lateHours: 'Kasno i preko noći',
     presetLate: 'Do 02:00',
     presetOvernight: 'Preko noći 20:00 → 08:00',
@@ -1801,6 +1874,8 @@ const sr: TranslationDict = {
     loadFailed: 'Podaci o pružaocu nisu učitani. Pokušajte ponovo.',
   },
   payments: {
+    cashNoteAdmin:
+      'Klijent plaća {amount} gotovinom pružaocu, koji uplatu evidentira kada je primi.',
     keptByProvider: 'Zadržao partner',
     statusPaidCash: 'Plaćeno gotovinom',
     cashFailed: 'Uplata gotovinom nije evidentirana.',
@@ -2173,11 +2248,11 @@ const sr: TranslationDict = {
       8192: 'Fotografije tokom usluge',
     },
     serviceProviderType: {
-      0: 'Čuvar',
+      0: 'Čuvar ljubimaca',
       1: 'Šetač',
-      2: 'Smeštaj',
+      2: 'Pansion',
       3: 'Hotel za ljubimce',
-      4: 'Timaritelj',
+      4: 'Frizer za ljubimce',
       5: 'Prevoznik',
     },
     petSpeciesType: {
@@ -2196,7 +2271,7 @@ const sr: TranslationDict = {
       2: 'Ženka',
     },
     bookingState: {
-      0: 'Predstojeće',
+      0: 'Čeka potvrdu',
       1: 'Završeno',
       2: 'Otkazano',
       3: 'Rezervisano',

@@ -28,9 +28,12 @@ import {
   getService,
   ServiceDto,
   effectiveOptionPrice,
+  serviceAsksDeposit,
   serviceCurrency,
 } from '../../../services/services';
 import { ReviewDto } from '../../../services/reviews';
+import { customerName } from '../../../services/users';
+import { formatShortDate } from '../../../i18n/dates';
 import {
   resolveImageUrl,
   ApprovalStatus,
@@ -120,6 +123,8 @@ export default function ServiceDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
+  // The page lists five reviews until asked for the rest.
+  const [showAllReviews, setShowAllReviews] = useState(false);
   // The gallery pages by its own width. On the web design that is the details card beside the
   // booking panel, so it is measured rather than derived from the window.
   const [galleryWidth, setGalleryWidth] = useState<number | null>(null);
@@ -301,6 +306,22 @@ export default function ServiceDetailScreen() {
       icon: 'hourglass-outline',
       label: t('serviceDetail.bookAhead', { hours: d.leadTimeHours }),
     });
+  // What booking it commits the customer to, before they start the form: the deposit, and when
+  // cancelling stops being free. Both were only said on the last step of the checkout.
+  const pricing = svc.pricing;
+  const asksDeposit = serviceAsksDeposit(svc);
+  if (asksDeposit && pricing)
+    facts.push({
+      icon: 'wallet-outline',
+      label:
+        pricing.isEscrowPercentEnabled && pricing.escrowPercent != null
+          ? t('serviceDetail.depositPercent', { percent: pricing.escrowPercent })
+          : t('serviceDetail.depositFixed', { amount: money(pricing.escrowAmount ?? 0) }),
+    });
+  facts.push({
+    icon: 'shield-checkmark-outline',
+    label: asksDeposit ? t('serviceDetail.cancelDeposit') : t('serviceDetail.cancelFree'),
+  });
 
   const onBook = () =>
     requireSignIn(() =>
@@ -669,28 +690,58 @@ export default function ServiceDetailScreen() {
       {reviews.length > 0 &&
         section(
           t('serviceDetail.reviewsCount', { count: reviews.length }),
-          reviews.slice(0, 5).map((review, idx) => (
-            <View
-              key={review.id ?? idx}
-              className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>
-              <View className="mb-2 flex-row items-center">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Ionicons
-                    key={i}
-                    name={i < review.rating ? 'star' : 'star-outline'}
-                    size={14}
-                    color="#F59E0B"
-                  />
-                ))}
-              </View>
-              {review.title ? (
-                <Text className={`font-semibold ${textColor} mb-1`}>{review.title}</Text>
-              ) : null}
-              {review.comment ? (
-                <Text className={`text-sm ${subtextColor}`}>{review.comment}</Text>
-              ) : null}
-            </View>
-          ))
+          <>
+            {(showAllReviews ? reviews : reviews.slice(0, 5)).map((review, idx) => {
+              // Who wrote it and when: a review with neither reads as the partner's own text.
+              const author = customerName(review.user);
+              const written = review.createdAt ? new Date(review.createdAt) : null;
+              const byline = [
+                author,
+                written && !isNaN(written.getTime()) ? formatShortDate(written) : '',
+              ]
+                .filter(Boolean)
+                .join(' · ');
+              return (
+                <View
+                  key={review.id ?? idx}
+                  className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>
+                  <View className="mb-2 flex-row items-center justify-between">
+                    <View className="flex-row items-center">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Ionicons
+                          key={i}
+                          name={i < review.rating ? 'star' : 'star-outline'}
+                          size={14}
+                          color="#F59E0B"
+                        />
+                      ))}
+                    </View>
+                    {byline ? (
+                      <Text className={`ml-3 shrink text-xs ${subtextColor}`} numberOfLines={1}>
+                        {byline}
+                      </Text>
+                    ) : null}
+                  </View>
+                  {review.title ? (
+                    <Text className={`font-semibold ${textColor} mb-1`}>{review.title}</Text>
+                  ) : null}
+                  {review.comment ? (
+                    <Text className={`text-sm ${subtextColor}`}>{review.comment}</Text>
+                  ) : null}
+                </View>
+              );
+            })}
+            {reviews.length > 5 && !showAllReviews ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={() => setShowAllReviews(true)}
+                className="self-start py-1">
+                <Text className="text-sm font-semibold text-brand-600">
+                  {t('serviceDetail.showAllReviews', { count: reviews.length })}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </>
         )}
     </>
   );

@@ -142,7 +142,8 @@ export default function MyServicesScreen() {
 
   const subtitle = isLoading
     ? t('myServices.loading')
-    : tPlural(services.length, {
+    : // "Active" leaves out the ones the partner paused.
+      tPlural(services.filter((s) => s.isActive !== false).length, {
         one: 'myServices.activeOne',
         few: 'myServices.activeFew',
         many: 'myServices.activeMany',
@@ -210,6 +211,7 @@ export default function MyServicesScreen() {
                     key={ui.id}
                     service={ui}
                     notBookable={dto.isBookable === false}
+                    paused={dto.isActive === false}
                     currency={serviceCurrency(dto)}
                     isDarkMode={isDarkMode}
                     onEdit={() => handleEdit(dto)}
@@ -230,12 +232,15 @@ function ServiceListCard({
   currency,
   isDarkMode,
   notBookable,
+  paused,
   onEdit,
   onDelete,
 }: {
   service: UiService;
   /** No working hours (or paused): customers see it as unavailable and cannot book it. */
   notBookable?: boolean;
+  /** Switched off by the partner (the editor's "Taking bookings"). */
+  paused?: boolean;
   /** The service's own currency; omit to use the partner's display preference. */
   currency?: string | null;
   isDarkMode: boolean;
@@ -305,8 +310,24 @@ function ServiceListCard({
         {/* Name */}
         <Text className={`text-base font-bold ${textColor} mb-1`}>{service.name}</Text>
 
+        {/* Paused by the partner: said as that, not as missing hours. */}
+        {paused ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={onEdit}
+            className={`mb-3 flex-row items-center rounded-xl border px-3 py-2 ${
+              isDarkMode ? 'border-gray-600 bg-[#243447]' : 'border-gray-300 bg-gray-100'
+            }`}>
+            <Ionicons name="pause-circle-outline" size={16} color="#6B7280" />
+            <Text
+              className={`ml-2 flex-1 text-xs font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+              {t('myServices.pausedNote')}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
         {/* Customers cannot book a service with no working hours; tell the partner why. */}
-        {notBookable ? (
+        {notBookable && !paused ? (
           <TouchableOpacity
             accessibilityRole="button"
             onPress={onEdit}
@@ -330,14 +351,18 @@ function ServiceListCard({
             {service.rating.toFixed(1)}
           </Text>
           <Text className={`text-sm ${subtextColor} ml-0.5`}>({service.reviews})</Text>
-          <View className="mx-2 h-1 w-1 rounded-full bg-gray-400" />
-          <Text className={`text-sm ${subtextColor}`}>
-            {tPlural(service.bookings, {
-              one: 'myServices.bookingsCountOne',
-              few: 'myServices.bookingsCountFew',
-              many: 'myServices.bookingsCount',
-            })}
-          </Text>
+          {service.bookings != null ? (
+            <>
+              <View className="mx-2 h-1 w-1 rounded-full bg-gray-400" />
+              <Text className={`text-sm ${subtextColor}`}>
+                {tPlural(service.bookings, {
+                  one: 'myServices.bookingsCountOne',
+                  few: 'myServices.bookingsCountFew',
+                  many: 'myServices.bookingsCount',
+                })}
+              </Text>
+            </>
+          ) : null}
         </View>
 
         {/* Pricing section.
