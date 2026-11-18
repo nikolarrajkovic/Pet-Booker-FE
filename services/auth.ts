@@ -268,6 +268,41 @@ export async function changePassword(payload: {
   if (accessToken) await saveTokens(accessToken, extractRefreshToken(body));
 }
 
+/**
+ * Starts a change of email: the password proves it is the account holder, and a code goes to the
+ * new address. Nothing changes until `confirmEmailChange` gets that code.
+ */
+export function requestEmailChange(payload: {
+  newEmail: string;
+  currentPassword: string;
+}): Promise<void> {
+  return apiVoid('/auth/email-change', {
+    method: 'POST',
+    body: payload,
+    fallback: 'Failed to send the code.',
+    context: 'requestEmailChange',
+  });
+}
+
+/**
+ * Confirms a change of email with the code sent to the new address. The account moves to it; this
+ * device keeps signed in with the session in the reply (its token names the new address).
+ */
+export async function confirmEmailChange(code: string): Promise<string> {
+  const response = await apiRequest('/auth/email-change/confirm', {
+    method: 'POST',
+    body: { code },
+    fallback: 'Failed to change the email.',
+    context: 'confirmEmailChange',
+  });
+  const body = parseResponseBody(await response.text());
+  const accessToken = extractAccessToken(body);
+  if (accessToken) await saveTokens(accessToken, extractRefreshToken(body));
+  return typeof (body as { email?: unknown })?.email === 'string'
+    ? (body as { email: string }).email
+    : '';
+}
+
 /** Requests a password-reset email/code for the given address (public). */
 export function forgotPassword(email: string): Promise<void> {
   return apiVoid('/auth/forgot-password', {

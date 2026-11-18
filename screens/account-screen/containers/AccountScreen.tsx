@@ -83,6 +83,11 @@ export default function AccountScreen() {
     if (isProviderProfile) navigation.replace('BusinessProfile');
   }, [isProviderProfile, navigation]);
 
+  // A change of email (its own screen) moves the session's address; the form follows it.
+  useEffect(() => {
+    if (currentUser?.email) setEmail(currentUser.email);
+  }, [currentUser?.email]);
+
   // Load the full user record (id from auth/me) and prefill the form.
   useEffect(() => {
     let cancelled = false;
@@ -304,7 +309,7 @@ export default function AccountScreen() {
               />
             </View>
 
-            {/* Email — read-only */}
+            {/* Email — changed on its own screen, with a code sent to the new address. */}
             <View className="mb-4">
               <Text className={`text-sm font-semibold ${textColor} mb-2`}>
                 {t('account.email')}
@@ -317,7 +322,15 @@ export default function AccountScreen() {
                 style={{ opacity: 0.6 }}
                 placeholderTextColor={placeholderColor}
               />
-              <Text className={`text-xs ${subtextColor} mt-1`}>{t('account.emailReadOnly')}</Text>
+              <TouchableOpacity
+                testID="account-change-email"
+                accessibilityRole="link"
+                onPress={() => (navigation as any).navigate('ChangeEmail')}
+                className="mt-1 self-start py-1">
+                <Text className="text-sm font-semibold text-brand-600">
+                  {t('account.changeEmail')}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Phone Number — country flag/dial-code dropdown + national number */}

@@ -129,6 +129,7 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       },
       Account: 'account',
       ChangePassword: 'account/password',
+      ChangeEmail: 'account/email',
       Settings: 'settings',
       Notifications: 'notifications',
       NotificationSettings: 'notifications/settings',

@@ -172,7 +172,11 @@ export default function ChatThread({
   resolvedRef.current = onConversationResolved;
 
   // Resolve the thread, then its newest page of history.
+  // The thread this component has loaded. When the address catches up with it (a booking's chat
+  // gets its conversation id written back), there is nothing to load again.
+  const loadedIdRef = useRef<number | null>(null);
   useEffect(() => {
+    if (params.conversationId != null && loadedIdRef.current === params.conversationId) return;
     let cancelled = false;
     (async () => {
       setIsLoading(true);
@@ -191,6 +195,7 @@ export default function ChatThread({
               : null;
         if (!convo) throw new Error(t('messages.threadUnavailable'));
         if (cancelled) return;
+        loadedIdRef.current = convo.id;
         setConversation(convo);
         resolvedRef.current?.(convo);
 

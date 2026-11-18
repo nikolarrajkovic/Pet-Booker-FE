@@ -32,6 +32,7 @@ import PartnerApplicationScreen from './screens/partner-application-screen/conta
 import ApplicationSubmittedScreen from './screens/application-submitted-screen/containers/ApplicationSubmittedScreen';
 import AccountScreen from './screens/account-screen/containers/AccountScreen';
 import ChangePasswordScreen from './screens/change-password-screen/containers/ChangePasswordScreen';
+import ChangeEmailScreen from './screens/change-email-screen/containers/ChangeEmailScreen';
 import ForgotPasswordScreen from './screens/forgot-password-screen/containers/ForgotPasswordScreen';
 import AlertHost from './components/shared/AlertHost';
 import AcceptInviteScreen from './screens/accept-invite-screen/containers/AcceptInviteScreen';
@@ -346,6 +347,7 @@ function AppContent() {
                   />
                   <Stack.Screen name="Account" component={AccountScreen} />
                   <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+                  <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
                   <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
                   <Stack.Screen name="BookingDetails" component={BookingDetailsScreen} />
                   <Stack.Screen name="MySchedule" component={MyScheduleScreen} />
@@ -464,6 +466,7 @@ const SCREEN_TITLE_KEYS: Record<string, TranslationKey> = {
   EditPet: 'addPet.titleEdit',
   Account: 'account.title',
   ChangePassword: 'changePassword.title',
+  ChangeEmail: 'changeEmail.title',
   Settings: 'settings.title',
   Notifications: 'notifications.title',
   NotificationSettings: 'profile.notificationSettings',

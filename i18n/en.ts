@@ -1000,6 +1000,7 @@ const en = {
       'This is a provider login, so it has no personal notification preferences to manage.',
   },
   account: {
+    changeEmail: 'Change email',
     title: 'Account',
     loadFailed: 'Could not load your profile.',
     permissionNeededTitle: 'Permission needed',
@@ -2514,6 +2515,22 @@ const en = {
     declineTitle: 'Decline this booking?',
     declineSubtitle: 'The customer gets everything back and reads your reason.',
     declinePlaceholder: "We're closed that day because…",
+  },
+  changeEmail: {
+    title: 'Change email',
+    intro:
+      "You sign in with {email}. We'll send a code to the new address; nothing changes until you enter it.",
+    newEmail: 'New email',
+    password: 'Current password',
+    sendCode: 'Send code',
+    codeSent: "We sent a 6-digit code to {email}. It's valid for 15 minutes.",
+    code: 'Code',
+    confirm: 'Change email',
+    resend: 'Send a new code',
+    otherAddress: 'Use another address',
+    changed: 'Your email is now {email}.',
+    sendFailed: "Couldn't send the code.",
+    confirmFailed: "Couldn't change the email.",
   },
 };
 

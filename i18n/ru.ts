@@ -978,6 +978,7 @@ const ru: TranslationDict = {
       'Это учётная запись исполнителя, у неё нет личных настроек уведомлений.',
   },
   account: {
+    changeEmail: 'Изменить email',
     title: 'Аккаунт',
     loadFailed: 'Не удалось загрузить профиль.',
     permissionNeededTitle: 'Нужно разрешение',
@@ -2497,6 +2498,22 @@ const ru: TranslationDict = {
     declineTitle: 'Отклонить это бронирование?',
     declineSubtitle: 'Клиенту вернут всё, и он увидит вашу причину.',
     declinePlaceholder: 'В этот день мы закрыты, потому что…',
+  },
+  changeEmail: {
+    title: 'Смена email',
+    intro:
+      'Вы входите с {email}. Мы отправим код на новый адрес; ничего не изменится, пока вы его не введёте.',
+    newEmail: 'Новый email',
+    password: 'Текущий пароль',
+    sendCode: 'Отправить код',
+    codeSent: 'Мы отправили 6-значный код на {email}. Он действует 15 минут.',
+    code: 'Код',
+    confirm: 'Изменить email',
+    resend: 'Отправить новый код',
+    otherAddress: 'Другой адрес',
+    changed: 'Теперь ваш email — {email}.',
+    sendFailed: 'Не удалось отправить код.',
+    confirmFailed: 'Не удалось изменить email.',
   },
 };
 

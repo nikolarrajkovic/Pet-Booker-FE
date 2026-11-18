@@ -975,6 +975,7 @@ const sr: TranslationDict = {
       'Ovo je nalog pružaoca usluga, pa nema lična podešavanja obaveštenja.',
   },
   account: {
+    changeEmail: 'Promeni email',
     title: 'Nalog',
     loadFailed: 'Učitavanje profila nije uspelo.',
     permissionNeededTitle: 'Potrebna dozvola',
@@ -2491,6 +2492,22 @@ const sr: TranslationDict = {
     declineTitle: 'Odbiti ovu rezervaciju?',
     declineSubtitle: 'Korisnik dobija sve nazad i čita vaš razlog.',
     declinePlaceholder: 'Tog dana ne radimo jer…',
+  },
+  changeEmail: {
+    title: 'Promena email adrese',
+    intro:
+      'Prijavljujete se sa {email}. Poslaćemo kod na novu adresu; ništa se ne menja dok ga ne unesete.',
+    newEmail: 'Nova email adresa',
+    password: 'Trenutna lozinka',
+    sendCode: 'Pošalji kod',
+    codeSent: 'Poslali smo šestocifreni kod na {email}. Važi 15 minuta.',
+    code: 'Kod',
+    confirm: 'Promeni email',
+    resend: 'Pošalji novi kod',
+    otherAddress: 'Druga adresa',
+    changed: 'Vaša email adresa je sada {email}.',
+    sendFailed: 'Kod nije poslat.',
+    confirmFailed: 'Email nije promenjen.',
   },
 };
 
