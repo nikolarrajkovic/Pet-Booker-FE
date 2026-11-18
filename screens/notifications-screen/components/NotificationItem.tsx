@@ -86,6 +86,26 @@ const VISUAL_BY_NAME: Record<
   // the accent is the whole difference between them at a glance.
   AdminPendingQueue: { icon: 'file-tray-full-outline', accent: 'warning' },
   AdminQueueCleared: { icon: 'checkmark-done-outline', accent: 'brand' },
+  // App review 2026-11-13, findings 17–29. Bookings that ran out of time: worth their attention.
+  BookingRequestExpired: { icon: 'hourglass-outline', accent: 'warning' },
+  BookingRequestMissed: { icon: 'hourglass-outline', accent: 'warning' },
+  BookingNotStarted: { icon: 'return-down-back-outline', accent: 'info' },
+  BookingNotStartedProvider: { icon: 'alert-circle-outline', accent: 'warning' },
+  ServiceOverdue: { icon: 'timer-outline', accent: 'warning' },
+  ServiceAutoCompleted: { icon: 'checkmark-done-outline', accent: 'info' },
+  BalanceOverdue: { icon: 'wallet-outline', accent: 'danger' },
+  ProviderNoShowReported: { icon: 'alert-circle-outline', accent: 'danger' },
+  // Something waiting for an answer, then the answer.
+  PriceChangeProposed: { icon: 'pricetag-outline', accent: 'warning' },
+  PriceChangeAccepted: { icon: 'checkmark-circle-outline', accent: 'brand' },
+  BookingTimeProposed: { icon: 'calendar-outline', accent: 'warning' },
+  BookingTimeChanged: { icon: 'calendar-outline', accent: 'brand' },
+  BookingTimeDeclined: { icon: 'calendar-outline', accent: 'info' },
+  // The journey, as it happens.
+  PetPickedUp: { icon: 'car-outline', accent: 'brand' },
+  PetDroppedOff: { icon: 'home-outline', accent: 'brand' },
+  // Support settled the booking.
+  BookingChangedBySupport: { icon: 'shield-checkmark-outline', accent: 'info' },
 };
 
 const VISUAL_BY_TYPE = new Map<number, Visual>(

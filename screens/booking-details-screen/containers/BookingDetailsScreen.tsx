@@ -19,11 +19,22 @@ import {
   declineBooking,
   markNoShow,
   canMarkNoShow,
+  canReportProviderNoShow,
+  canChangeTime,
+  reportProviderNoShow,
+  acceptPriceChange,
+  declinePriceChange,
+  proposeBookingTime,
+  acceptBookingTime,
+  declineBookingTime,
   parseBookingDate,
+  BookingActor,
   BookingStatusType,
   PaymentType,
   type BookingAdditionalServiceReadDto,
 } from '../../../services/bookings';
+import AdminBookingActions from '../components/AdminBookingActions';
+import ChangeTimeModal from '../components/ChangeTimeModal';
 import { useToast } from '../../../context/ToastContext';
 import { getErrorMessage } from '../../../services/http';
 import { formatMoney } from '../../../services/currency';
@@ -52,6 +63,7 @@ const HISTORY_KEY: Record<number, string> = {
   [BookingStatusType.DeclinedByProvider]: 'bookingDetails.historyDeclined',
   [BookingStatusType.CancelledByUser]: 'bookingDetails.historyCancelled',
   [BookingStatusType.CustomerNoShow]: 'bookingDetails.historyNoShow',
+  [BookingStatusType.ProviderNoShow]: 'bookingDetails.historyProviderNoShow',
 };
 
 /** A real instant (a status change), in the reader's own time: "18 Nov 2026, 14:05". */
@@ -119,6 +131,7 @@ export default function BookingDetailsScreen() {
   );
   const reviewRating = dto?.review?.rating ?? null;
   const isNoShow = dto?.currentStatus === BookingStatusType.CustomerNoShow;
+  const isProviderNoShow = dto?.currentStatus === BookingStatusType.ProviderNoShow;
   const isCompleted = vm?.statusLabel === 'completed';
   // The partner opens this screen too (accepting a group request lands here), and every action
   // on it is the customer's: a partner was offered "Cancel booking", which the API refuses them,
@@ -264,6 +277,70 @@ export default function BookingDetailsScreen() {
     }
   };
 
+  // The partner never came (app review 2026-11-13, finding 19): the customer says so from the
+  // start, everything paid goes back, and the partner and the admins are told.
+  const canReportNoShow = isCustomer && dto != null && canReportProviderNoShow(dto);
+  const [isNoShowReportOpen, setIsNoShowReportOpen] = useState(false);
+  const [isReporting, setIsReporting] = useState(false);
+  const confirmNoShowReport = async (note: string) => {
+    if (!dto?.id) return;
+    setIsReporting(true);
+    try {
+      await reportProviderNoShow(dto.id, note);
+      setIsNoShowReportOpen(false);
+      refresh();
+      showSuccess(t('bookingDetails.providerNoShowSuccess'));
+    } catch (e) {
+      showError(getErrorMessage(e, t('bookingDetails.providerNoShowFailed')));
+    } finally {
+      setIsReporting(false);
+    }
+  };
+
+  // A higher price the partner asked for (finding 23) and a new time either side asked for (28):
+  // answered here by the other side, withdrawn here by the one who asked.
+  const priceProposal = dto?.priceProposal ?? null;
+  const timeProposal = dto?.timeProposal ?? null;
+  const myActor = isProvider ? BookingActor.Provider : isCustomer ? BookingActor.User : null;
+  const iProposedTime = timeProposal != null && myActor === timeProposal.proposedBy;
+  const [answering, setAnswering] = useState<string | null>(null);
+  const answer = async (key: string, action: () => Promise<unknown>, success: string) => {
+    setAnswering(key);
+    try {
+      await action();
+      refresh();
+      showSuccess(success);
+    } catch (e) {
+      showError(getErrorMessage(e, t('bookingDetails.answerFailed')));
+    } finally {
+      setAnswering(null);
+    }
+  };
+  const canMoveTime =
+    (isCustomer || isProvider) && dto != null && !timeProposal && canChangeTime(dto);
+  // The customer's own request the partner hasn't answered moves at once.
+  const movesAtOnce = isCustomer && dto?.currentStatus === BookingStatusType.ServiceRequestedByUser;
+  const [isChangeTimeOpen, setIsChangeTimeOpen] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
+  const submitNewTime = async (newFrom: string) => {
+    if (!dto?.id) return;
+    setIsMoving(true);
+    try {
+      await proposeBookingTime(dto.id, newFrom);
+      setIsChangeTimeOpen(false);
+      refresh();
+      showSuccess(t(movesAtOnce ? 'bookingDetails.timeMoved' : 'bookingDetails.timeAsked'));
+    } catch (e) {
+      showError(getErrorMessage(e, t('bookingDetails.answerFailed')));
+    } finally {
+      setIsMoving(false);
+    }
+  };
+  const proposalWhen = (iso: string) => {
+    const d = parseBookingDate(iso);
+    return `${formatShortDate(d)}, ${clock(d)}`;
+  };
+
   // Asks why first: the reason is stored on the booking and shown to the provider. The app used to
   // send a fixed English sentence, so a provider never learned why a booking was called off.
   const handleCancel = () => {
@@ -325,7 +402,11 @@ export default function BookingDetailsScreen() {
             <Text className={`text-sm ${subtextColor} mt-0.5`}>{vm.providerName}</Text>
             <View className={`mt-2 self-start rounded-full px-2.5 py-1 ${status.bg}`}>
               <Text className={`text-xs font-semibold ${status.text}`}>
-                {isNoShow ? t('bookingDetails.noShowBadge') : tEnum('bookingState', status.state)}
+                {isNoShow
+                  ? t('bookingDetails.noShowBadge')
+                  : isProviderNoShow
+                    ? t('bookingDetails.providerNoShowBadge')
+                    : tEnum('bookingState', status.state)}
               </Text>
             </View>
           </View>
@@ -346,6 +427,168 @@ export default function BookingDetailsScreen() {
                   ? t('bookingDetails.noShowNotice')
                   : t('bookingDetails.noShowNoticeProvider')}
               </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {isProviderNoShow ? (
+          <View className={`mt-4 ${gutter.px}`}>
+            <View
+              className={`flex-row items-center rounded-xl px-4 py-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={18}
+                color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+              />
+              <Text
+                className={`ml-2 flex-1 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                {isCustomer
+                  ? t('bookingDetails.providerNoShowNotice')
+                  : t('bookingDetails.providerNoShowNoticeProvider')}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {/* A higher price waiting for the customer: they answer, the partner waits. */}
+        {priceProposal && (isCustomer || isProvider) ? (
+          <View className={`mt-4 ${gutter.px}`}>
+            <View className={`rounded-xl px-4 py-3 ${isDarkMode ? 'bg-[#3A3220]' : 'bg-amber-50'}`}>
+              <View className="flex-row items-center">
+                <Ionicons name="pricetag-outline" size={18} color="#D97706" />
+                <Text
+                  className={`ml-2 flex-1 text-sm ${isDarkMode ? 'text-amber-100' : 'text-amber-900'}`}>
+                  {isCustomer
+                    ? t('bookingDetails.priceProposed', {
+                        provider: vm.providerName,
+                        price: formatMoney(priceProposal.totalPrice, dto.priceCurrency),
+                        old: formatMoney(dto.totalPrice, dto.priceCurrency),
+                      })
+                    : t('bookingDetails.priceProposedProvider', {
+                        price: formatMoney(priceProposal.totalPrice, dto.priceCurrency),
+                        old: formatMoney(dto.totalPrice, dto.priceCurrency),
+                      })}
+                </Text>
+              </View>
+              {isCustomer ? (
+                <View className="mt-3 flex-row" style={{ gap: 10 }}>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    disabled={answering !== null}
+                    onPress={() =>
+                      answer(
+                        'acceptPrice',
+                        () => acceptPriceChange(dto.id ?? bookingId),
+                        t('bookingDetails.priceAccepted')
+                      )
+                    }
+                    className="flex-1 items-center rounded-xl bg-brand-500 py-2.5">
+                    {answering === 'acceptPrice' ? (
+                      <ActivityIndicator color="white" size="small" />
+                    ) : (
+                      <Text className="font-semibold text-white">
+                        {t('bookingDetails.acceptPrice')}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    disabled={answering !== null}
+                    onPress={() =>
+                      answer(
+                        'declinePrice',
+                        () => declinePriceChange(dto.id ?? bookingId),
+                        t('bookingDetails.priceDeclined')
+                      )
+                    }
+                    className={`flex-1 items-center rounded-xl border py-2.5 ${borderColor}`}>
+                    {answering === 'declinePrice' ? (
+                      <ActivityIndicator color={BRAND_GREEN} size="small" />
+                    ) : (
+                      <Text className={`font-semibold ${textColor}`}>
+                        {t('bookingDetails.declinePrice')}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
+        {/* A new time waiting for an answer: the other side answers, the one who asked may withdraw. */}
+        {timeProposal && (isCustomer || isProvider) ? (
+          <View className={`mt-4 ${gutter.px}`}>
+            <View className={`rounded-xl px-4 py-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-blue-50'}`}>
+              <View className="flex-row items-center">
+                <Ionicons
+                  name="calendar-outline"
+                  size={18}
+                  color={isDarkMode ? '#93C5FD' : '#1D4ED8'}
+                />
+                <Text
+                  className={`ml-2 flex-1 text-sm ${isDarkMode ? 'text-blue-200' : 'text-blue-800'}`}>
+                  {iProposedTime
+                    ? t('bookingDetails.timeProposedByMe', {
+                        when: proposalWhen(timeProposal.bookingFrom),
+                      })
+                    : t('bookingDetails.timeProposedToMe', {
+                        who:
+                          timeProposal.proposedBy === BookingActor.Provider
+                            ? vm.providerName
+                            : customerName(dto.user, t('bookingDetails.customer')),
+                        when: proposalWhen(timeProposal.bookingFrom),
+                      })}
+                </Text>
+              </View>
+              <View className="mt-3 flex-row" style={{ gap: 10 }}>
+                {!iProposedTime ? (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    disabled={answering !== null}
+                    onPress={() =>
+                      answer(
+                        'acceptTime',
+                        () => acceptBookingTime(dto.id ?? bookingId),
+                        t('bookingDetails.timeMoved')
+                      )
+                    }
+                    className="flex-1 items-center rounded-xl bg-brand-500 py-2.5">
+                    {answering === 'acceptTime' ? (
+                      <ActivityIndicator color="white" size="small" />
+                    ) : (
+                      <Text className="font-semibold text-white">
+                        {t('bookingDetails.acceptTime')}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                ) : null}
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  disabled={answering !== null}
+                  onPress={() =>
+                    answer(
+                      'declineTime',
+                      () => declineBookingTime(dto.id ?? bookingId),
+                      t(
+                        iProposedTime
+                          ? 'bookingDetails.timeWithdrawn'
+                          : 'bookingDetails.timeDeclined'
+                      )
+                    )
+                  }
+                  className={`flex-1 items-center rounded-xl border py-2.5 ${borderColor}`}>
+                  {answering === 'declineTime' ? (
+                    <ActivityIndicator color={BRAND_GREEN} size="small" />
+                  ) : (
+                    <Text className={`font-semibold ${textColor}`}>
+                      {iProposedTime
+                        ? t('bookingDetails.withdrawTime')
+                        : t('bookingDetails.declineTime')}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         ) : null}
@@ -372,7 +615,9 @@ export default function BookingDetailsScreen() {
         ) : null}
 
         {/* Still waiting for the partner: say what happens next and until when. */}
-        {!dto.isExpired && dto.currentStatus === BookingStatusType.ServiceRequestedByUser ? (
+        {!dto.isExpired &&
+        !priceProposal &&
+        dto.currentStatus === BookingStatusType.ServiceRequestedByUser ? (
           <View className={`mt-4 ${gutter.px}`}>
             <View
               className={`flex-row items-center rounded-xl px-4 py-3 ${isDarkMode ? 'bg-[#243447]' : 'bg-blue-50'}`}>
@@ -601,6 +846,13 @@ export default function BookingDetailsScreen() {
         ))}
       </View>
     ) : null;
+  // Support's tools (finding 40): settle the booking with a reason, or read the pair's chat.
+  const adminActions =
+    adminView && dto ? (
+      <View className={gutter.px}>
+        <AdminBookingActions booking={dto} onChanged={() => refresh()} onOpenChat={openChat} />
+      </View>
+    ) : null;
   const adminContact =
     adminView && dto && (adminCustomer || adminProvider) ? (
       <View className={`mt-6 ${gutter.px}`}>
@@ -744,6 +996,7 @@ export default function BookingDetailsScreen() {
             isCustomer={isCustomer}
             isProvider={isProvider}
             userId={dto.userId}
+            bookingTo={dto.bookingTo}
             onPaid={refresh}
           />
         </View>
@@ -796,6 +1049,39 @@ export default function BookingDetailsScreen() {
   const cancelBlock =
     dto && vm ? (
       <>
+        {/* Another time instead of cancelling (finding 28): either side asks, the other answers. */}
+        {canMoveTime ? (
+          <View className={`mt-6 ${gutter.px}`}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => setIsChangeTimeOpen(true)}
+              activeOpacity={0.85}
+              className="flex-row items-center justify-center rounded-2xl border-2 border-brand-500 py-4">
+              <Ionicons name="calendar-outline" size={18} color={BRAND_GREEN} />
+              <Text className="ml-2 text-base font-bold text-brand-600">
+                {t('bookingDetails.changeTime')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {/* The partner never came: the customer says so, and gets everything back. */}
+        {canReportNoShow ? (
+          <View className={`mt-6 ${gutter.px}`}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              disabled={isReporting}
+              onPress={() => setIsNoShowReportOpen(true)}
+              activeOpacity={0.85}
+              className="flex-row items-center justify-center rounded-2xl border-2 border-amber-500 py-4">
+              <Ionicons name="alert-circle-outline" size={18} color="#F59E0B" />
+              <Text className="ml-2 text-base font-bold text-amber-600">
+                {t('bookingDetails.providerNoShow')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {/* Cancel — the owner's own way out, available until the service starts. */}
         {canCancel ? (
           <View className={`mt-6 ${gutter.px}`}>
@@ -897,6 +1183,7 @@ export default function BookingDetailsScreen() {
                     {header}
                     {appointment}
                     {adminContact}
+                    {adminActions}
                     {location}
                     {historyBlock}
                     {reviewBlock}
@@ -908,6 +1195,7 @@ export default function BookingDetailsScreen() {
                 {header}
                 {appointment}
                 {adminContact}
+                {adminActions}
                 {location}
                 {payment}
                 {historyBlock}
@@ -967,6 +1255,31 @@ export default function BookingDetailsScreen() {
         onClose={() => setProviderPrompt(null)}
         onConfirm={confirmProviderAction}
       />
+
+      <ReasonPromptModal
+        visible={isNoShowReportOpen}
+        title={t('bookingDetails.providerNoShowTitle')}
+        subtitle={t('bookingDetails.providerNoShowSubtitle')}
+        placeholder={t('bookingDetails.providerNoShowPlaceholder')}
+        tooShortMessage={t('bookingDetails.cancelReasonTooShort')}
+        confirmLabel={t('bookingDetails.providerNoShowConfirm')}
+        submitting={isReporting}
+        onClose={() => setIsNoShowReportOpen(false)}
+        onConfirm={confirmNoShowReport}
+      />
+
+      {dto ? (
+        <ChangeTimeModal
+          visible={isChangeTimeOpen}
+          serviceId={dto.serviceId}
+          bookingFrom={dto.bookingFrom}
+          bookingTo={dto.bookingTo}
+          appliesAtOnce={movesAtOnce}
+          submitting={isMoving}
+          onClose={() => setIsChangeTimeOpen(false)}
+          onSubmit={submitNewTime}
+        />
+      ) : null}
 
       <ReviewModal
         visible={review.target !== null}

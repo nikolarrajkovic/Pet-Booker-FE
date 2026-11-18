@@ -32,8 +32,7 @@ import {
   serviceCurrency,
 } from '../../../services/services';
 import { ReviewDto } from '../../../services/reviews';
-import { customerName } from '../../../services/users';
-import { formatShortDate } from '../../../i18n/dates';
+import ServiceReviews from '../../../components/shared/ServiceReviews';
 import {
   resolveImageUrl,
   ApprovalStatus,
@@ -123,8 +122,6 @@ export default function ServiceDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
-  // The page lists five reviews until asked for the rest.
-  const [showAllReviews, setShowAllReviews] = useState(false);
   // The gallery pages by its own width. On the web design that is the details card beside the
   // booking panel, so it is measured rather than derived from the window.
   const [galleryWidth, setGalleryWidth] = useState<number | null>(null);
@@ -239,11 +236,10 @@ export default function ServiceDetailScreen() {
     (reviews.length
       ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
       : 0);
-  // Count the reviews this page actually lists. `totalRatingNumber` is the PROVIDER's tally
-  // across all their services, so a service with 2 approved reviews advertised "4 reviews" in
-  // the header while the section below it read "Reviews (2)" — the same page disagreeing with
-  // itself. Fall back to the provider tally only when the embed gave us nothing to show.
-  const reviewCount = reviews.length || (svc.totalRatingNumber ?? 0);
+  // The partner's approved reviews, which is what the stars average and what the list below shows
+  // (finding 37). The header used to count the service's own while the stars were the partner's,
+  // so "No reviews yet" sat beside 4.9 stars.
+  const reviewCount = svc.totalRatingNumber ?? reviews.length;
 
   // Pricing options (duration/price variants): the header shows "from" the
   // cheapest option's effective price; the full list gets its own section and
@@ -322,6 +318,19 @@ export default function ServiceDetailScreen() {
     icon: 'shield-checkmark-outline',
     label: asksDeposit ? t('serviceDetail.cancelDeposit') : t('serviceDetail.cancelFree'),
   });
+  // How it is paid and where it happens (app review 2026-11-13, findings 22 and 26).
+  const payments = d?.acceptedPayments || 3;
+  if (payments !== 3)
+    facts.push({
+      icon: payments === 1 ? 'card-outline' : 'cash-outline',
+      label: payments === 1 ? t('serviceDetail.cardOnly') : t('serviceDetail.cashOnly'),
+    });
+  if (d?.venue === 1 || d?.venue === 2)
+    facts.push({
+      icon: 'home-outline',
+      label:
+        d.venue === 1 ? t('serviceDetail.atYourPlace') : t('serviceDetail.atYourPlaceOrTheirs'),
+    });
 
   const onBook = () =>
     requireSignIn(() =>
@@ -686,63 +695,17 @@ export default function ServiceDetailScreen() {
           ))
         )}
 
-      {/* Reviews */}
-      {reviews.length > 0 &&
-        section(
-          t('serviceDetail.reviewsCount', { count: reviews.length }),
-          <>
-            {(showAllReviews ? reviews : reviews.slice(0, 5)).map((review, idx) => {
-              // Who wrote it and when: a review with neither reads as the partner's own text.
-              const author = customerName(review.user);
-              const written = review.createdAt ? new Date(review.createdAt) : null;
-              const byline = [
-                author,
-                written && !isNaN(written.getTime()) ? formatShortDate(written) : '',
-              ]
-                .filter(Boolean)
-                .join(' · ');
-              return (
-                <View
-                  key={review.id ?? idx}
-                  className={`${cardBg} border ${borderColor} mb-3 rounded-2xl p-4`}>
-                  <View className="mb-2 flex-row items-center justify-between">
-                    <View className="flex-row items-center">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Ionicons
-                          key={i}
-                          name={i < review.rating ? 'star' : 'star-outline'}
-                          size={14}
-                          color="#F59E0B"
-                        />
-                      ))}
-                    </View>
-                    {byline ? (
-                      <Text className={`ml-3 shrink text-xs ${subtextColor}`} numberOfLines={1}>
-                        {byline}
-                      </Text>
-                    ) : null}
-                  </View>
-                  {review.title ? (
-                    <Text className={`font-semibold ${textColor} mb-1`}>{review.title}</Text>
-                  ) : null}
-                  {review.comment ? (
-                    <Text className={`text-sm ${subtextColor}`}>{review.comment}</Text>
-                  ) : null}
-                </View>
-              );
-            })}
-            {reviews.length > 5 && !showAllReviews ? (
-              <TouchableOpacity
-                accessibilityRole="button"
-                onPress={() => setShowAllReviews(true)}
-                className="self-start py-1">
-                <Text className="text-sm font-semibold text-brand-600">
-                  {t('serviceDetail.showAllReviews', { count: reviews.length })}
-                </Text>
-              </TouchableOpacity>
-            ) : null}
-          </>
-        )}
+      {/* Reviews: the partner's, as the stars are (finding 37), each naming its service. */}
+      {svc.id ? (
+        <View className={`border-t ${gutter.px} py-5 ${borderColor}`}>
+          <ServiceReviews
+            serviceId={svc.id}
+            serviceProviderId={svc.serviceProviderId}
+            rating={svc.rating}
+            preview={5}
+          />
+        </View>
+      ) : null}
     </>
   );
 

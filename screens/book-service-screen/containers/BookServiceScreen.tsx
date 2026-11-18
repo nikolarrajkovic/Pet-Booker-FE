@@ -23,6 +23,7 @@ import { getErrorMessage } from '../../../services/http';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import StickyFooter from '../../../components/shared/StickyFooter';
 import ServicePhoto from '../../../components/shared/ServicePhoto';
+import ServiceReviews from '../../../components/shared/ServiceReviews';
 import { useResponsive } from '../../../hooks/useResponsive';
 import DatePicker from '../../../components/shared/DatePicker';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
@@ -258,11 +259,21 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
       : (lengthChoices[0] ?? null);
   // Slot length (and stride) for the time picker — the option's duration when one is chosen, the
   // chosen length for a service priced per unit, else the classic 1h grid.
+  // A visit's length, for a per-visit service: what the partner stated (finding 25), else the
+  // classic hour, kept within any limits the service has.
+  const visitMs = (() => {
+    const min = selectedService.details?.minDurationMinutes ?? null;
+    const max = selectedService.details?.maxDurationMinutes ?? null;
+    const minutes = Math.min(Math.max(60, min ?? 0), max ?? Number.POSITIVE_INFINITY);
+    return minutes * 60000;
+  })();
   const slotMs = selectedOption
     ? selectedOption.durationMinutes * 60000
     : chosenLength != null
       ? chosenLength * 60000
-      : SLOT_DURATION_MS;
+      : pricingUnit === PricingUnit.PerVisit
+        ? visitMs
+        : SLOT_DURATION_MS;
   // A stay of a day or more runs past the working hours (its nights are not working hours).
   const isStay = slotMs >= DAY_MINUTES * 60000;
 
@@ -271,7 +282,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
   // Pickup / Drop-off addresses are picked on a map (reverse-geocoded to AddressDto).
   const [pickupAddr, setPickupAddr] = useState<AddressDto | null>(null);
   const [dropoffAddr, setDropoffAddr] = useState<AddressDto | null>(null);
-  const [pickerFor, setPickerFor] = useState<'pickup' | 'dropoff' | null>(null);
+  const [pickerFor, setPickerFor] = useState<'pickup' | 'dropoff' | 'venue' | null>(null);
   // The home address saved on the customer's profile: one tap instead of finding it on the map.
   // Sent by id (toBookingLocation), so the booking links that address rather than copying it.
   const { data: profile } = useResource(
@@ -280,6 +291,13 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
     { enabled: currentUser?.id != null, revalidate: false }
   );
   const homeAddress = profile?.address?.id ? profile.address : null;
+  // Where the service takes place (app review 2026-11-13, finding 26): at the customer's, the
+  // booking names the address (the home one unless another is picked); "either" lets them choose.
+  const venue = selectedService.details?.venue ?? 0;
+  const [atMyPlace, setAtMyPlace] = useState<boolean>(venue === 1);
+  const [venueAddr, setVenueAddr] = useState<AddressDto | null>(null);
+  const needsVenue = venue === 1 || (venue === 2 && atMyPlace);
+  const chosenVenue = needsVenue ? (venueAddr ?? homeAddress) : null;
   // Date only (the slot picks the time). Opens on the day the customer searched for, when that is
   // still ahead — a day in the past (an old link) starts empty instead.
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => {
@@ -714,7 +732,9 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
     [selectedAddonDefs]
   );
   const addressesProvided =
-    (!pickupSelected || !!pickupAddr) && (!dropoffSelected || !!dropoffAddr);
+    (!pickupSelected || !!pickupAddr) &&
+    (!dropoffSelected || !!dropoffAddr) &&
+    (!needsVenue || !!chosenVenue);
 
   // Several extras can involve the same journey (and a round-trip one involves both), so the
   // price check under an address lists every selected extra that leg serves.
@@ -945,6 +965,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
       pricingOptionBase: selectedOption?.price,
       pickupAddress: pickupSelected ? (pickupAddr ?? undefined) : undefined,
       leaveOverAddress: dropoffSelected ? (dropoffAddr ?? undefined) : undefined,
+      venueAddress: chosenVenue ?? undefined,
       pickupDistanceKm: quote?.pickupDistanceKm ?? null,
       leaveOverDistanceKm: quote?.leaveOverDistanceKm ?? null,
     };
@@ -1206,7 +1227,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
    * prompt to pick one while the home address is chosen.
    */
   const addressChoices = (
-    side: 'pickup' | 'dropoff',
+    side: 'pickup' | 'dropoff' | 'venue',
     current: AddressDto | null,
     choose: (a: AddressDto | null) => void
   ) => {
@@ -1251,6 +1272,46 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
       </>
     );
   };
+  // Where it takes place, for a service that comes to the customer (or may).
+  const venueBlock =
+    venue === 0 ? null : (
+      <View className="mb-2 mt-4">
+        <Text className={`text-sm font-semibold ${textColor} mb-2`}>{t('bookService.where')}</Text>
+        {venue === 2 ? (
+          <View className="mb-2 flex-row" style={{ gap: 8 }}>
+            {(
+              [
+                [true, t('bookService.atMyPlace')],
+                [false, t('bookService.atProvidersPlace')],
+              ] as const
+            ).map(([mine, label]) => {
+              const active = atMyPlace === mine;
+              return (
+                <TouchableOpacity
+                  key={String(mine)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: active }}
+                  aria-checked={active}
+                  onPress={() => setAtMyPlace(mine)}
+                  className={`flex-1 items-center rounded-2xl border-2 px-3 py-3 ${
+                    active
+                      ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                      : `${borderColor} ${cardBg}`
+                  }`}>
+                  <Text
+                    className={`text-sm ${active ? 'font-semibold text-brand-600' : textColor}`}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <Text className={`mb-2 text-xs ${subtextColor}`}>{t('bookService.atYourPlaceNote')}</Text>
+        )}
+        {needsVenue ? addressChoices('venue', chosenVenue, setVenueAddr) : null}
+      </View>
+    );
   const extrasBlock = (
     <>
       {' '}
@@ -1584,7 +1645,12 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
       {[
         durationLabel ? t('bookService.infoDuration', { duration: durationLabel }) : null,
         t('bookService.infoConfirm'),
-        t('bookService.infoPayLater'),
+        // The ways this service takes (finding 22): cash is only mentioned when it is one of them.
+        ((selectedService.details?.acceptedPayments || 3) & 2) === 0
+          ? t('bookService.infoPayLaterCard')
+          : ((selectedService.details?.acceptedPayments || 3) & 1) === 0
+            ? t('bookService.infoPayCash')
+            : t('bookService.infoPayLater'),
         serviceAsksDeposit(selectedService)
           ? t('bookService.infoDeposit')
           : t('bookService.infoFreeCancel'),
@@ -1702,6 +1768,14 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
         </View>
         {lengthChoicesBlock}
         {optionsBlock}
+        {venueBlock}
+        {/* What other customers said, before choosing a time (asked for 2026-11-18). */}
+        <ServiceReviews
+          serviceId={selectedService.id ?? 0}
+          serviceProviderId={selectedService.serviceProviderId}
+          rating={selectedService.rating}
+          containerClassName="mt-5"
+        />
       </View>
 
       {/* Step 2: Additional Services */}
@@ -1906,6 +1980,14 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
         </View>
       </View>
 
+      {/* What other customers said, before choosing a time (asked for 2026-11-18). */}
+      <ServiceReviews
+        serviceId={selectedService.id ?? 0}
+        serviceProviderId={selectedService.serviceProviderId}
+        rating={selectedService.rating}
+        containerClassName={webCard}
+      />
+
       <View className={webCard}>
         {sectionHeading(optionChosen && !!startDateTime, 1, t('bookService.chooseDateTime'))}
         {pricingOptions.length > 0 || lengthChoices.length > 0 ? (
@@ -1916,6 +1998,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
           </View>
         ) : null}
         {dateTimeBlock}
+        {venueBlock}
       </View>
 
       {pets.length > 0 ? (
@@ -2038,13 +2121,16 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
           title={
             pickerFor === 'pickup'
               ? t('bookService.pickupLocation')
-              : t('bookService.dropoffLocation')
+              : pickerFor === 'venue'
+                ? t('bookService.venueAddress')
+                : t('bookService.dropoffLocation')
           }
           initialRegion={{ latitude: location.latitude, longitude: location.longitude }}
           isDarkMode={isDarkMode}
           onClose={() => setPickerFor(null)}
           onSelect={(address) => {
             if (pickerFor === 'pickup') setPickupAddr(address);
+            else if (pickerFor === 'venue') setVenueAddr(address);
             else setDropoffAddr(address);
           }}
         />

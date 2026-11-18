@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -83,6 +84,8 @@ export default function BusinessProfileScreen() {
   const [phone, setPhone] = useState('');
   const [years, setYears] = useState('');
   const [about, setAbout] = useState('');
+  // "I do one job at a time" (app review 2026-11-13, finding 24): their services share one booking.
+  const [oneJobAtATime, setOneJobAtATime] = useState(false);
   const [address, setAddress] = useState<AddressDto | null>(null); // newly picked
   // "Use my account address instead": drops the business address on save.
   const [removeAddress, setRemoveAddress] = useState(false);
@@ -115,6 +118,7 @@ export default function BusinessProfileScreen() {
         setPhone(dto.contactPhone ?? '');
         setYears(dto.yearsOfExperience != null ? String(dto.yearsOfExperience) : '');
         setAbout(dto.about ?? '');
+        setOneJobAtATime(!!dto.oneJobAtATime);
       } catch (e) {
         if (!cancelled) setLoadError(getErrorMessage(e, t('businessProfile.loadFailed')));
       } finally {
@@ -182,6 +186,7 @@ export default function BusinessProfileScreen() {
         about,
         address,
         removeAddress: removeAddress && !address,
+        oneJobAtATime,
       });
       setOriginal(updated);
       setAddress(null);
@@ -426,6 +431,31 @@ export default function BusinessProfileScreen() {
             />
             <Text className={`mt-1 text-xs ${subtextColor}`}>{t('businessProfile.aboutHint')}</Text>
           </View>
+
+          {/* One job at a time: a booking on any service takes the partner's time. */}
+          <TouchableOpacity
+            accessibilityRole="switch"
+            accessibilityState={{ checked: oneJobAtATime }}
+            aria-checked={oneJobAtATime}
+            onPress={() => setOneJobAtATime((on) => !on)}
+            className={`mb-4 flex-row items-center justify-between rounded-xl border px-4 py-3 ${borderColor}`}>
+            <View className="mr-3 flex-1">
+              <Text className={`text-sm font-semibold ${textColor}`}>
+                {t('businessProfile.oneJobAtATime')}
+              </Text>
+              <Text className={`mt-0.5 text-xs ${subtextColor}`}>
+                {t('businessProfile.oneJobAtATimeHint')}
+              </Text>
+            </View>
+            <View pointerEvents="none">
+              <Switch
+                accessible={false}
+                value={oneJobAtATime}
+                trackColor={{ false: '#D1D5DB', true: '#86EFAC' }}
+                thumbColor={oneJobAtATime ? BRAND_GREEN : '#f4f3f4'}
+              />
+            </View>
+          </TouchableOpacity>
 
           {/* Address — picked on a map */}
           <View className="mb-6">

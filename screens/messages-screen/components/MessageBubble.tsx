@@ -5,6 +5,8 @@ import { themeColors } from '../../../hooks/useThemeColors';
 
 export interface MessageBubbleProps {
   body: string;
+  /** Pictures sent with the message, ready to show (resolved URLs). */
+  photoUrls?: string[];
   /** True when the signed-in user wrote it — drives side, colour and ticks. */
   isMine: boolean;
   /** Rendered only on the other party's bubbles, as in the design. */
@@ -30,6 +32,7 @@ const TICK = {
  */
 export default function MessageBubble({
   body,
+  photoUrls = [],
   isMine,
   avatarUrl,
   isRead,
@@ -51,7 +54,28 @@ export default function MessageBubble({
         className={`max-w-[78%] rounded-2xl px-4 py-2.5 ${
           isMine ? 'rounded-br-md bg-brand-500' : `rounded-bl-md border ${cardBg} ${borderColor}`
         }`}>
-        <Text className={`text-[15px] leading-5 ${isMine ? 'text-white' : textColor}`}>{body}</Text>
+        {photoUrls.length > 0 ? (
+          <View className="flex-row flex-wrap" style={{ gap: 6, marginBottom: body ? 8 : 0 }}>
+            {photoUrls.map((uri, i) => (
+              <Image
+                key={`${uri}-${i}`}
+                source={{ uri }}
+                accessibilityLabel="Photo"
+                style={{
+                  width: photoUrls.length > 1 ? 120 : 220,
+                  height: photoUrls.length > 1 ? 120 : 220,
+                  borderRadius: 12,
+                }}
+                resizeMode="cover"
+              />
+            ))}
+          </View>
+        ) : null}
+        {body ? (
+          <Text className={`text-[15px] leading-5 ${isMine ? 'text-white' : textColor}`}>
+            {body}
+          </Text>
+        ) : null}
       </View>
 
       {isMine && (

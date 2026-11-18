@@ -28,6 +28,8 @@ export type Appointment = {
   // Required when a selected extra needs that side; sent inline on booking create.
   pickupAddress?: AddressDto;
   leaveOverAddress?: AddressDto;
+  /** Where the service takes place, for a service at the customer's (ServiceVenue). */
+  venueAddress?: AddressDto;
   // The distances the server measured for each leg when it priced this selection. Display only —
   // the create re-measures from the addresses above rather than trusting a client value.
   pickupDistanceKm?: number | null;

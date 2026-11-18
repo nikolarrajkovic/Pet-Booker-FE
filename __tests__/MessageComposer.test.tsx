@@ -48,7 +48,8 @@ describe('the composer in a browser', () => {
     const { onSend, field } = setup();
     const preventDefault = key(field, { key: 'Enter' });
 
-    expect(onSend).toHaveBeenCalledWith('see you at 9');
+    // The second argument is the pictures chosen to go with it: none here.
+    expect(onSend).toHaveBeenCalledWith('see you at 9', []);
     expect(preventDefault).toHaveBeenCalled();
   });
 

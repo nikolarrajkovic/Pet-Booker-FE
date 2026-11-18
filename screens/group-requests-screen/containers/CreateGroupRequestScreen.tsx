@@ -191,11 +191,15 @@ export default function CreateGroupRequestScreen() {
   const [asapLength, setAsapLength] = useState(60);
   const [asapOpenFor, setAsapOpenFor] = useState(60);
   // How far "every matching provider" reaches. "Now" is no use from across the city, so an ASAP
-  // request starts at 5 km; a planned one at any distance — until the owner picks one themselves.
-  const [maxDistanceKm, setMaxDistanceKm] = useState<number | null>(route.params?.asap ? 5 : null);
+  // request starts at 5 km; a planned one at 10 km (finding 45: "any distance" sent one test
+  // request to 744 providers) — until the owner picks one themselves, any distance included.
+  const defaultDistanceKm = (isAsap: boolean) => (isAsap ? 5 : 10);
+  const [maxDistanceKm, setMaxDistanceKm] = useState<number | null>(
+    defaultDistanceKm(route.params?.asap ?? false)
+  );
   const distanceTouched = useRef(false);
   useEffect(() => {
-    if (!distanceTouched.current) setMaxDistanceKm(asap ? 5 : null);
+    if (!distanceTouched.current) setMaxDistanceKm(defaultDistanceKm(asap));
   }, [asap]);
 
   // ── who ────────────────────────────────────────────────────────────────────

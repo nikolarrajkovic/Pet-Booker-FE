@@ -154,7 +154,15 @@ export default function ReviewBookingScreen() {
     subtextColor,
     borderColor,
   } = useThemeColors();
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('online');
+  // The ways every service in the checkout takes (AcceptedPayments flags: 1 card, 2 cash); a
+  // service that declares none takes both (app review 2026-11-13, finding 22).
+  const takes = (flag: number) =>
+    sections.every((sec) => ((sec.service.details?.acceptedPayments || 3) & flag) !== 0);
+  const allowCard = takes(1);
+  const allowCash = takes(2);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
+    allowCard || !allowCash ? 'online' : 'cash'
+  );
   // What the customer is signing up to: a cash booking is settled in person; a card booking with
   // a deposit can't start until it is paid, and cancelling after paying it keeps it (G3, G5).
   const payingCash = selectedPaymentMethod === 'cash';
@@ -210,6 +218,7 @@ export default function ReviewBookingScreen() {
             paymentType: isCash ? PaymentType.Cash : PaymentType.Card,
             pickupAddress: apt.pickupAddress,
             leaveOverAddress: apt.leaveOverAddress,
+            venueAddress: apt.venueAddress,
             // Ids only — the server re-resolves each extra's price from the service's catalog and
             // re-measures each trip leg from the addresses above. No distance is sent: a
             // client-supplied one would override the measurement that sets the price.
@@ -466,6 +475,8 @@ export default function ReviewBookingScreen() {
         borderColor={borderColor}
         selectedMethod={selectedPaymentMethod}
         onSelectMethod={setSelectedPaymentMethod}
+        allowCard={allowCard}
+        allowCash={allowCash}
       />
       {/* Choosing "online" charges nothing here; the pay sheet is on the booking, once the
         provider has confirmed. Without this the next screen's "sent to the provider" read

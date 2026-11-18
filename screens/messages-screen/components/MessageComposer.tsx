@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
+  Image,
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
@@ -9,12 +10,20 @@ import {
   type TextInputKeyPressEventData,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { BRAND_GREEN, themeColors } from '../../../hooks/useThemeColors';
 import { useLocale } from '../../../context/LocaleContext';
+import { showAlert } from '../../../services/alert';
+
+/** A picture chosen to go with the next message; uploaded when it is sent. */
+export type ComposerPhoto = { uri: string; fileName?: string; mimeType?: string };
+
+/** The most pictures one message carries (the server's ChatMessageLimits.MaxPhotos). */
+const MAX_PHOTOS = 6;
 
 export interface MessageComposerProps {
   /** Resolves when the message is accepted; the field clears optimistically before it settles. */
-  onSend: (body: string) => Promise<void> | void;
+  onSend: (body: string, photos: ComposerPhoto[]) => Promise<void> | void;
   sending?: boolean;
   isDarkMode: boolean;
   /**
@@ -27,7 +36,11 @@ export interface MessageComposerProps {
 /** How long a pause counts as "stopped typing". */
 const TYPING_IDLE_MS = 2500;
 
-/** Input row pinned under the thread: a rounded field and a circular send button. */
+/**
+ * Input row pinned under the thread: a picture button, a rounded field and a circular send
+ * button. Pictures were added for the "Photo updates" extra, which could be sold but not
+ * delivered while chat was text only (app review 2026-11-13, finding 29).
+ */
 export default function MessageComposer({
   onSend,
   sending,
@@ -37,6 +50,7 @@ export default function MessageComposer({
   const { inputBg, inputText, borderColor, placeholderColor, cardBg } = themeColors(isDarkMode);
   const { t } = useLocale();
   const [draft, setDraft] = useState('');
+  const [photos, setPhotos] = useState<ComposerPhoto[]>([]);
   const typingRef = useRef(false);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -69,16 +83,42 @@ export default function MessageComposer({
   );
 
   const trimmed = draft.trim();
-  const canSend = trimmed.length > 0 && !sending;
+  const canSend = (trimmed.length > 0 || photos.length > 0) && !sending;
+
+  const pickPhotos = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      showAlert(t('account.permissionNeededTitle'), t('account.permissionPhotoMsg'));
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      selectionLimit: MAX_PHOTOS - photos.length,
+      quality: 0.8,
+      base64: true,
+    });
+    if (result.canceled) return;
+    const picked = result.assets.map((asset) => ({
+      uri: asset.base64
+        ? `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`
+        : asset.uri,
+      fileName: asset.fileName ?? undefined,
+      mimeType: asset.mimeType ?? undefined,
+    }));
+    setPhotos((prev) => [...prev, ...picked].slice(0, MAX_PHOTOS));
+  };
 
   const handleSend = async () => {
     if (!canSend) return;
     // Clear first so the field is ready for the next line while the request is in flight —
     // the screen renders the message optimistically, so nothing appears lost if it is slow.
+    const toSend = photos;
     setDraft('');
+    setPhotos([]);
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     setTyping(false);
-    await onSend(trimmed);
+    await onSend(trimmed, toSend);
   };
 
   /**
@@ -103,37 +143,63 @@ export default function MessageComposer({
   };
 
   return (
-    <View className={`flex-row items-end border-t px-3 py-2 ${borderColor} ${cardBg}`}>
-      <TextInput
-        value={draft}
-        onChangeText={handleChange}
-        placeholder={t('messages.composerPlaceholder')}
-        placeholderTextColor={placeholderColor}
-        multiline
-        // Grows with the message but stops before it swallows the thread.
-        style={{ maxHeight: 120 }}
-        className={`mr-2 flex-1 rounded-2xl px-4 py-2.5 text-[15px] ${inputBg} ${inputText}`}
-        onSubmitEditing={handleSend}
-        onKeyPress={handleKeyPress}
-        accessibilityLabel={t('messages.composerPlaceholder')}
-        accessibilityHint={Platform.OS === 'web' ? t('messages.composerKeysHint') : undefined}
-      />
-      <TouchableOpacity
-        onPress={handleSend}
-        disabled={!canSend}
-        activeOpacity={0.8}
-        accessibilityRole="button"
-        accessibilityLabel={t('messages.send')}
-        accessibilityState={{ disabled: !canSend }}
-        className={`h-11 w-11 items-center justify-center rounded-full ${
-          canSend ? 'bg-brand-500' : isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'
-        }`}>
-        {sending ? (
-          <ActivityIndicator size="small" color={canSend ? 'white' : BRAND_GREEN} />
-        ) : (
-          <Ionicons name="send" size={18} color={canSend ? 'white' : placeholderColor} />
-        )}
-      </TouchableOpacity>
+    <View className={`border-t ${borderColor} ${cardBg}`}>
+      {photos.length > 0 ? (
+        <View className="flex-row flex-wrap px-3 pt-2" style={{ gap: 8 }}>
+          {photos.map((p, i) => (
+            <View key={`${p.uri.slice(-24)}-${i}`}>
+              <Image source={{ uri: p.uri }} style={{ width: 64, height: 64, borderRadius: 10 }} />
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={t('messages.removePhoto')}
+                onPress={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
+                className="absolute -right-2 -top-2 rounded-full bg-black/70 p-0.5">
+                <Ionicons name="close" size={14} color="white" />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      <View className="flex-row items-end px-3 py-2">
+        <TouchableOpacity
+          onPress={pickPhotos}
+          disabled={sending || photos.length >= MAX_PHOTOS}
+          accessibilityRole="button"
+          accessibilityLabel={t('messages.addPhoto')}
+          className="mr-2 h-11 w-11 items-center justify-center rounded-full">
+          <Ionicons name="image-outline" size={22} color={BRAND_GREEN} />
+        </TouchableOpacity>
+        <TextInput
+          value={draft}
+          onChangeText={handleChange}
+          placeholder={t('messages.composerPlaceholder')}
+          placeholderTextColor={placeholderColor}
+          multiline
+          // Grows with the message but stops before it swallows the thread.
+          style={{ maxHeight: 120 }}
+          className={`mr-2 flex-1 rounded-2xl px-4 py-2.5 text-[15px] ${inputBg} ${inputText}`}
+          onSubmitEditing={handleSend}
+          onKeyPress={handleKeyPress}
+          accessibilityLabel={t('messages.composerPlaceholder')}
+          accessibilityHint={Platform.OS === 'web' ? t('messages.composerKeysHint') : undefined}
+        />
+        <TouchableOpacity
+          onPress={handleSend}
+          disabled={!canSend}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={t('messages.send')}
+          accessibilityState={{ disabled: !canSend }}
+          className={`h-11 w-11 items-center justify-center rounded-full ${
+            canSend ? 'bg-brand-500' : isDarkMode ? 'bg-[#243447]' : 'bg-gray-200'
+          }`}>
+          {sending ? (
+            <ActivityIndicator size="small" color={canSend ? 'white' : BRAND_GREEN} />
+          ) : (
+            <Ionicons name="send" size={18} color={canSend ? 'white' : placeholderColor} />
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }

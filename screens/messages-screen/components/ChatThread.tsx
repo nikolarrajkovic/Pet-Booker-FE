@@ -10,7 +10,8 @@ import { useLocale } from '../../../context/LocaleContext';
 import { useMessages } from '../../../context/MessagesContext';
 import ListState from '../../../components/shared/ListState';
 import MessageBubble from './MessageBubble';
-import MessageComposer from './MessageComposer';
+import MessageComposer, { type ComposerPhoto } from './MessageComposer';
+import { uploadFile } from '../../../services/files';
 import ComposerLockedNotice from './ComposerLockedNotice';
 import { getErrorMessage } from '../../../services/http';
 import { resolveImageUrl } from '../../../services/service-providers';
@@ -159,6 +160,8 @@ export default function ChatThread({
    * senderUserId and an id comparison would render every one of them as the customer's.
    */
   const viewer = conversation?.viewer ?? ChatParticipant.User;
+  // True for an admin reading the thread from a booking: it marks nothing read.
+  const observerRef = useRef(false);
   const access: ChatAccessDto | null = conversation?.access ?? null;
 
   const sortMessages = (list: MessageDto[]) => [...list].sort((a, b) => a.id - b.id);
@@ -199,9 +202,13 @@ export default function ChatThread({
 
         // Opening the thread is what marks it read; fail-soft so a read-receipt
         // hiccup never blocks the conversation itself.
-        markConversationRead(convo.id)
-          .then(refreshUnreadCount)
-          .catch(() => {});
+        // Support reading a booking's chat (no side of its own) leaves it unread for both.
+        observerRef.current = convo.viewer == null;
+        if (!observerRef.current) {
+          markConversationRead(convo.id)
+            .then(refreshUnreadCount)
+            .catch(() => {});
+        }
       } catch (e) {
         if (!cancelled) setLoadError(getErrorMessage(e, t('messages.loadFailed')));
       } finally {
@@ -247,6 +254,7 @@ export default function ChatThread({
       });
       if (incoming.sender !== viewer) {
         setTheyAreTyping(false);
+        if (observerRef.current) return;
         markConversationRead(conversationId, incoming.id)
           .then(refreshUnreadCount)
           .catch(() => {});
@@ -282,6 +290,7 @@ export default function ChatThread({
           });
           // The thread is on screen, so whatever just landed in it has been seen. Unconditional:
           // marking read is idempotent, and a reconnect is rare enough not to count the call.
+          if (observerRef.current) return;
           markConversationRead(conversationId)
             .then(refreshUnreadCount)
             .catch(() => {});
@@ -345,16 +354,17 @@ export default function ChatThread({
     }
   }, [hasMore, conversationId, nextBefore]);
 
-  const handleSend = async (body: string) => {
+  const handleSend = async (body: string, photos: ComposerPhoto[] = []) => {
     if (conversationId == null) return;
     // Optimistic bubble with a negative id — it can never collide with a server id, so the
-    // echo from the hub replaces it cleanly.
+    // echo from the hub replaces it cleanly. Pictures show from the device until they are saved.
     const optimistic: MessageDto = {
       id: -Date.now(),
       conversationId,
       sender: viewer,
       senderUserId: null,
       body,
+      photoUrls: photos.map((p) => p.uri),
       sentAt: new Date().toISOString(),
       readAt: null,
     };
@@ -362,7 +372,16 @@ export default function ChatThread({
     setSending(true);
     notifyTyping(conversationId, false);
     try {
-      const saved = await sendMessage(conversationId, body, params.bookingId ?? null);
+      // Pictures go up first, as every photo does; the message then names them (finding 29).
+      const uploaded = await Promise.all(
+        photos.map((p) => uploadFile(p.uri, p.fileName, p.mimeType))
+      );
+      const saved = await sendMessage(
+        conversationId,
+        body,
+        params.bookingId ?? null,
+        uploaded.map((u) => Number(u.id))
+      );
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== optimistic.id && m.id !== saved.id),
         saved,
@@ -396,6 +415,8 @@ export default function ChatThread({
   /** Why the composer is locked, in the user's language. */
   const lockedMessage = useMemo(() => {
     if (!access || access.canSendMessage) return null;
+    // Support reading a booking's chat (finding 40): an observer, on neither side, never writes.
+    if (conversation && conversation.viewer == null) return t('messages.lockedSupport');
     switch (access.reason) {
       case ChatAccessReason.EnquiryLimitReached:
         return t('messages.lockedAwaitingReply');
@@ -406,7 +427,7 @@ export default function ChatThread({
       default:
         return t('messages.lockedGeneric');
     }
-  }, [access, t]);
+  }, [access, conversation, t]);
 
   /** "2 messages left before they reply" — only while the allowance is actually counting. */
   const allowanceHint = useMemo(() => {
@@ -565,6 +586,14 @@ export default function ChatThread({
                   )}
                   <MessageBubble
                     body={message.body}
+                    photoUrls={(message.photoUrls ?? []).map(
+                      (src) =>
+                        (src.startsWith('data:') ||
+                        src.startsWith('blob:') ||
+                        src.startsWith('file:')
+                          ? src
+                          : resolveImageUrl(src)) as string
+                    )}
                     isMine={message.sender === viewer}
                     avatarUrl={counterparty.avatar}
                     isRead={!!message.readAt}

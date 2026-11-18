@@ -40,7 +40,9 @@ export interface ServiceSearchItem {
 
 /** The sort options offered, in the order they are shown. */
 const SORT_OPTIONS: { value: ServiceSortByValue; labelKey: string }[] = [
-  { value: ServiceSortBy.Default, labelKey: 'search.sortDefault' },
+  // "Our top picks": nearest first when the place is known, else best rated (finding 43).
+  { value: ServiceSortBy.Recommended, labelKey: 'search.sortDefault' },
+  { value: ServiceSortBy.Nearest, labelKey: 'search.sortNearest' },
   { value: ServiceSortBy.PriceAsc, labelKey: 'search.sortPriceAsc' },
   { value: ServiceSortBy.PriceDesc, labelKey: 'search.sortPriceDesc' },
   { value: ServiceSortBy.RatingDesc, labelKey: 'search.sortRating' },

@@ -283,7 +283,12 @@ export default function AdminPartnersScreen() {
                   <PartnerRow
                     key={partner.id}
                     partner={partner}
-                    onPress={() => navigation.navigate('PartnerDetails', { partner })}
+                    onPress={() =>
+                      navigation.navigate('PartnerDetails', {
+                        partnerId: Number(partner.id),
+                        partner,
+                      })
+                    }
                   />
                 ))}
               </>
@@ -297,7 +302,12 @@ export default function AdminPartnersScreen() {
                   textColor={hex.text}
                   subTextColor={hex.subtext}
                   borderColor={hex.border}
-                  onPress={() => navigation.navigate('PartnerDetails', { partner })}
+                  onPress={() =>
+                    navigation.navigate('PartnerDetails', {
+                      partnerId: Number(partner.id),
+                      partner,
+                    })
+                  }
                 />
               ))
             )}

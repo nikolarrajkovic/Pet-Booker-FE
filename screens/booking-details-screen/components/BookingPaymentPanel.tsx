@@ -11,7 +11,12 @@ import { formatMoney } from '../../../services/currency';
 import { getErrorMessage } from '../../../services/http';
 import { showAlert } from '../../../services/alert';
 import { formatShortDate } from '../../../i18n/dates';
-import { BookingStatusType, PaymentType } from '../../../services/bookings';
+import {
+  BALANCE_OVERDUE_AFTER_MS,
+  BookingStatusType,
+  PaymentType,
+  parseBookingDate,
+} from '../../../services/bookings';
 import {
   getPaymentSummary,
   payBooking,
@@ -58,6 +63,8 @@ type Props = {
   userId: number;
   /** Re-read the booking after a payment, which can move its status (deposit paid, settled). */
   onPaid: () => void;
+  /** The booking's scheduled end (wall-clock ISO): the balance after it counts as overdue 3 days on. */
+  bookingTo?: string;
 };
 
 /**
@@ -76,6 +83,7 @@ export default function BookingPaymentPanel({
   isProvider,
   userId,
   onPaid,
+  bookingTo,
 }: Props) {
   const { textColor, subtextColor, borderColor } = useThemeColors();
   const { t } = useLocale();
@@ -118,6 +126,14 @@ export default function BookingPaymentPanel({
   const awaitingConfirmation =
     isCustomer && !isExpired && currentStatus === BookingStatusType.ServiceRequestedByUser;
   const depositKept = DEPOSIT_KEPT_STATUSES.includes(currentStatus) && summary.amountPaid > 0;
+  // The balance after a card service, still unpaid three days on (app review 2026-11-13, finding 21):
+  // the customer has been reminded twice; both sides and an admin see it as overdue.
+  const balanceOverdue =
+    !isCash &&
+    currentStatus === BookingStatusType.ServiceEnded &&
+    summary.balanceDue > 0 &&
+    bookingTo != null &&
+    Date.now() > parseBookingDate(bookingTo).getTime() + BALANCE_OVERDUE_AFTER_MS;
 
   const confirmCash = () => {
     const amount = formatMoney(summary.balanceDue, currency);
@@ -209,6 +225,16 @@ export default function BookingPaymentPanel({
             );
           })}
         </View>
+      ) : null}
+
+      {balanceOverdue ? (
+        <Notice icon="alert-circle-outline">
+          {isCustomer
+            ? t('payments.balanceOverdue', { amount: formatMoney(summary.balanceDue, currency) })
+            : t('payments.balanceOverdueOther', {
+                amount: formatMoney(summary.balanceDue, currency),
+              })}
+        </Notice>
       ) : null}
 
       {awaitingConfirmation && !isCash ? (

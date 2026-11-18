@@ -45,6 +45,8 @@ export interface ServiceRequest {
   currency: string | null; // the booking's priceCurrency (server-stamped from the provider)
   additionalServices: string[];
   notesFromOwner: string;
+  /** A higher total the partner asked for, waiting for the customer; null when none waits. */
+  proposedTotal?: number | null;
   status: RequestStatus;
   /** For an expired one: true when it had been accepted but was never started, false when it was never answered. */
   expiredAfterAccepting?: boolean;
@@ -284,6 +286,18 @@ export default function RequestCard({
         </View>
       ) : null}
 
+      {/* A higher price waits for the customer: accepting it confirms the booking for them. */}
+      {request.status === 'new' && request.proposedTotal != null ? (
+        <View className="mx-4 mb-3 flex-row items-center">
+          <Ionicons name="pricetag-outline" size={14} color="#D97706" style={{ marginRight: 6 }} />
+          <Text className={`flex-1 text-xs ${subtextColor}`}>
+            {t('requests.priceWaiting', {
+              price: formatMoney(request.proposedTotal, request.currency),
+            })}
+          </Text>
+        </View>
+      ) : null}
+
       <View className="mx-4 mb-3 flex-row flex-wrap items-center" style={{ gap: 16 }}>
         {/* Re-price before accepting (the server refuses once the booking is confirmed). */}
         {request.status === 'new' && onAdjustPrice ? (
@@ -324,15 +338,20 @@ export default function RequestCard({
             <Ionicons name="close" size={16} color="#EF4444" style={{ marginRight: 6 }} />
             <Text className="text-sm font-semibold text-red-500">{t('requests.decline')}</Text>
           </TouchableOpacity>
-          <View className={`w-px ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`} />
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => onAccept(request.id)}
-            activeOpacity={0.7}
-            className="flex-1 flex-row items-center justify-center rounded-br-2xl bg-brand-500 py-4">
-            <Ionicons name="checkmark" size={16} color="white" style={{ marginRight: 6 }} />
-            <Text className="text-sm font-semibold text-white">{t('requests.accept')}</Text>
-          </TouchableOpacity>
+          {/* While a higher price waits, the customer's answer is what confirms (or withdraws) it. */}
+          {request.proposedTotal == null ? (
+            <View className={`w-px ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`} />
+          ) : null}
+          {request.proposedTotal == null ? (
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => onAccept(request.id)}
+              activeOpacity={0.7}
+              className="flex-1 flex-row items-center justify-center rounded-br-2xl bg-brand-500 py-4">
+              <Ionicons name="checkmark" size={16} color="white" style={{ marginRight: 6 }} />
+              <Text className="text-sm font-semibold text-white">{t('requests.accept')}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       )}
 

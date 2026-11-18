@@ -1,4 +1,4 @@
-import { apiJson } from './http';
+import { apiJson, apiPage, type PagedResult } from './http';
 import { AddressDto } from './service-providers';
 
 export type UserDto = {
@@ -21,6 +21,8 @@ export type UserDto = {
   addressId?: number | null;
   address?: AddressDto | null;
   photos?: { id?: number | null; src?: string | null; isSelected?: boolean }[] | null;
+  /** Read only: when the account was made. */
+  createdAt?: string | null;
 };
 
 /**
@@ -56,5 +58,27 @@ export function updateUser(user: UserDto): Promise<UserDto> {
     body: user,
     fallback: 'Failed to save profile.',
     context: 'updateUser',
+  });
+}
+
+/**
+ * One page of customers for the admin Customers screen (finding 41): `query` matches an account
+ * number, or part of the name, username, email or phone. Admin only on the server.
+ */
+export function searchUsersPage(params: {
+  query?: string;
+  newestFirst?: boolean;
+  page: number;
+  perPage?: number;
+}): Promise<PagedResult<UserDto>> {
+  return apiPage<UserDto>('/api/users', {
+    query: {
+      Query: params.query || undefined,
+      Order: params.newestFirst ? 1 : 0,
+      Page: params.page,
+      PerPage: params.perPage ?? 20,
+    },
+    fallback: 'Failed to load customers.',
+    context: 'searchUsersPage',
   });
 }

@@ -97,6 +97,8 @@ export type MessageDto = {
   senderName?: string | null;
   bookingId?: number | null;
   body: string;
+  /** Pictures sent with it (the uploads' URLs); empty when none. A message may be pictures only. */
+  photoUrls?: string[];
   /**
    * True UTC instant — NOT the naive wall-clock convention booking times use.
    * Read with `new Date()`, never `parseBookingDate`.
@@ -209,11 +211,13 @@ export function getMessagesPage(
 export function sendMessage(
   conversationId: number,
   body: string,
-  bookingId?: number | null
+  bookingId?: number | null,
+  /** Images the sender uploaded first (POST /files), at most 6 (app review 2026-11-13, finding 29). */
+  fileUploadIds?: number[]
 ): Promise<MessageDto> {
   return apiJson<MessageDto>(`/api/chat/conversations/${conversationId}/messages`, {
     method: 'POST',
-    body: { body, bookingId: bookingId ?? null },
+    body: { body, bookingId: bookingId ?? null, fileUploadIds: fileUploadIds ?? null },
     fallback: 'Message not sent.',
     context: 'sendMessage',
   });

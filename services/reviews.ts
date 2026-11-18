@@ -10,6 +10,8 @@ export type ReviewDto = {
   // (GreaterThanValidator; a missing/0 value 422s "ServiceId is required.").
   // Returned on read. Ties the review to the specific service, not just the provider.
   serviceId?: number;
+  /** Read only: the service the review was for, as it is named now (finding 37). */
+  serviceName?: string | null;
   rating: number;
   // Per-category sub-ratings (non-nullable server-side — createReview defaults
   // any missing one to the overall rating so they never post as 0)
@@ -57,6 +59,8 @@ export type ReviewDto = {
 
 export type GetReviewsParams = {
   serviceProviderId?: number;
+  /** The reviewed service. */
+  serviceId?: number;
   userId?: number;
   bookingId?: number;
   rating?: number;
@@ -71,6 +75,7 @@ function reviewsRequest(params?: GetReviewsParams): ApiRequestOptions {
   return {
     query: {
       ServiceProviderId: params?.serviceProviderId,
+      ServiceId: params?.serviceId,
       UserId: params?.userId,
       BookingId: params?.bookingId,
       Rating: params?.rating,

@@ -28,6 +28,8 @@ import {
   canMarkNoShow,
   parseBookingDate,
   formatBookingDate,
+  recordTripStop,
+  TripStop,
   BookingDto,
   BookingState,
   BookingStatusType,
@@ -362,9 +364,15 @@ export default function LiveSessionScreen() {
   const service = dto ? (serviceById[dto.id!] ?? null) : null;
   const bookerAddr = dto ? (bookerAddrById[dto.id!] ?? null) : null;
   const started = dto?.currentStatus === BookingStatusType.ServiceStarted;
-  const completion: Completion = (dto && completedById[dto.id!]) || {
-    pickup: false,
-    dropoff: false,
+  // A stop is done once the server saved it (POST /bookings/{id}/trip-stop, with its time, and
+  // the customer told), or the partner just marked it here ahead of that answer. It was screen
+  // state only until 2026-11: a reload cleared it, and the customer always read "in progress".
+  const local: Completion = (dto && completedById[dto.id!]) || { pickup: false, dropoff: false };
+  const pickedUpAt = dto?.location?.pickedUpAt ?? null;
+  const droppedOffAt = dto?.location?.droppedOffAt ?? null;
+  const completion: Completion = {
+    pickup: local.pickup || pickedUpAt != null,
+    dropoff: local.dropoff || droppedOffAt != null,
   };
 
   // ── Live location (every live session) ──
@@ -458,6 +466,7 @@ export default function LiveSessionScreen() {
         label: pickupFor.join(' + '),
         icon: 'car-outline',
         completed: completion.pickup,
+        completedAt: pickedUpAt,
         detail: addr ? addressLabel(addr) : undefined,
         toggleable: true,
         address: addr,
@@ -472,6 +481,7 @@ export default function LiveSessionScreen() {
         label: dropoffFor.join(' + '),
         icon: 'home-outline',
         completed: completion.dropoff,
+        completedAt: droppedOffAt,
         detail: addr ? addressLabel(addr) : undefined,
         toggleable: true,
         address: addr,
@@ -482,7 +492,7 @@ export default function LiveSessionScreen() {
       items.push({ ...flat, icon: 'medkit-outline', completed: false, toggleable: false });
     }
     return items;
-  }, [dto, bookerAddr, completion.pickup, completion.dropoff, tEnum]);
+  }, [dto, bookerAddr, completion.pickup, completion.dropoff, pickedUpAt, droppedOffAt, tEnum]);
 
   // Only the actionable (pickup/drop-off) tasks gate ending the service.
   const canEnd = addOns.filter((a) => a.toggleable !== false).every((a) => a.completed);
@@ -533,8 +543,20 @@ export default function LiveSessionScreen() {
     if (!dto) return;
     if (key !== 'pickup' && key !== 'dropoff') return;
     const id = dto.id!;
-    const next: Completion = { ...completion, [key]: !completion[key] };
+    // A stop once done stays done: it is saved with its time and the customer has been told.
+    if (completion[key]) return;
+    const next: Completion = { ...completion, [key]: true };
     setCompletedById((prev) => ({ ...prev, [id]: next }));
+    recordTripStop(id, key === 'pickup' ? TripStop.Pickup : TripStop.DropOff)
+      .then((saved) =>
+        setSessions((prev) =>
+          prev.map((b) => (b.id === id ? { ...b, location: saved.location ?? b.location } : b))
+        )
+      )
+      .catch((e) => {
+        setCompletedById((prev) => ({ ...prev, [id]: { ...next, [key]: false } }));
+        showError(getErrorMessage(e, t('liveSession.stopFailed')));
+      });
 
     // Finishing the pickup means the next journey is the drop-off — re-point the
     // map at it right away so the partner doesn't have to hunt for "Show on map"
