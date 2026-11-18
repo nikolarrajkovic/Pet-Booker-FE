@@ -15,7 +15,9 @@ import SearchFilters, {
   activeFilterCount,
   type FilterState,
 } from '../../../components/shared/SearchFilters';
-import { useLocation } from '../../../hooks/useLocation';
+import { usePlace } from '../../../context/PlaceContext';
+import { formatDistanceKm } from '../../../services/distance';
+import PlacePicker from '../../../components/shared/PlacePicker';
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import { useCurrency } from '../../../hooks/useCurrency';
 import { BRAND_GREEN, useThemeColors } from '../../../hooks/useThemeColors';
@@ -121,7 +123,7 @@ const PAGE_SIZE = 25;
 // Flattens a ServiceDto (from getServices OR a Home endpoint) into a card item.
 // The type-derived label is localized by the caller (via tEnum); here `service`
 // holds only backend free-text (basicServiceName) so it's never left in English.
-function toSearchItem(svc: ServiceDto): ServiceSearchItem | null {
+function toSearchItem(svc: ServiceDto, language = 'en'): ServiceSearchItem | null {
   if (svc.id == null) return null;
   const photoSrc = svc.imageUrl ?? (svc.photos?.find((p) => p.isSelected) ?? svc.photos?.[0])?.src;
   return {
@@ -131,7 +133,9 @@ function toSearchItem(svc: ServiceDto): ServiceSearchItem | null {
     rating: svc.rating ?? 0,
     reviews: svc.totalRatingNumber ?? 0,
     distance:
-      svc.distanceFromMyLocationKm != null ? `${Math.round(svc.distanceFromMyLocationKm)} km` : '',
+      svc.distanceFromMyLocationKm != null
+        ? formatDistanceKm(svc.distanceFromMyLocationKm, language)
+        : '',
     // The lowest bookable figure. The row reads "from X", and a service with pricing options
     // has no purchasable base price — see serviceFromPrice.
     price: serviceFromPrice(svc),
@@ -207,7 +211,20 @@ export default function SearchScreen() {
   const query = (route.params?.query ?? '').trim();
   const category = route.params?.category;
   const categoryConfig = category ? CATEGORY_CONFIG[category] : undefined;
-  const location = useLocation();
+  // Where the results are measured from (finding 44): where the customer is, their home, or a
+  // place picked on the map — the same choice Home's location label makes.
+  const { place } = usePlace();
+  const [placePickerOpen, setPlacePickerOpen] = useState(false);
+  const location = useMemo(
+    () => ({
+      latitude: place.latitude,
+      longitude: place.longitude,
+      address: place.label,
+      loading: place.loading,
+      error: place.known ? null : 'unknown',
+    }),
+    [place.latitude, place.longitude, place.label, place.loading, place.known]
+  );
   const {
     isDarkMode,
     bgColor: contentBg,
@@ -216,14 +233,15 @@ export default function SearchScreen() {
     borderColor,
     cardBg,
   } = useThemeColors();
-  const { t, tEnum } = useLocale();
+  const { t, tEnum, language } = useLocale();
   const { isWebLayout, width: windowWidth } = useResponsive();
   const { code: displayCurrency } = useCurrency();
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [sortBy, setSortBy] = useState<ServiceSortByValue>(
-    categoryConfig?.preset?.sortBy ?? ServiceSortBy.Default
+    // "Our top picks" (finding 43): nearest when the place is known, else best rated.
+    categoryConfig?.preset?.sortBy ?? ServiceSortBy.Recommended
   );
 
   // A category backed by a Home endpoint arrives complete, so it is filtered here; everything
@@ -348,13 +366,13 @@ export default function SearchScreen() {
   const debouncedFilters = useDebouncedValue(filters, 300);
   const appliedFilters = filters === navigatedFilters ? filters : debouncedFilters;
 
-  // Only the Near You rail is a function of where the phone is. Pinning the coordinates to 0
-  // everywhere else keeps `fetchPage`'s identity stable when the GPS fix replaces useLocation's
-  // placeholder — otherwise `usePagedList` reloaded page 1 of a catalogue query that never
-  // looked at the position, so opening Search cost two full pages.
-  const usesLocation = categoryConfig?.usesLocation ?? false;
-  const latitude = usesLocation ? location.latitude : 0;
-  const longitude = usesLocation ? location.longitude : 0;
+  // Every list is measured from the place now (nearest first, the distance on each card), so the
+  // search waits for it to settle rather than loading against the placeholder and again when the
+  // fix lands. `place.loading` settles on denial too, so this never hangs. Without a known place
+  // the coordinates are left out and the server ranks from the saved address, if any.
+  const usesLocation = true;
+  const latitude = place.known ? place.latitude : undefined;
+  const longitude = place.known ? place.longitude : undefined;
 
   // Every narrowing the user has made, as query parameters. This is the whole point of the
   // server-side filter set: the search the API runs is the search the user asked for, so the
@@ -412,7 +430,7 @@ export default function SearchScreen() {
   // Only a list that reads the position (near-me) cares whether there is a real one. Keyed on
   // that alone: in a browser that denies or lacks geolocation the error arrives after mount, and
   // depending on it everywhere reloaded page one of every plain browse list a second time.
-  const positionUnavailable = !!categoryConfig?.usesLocation && !!location.error;
+  const positionUnavailable = !!categoryConfig?.usesLocation && !place.known;
   const fetchPage = useCallback(
     async (page: number): Promise<PagedResult<ServiceDto>> => {
       if (categoryConfig?.load) {
@@ -434,6 +452,8 @@ export default function SearchScreen() {
         ...categoryConfig?.preset,
         ...filterParams,
         sortBy,
+        latitude,
+        longitude,
         page,
         perPage: PAGE_SIZE,
       });
@@ -465,13 +485,13 @@ export default function SearchScreen() {
   const allServices: ServiceSearchItem[] = useMemo(
     () =>
       serviceDtos.flatMap((svc) => {
-        const item = toSearchItem(svc);
+        const item = toSearchItem(svc, language);
         if (!item) return [];
         if (!item.service && svc.type != null)
           item.service = tEnum('serviceProviderType', svc.type);
         return [item];
       }),
-    [serviceDtos, tEnum]
+    [serviceDtos, tEnum, language]
   );
 
   // Lazily resolve pin coordinates when the map view opens: services whose
@@ -653,6 +673,25 @@ export default function SearchScreen() {
     </View>
   );
 
+  // Where distances are measured from, and the way to change it.
+  const placeChip = (
+    <View className="mb-3 flex-row">
+      <TouchableOpacity
+        testID="search-place"
+        accessibilityRole="button"
+        accessibilityLabel={`${t('place.title')}: ${place.label}`}
+        onPress={() => setPlacePickerOpen(true)}
+        className={`flex-row items-center rounded-full border px-3 py-1.5 ${borderColor} ${cardBg}`}
+        style={{ maxWidth: '100%' }}>
+        <Ionicons name="location-outline" size={13} color={BRAND_GREEN} />
+        <Text className={`mx-1.5 shrink text-xs font-medium ${textColor}`} numberOfLines={1}>
+          {place.known ? t('place.from', { place: place.label }) : t('place.choose')}
+        </Text>
+        <Ionicons name="chevron-down" size={13} color="#6B7280" />
+      </TouchableOpacity>
+    </View>
+  );
+
   const queryChip =
     isWebLayout && query ? (
       <View className="mb-4 flex-row">
@@ -771,6 +810,7 @@ export default function SearchScreen() {
       sort={clientFiltered ? undefined : { value: sortBy, onChange: setSortBy }}
       header={
         <>
+          {placeChip}
           {queryChip}
           {groupRequestCta}
           {inlineFilterBar}
@@ -938,6 +978,7 @@ export default function SearchScreen() {
       />
       {/* What waits in the booking cart, while the next service is found. */}
       <BookingCartPill />
+      <PlacePicker visible={placePickerOpen} onClose={() => setPlacePickerOpen(false)} />
     </ScreenLayout>
   );
 }

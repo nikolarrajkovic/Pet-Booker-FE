@@ -129,6 +129,7 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       },
       Account: 'account',
       ChangePassword: 'account/password',
+      ChangeEmail: 'account/email',
       Settings: 'settings',
       Notifications: 'notifications',
       NotificationSettings: 'notifications/settings',
@@ -161,6 +162,21 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       AdminPartners: 'admin/partners',
       AdminReviews: 'admin/reviews',
       AdminAddPartner: 'admin/partners/new',
+      // A partner's admin page has its own address (finding 41); the list row rides along as a
+      // head start and stays out of the URL.
+      PartnerDetails: {
+        path: 'admin/partners/:partnerId',
+        parse: { partnerId: Number },
+        stringify: { partnerId: (id: number | string) => String(id), partner: () => 'undefined' },
+      },
+      AdminBookings: 'admin/bookings',
+      AdminCustomers: 'admin/customers',
+      AdminCustomerDetails: {
+        path: 'admin/customers/:userId',
+        parse: { userId: Number },
+        stringify: { userId: (id: number) => String(id), user: () => 'undefined' },
+      },
+      TimeOff: 'partner/time-off',
 
       // ── Signed out ────────────────────────────────────────────────────────────────────────
       // Registered alongside the rest: only one of the two stacks is mounted at a time, and

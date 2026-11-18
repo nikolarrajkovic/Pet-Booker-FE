@@ -16,6 +16,8 @@ export type AddOnItem = {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   completed: boolean;
+  /** When the partner marked it done, as the server saved it (a real instant). */
+  completedAt?: string | null;
   /** Secondary line, e.g. the pickup/drop-off address — "where to go". */
   detail?: string;
   /**
@@ -54,7 +56,8 @@ type Props = {
  * the partner marks each complete before the service can be ended (the parent
  * gates the End button on these); each shows its address so the provider knows
  * where to go. Special Needs is shown as an informational row (not toggleable).
- * Completion is local-only — the backend has no field for it (BACKEND_GAPS B7).
+ * Each stop is saved with its time when marked (app review 2026-11-13, finding 27), so both sides
+ * read "Done at 10:12" and a reload keeps it.
  */
 export default function AddOnChecklist({
   items,
@@ -78,9 +81,18 @@ export default function AddOnChecklist({
         const done = item.completed;
         const toggleable = item.toggleable !== false;
         const rowReadOnly = readOnly || !toggleable;
+        const doneAt = item.completedAt ? new Date(item.completedAt) : null;
         const statusText = toggleable
           ? done
-            ? t('liveSession.completed')
+            ? doneAt && !isNaN(doneAt.getTime())
+              ? t('liveSession.completedAt', {
+                  time: doneAt.toLocaleTimeString(undefined, {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false,
+                  }),
+                })
+              : t('liveSession.completed')
             : readOnly
               ? t('liveSession.inProgressStatus')
               : t('liveSession.tapToComplete')

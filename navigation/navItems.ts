@@ -162,6 +162,13 @@ export const NAV_ITEMS: NavItem[] = [
     group: 'partner',
     requires: 'partner',
   },
+  {
+    route: 'TimeOff',
+    labelKey: 'timeOff.title',
+    icon: 'moon-outline',
+    group: 'partner',
+    requires: 'partner',
+  },
 
   // ── Admin — the Admin Dashboard quick actions ───────────────────────────────────────────────
   {
@@ -182,6 +189,20 @@ export const NAV_ITEMS: NavItem[] = [
     route: 'AdminReviews',
     labelKey: 'admin.reviews',
     icon: 'star-outline',
+    group: 'admin',
+    requires: 'admin',
+  },
+  {
+    route: 'AdminBookings',
+    labelKey: 'adminBookings.title',
+    icon: 'calendar-outline',
+    group: 'admin',
+    requires: 'admin',
+  },
+  {
+    route: 'AdminCustomers',
+    labelKey: 'adminCustomers.title',
+    icon: 'person-circle-outline',
     group: 'admin',
     requires: 'admin',
   },

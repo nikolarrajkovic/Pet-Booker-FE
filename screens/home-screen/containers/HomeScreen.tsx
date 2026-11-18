@@ -10,7 +10,8 @@ import GroupRequestCta from '../../../components/shared/GroupRequestCta';
 import BrandMark from '../../../components/shared/BrandMark';
 import { Ionicons } from '@expo/vector-icons';
 
-import { useLocation, locationLabel } from '../../../hooks/useLocation';
+import { usePlace } from '../../../context/PlaceContext';
+import PlacePicker from '../../../components/shared/PlacePicker';
 import { BRAND_GREEN, SERVICE_TYPE_COLORS, useThemeColors } from '../../../hooks/useThemeColors';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { useTabBarSpacing } from '../../../hooks/useSafeAreaSpacing';
@@ -137,13 +138,21 @@ function toServiceItem(svc: ServiceDto): ServiceItem | null {
   };
 }
 
-const toItems = (dtos: ServiceDto[]): ServiceItem[] =>
-  dtos.map(toServiceItem).filter((i): i is ServiceItem => i !== null);
+const toItems = (dtos: ServiceDto[], ownProviderId?: number | null): ServiceItem[] =>
+  dtos
+    // A partner browsing Home isn't shown their own services (finding 33): they can't book them,
+    // and they crowded out everyone else's on a partner's rails.
+    .filter((dto) => ownProviderId == null || dto.serviceProviderId !== ownProviderId)
+    .map(toServiceItem)
+    .filter((i): i is ServiceItem => i !== null);
 
 export default function HomeScreen() {
   const gutter = usePageGutter();
   const navigation = useNavigation();
-  const location = useLocation();
+  // Where the customer searches from: where they are, their home, or a place on the map (app
+  // review 2026-11-13, finding 44). The header label opens the picker.
+  const { place } = usePlace();
+  const [placePickerOpen, setPlacePickerOpen] = useState(false);
   const { isDarkMode, textColor, subtextColor } = useThemeColors();
   const { isWebLayout } = useResponsive();
   const tabBarSpacing = useTabBarSpacing();
@@ -205,10 +214,11 @@ export default function HomeScreen() {
   const contentBg = isDarkMode ? 'bg-[#0f1621]' : 'bg-gray-50';
   const subtitleColor = isDarkMode ? 'text-gray-400' : 'text-brand-100';
 
-  const { latitude, longitude, loading: locating } = location;
-  // No real position (refused, unsupported, failed): the coordinates are the placeholder, so the
-  // rail asks the server to rank from the user's saved address instead.
-  const hasPosition = !location.error;
+  const { latitude, longitude, loading: locating } = place;
+  // No known place (no position, no home pin, nothing picked): the coordinates are the
+  // placeholder, so the rail asks the server to rank from the user's saved address instead.
+  const hasPosition = place.known;
+  const ownProviderId = currentUser?.serviceProviderId ?? null;
 
   // The three rails that are the same wherever the phone is. Deliberately NOT keyed on the
   // device position: they used to share an effect with Near You, so the moment the GPS fix
@@ -235,11 +245,11 @@ export default function HomeScreen() {
         ]);
         if (cancelled) return;
         const [popularR, saleR, recentR] = results;
-        const deals = toItems(val(saleR)).map((item) => {
+        const deals = toItems(val(saleR), ownProviderId).map((item) => {
           const amount = dealLabel(item.dto, t);
           return amount ? { ...item, dealAmount: amount } : item;
         });
-        setMostPopular(toItems(val(popularR)));
+        setMostPopular(toItems(val(popularR), ownProviderId));
         setSpecialDeals(deals);
         setRecentlyBooked(toItems(val(recentR)));
         setFailed({
@@ -264,7 +274,7 @@ export default function HomeScreen() {
       // `t` is stable for a given language and re-running on a language change would refetch
       // rows the server returns identically — the labels around them re-render on their own.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [reloads])
+    }, [reloads, ownProviderId])
   );
 
   // Near You, on its own clock. Waits for a real fix rather than firing against the Belgrade
@@ -280,7 +290,7 @@ export default function HomeScreen() {
       getNearMe(hasPosition ? { lat: latitude, lng: longitude } : {})
         .then((rows) => {
           if (cancelled) return;
-          setNearYou(toItems(rows));
+          setNearYou(toItems(rows, ownProviderId));
           nearYouLoaded.current = true;
           setNearYouLoading(false);
         })
@@ -299,7 +309,7 @@ export default function HomeScreen() {
       // that* this effect runs again. Dropping it, which is what the rule asks for, would leave
       // retry doing nothing at all.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [locating, latitude, longitude, hasPosition, reloads])
+    }, [locating, latitude, longitude, hasPosition, reloads, ownProviderId])
   );
 
   // Unread badges on the bell and the chat icon — pushed live over SignalR; the focus
@@ -523,16 +533,22 @@ export default function HomeScreen() {
         isWebLayout ? undefined : (
           <>
             <View className="mb-4 flex-row items-center justify-between">
-              <View className="flex-1 flex-row items-center">
+              <TouchableOpacity
+                testID="home-place"
+                accessibilityRole="button"
+                accessibilityLabel={`${t('place.title')}: ${place.label}`}
+                onPress={() => setPlacePickerOpen(true)}
+                className="flex-1 flex-row items-center">
                 <Ionicons name="location-outline" size={18} color="#ffffff" />
-                {location.loading ? (
+                {place.loading ? (
                   <ActivityIndicator size="small" color="#ffffff" style={{ marginLeft: 8 }} />
                 ) : (
-                  <Text className="ml-2 text-sm text-white" numberOfLines={1}>
-                    {locationLabel(location, t)}
+                  <Text className="ml-2 shrink text-sm text-white" numberOfLines={1}>
+                    {place.label}
                   </Text>
                 )}
-              </View>
+                <Ionicons name="chevron-down" size={14} color="#ffffff" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
               {!isLoggedIn ? (
                 // A guest browsing (app review G7): the way in, where the inbox icons would be.
                 <TouchableOpacity
@@ -613,16 +629,22 @@ export default function HomeScreen() {
           so this is the web design's only copy of it — one line, and no greeting card around it.
         */}
         {isWebLayout && (
-          <View className={`flex-row items-center ${gutter.px} pt-4`}>
+          <TouchableOpacity
+            testID="home-place"
+            accessibilityRole="button"
+            accessibilityLabel={`${t('place.title')}: ${place.label}`}
+            onPress={() => setPlacePickerOpen(true)}
+            className={`flex-row items-center self-start ${gutter.px} pt-4`}>
             <Ionicons name="location-outline" size={16} color={BRAND_GREEN} />
-            {location.loading ? (
+            {place.loading ? (
               <ActivityIndicator size="small" color={BRAND_GREEN} style={{ marginLeft: 8 }} />
             ) : (
               <Text className={`ml-2 text-sm ${subtextColor}`} numberOfLines={1}>
-                {locationLabel(location, t)}
+                {place.label}
               </Text>
             )}
-          </View>
+            <Ionicons name="chevron-down" size={14} color={BRAND_GREEN} style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
         )}
 
         {/* Service type quick filters */}
@@ -744,6 +766,7 @@ export default function HomeScreen() {
       </ScrollView>
       {/* What waits in the booking cart, while the next service is found. */}
       <BookingCartPill />
+      <PlacePicker visible={placePickerOpen} onClose={() => setPlacePickerOpen(false)} />
     </ScreenLayout>
   );
 }

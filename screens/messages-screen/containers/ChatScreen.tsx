@@ -50,5 +50,12 @@ export default function ChatScreen() {
 
   if (isWebLayout) return <MessagesSplitView initial={params} onSelect={syncUrl} />;
 
-  return <ChatThread {...params} />;
+  return (
+    <ChatThread
+      {...params}
+      onConversationResolved={(c) => {
+        if (params.conversationId == null) syncUrl(c.id);
+      }}
+    />
+  );
 }

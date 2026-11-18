@@ -22,3 +22,16 @@ export function haversineKm(a: GeoPoint, b: GeoPoint): number {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
+
+/**
+ * A distance for a card (finding 44): one decimal below 10 km ("0.3 km", "2.4 km"), whole
+ * kilometres above, in the reader's number format ("0,3 km" in Serbian).
+ */
+export function formatDistanceKm(km: number, language: string): string {
+  const digits = km < 10 ? 1 : 0;
+  const number = new Intl.NumberFormat(language, {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: digits,
+  }).format(km);
+  return `${number} km`;
+}

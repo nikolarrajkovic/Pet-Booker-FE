@@ -11,6 +11,9 @@ interface PaymentMethodSelectorProps {
   borderColor: string;
   selectedMethod: string;
   onSelectMethod: (method: string) => void;
+  /** The ways every service in the checkout takes (app review 2026-11-13, finding 22). */
+  allowCard?: boolean;
+  allowCash?: boolean;
 }
 
 export default function PaymentMethodSelector({
@@ -20,6 +23,8 @@ export default function PaymentMethodSelector({
   borderColor,
   selectedMethod,
   onSelectMethod,
+  allowCard = true,
+  allowCash = true,
 }: PaymentMethodSelectorProps) {
   const gutter = usePageGutter();
   const { t } = useLocale();
@@ -28,44 +33,53 @@ export default function PaymentMethodSelector({
       <Text className={`text-base font-semibold ${textColor} mb-4`}>
         {t('reviewBooking.paymentMethod')}
       </Text>
-      <TouchableOpacity
-        accessibilityRole="button"
-        onPress={() => onSelectMethod('online')}
-        className={`mb-3 flex-row items-center rounded-2xl border-2 p-4 ${selectedMethod === 'online' ? 'border-brand-500 bg-brand-50' : isDarkMode ? 'border-gray-800 bg-[#1a2332]' : 'border-gray-200 bg-white'}`}>
-        <View
-          className={`mr-3 h-12 w-12 items-center justify-center rounded-xl ${selectedMethod === 'online' ? 'bg-brand-500' : isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
-          <MaterialCommunityIcons
-            name="credit-card"
-            size={24}
-            color={selectedMethod === 'online' ? 'white' : '#6B7280'}
-          />
-        </View>
-        <View className="flex-1">
-          <Text className={`text-base font-semibold ${textColor}`}>
-            {t('reviewBooking.payOnline')}
-          </Text>
-          <Text className={`text-sm ${subtextColor}`}>{t('reviewBooking.cardOrWallet')}</Text>
-        </View>
-      </TouchableOpacity>
-      <TouchableOpacity
-        accessibilityRole="button"
-        onPress={() => onSelectMethod('cash')}
-        className={`flex-row items-center rounded-2xl border-2 p-4 ${selectedMethod === 'cash' ? 'border-brand-500 bg-brand-50' : isDarkMode ? 'border-gray-800 bg-[#1a2332]' : 'border-gray-200 bg-white'}`}>
-        <View
-          className={`mr-3 h-12 w-12 items-center justify-center rounded-xl ${selectedMethod === 'cash' ? 'bg-brand-500' : isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
-          <MaterialCommunityIcons
-            name="cash"
-            size={24}
-            color={selectedMethod === 'cash' ? 'white' : '#6B7280'}
-          />
-        </View>
-        <View className="flex-1">
-          <Text className={`text-base font-semibold ${textColor}`}>
-            {t('reviewBooking.payWithCash')}
-          </Text>
-          <Text className={`text-sm ${subtextColor}`}>{t('reviewBooking.payOnService')}</Text>
-        </View>
-      </TouchableOpacity>
+      {allowCard ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => onSelectMethod('online')}
+          className={`mb-3 flex-row items-center rounded-2xl border-2 p-4 ${selectedMethod === 'online' ? 'border-brand-500 bg-brand-50' : isDarkMode ? 'border-gray-800 bg-[#1a2332]' : 'border-gray-200 bg-white'}`}>
+          <View
+            className={`mr-3 h-12 w-12 items-center justify-center rounded-xl ${selectedMethod === 'online' ? 'bg-brand-500' : isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
+            <MaterialCommunityIcons
+              name="credit-card"
+              size={24}
+              color={selectedMethod === 'online' ? 'white' : '#6B7280'}
+            />
+          </View>
+          <View className="flex-1">
+            <Text className={`text-base font-semibold ${textColor}`}>
+              {t('reviewBooking.payOnline')}
+            </Text>
+            <Text className={`text-sm ${subtextColor}`}>{t('reviewBooking.cardOrWallet')}</Text>
+          </View>
+        </TouchableOpacity>
+      ) : null}
+      {allowCash ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => onSelectMethod('cash')}
+          className={`flex-row items-center rounded-2xl border-2 p-4 ${selectedMethod === 'cash' ? 'border-brand-500 bg-brand-50' : isDarkMode ? 'border-gray-800 bg-[#1a2332]' : 'border-gray-200 bg-white'}`}>
+          <View
+            className={`mr-3 h-12 w-12 items-center justify-center rounded-xl ${selectedMethod === 'cash' ? 'bg-brand-500' : isDarkMode ? 'bg-[#243447]' : 'bg-gray-100'}`}>
+            <MaterialCommunityIcons
+              name="cash"
+              size={24}
+              color={selectedMethod === 'cash' ? 'white' : '#6B7280'}
+            />
+          </View>
+          <View className="flex-1">
+            <Text className={`text-base font-semibold ${textColor}`}>
+              {t('reviewBooking.payWithCash')}
+            </Text>
+            <Text className={`text-sm ${subtextColor}`}>{t('reviewBooking.payOnService')}</Text>
+          </View>
+        </TouchableOpacity>
+      ) : null}
+      {!allowCard || !allowCash ? (
+        <Text className={`mt-1 text-xs ${subtextColor}`}>
+          {allowCard ? t('reviewBooking.cardOnly') : t('reviewBooking.cashOnly')}
+        </Text>
+      ) : null}
     </View>
   );
 }

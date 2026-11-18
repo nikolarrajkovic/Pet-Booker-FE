@@ -101,6 +101,38 @@ export const NotificationType = {
   /** The owner's group request closed with no provider accepting it; { groupBookingRequestId }.
    *  Customer-facing, in-app + push. Opens My group requests, where it can be sent again. */
   GroupBookingRequestExpired: 36,
+  // ── App review 2026-11-13, findings 17–29; every one carries { bookingId } ──────────────
+  /** A request reached its start unanswered. Customer-facing. */
+  BookingRequestExpired: 37,
+  /** The same, partner-facing: a request they never answered has gone. */
+  BookingRequestMissed: 38,
+  /** A confirmed booking reached its end unstarted; what was paid comes back. Customer-facing. */
+  BookingNotStarted: 39,
+  /** The same, partner-facing: record a no-show by the deadline, or it is refunded. */
+  BookingNotStartedProvider: 40,
+  /** A started service is past its end; it closes by itself 12 h after. Partner-facing. */
+  ServiceOverdue: 41,
+  /** A started service nobody ended was completed automatically. Partner-facing. */
+  ServiceAutoCompleted: 42,
+  /** The balance after a card service is still unpaid. Customer-facing, also emailed. */
+  BalanceOverdue: 43,
+  /** The customer reported the partner never came. To the partner and the admins. */
+  ProviderNoShowReported: 44,
+  /** The partner asked for a higher price; the customer accepts or declines. */
+  PriceChangeProposed: 45,
+  /** The customer accepted the higher price, which confirmed the booking. Partner-facing. */
+  PriceChangeAccepted: 46,
+  /** One side asked to move the booking; to the other side. */
+  BookingTimeProposed: 47,
+  /** The booking moved to another time. */
+  BookingTimeChanged: 48,
+  /** The new time was declined; the booking stays as it was. */
+  BookingTimeDeclined: 49,
+  /** The partner picked the pet up / dropped it off. Customer-facing. */
+  PetPickedUp: 50,
+  PetDroppedOff: 51,
+  /** Support settled a booking (called off, completed, a no-show), with its reason. Both sides. */
+  BookingChangedBySupport: 52,
 } as const;
 
 /**

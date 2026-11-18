@@ -128,6 +128,8 @@ function bookingToRequest(t: TFn, tEnum: TEnumFn, b: BookingDto): ServiceRequest
     additionalServices: selectedAddOns(tEnum, b), // pickup / drop-off / special-needs the booker picked
     // The customer's note for the provider (feedback 2026-10-21; there was no field for it).
     notesFromOwner: b.note ?? '',
+    // A higher price the customer hasn't accepted yet (app review 2026-11-13, finding 23).
+    proposedTotal: b.priceProposal?.totalPrice ?? null,
     status,
     expiredAfterAccepting:
       status === 'expired' && b.currentStatus !== BookingStatusType.ServiceRequestedByUser,
@@ -294,7 +296,8 @@ export default function NewRequestsScreen() {
     try {
       const updated = await adjustBookingPrice(id, value, currency);
       list.setItems((prev) => prev.map((b) => (b.id === updated.id ? { ...b, ...updated } : b)));
-      showSuccess(t('requests.priceAdjusted'));
+      // A higher price is sent to the customer to accept; a lower one applies at once.
+      showSuccess(t(updated.priceProposal ? 'requests.priceProposed' : 'requests.priceAdjusted'));
     } catch (e) {
       showError(getErrorMessage(e, t('requests.adjustPriceFailed')));
     } finally {

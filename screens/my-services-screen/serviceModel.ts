@@ -501,6 +501,32 @@ export async function buildServicePhotos(
   return all;
 }
 
+/** AcceptedPayments flags: which ways of paying a service takes. */
+export const AcceptedPayments = { Card: 1, Cash: 2, All: 3 } as const;
+
+/** ServiceVenue: where a service takes place. */
+export const ServiceVenue = { AtProvider: 0, AtCustomer: 1, Either: 2 } as const;
+
+/**
+ * Where a new service of a type takes place unless the partner says otherwise: a sitter, walker or
+ * transport comes to the customer (or takes the pet from home), so either; boarding, a pet hotel
+ * and grooming at the partner's. The same split the server used for existing services.
+ */
+export function defaultVenueFor(type: number): number {
+  return type === ServiceProviderType.Sitter ||
+    type === ServiceProviderType.Walker ||
+    type === ServiceProviderType.Transporter
+    ? ServiceVenue.Either
+    : ServiceVenue.AtProvider;
+}
+
+/** One visit's length a stored service states: min and max equal, else not stated. */
+export function visitMinutesOf(details: ServiceDto['details'] | null | undefined): number | null {
+  const min = details?.minDurationMinutes ?? null;
+  const max = details?.maxDurationMinutes ?? null;
+  return min != null && min === max ? min : null;
+}
+
 export type ServiceDeposit =
   | { kind: 'none' }
   | { kind: 'percent'; value: number }
@@ -545,6 +571,16 @@ export type ServiceFormInput = {
   maxWeightKg?: number | null;
   /** The deposit: none, a share of the bill (1–100), or a fixed amount in the form's currency. */
   deposit?: ServiceDeposit;
+  /**
+   * Added for the flow gaps of the same review (2026-11-18), optional the same way:
+   * which ways of paying the service takes (AcceptedPayments flags: 1 card, 2 cash, 3 both; 22),
+   * where it takes place (ServiceVenue: 0 at the partner's, 1 at the customer's, 2 either; 26),
+   * and how long one visit lasts in minutes for a per-visit service without options (null: not
+   * stated, half an hour to two hours; 25).
+   */
+  acceptedPayments?: number;
+  venue?: number;
+  visitMinutes?: number | null;
   // Which pets the service takes (PetSpeciesType FLAGS) → details.acceptedSpecies. The screen
   // refuses to save with none, as the API does.
   acceptedSpecies?: number;
@@ -604,9 +640,14 @@ export function resolveServiceAddressForSave(
  * not "clear them" — a provider switching every day off still needs `clearServiceSchedules`.
  * Pricing options have no such gap; `[]` there really is "no tiers".
  */
-/** Whether any tier names a duration — then the service prices by option, not by unit. */
+/**
+ * Whether any tier names a real duration — then the service prices by option, not by unit. The
+ * "Standard" row the editor makes for a service without options is not one: counting it hid the
+ * price-unit choice for every such service and saved a per-hour service back as per visit
+ * (found 2026-11-18).
+ */
 export function hasDurationTiers(tiers: PricingTier[]): boolean {
-  return tiers.some((tier) => !!tier.duration);
+  return tiers.some((tier) => !!tier.duration && durationLabelToMinutes(tier.duration) != null);
 }
 
 export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): ServiceDto {
@@ -648,7 +689,15 @@ export function uiToServiceDto(form: ServiceFormInput, original?: ServiceDto): S
       form.minWeightKg !== undefined ? form.minWeightKg : (original?.details?.minWeightKg ?? null),
     maxWeightKg:
       form.maxWeightKg !== undefined ? form.maxWeightKg : (original?.details?.maxWeightKg ?? null),
+    acceptedPayments:
+      form.acceptedPayments || original?.details?.acceptedPayments || AcceptedPayments.All,
+    venue: form.venue ?? original?.details?.venue ?? defaultVenueFor(type),
   };
+  // One visit's length, for a per-visit service without duration tiers: the same number both ways.
+  if (form.visitMinutes !== undefined && !hasDurationTiers(form.pricingTiers)) {
+    details.minDurationMinutes = form.visitMinutes;
+    details.maxDurationMinutes = form.visitMinutes;
+  }
 
   // A percentage and a fixed amount are one choice on the form and two fields on the API.
   const deposit = form.deposit ?? depositOf(original?.pricing);

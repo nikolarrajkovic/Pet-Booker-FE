@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useThemeColors } from '../../../hooks/useThemeColors';
 import { useResponsive } from '../../../hooks/useResponsive';
@@ -74,8 +74,20 @@ export default function MessagesSplitView({ initial, onSelect }: MessagesSplitVi
         initial.bookingId,
       ].join(':')
     : '';
+  const selectedRef = useRef(selectedId);
+  selectedRef.current = selectedId;
   useEffect(() => {
     if (!initial) return;
+    // The address caught up with the thread already open (a chat opened from a booking writes its
+    // conversation id back): nothing moves.
+    if (
+      initial.conversationId != null &&
+      initial.bookingId == null &&
+      initial.serviceProviderId == null &&
+      initial.conversationId === selectedRef.current
+    ) {
+      return;
+    }
     setTarget(initial);
     setSelectedId(initial.conversationId ?? null);
     // `initial` itself is deliberately not a dependency — see the key above.
@@ -132,7 +144,12 @@ export default function MessagesSplitView({ initial, onSelect }: MessagesSplitVi
               key={threadKey}
               {...target}
               embedded
-              onConversationResolved={(c) => setSelectedId(c.id)}
+              onConversationResolved={(c) => {
+                setSelectedId(c.id);
+                // Opened by booking or partner: put the thread's own address in the bar, so a
+                // reload or a shared link opens it (it read `messages/undefined`).
+                if (target.conversationId == null) onSelect?.(c.id);
+              }}
             />
           ) : (
             // Only reachable with an empty (or still-loading) inbox — with any thread at all,

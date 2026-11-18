@@ -327,6 +327,16 @@ const QUICK_ACTIONS = [
     iconColor: '#0369A1',
     route: 'BusinessProfile',
   },
+  {
+    // Days the whole business is closed (decided 2026-11-18).
+    id: 'time-off',
+    titleKey: 'timeOff.title',
+    subtitleKey: 'timeOff.hubSub',
+    icon: 'moon-outline' as const,
+    iconBg: '#EDE9FE',
+    iconColor: '#7C3AED',
+    route: 'TimeOff',
+  },
 ];
 
 /**

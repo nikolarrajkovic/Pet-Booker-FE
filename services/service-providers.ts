@@ -108,6 +108,8 @@ export type ServiceProviderDto = {
   yearsOfExperience?: number | null;
   /** Public profile: the partner's own description of themselves. */
   about?: string | null;
+  /** The partner does one job at a time: their services share one booking at a time. */
+  oneJobAtATime?: boolean;
   userId?: number | null;
   providerProfileId?: number | null;
   /**
@@ -479,6 +481,8 @@ export type BusinessProfileUpdate = {
    * it is sent (an empty array leaves it alone), so the existing photos go back too. Omit to keep it.
    */
   photos?: PhotoDto[];
+  /** "I do one job at a time": all their services share one booking at a time. Omit to keep it. */
+  oneJobAtATime?: boolean;
 };
 
 /**
@@ -517,6 +521,8 @@ export function updateBusinessProfile(
       photos: changes.photos ?? [],
       governmentIdPhotos: [],
       certificates: [],
+      // Null leaves it as it is.
+      oneJobAtATime: changes.oneJobAtATime ?? null,
     },
     fallback: 'Failed to save your profile.',
     context: 'updateBusinessProfile',

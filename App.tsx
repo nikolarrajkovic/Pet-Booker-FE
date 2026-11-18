@@ -32,6 +32,7 @@ import PartnerApplicationScreen from './screens/partner-application-screen/conta
 import ApplicationSubmittedScreen from './screens/application-submitted-screen/containers/ApplicationSubmittedScreen';
 import AccountScreen from './screens/account-screen/containers/AccountScreen';
 import ChangePasswordScreen from './screens/change-password-screen/containers/ChangePasswordScreen';
+import ChangeEmailScreen from './screens/change-email-screen/containers/ChangeEmailScreen';
 import ForgotPasswordScreen from './screens/forgot-password-screen/containers/ForgotPasswordScreen';
 import AlertHost from './components/shared/AlertHost';
 import AcceptInviteScreen from './screens/accept-invite-screen/containers/AcceptInviteScreen';
@@ -66,6 +67,10 @@ import ApplicationReviewScreen from './screens/admin-new-requests-screen/contain
 import AdminPartnersScreen from './screens/admin-partners-screen/containers/AdminPartnersScreen';
 import AdminReviewsScreen from './screens/admin-reviews-screen/containers/AdminReviewsScreen';
 import PartnerDetailsScreen from './screens/admin-partners-screen/containers/PartnerDetailsScreen';
+import AdminBookingsScreen from './screens/admin-bookings-screen/containers/AdminBookingsScreen';
+import AdminCustomersScreen from './screens/admin-customers-screen/containers/AdminCustomersScreen';
+import AdminCustomerDetailsScreen from './screens/admin-customers-screen/containers/AdminCustomerDetailsScreen';
+import TimeOffScreen from './screens/time-off-screen/containers/TimeOffScreen';
 import AdminAddPartnerScreen from './screens/admin-add-partner-screen/containers/AdminAddPartnerScreen';
 import LoginScreen from './screens/login-screen/containers/LoginScreen';
 import RegisterScreen from './screens/register-screen/containers/RegisterScreen';
@@ -78,6 +83,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationsProvider, useNotifications } from './context/NotificationsContext';
 import { MessagesProvider } from './context/MessagesContext';
 import { EnumsProvider } from './context/EnumsContext';
+import { PlaceProvider } from './context/PlaceContext';
 import { BookingCartProvider } from './context/BookingCartContext';
 import LanguagePicker from './components/shared/LanguagePicker';
 import AppShell from './components/layout/AppShell';
@@ -341,6 +347,7 @@ function AppContent() {
                   />
                   <Stack.Screen name="Account" component={AccountScreen} />
                   <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+                  <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
                   <Stack.Screen name="MyBookings" component={MyBookingsScreen} />
                   <Stack.Screen name="BookingDetails" component={BookingDetailsScreen} />
                   <Stack.Screen name="MySchedule" component={MyScheduleScreen} />
@@ -382,6 +389,13 @@ function AppContent() {
                   <Stack.Screen name="AdminReviews" component={AdminReviewsScreen} />
                   <Stack.Screen name="PartnerDetails" component={PartnerDetailsScreen} />
                   <Stack.Screen name="AdminAddPartner" component={AdminAddPartnerScreen} />
+                  <Stack.Screen name="AdminBookings" component={AdminBookingsScreen} />
+                  <Stack.Screen name="AdminCustomers" component={AdminCustomersScreen} />
+                  <Stack.Screen
+                    name="AdminCustomerDetails"
+                    component={AdminCustomerDetailsScreen}
+                  />
+                  <Stack.Screen name="TimeOff" component={TimeOffScreen} />
                 </>
               ) : (
                 <>
@@ -452,6 +466,7 @@ const SCREEN_TITLE_KEYS: Record<string, TranslationKey> = {
   EditPet: 'addPet.titleEdit',
   Account: 'account.title',
   ChangePassword: 'changePassword.title',
+  ChangeEmail: 'changeEmail.title',
   Settings: 'settings.title',
   Notifications: 'notifications.title',
   NotificationSettings: 'profile.notificationSettings',
@@ -473,6 +488,10 @@ const SCREEN_TITLE_KEYS: Record<string, TranslationKey> = {
   AdminNewRequests: 'admin.requestsTitle',
   AdminPartners: 'admin.partners',
   AdminReviews: 'admin.reviewsTitle',
+  AdminBookings: 'adminBookings.title',
+  AdminCustomers: 'adminCustomers.title',
+  AdminCustomerDetails: 'adminCustomers.title',
+  TimeOff: 'timeOff.title',
   // Signed out
   Login: 'login.signIn',
   Register: 'register.subtitle',
@@ -485,14 +504,17 @@ function MainTabs() {
   // Tabs slide horizontally in the direction they sit in the bar — Search → Home brings Home in
   // from the left. See navigation/tabTransition.ts for why a slide, and why a full-width one.
   const slide = useTabSlideOptions();
-  const { isProviderProfile } = useAuth();
+  const { isProviderProfile, isPartner } = useAuth();
 
   // A managed ProviderProfile cannot book, so Home and Search are hidden for it (see
   // navigation/navItems.ts). They are still registered as screens — a deep link may target one,
   // and Home is the fallback for an unmapped URL — but the tab it OPENS on has to be one it can
   // use. Landing such an account on Home showed nothing but "Missing permission for command
   // 'HomeMostPopular'" as the first thing after signing in.
-  const initialRouteName = isProviderProfile ? 'PartnerHub' : 'Home';
+  //
+  // A partner opens on the Partner Hub too (app review 2026-11-13, finding 33): their day starts
+  // with requests and bookings, and Home is a customer's shop window. Home stays one tap away.
+  const initialRouteName = isProviderProfile || isPartner ? 'PartnerHub' : 'Home';
 
   return (
     <Tab.Navigator
@@ -539,7 +561,9 @@ export default function App() {
                 <MessagesProvider>
                   <EnumsProvider>
                     <BookingCartProvider>
-                      <AppContent />
+                      <PlaceProvider>
+                        <AppContent />
+                      </PlaceProvider>
                     </BookingCartProvider>
                   </EnumsProvider>
                 </MessagesProvider>

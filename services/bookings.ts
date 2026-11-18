@@ -47,7 +47,21 @@ export const BookingStatusType = {
   CancelledByUser: 7,
   /** The provider recorded that the customer did not turn up; the deposit is kept (G6). */
   CustomerNoShow: 8,
+  /** The customer reported that the provider never came; everything paid went back. */
+  ProviderNoShow: 9,
 } as const;
+
+/** BookingActor: who asked for a new time (TimeProposal.proposedBy). */
+export const BookingActor = { User: 0, Provider: 1, Admin: 2 } as const;
+
+/** TripStop: a stop of the journey the partner marks as done during the service. */
+export const TripStop = { Pickup: 0, DropOff: 1 } as const;
+
+/** Mirrors `BookingWorkflow.AutoCompleteAfter`: a service nobody ended closes 12 h after its end. */
+export const AUTO_COMPLETE_AFTER_MS = 12 * 60 * 60 * 1000;
+
+/** The balance after a card service counts as overdue this long after the end (the second reminder). */
+export const BALANCE_OVERDUE_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 
 // PaymentType enum (verified /enums): 0=Cash, 1=Card, 2=BankTransfer, 3=Wallet
 export const PaymentType = { Cash: 0, Card: 1, BankTransfer: 2, Wallet: 3 } as const;
@@ -93,6 +107,30 @@ export function canMarkNoShow(b: LifecycleFields, now: number = Date.now()): boo
   const from = parseBookingDate(b.bookingFrom).getTime();
   const to = parseBookingDate(b.bookingTo).getTime();
   return now >= from && now <= to + NO_SHOW_WINDOW_MS;
+}
+
+/**
+ * Mirrors `BookingWorkflow.CanReportProviderNoShow`: the customer may say the partner never came in
+ * the same window the partner has for a customer no-show (whoever records first decides).
+ */
+export const canReportProviderNoShow = canMarkNoShow;
+
+/**
+ * Mirrors `BookingWorkflow.CanChangeTime`: a request or a confirmed booking (deposit paid or not)
+ * that has not started and has not expired may move to another time.
+ */
+export function canChangeTime(
+  b: LifecycleFields & { isExpired?: boolean },
+  now: number = Date.now()
+): boolean {
+  if (
+    b.currentStatus !== BookingStatusType.ServiceRequestedByUser &&
+    b.currentStatus !== BookingStatusType.ServiceConfirmedByProvider &&
+    b.currentStatus !== BookingStatusType.PrePayment
+  ) {
+    return false;
+  }
+  return !b.isExpired && parseBookingDate(b.bookingFrom).getTime() > now;
 }
 
 type NestedPhoto = { src?: string | null; isSelected?: boolean };
@@ -190,8 +228,31 @@ export type BookingDto = {
    * partner's account address (the address its page shows). On `getBooking` (find) only.
    */
   serviceAddress?: AddressDto | null;
+  /**
+   * A higher price the partner asked for before confirming, waiting for the customer to accept
+   * (which confirms the booking) or decline (which withdraws the request). Null when none waits.
+   */
+  priceProposal?: BookingPriceProposal | null;
+  /** A new start one side asked for, waiting for the other; the booking keeps its length. */
+  timeProposal?: BookingTimeProposal | null;
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type BookingPriceProposal = {
+  basePrice: number;
+  discountAmount: number;
+  totalPrice: number;
+  depositAmount: number;
+  proposedAt: string;
+};
+
+export type BookingTimeProposal = {
+  bookingFrom: string;
+  bookingTo: string;
+  /** BookingActor: 0 the customer, 1 the partner. */
+  proposedBy: number;
+  proposedAt: string;
 };
 
 /**
@@ -212,6 +273,15 @@ export type BookingLocationDto = {
   // correction only; the client must not measure distances, because they set the price.
   pickupDistanceKm?: number | null;
   leaveOverDistanceKm?: number | null;
+  /**
+   * Where the service takes place, for a service at the customer's (`details.venue`). WRITE: an
+   * address of the customer's by id, or a new one inline; the booking keeps its own copy.
+   */
+  venueAddressId?: number | null;
+  venueAddress?: AddressDto | null;
+  /** READ: when the partner marked the pet picked up / dropped off (real instants). */
+  pickedUpAt?: string | null;
+  droppedOffAt?: string | null;
 };
 
 /** What a booking sends to select an extra: the catalog id, nothing else. */
@@ -452,6 +522,11 @@ export type GetBookingsParams = {
   bookingTo?: string;
   /** BookingSortBy. Defaults server-side to OldestFirst — pass one explicitly for a list. */
   sortBy?: number;
+  /**
+   * A search box (the admin Bookings screen, finding 41): a booking number ("#50388"), or part of
+   * the customer's name, username or email, the partner's, the service's or the pet's name.
+   */
+  query?: string;
   page?: number;
   perPage?: number;
 };
@@ -468,6 +543,7 @@ function bookingQuery(params?: GetBookingsParams) {
     BookingFrom: params?.bookingFrom,
     BookingTo: params?.bookingTo,
     SortBy: params?.sortBy,
+    Query: params?.query || undefined,
   };
 }
 
@@ -590,6 +666,8 @@ export type CreateBookingInput = {
   // journey it actually performs.
   pickupAddress?: AddressDto;
   leaveOverAddress?: AddressDto;
+  /** Where the service takes place, for a service at the customer's (by id when saved). */
+  venueAddress?: AddressDto;
   // The extras to buy, by their AdditionalService id. Ids only: the server resolves each price
   // from the booked service's catalog and freezes it as a line item on the booking. There is
   // deliberately no way to send a price or a distance — both decide what is charged.
@@ -662,7 +740,11 @@ function toCreateBody(input: CreateBookingInput): WritableBookingCreate {
     note: input.note?.trim() || null,
   };
 
-  const location = toBookingLocation(input.pickupAddress, input.leaveOverAddress);
+  const location = toBookingLocation(
+    input.pickupAddress,
+    input.leaveOverAddress,
+    input.venueAddress
+  );
   if (location) body.location = location;
 
   return body;
@@ -677,15 +759,17 @@ function toCreateBody(input: CreateBookingInput): WritableBookingCreate {
  */
 export function toBookingLocation(
   pickup: AddressDto | null | undefined,
-  leaveOver: AddressDto | null | undefined
+  leaveOver: AddressDto | null | undefined,
+  venue?: AddressDto | null
 ): BookingLocationDto | undefined {
-  if (!pickup && !leaveOver) return undefined;
+  if (!pickup && !leaveOver && !venue) return undefined;
   const saved = (a: AddressDto | null | undefined) => (a?.id && a.id > 0 ? a.id : null);
   return {
     pickupAddressId: saved(pickup),
     pickupAddress: saved(pickup) ? null : (pickup ?? null),
     leaveOverAddressId: saved(leaveOver),
     leaveOverAddress: saved(leaveOver) ? null : (leaveOver ?? null),
+    ...(venue ? { venueAddressId: saved(venue), venueAddress: saved(venue) ? null : venue } : {}),
   };
 }
 
@@ -843,6 +927,82 @@ export function markNoShow(id: number, note: string): Promise<BookingDto> {
   );
 }
 
+/**
+ * The customer reports that the partner never came (POST /bookings/{id}/provider-no-show), from
+ * the start until a day after the end. Everything paid goes back; the partner and the admins are told.
+ */
+export function reportProviderNoShow(id: number, note?: string): Promise<BookingDto> {
+  return bookingTransition(
+    id,
+    'provider-no-show',
+    'Failed to send the report.',
+    'reportProviderNoShow',
+    ensureCancelReason(note, 'The provider did not come.')
+  );
+}
+
+/** The partner marks the pet picked up or dropped off during the service; the customer is told. */
+export async function recordTripStop(id: number, stop: number): Promise<BookingDto> {
+  return withResolvedAddresses(
+    await apiJson<BookingDto>(`/bookings/${id}/trip-stop`, {
+      method: 'POST',
+      body: { stop },
+      fallback: 'Failed to save the stop.',
+      context: 'recordTripStop',
+    })
+  );
+}
+
+/** The customer accepts the higher price the partner asked for; the booking is then confirmed. */
+export function acceptPriceChange(id: number): Promise<BookingDto> {
+  return bookingTransition(id, 'accept-price', 'Failed to accept the price.', 'acceptPriceChange');
+}
+
+/** The customer declines the higher price; the request is withdrawn, with nothing charged. */
+export function declinePriceChange(id: number): Promise<BookingDto> {
+  return bookingTransition(
+    id,
+    'decline-price',
+    'Failed to decline the price.',
+    'declinePriceChange'
+  );
+}
+
+/**
+ * Either side asks to move a booking to a new start (wall-clock, like every booking time); it keeps
+ * its length. A request the partner hasn't answered moves at once when the customer asks.
+ */
+export async function proposeBookingTime(id: number, bookingFrom: string): Promise<BookingDto> {
+  return withResolvedAddresses(
+    await apiJson<BookingDto>(`/bookings/${id}/propose-time`, {
+      method: 'POST',
+      body: { bookingFrom },
+      fallback: 'Failed to ask for the new time.',
+      context: 'proposeBookingTime',
+    })
+  );
+}
+
+/** The other side accepts the new time; the booking moves. */
+export function acceptBookingTime(id: number): Promise<BookingDto> {
+  return bookingTransition(
+    id,
+    'accept-time',
+    'Failed to accept the new time.',
+    'acceptBookingTime'
+  );
+}
+
+/** Declines the other side's new time, or withdraws your own; the booking stays as it was. */
+export function declineBookingTime(id: number): Promise<BookingDto> {
+  return bookingTransition(
+    id,
+    'decline-time',
+    'Failed to answer the new time.',
+    'declineBookingTime'
+  );
+}
+
 export function deleteBooking(id: number): Promise<void> {
   return apiVoid(`/api/bookings/${id}`, {
     method: 'DELETE',
@@ -874,5 +1034,67 @@ export function applyBookingTransition(bookings: BookingDto[], updated: BookingD
           updatedAt: updated.updatedAt ?? b.updatedAt,
         }
       : b
+  );
+}
+
+/**
+ * What support does to a booking (app review 2026-11-13, finding 40). Each is the lifecycle move of
+ * the side it stands in for, with a reason both sides are told.
+ */
+export const AdminBookingAction = {
+  /** Called off as the partner's decline: everything paid goes back. */
+  CallOffWithFullRefund: 0,
+  /** Called off as the customer's cancellation: a paid deposit stays with the partner. */
+  CallOffKeepingDeposit: 1,
+  /** Marked done (started first when it wasn't). */
+  Complete: 2,
+  /** The customer never came; the deposit stays. */
+  CustomerNoShow: 3,
+  /** The partner never came; everything paid goes back. */
+  ProviderNoShow: 4,
+} as const;
+export type AdminBookingActionValue = (typeof AdminBookingAction)[keyof typeof AdminBookingAction];
+
+/** The actions that fit a booking's status — the server's `AdminBookingActionCommand.Fits`. */
+export function adminActionsFor(
+  booking: Pick<BookingDto, 'currentStatus' | 'bookingFrom'>,
+  now: number = Date.now()
+): AdminBookingActionValue[] {
+  const s = booking.currentStatus;
+  const notStarted =
+    s === BookingStatusType.ServiceRequestedByUser ||
+    s === BookingStatusType.ServiceConfirmedByProvider ||
+    s === BookingStatusType.PrePayment;
+  const confirmed =
+    s === BookingStatusType.ServiceConfirmedByProvider || s === BookingStatusType.PrePayment;
+  const due = parseBookingDate(booking.bookingFrom).getTime() <= now;
+  const actions: AdminBookingActionValue[] = [];
+  if (notStarted) {
+    actions.push(
+      AdminBookingAction.CallOffWithFullRefund,
+      AdminBookingAction.CallOffKeepingDeposit
+    );
+  }
+  if (confirmed || s === BookingStatusType.ServiceStarted)
+    actions.push(AdminBookingAction.Complete);
+  if (confirmed && due) {
+    actions.push(AdminBookingAction.CustomerNoShow, AdminBookingAction.ProviderNoShow);
+  }
+  return actions;
+}
+
+/** `POST /admin/bookings/{id}/action` — admin only. */
+export async function adminBookingAction(
+  id: number,
+  action: AdminBookingActionValue,
+  reason: string
+): Promise<BookingDto> {
+  return withResolvedAddresses(
+    await apiJson<BookingDto>(`/admin/bookings/${id}/action`, {
+      method: 'POST',
+      body: { action, reason },
+      fallback: 'Failed to change the booking.',
+      context: 'adminBookingAction',
+    })
   );
 }

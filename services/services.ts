@@ -252,6 +252,10 @@ export type ServiceDto = {
     // Capacity: how many bookings may overlap the same time window
     maxConcurrentBookings?: number | null;
     foodPricings?: ServiceFoodPricingDto[] | null;
+    /** AcceptedPayments flags: 1 card, 2 cash, 3 both. Cash skips the deposit. */
+    acceptedPayments?: number;
+    /** ServiceVenue: 0 at the partner's, 1 at the customer's (a booking names where), 2 either. */
+    venue?: number;
   };
   // Per-day working hours (managed via /api/service-schedules; embedded on GET)
   schedules?: ServiceScheduleDto[] | null;
@@ -450,7 +454,16 @@ export const ServiceSortBy = {
   RatingDesc: 3,
   MostReviewed: 4,
   Newest: 5,
+  /** Most booked: bookings a partner took on, not requests nobody answered. */
   Popularity: 6,
+  /**
+   * "Our top picks", the browse default: nearest first when the place is known (`latitude`/
+   * `longitude`, else the signed-in user's saved address), otherwise best rated (an average that
+   * needs a record of reviews to rank high), unrated newest last.
+   */
+  Recommended: 7,
+  /** Nearest first to the place; services with no known location last. */
+  Nearest: 8,
 } as const;
 
 export type ServiceSortByValue = (typeof ServiceSortBy)[keyof typeof ServiceSortBy];
@@ -506,6 +519,12 @@ export type GetServicesParams = {
   availableOn?: string;
   /** `DayPeriod` FLAGS OR-ed: services with working hours overlapping any of those parts of the day. */
   timesOfDay?: number;
+  /**
+   * The customer's chosen place (current position, home, or a point on the map). Orders
+   * `Nearest`/`Recommended` and fills each row's `distanceFromMyLocationKm`.
+   */
+  latitude?: number;
+  longitude?: number;
 
   /**
    * Add-on filters. These replaced the fixed `IsProvidingPickup`/`IsProvidingReturn`/
@@ -544,6 +563,8 @@ function servicesRequest(params?: GetServicesParams): ApiRequestOptions {
       AvailableOn: params?.availableOn,
       // 0 = no part of the day chosen: leave the filter off rather than ask for "None".
       TimesOfDay: params?.timesOfDay || undefined,
+      Latitude: params?.latitude,
+      Longitude: params?.longitude,
       Page: params?.page ?? 1,
       PerPage: params?.perPage ?? 50,
     },
@@ -638,6 +659,8 @@ export type AvailabilityWindowDto = {
 export type ServiceAvailabilityDayDto = {
   date: string; // "YYYY-MM-DD"
   windows: AvailabilityWindowDto[];
+  /** The partner took the day off (time off): no windows, and nothing can be booked. */
+  isClosed?: boolean;
 };
 
 export type ServiceAvailabilityDto = {

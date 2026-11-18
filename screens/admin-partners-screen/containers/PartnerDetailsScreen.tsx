@@ -19,18 +19,11 @@ import { useLocale } from '../../../context/LocaleContext';
 import { formatMoney } from '../../../services/currency';
 import type { Partner, PartnerStatus } from '../components';
 import { getServices, serviceFromPrice } from '../../../services/services';
-import {
-  BookingSortBy,
-  getBookingsPage,
-  parseBookingDate,
-  type BookingDto,
-} from '../../../services/bookings';
-import { formatShortDate } from '../../../i18n/dates';
+import { BookingSortBy, getBookingsPage, type BookingDto } from '../../../services/bookings';
 import { useResponsive } from '../../../hooks/useResponsive';
 import BackLink from '../../../components/shared/BackLink';
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 import { showAlert } from '../../../services/alert';
-import { customerName } from '../../../services/users';
 import {
   getServiceProvider,
   extractProviderDocuments,
@@ -49,7 +42,8 @@ import {
 } from '../../../services/admin';
 import ModerationModal, { type ModerationMode } from '../components/ModerationModal';
 import ModerationPanel from '../components/ModerationPanel';
-import { partnerStatusOf } from '../providerToPartner';
+import { partnerStatusOf, providerToPartner } from '../providerToPartner';
+import AdminBookingRow from '../../../components/shared/AdminBookingRow';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { certificateDates } from '../../../services/certificate-dates';
 import PrivateImage from '../../../components/shared/PrivateImage';
@@ -82,16 +76,6 @@ const STATUS_CFG: Record<
   },
 };
 
-/** BookingState (backend) → the colour a recent booking's state reads in. */
-const BOOKING_STATE_COLORS: Record<number, string> = {
-  0: '#D97706', // Upcoming (awaiting the partner)
-  1: BRAND_GREEN, // Completed
-  2: '#6B7280', // Cancelled
-  3: '#2563EB', // Accepted
-  4: '#7C3AED', // In progress
-  5: '#9CA3AF', // Expired
-};
-
 const RECENT_BOOKINGS = 5;
 
 function formatBytes(n: number): string {
@@ -121,7 +105,10 @@ export default function PartnerDetailsScreen() {
   const { isWebLayout } = useResponsive();
   const insets = useSafeAreaInsets();
 
-  const partner: Partner = route.params?.partner;
+  // The list hands its row over as a head start; opened from the address (`admin/partners/:id`,
+  // finding 41) only the id is known and the page builds itself from the provider it loads.
+  const passed: Partner | undefined = route.params?.partner;
+  const partnerId = Number(passed?.id ?? route.params?.partnerId ?? 0) || 0;
   const [docs, setDocs] = useState<ProviderDocuments | null>(null);
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
@@ -133,6 +120,14 @@ export default function PartnerDetailsScreen() {
   const [history, setHistory] = useState<ModerationHistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [moderation, setModeration] = useState<ModerationMode | null>(null);
+  const partner: Partner | null =
+    passed ??
+    (provider
+      ? providerToPartner(provider, {
+          services: provider.serviceCount ?? 0,
+          reviews: provider.reviewCount ?? 0,
+        })
+      : null);
 
   // What the partner charges and their latest bookings — neither is on the list row. The price
   // and the history were placeholders (a "Starting Price" of 0 for every partner, and a history
@@ -143,9 +138,9 @@ export default function PartnerDetailsScreen() {
   } | null>(null);
   const [recentBookings, setRecentBookings] = useState<BookingDto[] | null>(null);
   useEffect(() => {
-    if (!partner?.id) return;
+    if (!partnerId) return;
     let cancelled = false;
-    const id = Number(partner.id);
+    const id = partnerId;
     getServices({ serviceProviderId: id, perPage: 100 })
       .then((services) => {
         if (cancelled) return;
@@ -166,19 +161,19 @@ export default function PartnerDetailsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [partner?.id]);
+  }, [partnerId]);
 
   const loadHistory = useCallback(async () => {
-    if (!partner?.id) return;
+    if (!partnerId) return;
     setLoadingHistory(true);
     try {
-      setHistory(await getModerationHistory(Number(partner.id)));
+      setHistory(await getModerationHistory(partnerId));
     } catch (e) {
       console.warn('[PartnerDetails] load moderation history failed', e);
     } finally {
       setLoadingHistory(false);
     }
-  }, [partner?.id]);
+  }, [partnerId]);
 
   useEffect(() => {
     loadHistory();
@@ -186,7 +181,7 @@ export default function PartnerDetailsScreen() {
 
   // Fetch the full provider DTO so we can render its real documents/photos
   useEffect(() => {
-    if (!partner?.id) {
+    if (!partnerId) {
       setLoadingDocs(false);
       return;
     }
@@ -194,7 +189,7 @@ export default function PartnerDetailsScreen() {
     (async () => {
       setLoadingDocs(true);
       try {
-        const dto = await getServiceProvider(Number(partner.id));
+        const dto = await getServiceProvider(partnerId);
         if (!cancelled) {
           setProvider(dto);
           setDocs(extractProviderDocuments(dto));
@@ -209,7 +204,7 @@ export default function PartnerDetailsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [partner?.id]);
+  }, [partnerId]);
 
   // Esc dismisses the image viewer (the moderation dialog handles its own). Declared above the
   // `!partner` guard: a hook after a conditional return runs in a different order between renders.
@@ -218,7 +213,11 @@ export default function PartnerDetailsScreen() {
   if (!partner) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Text>{t('admin.partnerNotFound')}</Text>
+        {partnerId && loadingDocs ? (
+          <ActivityIndicator color={BRAND_GREEN} />
+        ) : (
+          <Text>{t('admin.partnerNotFound')}</Text>
+        )}
       </View>
     );
   }
@@ -860,15 +859,11 @@ export default function PartnerDetailsScreen() {
               <Text style={{ color: subTextColor, fontSize: 13 }}>{t('admin.noBookingsYet')}</Text>
             ) : (
               recentBookings.map((booking) => (
-                <RecentBookingRow
+                <AdminBookingRow
                   key={booking.id}
                   booking={booking}
-                  stateLabel={tEnum('bookingState', booking.state, '')}
+                  hide="partner"
                   link={linkTo(navigation, 'BookingDetails', { bookingId: booking.id })}
-                  cardBg={cardBg}
-                  textColor={textColor}
-                  subTextColor={subTextColor}
-                  borderColor={borderColor}
                 />
               ))
             )}
@@ -1159,68 +1154,5 @@ function EmptyDoc({ text, subTextColor }: { text: string; subTextColor: string }
       <Ionicons name="close-circle-outline" size={16} color={subTextColor} />
       <Text style={{ color: subTextColor, fontSize: 12, marginLeft: 6 }}>{text}</Text>
     </View>
-  );
-}
-
-/** One of the partner's latest bookings: when, who, what, how much, and where it stands. */
-function RecentBookingRow({
-  booking,
-  stateLabel,
-  link,
-  cardBg,
-  textColor,
-  subTextColor,
-  borderColor,
-}: {
-  booking: BookingDto;
-  stateLabel: string;
-  /** Opens the booking: `linkTo`, so the row is a link on the web. */
-  link: ReturnType<typeof linkTo>;
-  cardBg: string;
-  textColor: string;
-  subTextColor: string;
-  borderColor: string;
-}) {
-  const when = parseBookingDate(booking.bookingFrom);
-  const color = BOOKING_STATE_COLORS[booking.state] ?? subTextColor;
-  return (
-    <TouchableOpacity
-      {...(link as object)}
-      accessibilityRole="link"
-      activeOpacity={0.85}
-      style={{
-        backgroundColor: cardBg,
-        borderRadius: 12,
-        padding: 14,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor,
-      }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 6,
-        }}>
-        <Text style={{ color: subTextColor, fontSize: 11 }}>
-          #{booking.id} • {Number.isNaN(when.getTime()) ? '' : formatShortDate(when)}
-        </Text>
-        <Text style={{ color: textColor, fontSize: 14, fontWeight: '700' }}>
-          {formatMoney(booking.totalPrice, booking.priceCurrency)}
-        </Text>
-      </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={{ flex: 1, marginRight: 8 }}>
-          <Text style={{ color: textColor, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
-            {customerName(booking.user, '—')}
-          </Text>
-          <Text style={{ color: subTextColor, fontSize: 12, marginTop: 1 }} numberOfLines={1}>
-            {booking.service?.name ?? ''}
-          </Text>
-        </View>
-        <Text style={{ color, fontSize: 13, fontWeight: '600' }}>{stateLabel}</Text>
-      </View>
-    </TouchableOpacity>
   );
 }

@@ -76,6 +76,10 @@ import {
   isOvernightHours,
   depositOf,
   type ServiceDeposit,
+  AcceptedPayments,
+  ServiceVenue,
+  defaultVenueFor,
+  visitMinutesOf,
 } from '../serviceModel';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useResponsive } from '../../../hooks/useResponsive';
@@ -284,6 +288,56 @@ export default function AddEditServiceScreen() {
   const selectedType = providerTypeValue(serviceType);
   const canTrack =
     selectedType === ServiceProviderType.Walker || selectedType === ServiceProviderType.Transporter;
+  // ── The flow gaps of the same review (2026-11-18) ──────────────────────────────────────────
+  // Which ways of paying it takes: card, cash or both (cash skips the deposit).
+  const [acceptedPayments, setAcceptedPayments] = useState<number>(
+    params?.serviceDto?.details?.acceptedPayments || AcceptedPayments.All
+  );
+  // Where it takes place; a new service starts from its type's usual place.
+  const [venue, setVenue] = useState<number | null>(params?.serviceDto?.details?.venue ?? null);
+  const effectiveVenue = venue ?? defaultVenueFor(selectedType ?? 0);
+  // How long one visit lasts, for a per-visit price with no duration tiers; null: not stated.
+  const [visitMinutes, setVisitMinutes] = useState<number | null>(
+    visitMinutesOf(params?.serviceDto?.details)
+  );
+  const visitOptions = [30, 45, 60, 90, 120, 180];
+  if (visitMinutes != null && !visitOptions.includes(visitMinutes)) visitOptions.push(visitMinutes);
+  const isPerVisit = pricesByUnit && pricingUnit === PricingUnit.PerVisit;
+  const lengthLabel = (m: number) =>
+    m % 60 === 0
+      ? t('durations.nHours', { n: m / 60 })
+      : m > 60
+        ? `${t('durations.nHours', { n: Math.floor(m / 60) })} ${t('durations.nMin', { n: m % 60 })}`
+        : t('durations.nMin', { n: m });
+  // One row of choice chips, the look every choice on this form has.
+  const choiceChips = <V extends number | null>(
+    options: readonly (readonly [V, string])[],
+    current: V,
+    onPick: (value: V) => void
+  ) => (
+    <View accessibilityRole="radiogroup" className="flex-row flex-wrap gap-2">
+      {options.map(([value, label]) => {
+        const active = current === value;
+        return (
+          <TouchableOpacity
+            key={String(value)}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: active }}
+            aria-checked={active}
+            onPress={() => onPick(value)}
+            className={`rounded-full border px-4 py-2 ${
+              active
+                ? `border-brand-500 ${isDarkMode ? 'bg-[#243447]' : 'bg-brand-50'}`
+                : `${isDarkMode ? 'border-gray-700' : 'border-gray-300'} ${inputBg}`
+            }`}>
+            <Text className={`text-sm ${active ? 'font-semibold text-brand-600' : subtextColor}`}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
   const [workingHours, setWorkingHours] = useState<WorkingHours>(
     existingService?.workingHours || DEFAULT_WORKING_HOURS
   );
@@ -712,6 +766,9 @@ export default function AddEditServiceScreen() {
           minWeightKg: weightOf(minWeightKg),
           maxWeightKg: weightOf(maxWeightKg),
           deposit,
+          acceptedPayments,
+          venue: effectiveVenue,
+          visitMinutes: isPerVisit ? visitMinutes : undefined,
         },
         params?.serviceDto
       );
@@ -1303,6 +1360,62 @@ export default function AddEditServiceScreen() {
               />
             ) : null}
           </View>
+
+          {/* Ways of paying: cash skips the deposit, so a partner who wants it to hold offers card only. */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-1`}>
+              {t('addEditService.payments')}
+            </Text>
+            <Text className={`${subtextColor} mb-2 text-sm`}>
+              {t('addEditService.paymentsHint')}
+            </Text>
+            {choiceChips(
+              [
+                [AcceptedPayments.All, t('addEditService.paymentsBoth')],
+                [AcceptedPayments.Card, t('addEditService.paymentsCard')],
+                [AcceptedPayments.Cash, t('addEditService.paymentsCash')],
+              ] as const,
+              acceptedPayments as 1 | 2 | 3,
+              setAcceptedPayments
+            )}
+          </View>
+
+          {/* Where it takes place: at the customer's, a booking asks for the address. */}
+          <View className="mb-4">
+            <Text className={`text-sm font-semibold ${textColor} mb-1`}>
+              {t('addEditService.venue')}
+            </Text>
+            <Text className={`${subtextColor} mb-2 text-sm`}>{t('addEditService.venueHint')}</Text>
+            {choiceChips(
+              [
+                [ServiceVenue.AtProvider, t('addEditService.venueAtProvider')],
+                [ServiceVenue.AtCustomer, t('addEditService.venueAtCustomer')],
+                [ServiceVenue.Either, t('addEditService.venueEither')],
+              ] as const,
+              effectiveVenue as 0 | 1 | 2,
+              setVenue
+            )}
+          </View>
+
+          {/* A visit's length, for a per-visit price: what a customer books, and nothing else. */}
+          {isPerVisit ? (
+            <View className="mb-4">
+              <Text className={`text-sm font-semibold ${textColor} mb-1`}>
+                {t('addEditService.visitLength')}
+              </Text>
+              <Text className={`${subtextColor} mb-2 text-sm`}>
+                {t('addEditService.visitLengthHint')}
+              </Text>
+              {choiceChips(
+                [
+                  [null, t('addEditService.visitLengthNone')],
+                  ...visitOptions.map((m) => [m, lengthLabel(m)] as const),
+                ] as const,
+                visitMinutes,
+                setVisitMinutes
+              )}
+            </View>
+          ) : null}
 
           {/* Live tracking: only the kinds of service that move can share a location */}
           {canTrack ? (

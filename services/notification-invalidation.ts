@@ -31,6 +31,16 @@ export function resourcesForNotification(notification: { type?: unknown }): stri
     case NotificationType.ServiceStarted:
     case NotificationType.ServiceCompleted:
     case NotificationType.LiveTrackingStarted:
+    case NotificationType.BookingRequestExpired:
+    case NotificationType.BookingRequestMissed:
+    case NotificationType.ServiceOverdue:
+    case NotificationType.PriceChangeAccepted:
+    case NotificationType.BookingTimeProposed:
+    case NotificationType.BookingTimeChanged:
+    case NotificationType.BookingTimeDeclined:
+    case NotificationType.PetPickedUp:
+    case NotificationType.PetDroppedOff:
+    case NotificationType.BookingChangedBySupport:
       resources.add('bookings');
       break;
 
@@ -42,6 +52,12 @@ export function resourcesForNotification(notification: { type?: unknown }): stri
     case NotificationType.ExpiredBookingRefunded:
     case NotificationType.DepositRetained:
     case NotificationType.CustomerNoShow:
+    case NotificationType.BookingNotStarted:
+    case NotificationType.BookingNotStartedProvider:
+    case NotificationType.ServiceAutoCompleted:
+    case NotificationType.BalanceOverdue:
+    case NotificationType.ProviderNoShowReported:
+    case NotificationType.PriceChangeProposed:
       resources.add('payments');
       resources.add('bookings');
       break;

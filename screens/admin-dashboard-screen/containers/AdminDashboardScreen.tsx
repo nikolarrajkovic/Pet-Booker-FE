@@ -540,6 +540,76 @@ export default function AdminDashboardScreen() {
                   {t('admin.moderateReviews')}
                 </Text>
               </TouchableOpacity>
+              {/* adminBookings.title (finding 41) */}
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('AdminBookings')}
+                style={{
+                  width: isWebLayout ? '23%' : '47.5%',
+                  minWidth: isWebLayout ? 170 : undefined,
+                  flexGrow: isWebLayout ? 1 : 0,
+                  backgroundColor: cardBg,
+                  borderRadius: 16,
+                  padding: 16,
+                  borderWidth: 1,
+                  borderColor,
+                  alignItems: 'flex-start',
+                }}>
+                <View
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 14,
+                    backgroundColor: '#DBEAFE',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 12,
+                  }}>
+                  <Ionicons name="calendar-outline" size={24} color="#2563EB" />
+                </View>
+                <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>
+                  {t('adminBookings.title')}
+                </Text>
+                <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>
+                  {t('adminBookings.dashboardSub')}
+                </Text>
+              </TouchableOpacity>
+              {/* adminCustomers.title (finding 41) */}
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('AdminCustomers')}
+                style={{
+                  width: isWebLayout ? '23%' : '47.5%',
+                  minWidth: isWebLayout ? 170 : undefined,
+                  flexGrow: isWebLayout ? 1 : 0,
+                  backgroundColor: cardBg,
+                  borderRadius: 16,
+                  padding: 16,
+                  borderWidth: 1,
+                  borderColor,
+                  alignItems: 'flex-start',
+                }}>
+                <View
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 14,
+                    backgroundColor: '#DCFCE7',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: 12,
+                  }}>
+                  <Ionicons name="person-circle-outline" size={24} color="#16A34A" />
+                </View>
+                <Text style={{ color: sectionTitle, fontSize: 14, fontWeight: '700' }}>
+                  {t('adminCustomers.title')}
+                </Text>
+                <Text style={{ color: subText, fontSize: 12, marginTop: 2 }}>
+                  {t('adminCustomers.dashboardSub')}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
