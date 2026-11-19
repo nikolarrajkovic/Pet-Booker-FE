@@ -531,6 +531,8 @@ export default function PartnerApplicationScreen() {
       {addressPickerVisible && (
         <MapAddressPicker
           visible
+          // This form keeps only the street, city and postcode; the business profile asks the rest.
+          askDetails={false}
           title={t('account.yourAddress')}
           initialRegion={{ latitude: location.latitude, longitude: location.longitude }}
           isDarkMode={isDarkMode}
