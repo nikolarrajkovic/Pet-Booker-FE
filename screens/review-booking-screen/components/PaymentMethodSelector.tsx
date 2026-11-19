@@ -50,7 +50,7 @@ export default function PaymentMethodSelector({
             <Text className={`text-base font-semibold ${textColor}`}>
               {t('reviewBooking.payOnline')}
             </Text>
-            <Text className={`text-sm ${subtextColor}`}>{t('reviewBooking.cardOrWallet')}</Text>
+            <Text className={`text-sm ${subtextColor}`}>{t('reviewBooking.cardOnly')}</Text>
           </View>
         </TouchableOpacity>
       ) : null}

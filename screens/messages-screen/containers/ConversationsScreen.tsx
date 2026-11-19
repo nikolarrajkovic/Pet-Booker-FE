@@ -84,7 +84,7 @@ function InboxList() {
             <ConversationRow
               key={c.id}
               name={c.counterpartName || t('messages.conversation')}
-              subtitle={c.serviceName ?? undefined}
+              subtitle={[c.petName, c.serviceName].filter(Boolean).join(' · ') || undefined}
               avatarUrl={resolveImageUrl(c.counterpartAvatarUrl) || null}
               lastMessage={c.lastMessagePreview}
               timeLabel={relativeTime(t, c.lastMessageAt)}

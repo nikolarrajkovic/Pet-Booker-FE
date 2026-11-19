@@ -254,7 +254,9 @@ export default function BookingPaymentPanel({
         </Notice>
       ) : null}
       {cashOwed && isProvider ? (
-        <Notice icon="cash-outline">{t('payments.cashNoteProvider')}</Notice>
+        <Notice icon="cash-outline">
+          {t('payments.cashNoteProvider', { amount: formatMoney(summary.balanceDue, currency) })}
+        </Notice>
       ) : null}
 
       {/* The deposit gates the start: the customer is told before paying, the provider why the

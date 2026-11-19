@@ -372,9 +372,11 @@ export default function ServiceResultRow({
                     </Text>
                   </Text>
                 </View>
+                {/* Nothing is charged when booking: the deposit is paid by card once the
+                    partner confirms (it said "deposit now"). */}
                 {deposit > 0 && (
                   <Text className={`text-[10px] ${subtextColor} mt-0.5`}>
-                    {t('card.depositNow', { amount: money(deposit) })}
+                    {t('card.depositAfterConfirm', { amount: money(deposit) })}
                   </Text>
                 )}
               </>

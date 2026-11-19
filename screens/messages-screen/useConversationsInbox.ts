@@ -78,7 +78,9 @@ export function useConversationsInbox(openConversationId?: number | null): Conve
     try {
       // Already ordered by activity server-side (on message id, which is monotonic), so no
       // client-side re-sort — one less place for the two to disagree.
-      const page = await getConversations({ perPage: 50 });
+      // Threads with nothing in them yet stay out of the inbox: opening a chat makes one, and a
+      // partner's list filled with customers who opened a chat and never wrote.
+      const page = await getConversations({ perPage: 50, hasMessages: true });
       setConversations(page.items.map((c) => seenIfOpen(c, openIdRef.current)));
       refreshUnreadCount();
     } catch (e) {

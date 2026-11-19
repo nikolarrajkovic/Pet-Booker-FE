@@ -69,6 +69,7 @@ import AdminReviewsScreen from './screens/admin-reviews-screen/containers/AdminR
 import PartnerDetailsScreen from './screens/admin-partners-screen/containers/PartnerDetailsScreen';
 import AdminBookingsScreen from './screens/admin-bookings-screen/containers/AdminBookingsScreen';
 import AdminCustomersScreen from './screens/admin-customers-screen/containers/AdminCustomersScreen';
+import AdminPaymentsScreen from './screens/admin-payments-screen/containers/AdminPaymentsScreen';
 import AdminCustomerDetailsScreen from './screens/admin-customers-screen/containers/AdminCustomerDetailsScreen';
 import TimeOffScreen from './screens/time-off-screen/containers/TimeOffScreen';
 import AdminAddPartnerScreen from './screens/admin-add-partner-screen/containers/AdminAddPartnerScreen';
@@ -391,6 +392,7 @@ function AppContent() {
                   <Stack.Screen name="AdminAddPartner" component={AdminAddPartnerScreen} />
                   <Stack.Screen name="AdminBookings" component={AdminBookingsScreen} />
                   <Stack.Screen name="AdminCustomers" component={AdminCustomersScreen} />
+                  <Stack.Screen name="AdminPayments" component={AdminPaymentsScreen} />
                   <Stack.Screen
                     name="AdminCustomerDetails"
                     component={AdminCustomerDetailsScreen}
@@ -490,6 +492,7 @@ const SCREEN_TITLE_KEYS: Record<string, TranslationKey> = {
   AdminReviews: 'admin.reviewsTitle',
   AdminBookings: 'adminBookings.title',
   AdminCustomers: 'adminCustomers.title',
+  AdminPayments: 'adminPayments.title',
   AdminCustomerDetails: 'adminCustomers.title',
   TimeOff: 'timeOff.title',
   // Signed out

@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { Platform } from 'react-native';
 import { getPathFromState, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { useLocale } from '../context/LocaleContext';
 import { linking } from '../navigation/linking';
 import { navigationRef } from '../navigation/navigationRef';
 import { rememberDeepLink } from '../navigation/pendingDeepLink';
@@ -22,6 +23,7 @@ function currentPagePath(): string | null {
  */
 export function useRequireSignIn() {
   const { isLoggedIn } = useAuth();
+  const { t } = useLocale();
   const navigation = useNavigation<any>();
 
   return useCallback(
@@ -31,8 +33,9 @@ export function useRequireSignIn() {
         return;
       }
       rememberDeepLink(currentPagePath());
-      navigation.navigate('Login');
+      // Said on the sign-in page: it opened on "Welcome back!" with no word on why.
+      navigation.navigate('Login', { notice: t('login.signInToContinue') });
     },
-    [isLoggedIn, navigation]
+    [isLoggedIn, navigation, t]
   );
 }

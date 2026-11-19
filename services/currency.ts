@@ -20,11 +20,10 @@ export type CurrencyFormat = {
   /** Whether the convention separates symbol and amount with a space. */
   space: boolean;
   /**
-   * Decimal places this currency is written with.
-   *
-   * RSD is 0: the para is long obsolete, so nothing is ever priced or paid in fractions of a
-   * dinar. Rendering the generic 2 decimals produced figures like "5210.5 RSD" on the admin
-   * dashboard — a half-dinar that cannot exist. EUR and USD keep 2.
+   * Decimal places this currency is written with: two for every currency, always shown
+   * (app review 2026-11-13). Dinars used to be rounded to whole numbers while notifications and
+   * emails wrote two decimals, so a per-kilometre price read "1,556 RSD" in the app and
+   * "1,555.70 RSD" in the email for the same booking.
    */
   decimals: number;
 };
@@ -39,8 +38,8 @@ const CURRENCY_FORMATS: Record<string, CurrencyFormat> = {
   USD: { symbol: '$', position: 'prefix', space: false, decimals: 2 },
   GBP: { symbol: '£', position: 'prefix', space: false, decimals: 2 },
   EUR: { symbol: '€', position: 'suffix', space: true, decimals: 2 },
-  RSD: { symbol: 'RSD', position: 'suffix', space: true, decimals: 0 },
-  RUB: { symbol: '₽', position: 'suffix', space: true, decimals: 0 },
+  RSD: { symbol: 'RSD', position: 'suffix', space: true, decimals: 2 },
+  RUB: { symbol: '₽', position: 'suffix', space: true, decimals: 2 },
 };
 
 /**
@@ -147,23 +146,19 @@ export function currencyAffix(code?: string | null): {
 }
 
 /**
- * Rounds for display and writes the number the reader's way: 1250 → "1,250" in English, "1.250"
- * in Serbian, "1 250" in Russian (it was `String(n)`, so "8511 RSD" and "12.5 €" everywhere).
- * A whole amount shows no decimals (30 → "30"); a fractional one shows the currency's full
- * precision (12.5 € → "12.50").
- *
- * Precision follows the CURRENCY, not a fixed 2 (see `CurrencyFormat.decimals`) — a zero-decimal
- * currency like RSD must never render "5210.5". Passing no currency keeps the old 2-decimal
- * behaviour for callers that format a bare number.
+ * Rounds for display and writes the number the reader's way, always with two decimals:
+ * 1250 → "1,250.00" in English, "1.250,00" in Serbian, "1 250,00" in Russian — the same figure the
+ * server writes in notifications and emails (`DisplayMoney`). It was `String(n)` once, so
+ * "8511 RSD" and "12.5 €"; then whole amounts dropped their decimals, so the app and the email
+ * disagreed by the fraction.
  */
 export function formatAmount(amount: number, currency?: string | null): string {
   if (!Number.isFinite(amount)) return String(amount);
   const decimals = currency == null ? 2 : currencyFormat(currency).decimals;
   const rounded = roundMoney(amount, decimals);
-  const fractionDigits = Number.isInteger(rounded) ? 0 : decimals;
   return formatNumber(rounded, {
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   });
 }
 

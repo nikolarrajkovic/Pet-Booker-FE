@@ -34,9 +34,9 @@ describe('pinLabel', () => {
 
   it('a lone service shows its price, ticked when picked', () => {
     const [g] = groupByLocation([item(1, 44.8, 20.4, 900)]);
-    expect(pinLabel(g, false, none)).toEqual({ text: '900 RSD', filled: true });
+    expect(pinLabel(g, false, none)).toEqual({ text: '900.00 RSD', filled: true });
     expect(pinLabel(g, true, none).filled).toBe(false);
-    expect(pinLabel(g, true, () => true)).toEqual({ text: '✓ 900 RSD', filled: true });
+    expect(pinLabel(g, true, () => true)).toEqual({ text: '✓ 900.00 RSD', filled: true });
   });
 
   it('a shared spot shows how many and the lowest price', () => {
@@ -45,8 +45,8 @@ describe('pinLabel', () => {
       item(2, 44.8, 20.4, 700),
       item(3, 44.8, 20.4, 900),
     ]);
-    expect(pinLabel(g, false, none)).toEqual({ text: '3 · 700 RSD+', filled: true });
-    expect(pinLabel(g, true, none)).toEqual({ text: '3 · 700 RSD+', filled: false });
+    expect(pinLabel(g, false, none)).toEqual({ text: '3 · 700.00 RSD+', filled: true });
+    expect(pinLabel(g, true, none)).toEqual({ text: '3 · 700.00 RSD+', filled: false });
   });
 
   it('in selection mode a shared spot says how many of it are picked', () => {

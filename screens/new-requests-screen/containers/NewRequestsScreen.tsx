@@ -27,7 +27,7 @@ import {
   PaymentType,
 } from '../../../services/bookings';
 import { petCareNotes, petFacts } from '../../../services/pets';
-import { addressLabel } from '../../../services/geocoding';
+import { addressWithDetails } from '../../../services/geocoding';
 import { usePagedList } from '../../../hooks/usePagedList';
 import LoadMoreFooter, { isNearBottom } from '../../../components/shared/LoadMoreFooter';
 import { formatMoney } from '../../../services/currency';
@@ -108,8 +108,8 @@ function bookingToRequest(t: TFn, tEnum: TEnumFn, b: BookingDto): ServiceRequest
     serviceTime: isNaN(from.getTime())
       ? ''
       : from.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }),
-    pickupAddress: b.pickupAddress ? addressLabel(b.pickupAddress) : '',
-    dropoffAddress: b.leaveOverAddress ? addressLabel(b.leaveOverAddress) : '',
+    pickupAddress: b.pickupAddress ? addressWithDetails(b.pickupAddress, t) : '',
+    dropoffAddress: b.leaveOverAddress ? addressWithDetails(b.leaveOverAddress, t) : '',
     paidInCash,
     paymentLine: paidInCash
       ? t('requests.payCash')

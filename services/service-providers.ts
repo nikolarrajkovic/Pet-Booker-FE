@@ -30,7 +30,12 @@ export type LocationOnLatLngDto = {
 export type AddressDto = {
   id?: number | null;
   line1?: string | null;
+  /** "Other details": an intercom name, a gate code, how to find the door. */
   line2?: string | null;
+  /** Where in the building (all optional; the map picker asks for them). */
+  entrance?: string | null;
+  floor?: string | null;
+  apartment?: string | null;
   city?: string | null;
   state?: string | null;
   postalCode?: string | null;

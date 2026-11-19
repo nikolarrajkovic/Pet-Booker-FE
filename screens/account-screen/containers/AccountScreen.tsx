@@ -24,7 +24,7 @@ import { getUser, updateUser, UserDto } from '../../../services/users';
 import { getErrorMessage } from '../../../services/http';
 import { uploadFile } from '../../../services/files';
 import { resolveImageUrl, AddressDto } from '../../../services/service-providers';
-import { addressLabel } from '../../../services/geocoding';
+import { addressWithDetails } from '../../../services/geocoding';
 import { showAlert } from '../../../services/alert';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useResponsive } from '../../../hooks/useResponsive';
@@ -365,7 +365,9 @@ export default function AccountScreen() {
                 <Text
                   className={`ml-3 flex-1 ${currentAddress ? inputText : subtextColor}`}
                   numberOfLines={2}>
-                  {currentAddress ? addressLabel(currentAddress) : t('bookService.pickOnMap')}
+                  {currentAddress
+                    ? addressWithDetails(currentAddress, t)
+                    : t('bookService.pickOnMap')}
                 </Text>
                 <Ionicons
                   name="chevron-forward"
@@ -401,6 +403,7 @@ export default function AccountScreen() {
           initialRegion={currentAddress?.location ?? DEFAULT_LOCATION}
           // A saved address opens where it is; only a profile without one starts from the GPS fix.
           locateOnOpen={!currentAddress?.location}
+          initialAddress={currentAddress}
           isDarkMode={isDarkMode}
           onClose={() => setPickerVisible(false)}
           onSelect={(picked) => setAddress(picked)}

@@ -213,7 +213,13 @@ export type BookingDto = {
     email?: string | null;
     photos?: NestedPhoto[];
   } | null;
-  review?: { rating?: number | null } | null;
+  /** The customer's review of this booking, with where it stands in moderation. */
+  review?: {
+    rating?: number | null;
+    /** ApprovalStatus: waiting, published or not published (with the reason). */
+    approvalStatus?: number | null;
+    declineReason?: string | null;
+  } | null;
   // The read DTO now returns the pickup/leave-over addresses nested under
   // `location` (location.pickupAddress / location.leaveOverAddress) — the booking
   // POST persists them since the 2026-06 update (BACKEND_GAPS B2 resolved). The

@@ -71,13 +71,14 @@ describe('number formatting', () => {
   afterEach(() => registerDateLanguage('en'));
 
   it("groups and punctuates money the reader's way", () => {
-    expect(formatMoney(1250000, 'RSD')).toBe('1,250,000 RSD');
+    expect(formatMoney(1250000, 'RSD')).toBe('1,250,000.00 RSD');
+    expect(formatMoney(1555.7, 'RSD')).toBe('1,555.70 RSD');
     expect(formatMoney(12.5, 'EUR')).toBe('12.50 €');
 
     registerDateLanguage('sr');
-    expect(formatMoney(1250000, 'RSD')).toBe('1.250.000 RSD');
+    expect(formatMoney(1250000, 'RSD')).toBe('1.250.000,00 RSD');
     expect(formatMoney(12.5, 'EUR')).toBe('12,50 €');
-    expect(formatMoney(30, 'EUR')).toBe('30 €');
+    expect(formatMoney(30, 'EUR')).toBe('30,00 €');
   });
 
   // Trip legs and ETAs went out through toFixed(): "1.15 км" beside Russian text.
