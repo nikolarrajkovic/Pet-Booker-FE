@@ -34,7 +34,7 @@ import {
 } from '../../../services/service-providers';
 import { ApiError, getErrorMessage } from '../../../services/http';
 import { getUser } from '../../../services/users';
-import { addressLabel } from '../../../services/geocoding';
+import { addressWithDetails } from '../../../services/geocoding';
 import { usePageGutter } from '../../../hooks/usePageGutter';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { DEFAULT_LOCATION } from '../../../hooks/useLocation';
@@ -470,7 +470,9 @@ export default function BusinessProfileScreen() {
               <Text
                 className={`ml-3 flex-1 ${currentAddress ? inputText : subtextColor}`}
                 numberOfLines={2}>
-                {currentAddress ? addressLabel(currentAddress) : t('bookService.pickOnMap')}
+                {currentAddress
+                  ? addressWithDetails(currentAddress, t)
+                  : t('bookService.pickOnMap')}
               </Text>
               <Ionicons
                 name="chevron-forward"
@@ -528,6 +530,7 @@ export default function BusinessProfileScreen() {
           title={t('businessProfile.address')}
           initialRegion={currentAddress?.location ?? DEFAULT_LOCATION}
           locateOnOpen={!currentAddress?.location}
+          initialAddress={currentAddress}
           isDarkMode={isDarkMode}
           onClose={() => setPickerVisible(false)}
           onSelect={(picked) => {

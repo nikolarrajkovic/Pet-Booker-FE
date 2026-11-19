@@ -27,7 +27,7 @@ import { PriceBreakdown, PaymentMethodSelector, AddonLine } from '../components'
 import type { Appointment, CheckoutSection } from '../../book-service-screen/appointment';
 import { useBookingCart } from '../../../context/BookingCartContext';
 import { resolveImageUrl } from '../../../services/service-providers';
-import { addressLabel } from '../../../services/geocoding';
+import { addressWithDetails } from '../../../services/geocoding';
 import {
   ServiceDto,
   serviceCurrency,
@@ -425,7 +425,7 @@ export default function ReviewBookingScreen() {
                         />
                         <Text className={`text-xs ${subtextColor} flex-1`}>
                           {t('reviewBooking.pickupLine', {
-                            address: addressLabel(apt.pickupAddress),
+                            address: addressWithDetails(apt.pickupAddress, t),
                           })}
                         </Text>
                       </View>
@@ -440,7 +440,7 @@ export default function ReviewBookingScreen() {
                         />
                         <Text className={`text-xs ${subtextColor} flex-1`}>
                           {t('reviewBooking.dropoffLine', {
-                            address: addressLabel(apt.leaveOverAddress),
+                            address: addressWithDetails(apt.leaveOverAddress, t),
                           })}
                         </Text>
                       </View>

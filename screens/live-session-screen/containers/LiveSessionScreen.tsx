@@ -16,6 +16,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { useLocale } from '../../../context/LocaleContext';
 import { getErrorMessage } from '../../../services/http';
+import { showAlert } from '../../../services/alert';
 import ScreenLayout from '../../../components/shared/ScreenLayout';
 import {
   getAllBookings,
@@ -43,7 +44,7 @@ import { getService, ServiceDto } from '../../../services/services';
 import { addonLabel, DistanceLeg } from '../../../services/service-addons';
 import { customerName, getUser } from '../../../services/users';
 import {
-  addressLabel,
+  addressWithDetails,
   addressToPoint,
   getCurrentPosition,
   GeoPoint,
@@ -467,7 +468,7 @@ export default function LiveSessionScreen() {
         icon: 'car-outline',
         completed: completion.pickup,
         completedAt: pickedUpAt,
-        detail: addr ? addressLabel(addr) : undefined,
+        detail: addr ? addressWithDetails(addr, t) : undefined,
         toggleable: true,
         address: addr,
       });
@@ -482,7 +483,7 @@ export default function LiveSessionScreen() {
         icon: 'home-outline',
         completed: completion.dropoff,
         completedAt: droppedOffAt,
-        detail: addr ? addressLabel(addr) : undefined,
+        detail: addr ? addressWithDetails(addr, t) : undefined,
         toggleable: true,
         address: addr,
       });
@@ -492,7 +493,7 @@ export default function LiveSessionScreen() {
       items.push({ ...flat, icon: 'medkit-outline', completed: false, toggleable: false });
     }
     return items;
-  }, [dto, bookerAddr, completion.pickup, completion.dropoff, pickedUpAt, droppedOffAt, tEnum]);
+  }, [dto, bookerAddr, completion.pickup, completion.dropoff, pickedUpAt, droppedOffAt, tEnum, t]);
 
   // Only the actionable (pickup/drop-off) tasks gate ending the service.
   const canEnd = addOns.filter((a) => a.toggleable !== false).every((a) => a.completed);
@@ -746,7 +747,15 @@ export default function LiveSessionScreen() {
     }
   };
 
-  const handleEnd = async () => {
+  const handleEnd = () => {
+    if (!dto || busy || !canEnd) return;
+    showAlert(t('liveSession.endConfirmTitle'), t('liveSession.endConfirmBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('liveSession.endConfirmYes'), style: 'destructive', onPress: () => void endNow() },
+    ]);
+  };
+
+  const endNow = async () => {
     if (!dto || busy || !canEnd) return;
     const endedId = dto.id!;
     setBusy('end');

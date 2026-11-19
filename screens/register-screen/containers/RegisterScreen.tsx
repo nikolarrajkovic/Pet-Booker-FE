@@ -21,7 +21,7 @@ import { formatDateOnly } from '../../../services/date-only';
 import Avatar from '../../../components/shared/Avatar';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { AddressDto } from '../../../services/service-providers';
-import { addressLabel } from '../../../services/geocoding';
+import { addressWithDetails } from '../../../services/geocoding';
 import { showAlert } from '../../../services/alert';
 import { DEFAULT_LOCATION } from '../../../hooks/useLocation';
 import { savePendingProfile, type PendingPhoto } from '../../../services/pending-profile';
@@ -547,7 +547,7 @@ export default function RegisterScreen() {
               color: address ? inputTextColor : placeholderColor,
               flex: 1,
             }}>
-            {address ? addressLabel(address) : t('bookService.pickOnMap')}
+            {address ? addressWithDetails(address, t) : t('bookService.pickOnMap')}
           </Text>
           <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
         </TouchableOpacity>
@@ -752,6 +752,7 @@ export default function RegisterScreen() {
           title={t('register.homeAddress')}
           initialRegion={address?.location ?? DEFAULT_LOCATION}
           locateOnOpen={!address?.location}
+          initialAddress={address}
           isDarkMode={isDarkMode}
           onClose={() => setPickerVisible(false)}
           onSelect={(picked) => {

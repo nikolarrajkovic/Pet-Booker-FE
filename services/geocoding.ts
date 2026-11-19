@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 import { AddressDto } from './service-providers';
+import type { TranslationKey } from '../i18n';
 
 export type GeoPoint = { latitude: number; longitude: number };
 
@@ -14,6 +15,42 @@ export type GeoPoint = { latitude: number; longitude: number };
 export function addressLabel(a: AddressDto): string {
   const place = [a.postalCode, a.city].filter(Boolean).join(' ');
   return [a.line1, place].filter(Boolean).join(', ') || 'Selected location';
+}
+
+/** Where in the building: what the map picker asks under the pin. */
+export type AddressDetails = Pick<AddressDto, 'entrance' | 'floor' | 'apartment' | 'line2'>;
+
+type Translate = (key: TranslationKey, params?: Record<string, string | number>) => string;
+
+/** The details of an address, trimmed, with blanks as null: what is sent and stored. */
+export function cleanAddressDetails(d: AddressDetails): AddressDetails {
+  const clean = (v?: string | null) => (v ?? '').trim() || null;
+  return {
+    entrance: clean(d.entrance),
+    floor: clean(d.floor),
+    apartment: clean(d.apartment),
+    line2: clean(d.line2),
+  };
+}
+
+/** "Entrance 2 · Floor 3 · Flat 12 · intercom Petrović", or '' when none was given. */
+export function addressDetailsLine(a: AddressDto | null | undefined, t: Translate): string {
+  if (!a) return '';
+  const d = cleanAddressDetails(a);
+  return [
+    d.entrance ? t('address.entranceValue', { value: d.entrance }) : null,
+    d.floor ? t('address.floorValue', { value: d.floor }) : null,
+    d.apartment ? t('address.apartmentValue', { value: d.apartment }) : null,
+    d.line2,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/** The address with where in the building after it: for the person going there, or checking it. */
+export function addressWithDetails(a: AddressDto, t: Translate): string {
+  const details = addressDetailsLine(a, t);
+  return details ? `${addressLabel(a)} · ${details}` : addressLabel(a);
 }
 
 /**
@@ -76,6 +113,98 @@ export async function forwardGeocode(query: string): Promise<GeoPoint | null> {
   const results = await Location.geocodeAsync(q);
   if (!results?.length) return null;
   return { latitude: results[0].latitude, longitude: results[0].longitude };
+}
+
+/** One match for a typed address, as the map picker lists it. */
+export type AddressSuggestion = { point: GeoPoint; title: string; subtitle: string };
+
+/**
+ * The places matching a typed address, nearest to `near` first where the geocoder can tell, so
+ * the map picker can list them and the person picks the right one (app review 2026-11-13). The
+ * picker used to jump to the first match, and "Nemanjina 4" has one in central Belgrade, one in
+ * Grocka and one in Zemun. Run on an explicit search, never per keystroke: Nominatim's usage
+ * policy forbids search-as-you-type. Native uses the OS geocoder, labelled by reverse lookup.
+ */
+export async function searchAddresses(
+  query: string,
+  near?: GeoPoint | null
+): Promise<AddressSuggestion[]> {
+  const q = query.trim();
+  if (!q) return [];
+  if (Platform.OS === 'web') {
+    // A viewbox around the map biases the ranking toward where the person is looking, without
+    // ruling out a match elsewhere (bounded=0).
+    const box = near
+      ? `&bounded=0&viewbox=${near.longitude - 0.3},${near.latitude + 0.3},${near.longitude + 0.3},${near.latitude - 0.3}`
+      : '';
+    const url =
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&accept-language=sr-Latn` +
+      `${box}&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!Array.isArray(data)) return [];
+    return distinct(
+      data.map((item: any) => {
+        const a = item.address ?? {};
+        const city = cityOf(a);
+        return {
+          point: { latitude: parseFloat(item.lat), longitude: parseFloat(item.lon) },
+          title:
+            streetLine(a.road, a.house_number) ||
+            item.name ||
+            String(item.display_name ?? '').split(',')[0],
+          subtitle: [[a.postcode, areaOf(a, city)].filter(Boolean).join(' '), city]
+            .filter(Boolean)
+            .join(', '),
+        };
+      })
+    );
+  }
+  const found = (await Location.geocodeAsync(q)).slice(0, 5);
+  const labelled = await Promise.all(
+    found.map(async (r) => {
+      const point = { latitude: r.latitude, longitude: r.longitude };
+      try {
+        const a = await reverseGeocodeNative(point);
+        return {
+          point,
+          title: a.line1 || q,
+          subtitle: [a.postalCode, a.city].filter(Boolean).join(' '),
+        };
+      } catch {
+        return { point, title: q, subtitle: '' };
+      }
+    })
+  );
+  return distinct(labelled);
+}
+
+/** Matches that read the same are one choice, however many OSM objects stand behind them. */
+function distinct(items: AddressSuggestion[]): AddressSuggestion[] {
+  const seen = new Set<string>();
+  return items
+    .filter((s) => Number.isFinite(s.point.latitude) && Number.isFinite(s.point.longitude))
+    .filter((s) => {
+      const key = `${s.title}|${s.subtitle}`.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 5);
+}
+
+/**
+ * The part of a city a match is in ("Zemun", "Grocka"), when it isn't the city itself: what tells
+ * apart two "Nemanjina 4" in Belgrade. Nominatim names a Serbian municipality "Gradska opština …".
+ */
+function areaOf(a: NominatimAddress & { city_district?: string }, city: string): string {
+  const raw = a.suburb || a.city_district || a.city || '';
+  let area = raw.replace(/^(gradska opština|opština|градска општина|општина)\s+/i, '').trim();
+  // Belgrade's parts come as "Beograd (Savski venac)": the city is said once, after it.
+  const inCity = /^(.+?)\s*\((.+)\)$/.exec(area);
+  if (inCity && inCity[1].trim().toLowerCase() === city.toLowerCase()) area = inCity[2].trim();
+  return area && area.toLowerCase() !== city.toLowerCase() ? area : '';
 }
 
 /**

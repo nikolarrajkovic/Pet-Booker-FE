@@ -7,11 +7,15 @@ import { useTopInset } from '../../hooks/useSafeAreaSpacing';
 import { useLocale } from '../../context/LocaleContext';
 import {
   reverseGeocodeToAddress,
-  forwardGeocode,
+  searchAddresses,
   getCurrentPosition,
   addressLabel,
   GeoPoint,
+  type AddressSuggestion,
+  type AddressDetails,
+  cleanAddressDetails,
 } from '../../services/geocoding';
+import AddressDetailsInputs from './AddressDetailsInputs';
 import { AddressDto } from '../../services/service-providers';
 
 export type MapAddressPickerProps = {
@@ -24,6 +28,13 @@ export type MapAddressPickerProps = {
    * so the map opens there instead of wherever the device happens to be.
    */
   locateOnOpen?: boolean;
+  /**
+   * Ask where in the building (entrance, floor, flat, other details) under the pin (default).
+   * False for a place that is only where to search from.
+   */
+  askDetails?: boolean;
+  /** The address being changed, whose building details the fields start from. */
+  initialAddress?: AddressDto | null;
   isDarkMode: boolean;
   onClose: () => void;
   onSelect: (address: AddressDto, label: string) => void;
@@ -42,6 +53,8 @@ export default function MapAddressPicker({
   title,
   initialRegion,
   locateOnOpen = true,
+  askDetails = true,
+  initialAddress,
   isDarkMode,
   onClose,
   onSelect,
@@ -53,6 +66,10 @@ export default function MapAddressPicker({
   const [center, setCenter] = useState<GeoPoint>(initialRegion);
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<AddressSuggestion[] | null>(null);
+  const [details, setDetails] = useState<AddressDetails>(() =>
+    cleanAddressDetails(initialAddress ?? {})
+  );
   const [busy, setBusy] = useState(false);
 
   const region: Region = { ...initialRegion, ...DELTA };
@@ -77,15 +94,23 @@ export default function MapAddressPicker({
     };
   }, [locateOnOpen]);
 
+  // A search lists what matched; the person picks one (the first match used to be taken).
   const runSearch = async () => {
     if (!query.trim()) return;
     setSearching(true);
     try {
-      const p = await forwardGeocode(query);
-      if (p) recenter(p);
+      setResults(await searchAddresses(query, center));
+    } catch {
+      setResults([]);
     } finally {
       setSearching(false);
     }
+  };
+
+  const pick = (s: AddressSuggestion) => {
+    setResults(null);
+    setQuery(s.title);
+    recenter(s.point);
   };
 
   const locateMe = async () => {
@@ -96,7 +121,8 @@ export default function MapAddressPicker({
   const confirm = async () => {
     setBusy(true);
     try {
-      const address = await reverseGeocodeToAddress(center);
+      const found = await reverseGeocodeToAddress(center);
+      const address = askDetails ? { ...found, ...cleanAddressDetails(details) } : found;
       onSelect(address, addressLabel(address));
       onClose();
     } catch {
@@ -144,19 +170,83 @@ export default function MapAddressPicker({
             <Ionicons name="search" size={18} color={hex.subtext} />
             <TextInput
               value={query}
-              onChangeText={setQuery}
+              onChangeText={(text) => {
+                setQuery(text);
+                setResults(null);
+              }}
               onSubmitEditing={runSearch}
               returnKeyType="search"
               placeholder={t('shared.searchAddress')}
               placeholderTextColor={hex.subtext}
               style={{ flex: 1, paddingVertical: 10, paddingHorizontal: 8, color: hex.text }}
             />
-            {searching ? <ActivityIndicator color={BRAND_GREEN} /> : null}
+            {searching ? (
+              <ActivityIndicator color={BRAND_GREEN} />
+            ) : query.trim() ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={t('common.search')}
+                onPress={runSearch}
+                hitSlop={8}>
+                <Ionicons name="arrow-forward-circle" size={26} color={BRAND_GREEN} />
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
 
         {/* Map + fixed centre pin */}
         <View style={{ flex: 1 }}>
+          {results ? (
+            <View
+              testID="address-suggestions"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 16,
+                right: 16,
+                backgroundColor: hex.card,
+                borderRadius: 12,
+                paddingVertical: 4,
+                elevation: 6,
+                shadowColor: '#000',
+                shadowOpacity: 0.18,
+                shadowRadius: 8,
+                zIndex: 10,
+              }}>
+              {results.length === 0 ? (
+                <Text style={{ color: hex.subtext, padding: 14 }}>
+                  {t('shared.noAddressMatch')}
+                </Text>
+              ) : (
+                results.map((s, index) => (
+                  <TouchableOpacity
+                    key={`${s.point.latitude},${s.point.longitude},${index}`}
+                    accessibilityRole="button"
+                    onPress={() => pick(s)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingHorizontal: 14,
+                      paddingVertical: 10,
+                      borderTopWidth: index > 0 ? 1 : 0,
+                      borderTopColor: hex.border,
+                    }}>
+                    <Ionicons name="location-outline" size={18} color={BRAND_GREEN} />
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={{ color: hex.text, fontWeight: '600' }} numberOfLines={1}>
+                        {s.title}
+                      </Text>
+                      {s.subtitle ? (
+                        <Text style={{ color: hex.subtext, fontSize: 12 }} numberOfLines={1}>
+                          {s.subtitle}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
+            </View>
+          ) : null}
           <MapView
             ref={mapRef}
             style={{ flex: 1 }}
@@ -208,6 +298,9 @@ export default function MapAddressPicker({
           <Text style={{ color: hex.subtext, fontSize: 13, marginBottom: 10, textAlign: 'center' }}>
             {t('shared.mapPickerHint')}
           </Text>
+          {askDetails ? (
+            <AddressDetailsInputs value={details} onChange={setDetails} isDarkMode={isDarkMode} />
+          ) : null}
           <TouchableOpacity
             accessibilityRole="button"
             onPress={confirm}

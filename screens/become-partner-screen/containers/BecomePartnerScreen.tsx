@@ -107,7 +107,7 @@ export default function BecomePartnerScreen() {
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
 
-  const { money, wrap } = useCurrency(stats?.currency);
+  const { money } = useCurrency(stats?.currency);
 
   useEffect(() => {
     let cancelled = false;
@@ -141,19 +141,6 @@ export default function BecomePartnerScreen() {
               },
             ]
           : []),
-        ...(stats.earningPartners > 0 && stats.averageMonthlyPartnerEarnings > 0
-          ? [
-              {
-                key: 'earnings',
-                value:
-                  stats.averageMonthlyPartnerEarnings >= 1000
-                    ? wrap(compactFigure(stats.averageMonthlyPartnerEarnings))
-                    : money(stats.averageMonthlyPartnerEarnings),
-                line1: t('becomePartner.statAvgMonthly'),
-                line2: t('becomePartner.statEarnings'),
-              },
-            ]
-          : []),
         ...(stats.totalReviews > 0
           ? [
               {
@@ -166,6 +153,14 @@ export default function BecomePartnerScreen() {
           : []),
       ]
     : [];
+
+  // The earnings figure is shown in full on its own line, whatever it is (app review
+  // 2026-11-13): squeezed into a third of the row it was rounded to "12K", which no partner's
+  // month ever is, and a small real figure is still the real one.
+  const earnings =
+    stats && stats.earningPartners > 0 && stats.averageMonthlyPartnerEarnings > 0
+      ? money(stats.averageMonthlyPartnerEarnings)
+      : null;
 
   return (
     <ScreenLayout
@@ -190,7 +185,7 @@ export default function BecomePartnerScreen() {
           <View className={`${cardBg} mb-6 items-center rounded-2xl border p-6 ${borderColor}`}>
             <ActivityIndicator color={BRAND_GREEN} />
           </View>
-        ) : statTiles.length > 0 ? (
+        ) : statTiles.length > 0 || earnings ? (
           <View className={`${cardBg} mb-6 rounded-2xl border p-6 ${borderColor}`}>
             <View className="flex-row justify-around">
               {statTiles.map((tile, index) => (
@@ -204,6 +199,16 @@ export default function BecomePartnerScreen() {
                 </React.Fragment>
               ))}
             </View>
+            {earnings ? (
+              <View
+                testID="partner-earnings"
+                className={`items-center ${statTiles.length > 0 ? `mt-5 border-t pt-5 ${borderColor}` : ''}`}>
+                <Text className="text-2xl font-bold text-brand-600">{earnings}</Text>
+                <Text className={`text-xs ${subtextColor} mt-1 text-center`}>
+                  {t('becomePartner.statEarningsLine', { months: stats!.earningsWindowMonths })}
+                </Text>
+              </View>
+            ) : null}
           </View>
         ) : null}
 

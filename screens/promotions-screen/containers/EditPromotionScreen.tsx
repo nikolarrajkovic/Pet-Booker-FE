@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { PROMOTION_ANALYTICS_AVAILABLE } from '../components/PromotionCard';
 import {
   ScrollView,
   Text,
@@ -266,39 +267,44 @@ function EditPromotionForm({ promotion }: { promotion: Promotion }) {
       headerSubtitle={t('promotions.editSubtitle')}
       contentBg={contentBg}
       rightAction={
-        <TouchableOpacity
-          accessibilityLabel={t('promotions.analytics')}
-          accessibilityRole="button"
-          activeOpacity={0.7}
-          onPress={() =>
-            (navigation as any).replace('PromotionAnalytics', {
-              promotion,
-              promotionTitle: promotion.title,
-              promotionDescription: promotion.description,
-            })
-          }
-          className="h-10 w-10 items-center justify-center rounded-full bg-white/20">
-          <Ionicons name="bar-chart-outline" size={18} color="white" />
-        </TouchableOpacity>
+        // Hidden until something about a promotion is tracked (PROMOTION_ANALYTICS_AVAILABLE).
+        PROMOTION_ANALYTICS_AVAILABLE ? (
+          <TouchableOpacity
+            accessibilityLabel={t('promotions.analytics')}
+            accessibilityRole="button"
+            activeOpacity={0.7}
+            onPress={() =>
+              (navigation as any).replace('PromotionAnalytics', {
+                promotion,
+                promotionTitle: promotion.title,
+                promotionDescription: promotion.description,
+              })
+            }
+            className="h-10 w-10 items-center justify-center rounded-full bg-white/20">
+            <Ionicons name="bar-chart-outline" size={18} color="white" />
+          </TouchableOpacity>
+        ) : undefined
       }
       // The same control, tinted rather than translucent-white. `ScreenLayout` falls back to
       // `rightAction` when no web variant is given, and white-on-translucent is authored for the
       // phone's green header — on the web page header's light ground it disappears.
       webHeaderRight={
-        <TouchableOpacity
-          accessibilityLabel={t('promotions.analytics')}
-          accessibilityRole="button"
-          activeOpacity={0.7}
-          onPress={() =>
-            (navigation as any).replace('PromotionAnalytics', {
-              promotion,
-              promotionTitle: promotion.title,
-              promotionDescription: promotion.description,
-            })
-          }
-          className="h-10 w-10 items-center justify-center rounded-full bg-brand-50">
-          <Ionicons name="bar-chart-outline" size={18} color={BRAND_GREEN} />
-        </TouchableOpacity>
+        PROMOTION_ANALYTICS_AVAILABLE ? (
+          <TouchableOpacity
+            accessibilityLabel={t('promotions.analytics')}
+            accessibilityRole="button"
+            activeOpacity={0.7}
+            onPress={() =>
+              (navigation as any).replace('PromotionAnalytics', {
+                promotion,
+                promotionTitle: promotion.title,
+                promotionDescription: promotion.description,
+              })
+            }
+            className="h-10 w-10 items-center justify-center rounded-full bg-brand-50">
+            <Ionicons name="bar-chart-outline" size={18} color={BRAND_GREEN} />
+          </TouchableOpacity>
+        ) : undefined
       }>
       <ScrollView
         className="flex-1"

@@ -84,11 +84,11 @@ const THREAD_GROUND = {
   dark: [`${BRAND_GREEN}2E`, `${BRAND_GREEN}00`],
 } as const;
 
-/** Locale-aware clock time for a bubble's timestamp chip. */
+/** Clock time for a bubble's timestamp chip, on the 24-hour clock the rest of the app uses. */
 function timeLabel(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 /**

@@ -7,6 +7,13 @@ import { formatMoney } from '../../../services/currency';
 
 import { BRAND_GREEN } from '../../../hooks/useThemeColors';
 export type PromotionStatus = 'active' | 'paused' | 'scheduled' | 'ended';
+
+/**
+ * Whether a promotion's Analytics page is offered. Off until the backend records something about a
+ * promotion (views, opens, bookings): the page could only say that nothing is tracked yet, so the
+ * button led nowhere (decided 2026-11-19). The screen and its route stay for when it comes back.
+ */
+export const PROMOTION_ANALYTICS_AVAILABLE = false;
 export type PromotionType = 'boost' | 'featured' | 'offer' | 'ad';
 
 export interface Promotion {
@@ -285,27 +292,29 @@ export default function PromotionCard({
             </Text>
           </TouchableOpacity>
         )}
-        <TouchableOpacity
-          accessibilityRole="button"
-          activeOpacity={0.7}
-          onPress={() =>
-            (navigation as any).navigate('PromotionAnalytics', {
-              promotion,
-              promotionTitle: promotion.title,
-              promotionDescription: promotion.description,
-            })
-          }
-          className={`flex-1 flex-row items-center justify-center rounded-xl border py-2.5 ${borderColor} ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'}`}>
-          <Ionicons
-            name="bar-chart-outline"
-            size={14}
-            color={isDarkMode ? '#9CA3AF' : '#6B7280'}
-            style={{ marginRight: 6 }}
-          />
-          <Text className={`text-sm font-semibold ${subtextColor}`}>
-            {t('promotions.analytics')}
-          </Text>
-        </TouchableOpacity>
+        {PROMOTION_ANALYTICS_AVAILABLE ? (
+          <TouchableOpacity
+            accessibilityRole="button"
+            activeOpacity={0.7}
+            onPress={() =>
+              (navigation as any).navigate('PromotionAnalytics', {
+                promotion,
+                promotionTitle: promotion.title,
+                promotionDescription: promotion.description,
+              })
+            }
+            className={`flex-1 flex-row items-center justify-center rounded-xl border py-2.5 ${borderColor} ${isDarkMode ? 'bg-[#243447]' : 'bg-gray-50'}`}>
+            <Ionicons
+              name="bar-chart-outline"
+              size={14}
+              color={isDarkMode ? '#9CA3AF' : '#6B7280'}
+              style={{ marginRight: 6 }}
+            />
+            <Text className={`text-sm font-semibold ${subtextColor}`}>
+              {t('promotions.analytics')}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel={t('promotions.editNamed', { name: promotion.title })}

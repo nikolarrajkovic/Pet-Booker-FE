@@ -38,8 +38,12 @@ import ChangeTimeModal from '../components/ChangeTimeModal';
 import { useToast } from '../../../context/ToastContext';
 import { getErrorMessage } from '../../../services/http';
 import { formatMoney } from '../../../services/currency';
-import { getServiceProvider, resolveImageUrl } from '../../../services/service-providers';
-import { addressLabel, mapsSearchUrl } from '../../../services/geocoding';
+import {
+  ApprovalStatus,
+  getServiceProvider,
+  resolveImageUrl,
+} from '../../../services/service-providers';
+import { addressWithDetails, mapsSearchUrl } from '../../../services/geocoding';
 import { customerName, getUser } from '../../../services/users';
 import { petCareNotes, petFacts } from '../../../services/pets';
 import { formatShortDate } from '../../../i18n/dates';
@@ -130,6 +134,9 @@ export default function BookingDetailsScreen() {
     (line): line is BookingAdditionalServiceReadDto => 'kind' in line && 'price' in line
   );
   const reviewRating = dto?.review?.rating ?? null;
+  // Where the customer's review stands: it is public only once an admin approves it. The page
+  // showed the stars alone, so a waiting or declined review looked published.
+  const reviewStatus = dto?.review?.approvalStatus ?? null;
   const isNoShow = dto?.currentStatus === BookingStatusType.CustomerNoShow;
   const isProviderNoShow = dto?.currentStatus === BookingStatusType.ProviderNoShow;
   const isCompleted = vm?.statusLabel === 'completed';
@@ -779,7 +786,7 @@ export default function BookingDetailsScreen() {
                 <Row
                   icon="location-outline"
                   label={t('bookingDetails.where')}
-                  value={addressLabel(serviceAddress)}
+                  value={addressWithDetails(serviceAddress, t)}
                 />
                 <TouchableOpacity
                   accessibilityRole="link"
@@ -796,14 +803,14 @@ export default function BookingDetailsScreen() {
               <Row
                 icon="car-outline"
                 label={t('bookingDetails.pickup')}
-                value={addressLabel(pickup)}
+                value={addressWithDetails(pickup, t)}
               />
             ) : null}
             {dropoff ? (
               <Row
                 icon="home-outline"
                 label={t('bookingDetails.dropoff')}
-                value={addressLabel(dropoff)}
+                value={addressWithDetails(dropoff, t)}
               />
             ) : null}
           </View>
@@ -1022,6 +1029,27 @@ export default function BookingDetailsScreen() {
                 />
               ))}
             </View>
+            {isCustomer || isAdmin ? (
+              <Text
+                testID="review-status"
+                className={`mt-2 text-sm ${
+                  reviewStatus === ApprovalStatus.Declined
+                    ? 'text-red-600'
+                    : reviewStatus === ApprovalStatus.Approved
+                      ? 'text-brand-600'
+                      : subtextColor
+                }`}>
+                {reviewStatus === ApprovalStatus.Approved
+                  ? t('bookingDetails.reviewPublished')
+                  : reviewStatus === ApprovalStatus.Declined
+                    ? dto.review?.declineReason
+                      ? t('bookingDetails.reviewDeclinedReason', {
+                          reason: dto.review.declineReason,
+                        })
+                      : t('bookingDetails.reviewDeclined')
+                    : t('bookingDetails.reviewPending')}
+              </Text>
+            ) : null}
           </View>
         ) : isCompleted && isCustomer ? (
           <View className={`mt-6 ${gutter.px}`}>

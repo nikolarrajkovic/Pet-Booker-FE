@@ -81,6 +81,7 @@ export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }
   ].filter((q): q is string => !!q);
 
   const choice = (
+    key: string,
     active: boolean,
     onPress: () => void,
     title: string,
@@ -88,6 +89,7 @@ export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }
     price: string
   ) => (
     <TouchableOpacity
+      key={key}
       accessibilityRole="radio"
       accessibilityState={{ checked: active }}
       // react-native-web 0.21 reads aria-* (accessibilityState alone never reaches the DOM).
@@ -167,6 +169,7 @@ export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }
           </Text>
           {services.map((s) =>
             choice(
+              `service-${s.serviceId}`,
               s.serviceId === serviceId,
               () => {
                 setServiceId(s.serviceId);
@@ -184,6 +187,7 @@ export default function AcceptGroupRequestDialog({ request, onClose, onConfirm }
               </Text>
               {sortPricingOptions(chosen!.pricingOptions).map((o) =>
                 choice(
+                  `option-${o.id}`,
                   o.id === optionId,
                   () => setOptionId(o.id),
                   o.name,

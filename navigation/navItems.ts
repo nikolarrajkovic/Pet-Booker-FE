@@ -206,6 +206,13 @@ export const NAV_ITEMS: NavItem[] = [
     group: 'admin',
     requires: 'admin',
   },
+  {
+    route: 'AdminPayments',
+    labelKey: 'adminPayments.title',
+    icon: 'card-outline',
+    group: 'admin',
+    requires: 'admin',
+  },
 ];
 
 /** Heading rendered above each sidebar group. `primary` needs none — it sits under the logo. */

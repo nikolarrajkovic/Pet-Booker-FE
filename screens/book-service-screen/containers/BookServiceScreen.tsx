@@ -61,7 +61,7 @@ import {
   toBookingSelection,
   type AdditionalServiceDto,
 } from '../../../services/service-addons';
-import { addressLabel } from '../../../services/geocoding';
+import { addressWithDetails } from '../../../services/geocoding';
 import { getBookingQuote, type BookingQuote } from '../../../services/booking-quote';
 import { sortPricingOptions } from '../../../services/service-pricing-options';
 import { usePageGutter } from '../../../hooks/usePageGutter';
@@ -1254,7 +1254,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
                 {t('bookService.homeAddress')}
               </Text>
               <Text numberOfLines={2} className={`text-xs ${subtextColor}`}>
-                {addressLabel(homeAddress)}
+                {addressWithDetails(homeAddress, t)}
               </Text>
             </View>
           </TouchableOpacity>
@@ -1265,7 +1265,7 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
           className={row(onMap)}>
           <Ionicons name="location-outline" size={20} color={BRAND_GREEN} />
           <Text className={`ml-3 flex-1 ${onMap ? textColor : subtextColor}`} numberOfLines={2}>
-            {onMap ? addressLabel(current) : t('bookService.pickOnMap')}
+            {onMap ? addressWithDetails(current, t) : t('bookService.pickOnMap')}
           </Text>
           <Ionicons name="chevron-forward" size={18} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
         </TouchableOpacity>
@@ -2126,6 +2126,9 @@ function BookServiceForm({ service, initialDate }: { service: ServiceDto; initia
                 : t('bookService.dropoffLocation')
           }
           initialRegion={{ latitude: location.latitude, longitude: location.longitude }}
+          initialAddress={
+            pickerFor === 'pickup' ? pickupAddr : pickerFor === 'venue' ? venueAddr : dropoffAddr
+          }
           isDarkMode={isDarkMode}
           onClose={() => setPickerFor(null)}
           onSelect={(address) => {

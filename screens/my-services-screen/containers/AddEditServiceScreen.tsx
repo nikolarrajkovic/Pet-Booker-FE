@@ -29,7 +29,7 @@ import FormCard from '../../../components/shared/FormCard';
 import CurrencyInput from '../../../components/shared/CurrencyInput';
 import MapAddressPicker from '../../../components/shared/MapAddressPicker';
 import { useLocation } from '../../../hooks/useLocation';
-import { addressLabel } from '../../../services/geocoding';
+import { addressLabel, addressWithDetails } from '../../../services/geocoding';
 import {
   getServiceProvider,
   providerAddress,
@@ -933,7 +933,9 @@ export default function AddEditServiceScreen() {
               <Text
                 className={`ml-3 flex-1 ${currentAddress ? inputText : subtextColor}`}
                 numberOfLines={2}>
-                {currentAddress ? addressLabel(currentAddress) : t('bookService.pickOnMap')}
+                {currentAddress
+                  ? addressWithDetails(currentAddress, t)
+                  : t('bookService.pickOnMap')}
               </Text>
               <Ionicons
                 name="chevron-forward"
@@ -1982,6 +1984,7 @@ export default function AddEditServiceScreen() {
         <MapAddressPicker
           visible
           title={t('addEditService.serviceLocation')}
+          initialAddress={currentAddress}
           initialRegion={
             currentAddress?.location
               ? {

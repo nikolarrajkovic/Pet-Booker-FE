@@ -77,6 +77,11 @@ export type ConversationDto = {
   /** The service the thread was opened from — context only; the thread outlives it. */
   serviceId?: number | null;
   serviceName?: string | null;
+  /**
+   * For a partner: the pet of the customer's latest booking with them, so two customers named
+   * alike ("Mila J.") can be told apart. Null on the customer's side.
+   */
+  petName?: string | null;
   lastMessageAt?: string | null;
   lastMessagePreview?: string | null;
   lastMessageSender?: ChatParticipant | null;
@@ -125,6 +130,8 @@ export type MessagePageDto = {
 };
 
 export type ConversationSearchParams = {
+  /** Only threads someone has written in (opening a chat makes an empty one). */
+  hasMessages?: boolean;
   /** Only threads with something unread for the caller. */
   unreadOnly?: boolean;
   /** Narrow to one provider. */
@@ -150,6 +157,7 @@ export function getConversations(
       UnreadOnly: params?.unreadOnly,
       ServiceProviderId: params?.serviceProviderId,
       Keyword: params?.keyword,
+      HasMessages: params?.hasMessages,
       Page: params?.page ?? 1,
       PerPage: params?.perPage ?? 50,
     },

@@ -171,6 +171,7 @@ export const linking: LinkingOptions<ReactNavigation.RootParamList> = {
       },
       AdminBookings: 'admin/bookings',
       AdminCustomers: 'admin/customers',
+      AdminPayments: 'admin/payments',
       AdminCustomerDetails: {
         path: 'admin/customers/:userId',
         parse: { userId: Number },

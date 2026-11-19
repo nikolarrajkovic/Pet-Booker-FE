@@ -117,6 +117,7 @@ export default function PlacePicker({ visible, onClose }: Props) {
       {mapOpen ? (
         <MapAddressPicker
           visible
+          askDetails={false}
           title={t('place.map')}
           initialRegion={{ latitude: place.latitude, longitude: place.longitude }}
           locateOnOpen={!place.known}

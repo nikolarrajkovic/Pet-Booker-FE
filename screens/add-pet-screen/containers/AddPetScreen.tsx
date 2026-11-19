@@ -260,12 +260,10 @@ function PetForm({
       !breed.trim() ? t('addPet.errBreed') : null,
     ].filter((m): m is string => !!m);
     if (missing.length > 0) {
-      // Say what is wrong even when the offending field is off-screen. The photo picker sits at
-      // the very top, so pressing Save from the bottom of a long form used to do nothing visible
-      // at all — the error appeared above the fold and the button looked dead. The toast names
-      // each missing field ("Please fill in the highlighted fields" left the reader hunting), and
-      // the same list stays above Save until they are filled in.
-      showError(missing.join(' '));
+      // Each message shows once, under its own field. Above Save one line names the fields
+      // ("To continue: Photos, Pet Name"), so a press with the field scrolled away still says
+      // what is missing. A toast repeated every message as well, so each one read three times
+      // (app review 2026-11-13).
       // Native only: on web `ScreenLayout` owns a single page-level scroller and
       // styles/document-scroll.web.ts flattens this ScrollView into it, so its own scrollTo is a
       // no-op there (the same reason useNearBottomLoader needs a .web variant that walks up to
@@ -558,7 +556,17 @@ function PetForm({
             form does not need its CTA reachable at every scroll offset, and pinning one costs
             ~84px of every screenful and lands on top of whatever field has focus. */}
           <FormIssues
-            issues={Object.values(errors).filter((m): m is string => !!m)}
+            compact
+            issues={(
+              [
+                ['photos', t('addPet.petPhoto')],
+                ['petName', t('addPet.petName')],
+                ['petType', t('addPet.type')],
+                ['breed', t('addPet.breed')],
+              ] as const
+            )
+              .filter(([key]) => !!errors[key])
+              .map(([key, label]) => ({ label, message: errors[key] as string }))}
             className="mb-3 mt-2"
           />
           <TouchableOpacity

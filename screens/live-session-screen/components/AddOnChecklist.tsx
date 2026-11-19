@@ -98,88 +98,89 @@ export default function AddOnChecklist({
               : t('liveSession.tapToComplete')
           : t('liveSession.requested');
         return (
-          <TouchableOpacity
-            accessibilityRole="button"
+          <View
             key={item.key}
-            activeOpacity={rowReadOnly ? 1 : 0.7}
-            disabled={rowReadOnly}
-            onPress={() => onToggle?.(item.key)}
-            className={`flex-row items-center px-4 py-4 ${
-              index < items.length - 1 ? `border-b ${borderColor}` : ''
-            }`}>
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 12,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 12,
-                backgroundColor: done ? '#E8F5EF' : isDarkMode ? '#243447' : '#F3F4F6',
-              }}>
-              <Ionicons name={item.icon} size={20} color={done ? BRAND_GREEN : '#9CA3AF'} />
-            </View>
-            <View className="flex-1">
-              <Text className={`text-base font-semibold ${textColor}`}>{item.label}</Text>
-              {item.detail ? (
-                <Text className={`text-xs ${subtextColor} mt-0.5`}>{item.detail}</Text>
-              ) : null}
-              <Text className={`text-xs ${subtextColor} mt-0.5`}>{statusText}</Text>
-              {onDirections && item.address
-                ? (() => {
-                    const selected = selectedKey === item.key;
-                    return (
-                      <TouchableOpacity
-                        accessibilityRole="button"
-                        onPress={() => onDirections(item.key)}
-                        disabled={directionsLoadingKey === item.key}
-                        activeOpacity={0.7}
-                        className="mt-2 flex-row items-center self-start rounded-lg px-2.5 py-1.5"
-                        style={{
-                          backgroundColor: selected
-                            ? BRAND_GREEN
-                            : isDarkMode
-                              ? '#243447'
-                              : '#E6FAF0',
-                        }}>
-                        {directionsLoadingKey === item.key ? (
-                          <ActivityIndicator
-                            size="small"
-                            color={selected ? '#ffffff' : BRAND_GREEN}
+            className={`px-4 py-4 ${index < items.length - 1 ? `border-b ${borderColor}` : ''}`}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={rowReadOnly ? 1 : 0.7}
+              disabled={rowReadOnly}
+              onPress={() => onToggle?.(item.key)}
+              className="flex-row items-center">
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                  backgroundColor: done ? '#E8F5EF' : isDarkMode ? '#243447' : '#F3F4F6',
+                }}>
+                <Ionicons name={item.icon} size={20} color={done ? BRAND_GREEN : '#9CA3AF'} />
+              </View>
+              <View className="flex-1">
+                <Text className={`text-base font-semibold ${textColor}`}>{item.label}</Text>
+                {item.detail ? (
+                  <Text className={`text-xs ${subtextColor} mt-0.5`}>{item.detail}</Text>
+                ) : null}
+                <Text className={`text-xs ${subtextColor} mt-0.5`}>{statusText}</Text>
+              </View>
+              {toggleable ? (
+                <Ionicons
+                  name={done ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={26}
+                  color={done ? BRAND_GREEN : isDarkMode ? '#4B5563' : '#D1D5DB'}
+                />
+              ) : (
+                <Ionicons
+                  name="information-circle-outline"
+                  size={24}
+                  color={isDarkMode ? '#6B7280' : '#9CA3AF'}
+                />
+              )}
+            </TouchableOpacity>
+            {onDirections && item.address
+              ? (() => {
+                  const selected = selectedKey === item.key;
+                  return (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      onPress={() => onDirections(item.key)}
+                      disabled={directionsLoadingKey === item.key}
+                      activeOpacity={0.7}
+                      className="ml-[52px] mt-2 flex-row items-center self-start rounded-lg px-2.5 py-1.5"
+                      style={{
+                        backgroundColor: selected
+                          ? BRAND_GREEN
+                          : isDarkMode
+                            ? '#243447'
+                            : '#E6FAF0',
+                      }}>
+                      {directionsLoadingKey === item.key ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={selected ? '#ffffff' : BRAND_GREEN}
+                        />
+                      ) : (
+                        <>
+                          <Ionicons
+                            name={selected ? 'navigate' : 'navigate-outline'}
+                            size={14}
+                            color={selected ? '#ffffff' : '#00A85A'}
                           />
-                        ) : (
-                          <>
-                            <Ionicons
-                              name={selected ? 'navigate' : 'navigate-outline'}
-                              size={14}
-                              color={selected ? '#ffffff' : '#00A85A'}
-                            />
-                            <Text
-                              className="ml-1 text-xs font-bold"
-                              style={{ color: selected ? '#ffffff' : '#00A85A' }}>
-                              {selected ? t('liveSession.onMap') : t('liveSession.showOnMap')}
-                            </Text>
-                          </>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })()
-                : null}
-            </View>
-            {toggleable ? (
-              <Ionicons
-                name={done ? 'checkmark-circle' : 'ellipse-outline'}
-                size={26}
-                color={done ? BRAND_GREEN : isDarkMode ? '#4B5563' : '#D1D5DB'}
-              />
-            ) : (
-              <Ionicons
-                name="information-circle-outline"
-                size={24}
-                color={isDarkMode ? '#6B7280' : '#9CA3AF'}
-              />
-            )}
-          </TouchableOpacity>
+                          <Text
+                            className="ml-1 text-xs font-bold"
+                            style={{ color: selected ? '#ffffff' : '#00A85A' }}>
+                            {selected ? t('liveSession.onMap') : t('liveSession.showOnMap')}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })()
+              : null}
+          </View>
         );
       })}
     </View>
